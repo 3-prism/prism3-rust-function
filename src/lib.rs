@@ -22,16 +22,16 @@
 
 pub mod consumer;
 pub mod function;
+pub mod function_mut;
+pub mod function_once;
 pub mod predicate;
 pub mod supplier;
 pub mod transformer;
 
 pub use consumer::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
-pub use function::{
-    ArcFunction, ArcFunctionMut, ArcFunctionOnce, BoxFunction, BoxFunctionMut,
-    BoxFunctionOnce, Function, FunctionMut, FunctionOnce, RcFunction,
-    RcFunctionMut, RcFunctionOnce,
-};
+pub use function::{ArcFunction, BoxFunction, Function, RcFunction};
+pub use function_mut::{ArcFunctionMut, BoxFunctionMut, FunctionMut, RcFunctionMut};
+pub use function_once::{ArcFunctionOnce, BoxFunctionOnce, FunctionOnce, RcFunctionOnce};
 pub use predicate::{ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate};
 pub use supplier::{ArcSupplier, BoxSupplier, FnSupplierOps, RcSupplier, Supplier};
 pub use transformer::{
