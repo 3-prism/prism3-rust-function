@@ -1,0 +1,138 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+use prism3_function::Transformer;
+
+fn main() {
+    println!("=== Transformer 示例 ===\n");
+
+    // 1. 基本转换
+    println!("1. 基本转换:");
+    let double = Transformer::new(|x: i32| x * 2);
+    let result = double.transform(5);
+    println!("   5 * 2 = {}", result);
+
+    // 2. 链式组合（使用 then）
+    println!("\n2. 链式组合 (then):");
+    let add_one = Transformer::new(|x: i32| x + 1);
+    let composed = add_one.then(|x| x * 2);
+    let result = composed.transform(5);
+    println!("   (5 + 1) * 2 = {}", result);
+
+    // 3. 链式组合（使用 chain）
+    println!("\n3. 链式组合 (chain):");
+    let add_one = Transformer::new(|x: i32| x + 1);
+    let double = Transformer::new(|x: i32| x * 2);
+    let composed = add_one.chain(double);
+    let result = composed.transform(5);
+    println!("   (5 + 1) * 2 = {}", result);
+
+    // 4. 前置组合（compose）
+    println!("\n4. 前置组合 (compose):");
+    let double = Transformer::new(|x: i32| x * 2);
+    let composed = double.compose(|x| x + 1);
+    let result = composed.transform(5);
+    println!("   (5 + 1) * 2 = {}", result);
+
+    // 5. 恒等转换器
+    println!("\n5. 恒等转换器:");
+    let identity = Transformer::<i32>::identity();
+    let result = identity.transform(42);
+    println!("   identity(42) = {}", result);
+
+    // 6. 常量转换器
+    println!("\n6. 常量转换器:");
+    let always_zero = Transformer::constant(0);
+    let result = always_zero.transform(42);
+    println!("   constant(0)(42) = {}", result);
+
+    // 7. 重复应用转换
+    println!("\n7. 重复应用转换:");
+    let add_one = |x: i32| x + 1;
+    let add_three = Transformer::repeat(add_one, 3);
+    let result = add_three.transform(5);
+    println!("   repeat(add_one, 3)(5) = {}", result);
+
+    let double = |x: i32| x * 2;
+    let times_eight = Transformer::repeat(double, 3);
+    let result = times_eight.transform(2);
+    println!("   repeat(double, 3)(2) = {}", result);
+
+    // 8. 条件转换（when）
+    println!("\n8. 条件转换 (when):");
+    let conditional_double = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2);
+    println!("   when(x > 0, double)(5) = {}", conditional_double.transform(5));
+    println!(
+        "   when(x > 0, double)(-3) = {}",
+        Transformer::when(|x: &i32| *x > 0, |x| x * 2).transform(-3)
+    );
+
+    // 9. 条件转换（if_else）
+    println!("\n9. 条件转换 (if_else):");
+    let transformer = Transformer::if_else(
+        |x: &i32| *x > 0,
+        |x: i32| x * 2,  // 正数加倍
+        |x: i32| x.abs(), // 负数取绝对值
+    );
+    println!("   if_else(x > 0, double, abs)(5) = {}", transformer.transform(5));
+    println!(
+        "   if_else(x > 0, double, abs)(-3) = {}",
+        Transformer::if_else(|x: &i32| *x > 0, |x| x * 2, |x| x.abs()).transform(-3)
+    );
+
+    // 10. 处理 Option
+    println!("\n10. 处理 Option:");
+    let double = |x: i32| x * 2;
+    let option_double = Transformer::map_option(double);
+    println!(
+        "   map_option(double)(Some(21)) = {:?}",
+        option_double.transform(Some(21))
+    );
+    println!(
+        "   map_option(double)(None) = {:?}",
+        Transformer::map_option(|x: i32| x * 2).transform(None::<i32>)
+    );
+
+    // 11. 处理 Result
+    println!("\n11. 处理 Result:");
+    let double = |x: i32| x * 2;
+    let result_double = Transformer::map_result(double);
+    println!(
+        "   map_result(double)(Ok(21)) = {:?}",
+        result_double.transform(Ok::<i32, &str>(21))
+    );
+    println!(
+        "   map_result(double)(Err(\"error\")) = {:?}",
+        Transformer::map_result(|x: i32| x * 2).transform(Err::<i32, &str>("error"))
+    );
+
+    // 12. 字符串转换示例
+    println!("\n12. 字符串转换:");
+    let trim_and_uppercase = Transformer::new(|s: String| s.trim().to_uppercase());
+    let result = trim_and_uppercase.transform("  hello world  ".to_string());
+    println!("   trim_and_uppercase(\"  hello world  \") = \"{}\"", result);
+
+    // 13. 复杂链式操作
+    println!("\n13. 复杂链式操作:");
+    let process = Transformer::new(|x: i32| x + 1)
+        .then(|x| x * 2)
+        .then(|x| x - 3);
+    let result = process.transform(5);
+    println!("   ((5 + 1) * 2) - 3 = {}", result);
+
+    // 14. 数据清洗示例
+    println!("\n14. 数据清洗示例:");
+    let clean_string = Transformer::new(|s: String| s.trim().to_string())
+        .then(|s| s.to_lowercase())
+        .then(|s| s.replace("  ", " "));
+    let result = clean_string.transform("  Hello  WORLD  ".to_string());
+    println!("   clean_string(\"  Hello  WORLD  \") = \"{}\"", result);
+
+    println!("\n=== 示例结束 ===");
+}
+
