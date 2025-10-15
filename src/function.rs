@@ -8,120 +8,24 @@
  ******************************************************************************/
 //! # Function Types
 //!
-//! Provides Rust implementations of function traits similar to Rust's own
-//! `Fn`, `FnMut`, and `FnOnce` traits, but with value-oriented semantics for
-//! functional programming patterns.
+//! Provides Rust implementations of immutable function traits similar to Rust's
+//! `Fn` trait, but with value-oriented semantics for functional programming patterns.
 //!
-//! This module provides three core traits:
+//! This module provides the `Function<T, R>` trait and three implementations:
 //!
-//! - [`Function<T, R>`]: Immutable transformation, borrows input `&T`
-//! - [`FunctionMut<T, R>`]: Mutable transformation, borrows input `&mut T`
-//! - [`FunctionOnce<T, R>`]: Consuming transformation, takes ownership of `T`
-//!
-//! Each trait has three implementations based on different ownership models:
-//!
-//! - `Box*`: Single ownership, not cloneable
-//! - `Arc*`: Thread-safe shared ownership, cloneable
-//! - `Rc*`: Single-threaded shared ownership, cloneable
-//!
-//! # Implementation Matrix
-//!
-//! | Trait | Box | Arc | Rc |
-//! |-------|-----|-----|----|
-//! | `Function` | [`BoxFunction`] | [`ArcFunction`] | [`RcFunction`] |
-//! | `FunctionMut` | [`BoxFunctionMut`] | [`ArcFunctionMut`] | [`RcFunctionMut`] |
-//! | `FunctionOnce` | [`BoxFunctionOnce`] | [`ArcFunctionOnce`] | [`RcFunctionOnce`] |
-//!
-//! # Design Philosophy
-//!
-//! ## Function vs FunctionMut vs FunctionOnce
-//!
-//! - **Function**: For transformations that only need to read the input.
-//!   Most efficient when you don't need to consume the input value.
-//! - **FunctionMut**: For transformations that need to modify the input
-//!   in place or maintain internal mutable state.
-//! - **FunctionOnce**: For transformations that consume the input value,
-//!   useful for ownership transfers and pipeline processing.
-//!
-//! ## Box vs Arc vs Rc
-//!
-//! - **Box**: Single ownership, not cloneable. Most efficient, use when
-//!   you don't need to share the function.
-//! - **Arc**: Thread-safe shared ownership. Use in multi-threaded contexts
-//!   or when you need to share across threads.
-//! - **Rc**: Single-threaded shared ownership. Slightly more efficient than
-//!   Arc for single-threaded scenarios.
-//!
-//! # Examples
-//!
-//! ## Function - Immutable Transformation
-//!
-//! ```rust
-//! use prism3_function::{BoxFunction, Function};
-//!
-//! let double = BoxFunction::new(|x: &i32| x * 2);
-//!
-//! let value = 21;
-//! assert_eq!(double.apply(&value), 42);
-//! // value is still usable
-//! assert_eq!(value, 21);
-//! ```
-//!
-//! ## FunctionMut - Mutable Transformation
-//!
-//! ```rust
-//! use prism3_function::{BoxFunctionMut, FunctionMut};
-//!
-//! let mut double_in_place = BoxFunctionMut::new(|x: &mut i32| {
-//!     *x *= 2;
-//!     *x
-//! });
-//!
-//! let mut value = 21;
-//! assert_eq!(double_in_place.apply(&mut value), 42);
-//! assert_eq!(value, 42); // value was modified
-//! ```
-//!
-//! ## FunctionOnce - Consuming Transformation
-//!
-//! ```rust
-//! use prism3_function::{BoxFunctionOnce, FunctionOnce};
-//!
-//! let parse = BoxFunctionOnce::new(|s: String| {
-//!     s.parse::<i32>().unwrap_or(0)
-//! });
-//!
-//! assert_eq!(parse.apply("42".to_string()), 42);
-//! // String was consumed
-//! ```
-//!
-//! ## Sharing with Arc
-//!
-//! ```rust
-//! use prism3_function::{ArcFunction, Function};
-//! use std::thread;
-//!
-//! let double = ArcFunction::new(|x: &i32| x * 2);
-//! let double_clone = double.clone();
-//!
-//! let handle = thread::spawn(move || {
-//!     double_clone.apply(&21)
-//! });
-//!
-//! assert_eq!(handle.join().unwrap(), 42);
-//! assert_eq!(double.apply(&21), 42); // Original still usable
-//! ```
+//! - [`BoxFunction`]: Single ownership, not cloneable
+//! - [`ArcFunction`]: Thread-safe shared ownership, cloneable
+//! - [`RcFunction`]: Single-threaded shared ownership, cloneable
 //!
 //! # Author
 //!
 //! Hu Haixing
 
-use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 // ============================================================================
-// Core Traits
+// Core Trait
 // ============================================================================
 
 /// Function trait - immutable transformation that borrows input
@@ -149,60 +53,62 @@ pub trait Function<T, R> {
     ///
     /// The transformed output value
     fn apply(&self, input: &T) -> R;
-}
 
-/// FunctionMut trait - mutable transformation that borrows input mutably
-///
-/// Defines the behavior of a mutable function transformation: converting
-/// a mutably borrowed value of type `&mut T` to a value of type `R`. This
-/// trait is analogous to `FnMut(&mut T) -> R`.
-///
-/// # Type Parameters
-///
-/// * `T` - The type of the input value (mutably borrowed)
-/// * `R` - The type of the output value
-///
-/// # Author
-///
-/// Hu Haixing
-pub trait FunctionMut<T, R> {
-    /// Applies the function to the mutable input value
+    /// Converts to BoxFunction
     ///
-    /// # Parameters
-    ///
-    /// * `input` - Mutable reference to the input value
+    /// **⚠️ Consumes `self`**: The original function becomes unavailable
+    /// after calling this method.
     ///
     /// # Returns
     ///
-    /// The transformed output value
-    fn apply(&mut self, input: &mut T) -> R;
-}
+    /// Returns `BoxFunction<T, R>`
+    fn into_box(self) -> BoxFunction<T, R>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
 
-/// FunctionOnce trait - consuming transformation that takes ownership
-///
-/// Defines the behavior of a consuming function transformation: converting
-/// a value of type `T` to a value of type `R` by taking ownership. This
-/// trait is analogous to `FnOnce(T) -> R`.
-///
-/// # Type Parameters
-///
-/// * `T` - The type of the input value (consumed)
-/// * `R` - The type of the output value
-///
-/// # Author
-///
-/// Hu Haixing
-pub trait FunctionOnce<T, R> {
-    /// Applies the function to the input value, consuming both self and input
+    /// Converts to RcFunction
     ///
-    /// # Parameters
-    ///
-    /// * `input` - The input value (consumed)
+    /// **⚠️ Consumes `self`**: The original function becomes unavailable
+    /// after calling this method.
     ///
     /// # Returns
     ///
-    /// The transformed output value
-    fn apply(self, input: T) -> R;
+    /// Returns `RcFunction<T, R>`
+    fn into_rc(self) -> RcFunction<T, R>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
+
+    /// Converts to ArcFunction
+    ///
+    /// **⚠️ Consumes `self`**: The original function becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `ArcFunction<T, R>`
+    fn into_arc(self) -> ArcFunction<T, R>
+    where
+        Self: Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static;
+
+    /// Converts function to a closure
+    ///
+    /// **⚠️ Consumes `self`**: The original function becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnMut(&T) -> R`
+    fn into_fn(self) -> impl FnMut(&T) -> R
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
 }
 
 // ============================================================================
@@ -368,6 +274,43 @@ where
 impl<T, R> Function<T, R> for BoxFunction<T, R> {
     fn apply(&self, input: &T) -> R {
         (self.f)(input)
+    }
+
+    fn into_box(self) -> BoxFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself
+        self
+    }
+
+    fn into_rc(self) -> RcFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        RcFunction { f: Rc::from(self.f) }
+    }
+
+    fn into_arc(self) -> ArcFunction<T, R>
+    where
+        Self: Send + Sync,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        unreachable!(
+            "BoxFunction<T, R> does not implement Send + Sync, so this \
+             method can never be called"
+        )
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: &T| self.apply(t)
     }
 }
 
@@ -547,6 +490,43 @@ where
 impl<T, R> Function<T, R> for ArcFunction<T, R> {
     fn apply(&self, input: &T) -> R {
         (self.f)(input)
+    }
+
+    fn into_box(self) -> BoxFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxFunction {
+            f: Box::new(move |x| self.apply(x)),
+        }
+    }
+
+    fn into_rc(self) -> RcFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        RcFunction {
+            f: Rc::new(move |x| self.apply(x)),
+        }
+    }
+
+    fn into_arc(self) -> ArcFunction<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        // Zero-cost: directly return itself
+        self
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: &T| self.apply(t)
     }
 }
 
@@ -732,6 +712,45 @@ impl<T, R> Function<T, R> for RcFunction<T, R> {
     fn apply(&self, input: &T) -> R {
         (self.f)(input)
     }
+
+    fn into_box(self) -> BoxFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxFunction {
+            f: Box::new(move |x| self.apply(x)),
+        }
+    }
+
+    fn into_rc(self) -> RcFunction<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself
+        self
+    }
+
+    fn into_arc(self) -> ArcFunction<T, R>
+    where
+        Self: Send + Sync,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        unreachable!(
+            "RcFunction cannot be converted to ArcFunction because Rc \
+             is not Send + Sync"
+        )
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: &T| self.apply(t)
+    }
 }
 
 impl<T, R> Clone for RcFunction<T, R> {
@@ -743,730 +762,67 @@ impl<T, R> Clone for RcFunction<T, R> {
 }
 
 // ============================================================================
-// BoxFunctionMut - Box<dyn FnMut(&mut T) -> R>
+// Blanket implementation for standard Fn trait
 // ============================================================================
 
-/// BoxFunctionMut - mutable function wrapper based on `Box<dyn FnMut>`
+/// Implement Function<T, R> for any type that implements Fn(&T) -> R
 ///
-/// A function wrapper that provides single ownership with mutable
-/// transformation capability. Can modify the input value and maintain
-/// internal mutable state.
+/// This allows closures and function pointers to be used directly with our
+/// Function trait without wrapping.
 ///
-/// # Features
+/// # Examples
 ///
-/// - **Based on**: `Box<dyn FnMut(&mut T) -> R>`
-/// - **Ownership**: Single ownership, cannot be cloned
-/// - **Reusability**: Can be called multiple times (mutably borrows input)
-/// - **Thread Safety**: Not thread-safe (no `Send + Sync` requirement)
+/// ```rust
+/// use prism3_function::Function;
 ///
-/// # Author
+/// fn double(x: &i32) -> i32 { x * 2 }
 ///
-/// Hu Haixing
-pub struct BoxFunctionMut<T, R> {
-    f: Box<dyn FnMut(&mut T) -> R>,
-}
-
-impl<T, R> BoxFunctionMut<T, R>
+/// assert_eq!(double.apply(&21), 42);
+///
+/// let triple = |x: &i32| x * 3;
+/// assert_eq!(triple.apply(&14), 42);
+/// ```
+///
+/// # 作者
+///
+/// 胡海星
+impl<F, T, R> Function<T, R> for F
 where
+    F: Fn(&T) -> R,
     T: 'static,
     R: 'static,
 {
-    /// Creates a new BoxFunctionMut
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionMut;
-    ///
-    /// let mut double_in_place = BoxFunctionMut::new(|x: &mut i32| {
-    ///     *x *= 2;
-    ///     *x
-    /// });
-    ///
-    /// let mut value = 21;
-    /// assert_eq!(double_in_place.apply(&mut value), 42);
-    /// assert_eq!(value, 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
+    fn apply(&self, input: &T) -> R {
+        self(input)
+    }
+
+    fn into_box(self) -> BoxFunction<T, R>
     where
-        F: FnMut(&mut T) -> R + 'static,
+        Self: Sized + 'static,
     {
-        BoxFunctionMut { f: Box::new(f) }
+        BoxFunction::new(self)
     }
-}
 
-impl<T, R> FunctionMut<T, R> for BoxFunctionMut<T, R> {
-    fn apply(&mut self, input: &mut T) -> R {
-        (self.f)(input)
-    }
-}
-
-// ============================================================================
-// ArcFunctionMut - Arc<Mutex<dyn FnMut(&mut T) -> R + Send>>
-// ============================================================================
-
-/// ArcFunctionMut - thread-safe mutable function wrapper
-///
-/// A thread-safe, clonable function wrapper for mutable transformations.
-/// Uses `Mutex` internally to ensure thread-safe mutable access.
-///
-/// # Features
-///
-/// - **Based on**: `Arc<Mutex<dyn FnMut(&mut T) -> R + Send>>`
-/// - **Ownership**: Shared ownership via reference counting
-/// - **Reusability**: Can be called multiple times (mutably borrows input)
-/// - **Thread Safety**: Thread-safe (uses `Mutex`)
-/// - **Clonable**: Cheap cloning via `Arc::clone`
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct ArcFunctionMut<T, R> {
-    f: Arc<Mutex<dyn FnMut(&mut T) -> R + Send>>,
-}
-
-impl<T, R> ArcFunctionMut<T, R>
-where
-    T: 'static,
-    R: 'static,
-{
-    /// Creates a new ArcFunctionMut
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap (must be Send)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionMut;
-    ///
-    /// let mut double_in_place = ArcFunctionMut::new(|x: &mut i32| {
-    ///     *x *= 2;
-    ///     *x
-    /// });
-    ///
-    /// let mut value = 21;
-    /// assert_eq!(double_in_place.apply(&mut value), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
+    fn into_rc(self) -> RcFunction<T, R>
     where
-        F: FnMut(&mut T) -> R + Send + 'static,
+        Self: Sized + 'static,
     {
-        ArcFunctionMut {
-            f: Arc::new(Mutex::new(f)),
-        }
+        RcFunction::new(self)
     }
-}
 
-impl<T, R> FunctionMut<T, R> for ArcFunctionMut<T, R> {
-    fn apply(&mut self, input: &mut T) -> R {
-        let mut guard = self.f.lock().unwrap();
-        guard(input)
-    }
-}
-
-impl<T, R> Clone for ArcFunctionMut<T, R> {
-    fn clone(&self) -> Self {
-        ArcFunctionMut {
-            f: Arc::clone(&self.f),
-        }
-    }
-}
-
-// ============================================================================
-// RcFunctionMut - Rc<RefCell<dyn FnMut(&mut T) -> R>>
-// ============================================================================
-
-/// RcFunctionMut - single-threaded mutable function wrapper
-///
-/// A single-threaded, clonable function wrapper for mutable
-/// transformations. Uses `RefCell` internally for interior mutability.
-///
-/// # Features
-///
-/// - **Based on**: `Rc<RefCell<dyn FnMut(&mut T) -> R>>`
-/// - **Ownership**: Shared ownership via reference counting (non-atomic)
-/// - **Reusability**: Can be called multiple times (mutably borrows input)
-/// - **Thread Safety**: Not thread-safe (no `Send + Sync`)
-/// - **Clonable**: Cheap cloning via `Rc::clone`
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct RcFunctionMut<T, R> {
-    f: Rc<RefCell<dyn FnMut(&mut T) -> R>>,
-}
-
-impl<T, R> RcFunctionMut<T, R>
-where
-    T: 'static,
-    R: 'static,
-{
-    /// Creates a new RcFunctionMut
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionMut;
-    ///
-    /// let mut double_in_place = RcFunctionMut::new(|x: &mut i32| {
-    ///     *x *= 2;
-    ///     *x
-    /// });
-    ///
-    /// let mut value = 21;
-    /// assert_eq!(double_in_place.apply(&mut value), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
+    fn into_arc(self) -> ArcFunction<T, R>
     where
-        F: FnMut(&mut T) -> R + 'static,
+        Self: Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
     {
-        RcFunctionMut {
-            f: Rc::new(RefCell::new(f)),
-        }
+        ArcFunction::new(self)
     }
-}
 
-impl<T, R> FunctionMut<T, R> for RcFunctionMut<T, R> {
-    fn apply(&mut self, input: &mut T) -> R {
-        let mut guard = self.f.borrow_mut();
-        guard(input)
-    }
-}
-
-impl<T, R> Clone for RcFunctionMut<T, R> {
-    fn clone(&self) -> Self {
-        RcFunctionMut {
-            f: Rc::clone(&self.f),
-        }
-    }
-}
-
-// ============================================================================
-// BoxFunctionOnce - Box<dyn FnOnce(T) -> R>
-// ============================================================================
-
-/// BoxFunctionOnce - consuming function wrapper based on `Box<dyn FnOnce>`
-///
-/// A function wrapper that provides single ownership with one-time use
-/// semantics. Consumes both self and the input value.
-///
-/// # Features
-///
-/// - **Based on**: `Box<dyn FnOnce(T) -> R>`
-/// - **Ownership**: Single ownership, cannot be cloned
-/// - **Reusability**: Can only be called once (consumes self and input)
-/// - **Thread Safety**: Not thread-safe (no `Send + Sync` requirement)
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct BoxFunctionOnce<T, R> {
-    f: Box<dyn FnOnce(T) -> R>,
-}
-
-impl<T, R> BoxFunctionOnce<T, R>
-where
-    T: 'static,
-    R: 'static,
-{
-    /// Creates a new BoxFunctionOnce
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionOnce;
-    ///
-    /// let parse = BoxFunctionOnce::new(|s: String| {
-    ///     s.parse::<i32>().unwrap_or(0)
-    /// });
-    ///
-    /// assert_eq!(parse.apply("42".to_string()), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
+    fn into_fn(self) -> impl FnMut(&T) -> R
     where
-        F: FnOnce(T) -> R + 'static,
+        Self: Sized + 'static,
     {
-        BoxFunctionOnce { f: Box::new(f) }
-    }
-
-    /// Creates an identity function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionOnce;
-    ///
-    /// let identity = BoxFunctionOnce::<i32, i32>::identity();
-    /// assert_eq!(identity.apply(42), 42);
-    /// ```
-    pub fn identity() -> BoxFunctionOnce<T, T> {
-        BoxFunctionOnce::new(|x| x)
-    }
-
-    /// Chain composition - applies self first, then after
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionOnce;
-    ///
-    /// let add_one = BoxFunctionOnce::new(|x: i32| x + 1);
-    /// let double = |x: i32| x * 2;
-    /// let composed = add_one.and_then(double);
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// ```
-    pub fn and_then<S, G>(self, after: G) -> BoxFunctionOnce<T, S>
-    where
-        S: 'static,
-        G: FnOnce(R) -> S + 'static,
-    {
-        BoxFunctionOnce::new(move |x| after((self.f)(x)))
-    }
-
-    /// Reverse composition - applies before first, then self
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionOnce;
-    ///
-    /// let double = BoxFunctionOnce::new(|x: i32| x * 2);
-    /// let add_one = |x: i32| x + 1;
-    /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// ```
-    pub fn compose<S, G>(self, before: G) -> BoxFunctionOnce<S, R>
-    where
-        S: 'static,
-        G: FnOnce(S) -> T + 'static,
-    {
-        BoxFunctionOnce::new(move |x| (self.f)(before(x)))
-    }
-}
-
-impl<T, R> BoxFunctionOnce<T, R>
-where
-    T: 'static,
-    R: Clone + 'static,
-{
-    /// Creates a constant function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFunctionOnce;
-    ///
-    /// let constant = BoxFunctionOnce::constant("hello");
-    /// assert_eq!(constant.apply(123), "hello");
-    /// ```
-    pub fn constant(value: R) -> BoxFunctionOnce<T, R> {
-        BoxFunctionOnce::new(move |_| value.clone())
-    }
-}
-
-impl<T, R> FunctionOnce<T, R> for BoxFunctionOnce<T, R> {
-    fn apply(self, input: T) -> R {
-        (self.f)(input)
-    }
-}
-
-// ============================================================================
-// ArcFunctionOnce - Arc<dyn Fn(T) -> R + Send + Sync> (reusable version)
-// ============================================================================
-
-/// ArcFunctionOnce - thread-safe reusable consuming function wrapper
-///
-/// Note: Despite the name, this is actually reusable because it's based on
-/// `Fn(T) -> R` rather than `FnOnce(T) -> R`. This allows it to be cloned
-/// and shared across threads while still consuming the input value.
-///
-/// # Features
-///
-/// - **Based on**: `Arc<dyn Fn(T) -> R + Send + Sync>`
-/// - **Ownership**: Shared ownership via reference counting
-/// - **Reusability**: Can be called multiple times (but consumes input each
-///   time)
-/// - **Thread Safety**: Thread-safe (`Send + Sync` required)
-/// - **Clonable**: Cheap cloning via `Arc::clone`
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct ArcFunctionOnce<T, R> {
-    f: Arc<dyn Fn(T) -> R + Send + Sync>,
-}
-
-impl<T, R> ArcFunctionOnce<T, R>
-where
-    T: 'static,
-    R: 'static,
-{
-    /// Creates a new ArcFunctionOnce
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap (must be Send + Sync)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionOnce;
-    ///
-    /// let parse = ArcFunctionOnce::new(|s: String| {
-    ///     s.parse::<i32>().unwrap_or(0)
-    /// });
-    ///
-    /// assert_eq!(parse.apply("42".to_string()), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(T) -> R + Send + Sync + 'static,
-    {
-        ArcFunctionOnce { f: Arc::new(f) }
-    }
-
-    /// Creates an identity function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionOnce;
-    ///
-    /// let identity = ArcFunctionOnce::<i32, i32>::identity();
-    /// assert_eq!(identity.apply(42), 42);
-    /// ```
-    pub fn identity() -> ArcFunctionOnce<T, T> {
-        ArcFunctionOnce::new(|x| x)
-    }
-
-    /// Chain composition - applies self first, then after
-    ///
-    /// Creates a new function that applies this function first, then applies
-    /// the after function to the result. Uses &self, so original function
-    /// remains usable (but each apply still consumes its input).
-    ///
-    /// # Type Parameters
-    ///
-    /// * `S` - The output type of the after function
-    ///
-    /// # Parameters
-    ///
-    /// * `after` - The function to apply after self
-    ///
-    /// # Returns
-    ///
-    /// A new ArcFunctionOnce representing the composition
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionOnce;
-    ///
-    /// let double = ArcFunctionOnce::new(|x: i32| x * 2);
-    /// let to_string = ArcFunctionOnce::new(|x: i32| x.to_string());
-    /// let composed = double.and_then(&to_string);
-    ///
-    /// // Both original and composed can be used
-    /// assert_eq!(double.apply(21), 42);
-    /// assert_eq!(composed.apply(21), "42");
-    /// ```
-    pub fn and_then<S>(
-        &self,
-        after: &ArcFunctionOnce<R, S>,
-    ) -> ArcFunctionOnce<T, S>
-    where
-        S: Send + Sync + 'static,
-    {
-        let self_clone = Arc::clone(&self.f);
-        let after_clone = Arc::clone(&after.f);
-        ArcFunctionOnce {
-            f: Arc::new(move |x: T| after_clone(self_clone(x))),
-        }
-    }
-
-    /// Reverse composition - applies before first, then self
-    ///
-    /// Creates a new function that applies the before function first, then
-    /// applies this function to the result. Uses &self, so original function
-    /// remains usable (but each apply still consumes its input).
-    ///
-    /// # Type Parameters
-    ///
-    /// * `S` - The input type of the before function
-    ///
-    /// # Parameters
-    ///
-    /// * `before` - The function to apply before self
-    ///
-    /// # Returns
-    ///
-    /// A new ArcFunctionOnce representing the composition
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionOnce;
-    ///
-    /// let double = ArcFunctionOnce::new(|x: i32| x * 2);
-    /// let add_one = ArcFunctionOnce::new(|x: i32| x + 1);
-    /// let composed = double.compose(&add_one);
-    ///
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// ```
-    pub fn compose<S>(
-        &self,
-        before: &ArcFunctionOnce<S, T>,
-    ) -> ArcFunctionOnce<S, R>
-    where
-        S: Send + Sync + 'static,
-    {
-        let self_clone = Arc::clone(&self.f);
-        let before_clone = Arc::clone(&before.f);
-        ArcFunctionOnce {
-            f: Arc::new(move |x: S| self_clone(before_clone(x))),
-        }
-    }
-}
-
-impl<T, R> ArcFunctionOnce<T, R>
-where
-    T: 'static,
-    R: Clone + 'static,
-{
-    /// Creates a constant function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFunctionOnce;
-    ///
-    /// let constant = ArcFunctionOnce::constant("hello");
-    /// assert_eq!(constant.apply(123), "hello");
-    /// ```
-    pub fn constant(value: R) -> ArcFunctionOnce<T, R>
-    where
-        R: Send + Sync,
-    {
-        ArcFunctionOnce::new(move |_| value.clone())
-    }
-}
-
-impl<T, R> FunctionOnce<T, R> for ArcFunctionOnce<T, R> {
-    fn apply(self, input: T) -> R {
-        (self.f)(input)
-    }
-}
-
-impl<T, R> Clone for ArcFunctionOnce<T, R> {
-    fn clone(&self) -> Self {
-        ArcFunctionOnce {
-            f: Arc::clone(&self.f),
-        }
-    }
-}
-
-// ============================================================================
-// RcFunctionOnce - Rc<dyn Fn(T) -> R> (reusable version)
-// ============================================================================
-
-/// RcFunctionOnce - single-threaded reusable consuming function wrapper
-///
-/// Note: Despite the name, this is actually reusable because it's based on
-/// `Fn(T) -> R` rather than `FnOnce(T) -> R`. This allows it to be cloned
-/// while still consuming the input value.
-///
-/// # Features
-///
-/// - **Based on**: `Rc<dyn Fn(T) -> R>`
-/// - **Ownership**: Shared ownership via reference counting (non-atomic)
-/// - **Reusability**: Can be called multiple times (but consumes input each
-///   time)
-/// - **Thread Safety**: Not thread-safe (no `Send + Sync`)
-/// - **Clonable**: Cheap cloning via `Rc::clone`
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct RcFunctionOnce<T, R> {
-    f: Rc<dyn Fn(T) -> R>,
-}
-
-impl<T, R> RcFunctionOnce<T, R>
-where
-    T: 'static,
-    R: 'static,
-{
-    /// Creates a new RcFunctionOnce
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionOnce;
-    ///
-    /// let parse = RcFunctionOnce::new(|s: String| {
-    ///     s.parse::<i32>().unwrap_or(0)
-    /// });
-    ///
-    /// assert_eq!(parse.apply("42".to_string()), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(T) -> R + 'static,
-    {
-        RcFunctionOnce { f: Rc::new(f) }
-    }
-
-    /// Creates an identity function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionOnce;
-    ///
-    /// let identity = RcFunctionOnce::<i32, i32>::identity();
-    /// assert_eq!(identity.apply(42), 42);
-    /// ```
-    pub fn identity() -> RcFunctionOnce<T, T> {
-        RcFunctionOnce::new(|x| x)
-    }
-
-    /// Chain composition - applies self first, then after
-    ///
-    /// Creates a new function that applies this function first, then applies
-    /// the after function to the result. Uses &self, so original function
-    /// remains usable (but each apply still consumes its input).
-    ///
-    /// # Type Parameters
-    ///
-    /// * `S` - The output type of the after function
-    ///
-    /// # Parameters
-    ///
-    /// * `after` - The function to apply after self
-    ///
-    /// # Returns
-    ///
-    /// A new RcFunctionOnce representing the composition
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionOnce;
-    ///
-    /// let double = RcFunctionOnce::new(|x: i32| x * 2);
-    /// let to_string = RcFunctionOnce::new(|x: i32| x.to_string());
-    /// let composed = double.and_then(&to_string);
-    ///
-    /// // Both original and composed can be used
-    /// assert_eq!(double.apply(21), 42);
-    /// assert_eq!(composed.apply(21), "42");
-    /// ```
-    pub fn and_then<S>(
-        &self,
-        after: &RcFunctionOnce<R, S>,
-    ) -> RcFunctionOnce<T, S>
-    where
-        S: 'static,
-    {
-        let self_clone = Rc::clone(&self.f);
-        let after_clone = Rc::clone(&after.f);
-        RcFunctionOnce {
-            f: Rc::new(move |x: T| after_clone(self_clone(x))),
-        }
-    }
-
-    /// Reverse composition - applies before first, then self
-    ///
-    /// Creates a new function that applies the before function first, then
-    /// applies this function to the result. Uses &self, so original function
-    /// remains usable (but each apply still consumes its input).
-    ///
-    /// # Type Parameters
-    ///
-    /// * `S` - The input type of the before function
-    ///
-    /// # Parameters
-    ///
-    /// * `before` - The function to apply before self
-    ///
-    /// # Returns
-    ///
-    /// A new RcFunctionOnce representing the composition
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionOnce;
-    ///
-    /// let double = RcFunctionOnce::new(|x: i32| x * 2);
-    /// let add_one = RcFunctionOnce::new(|x: i32| x + 1);
-    /// let composed = double.compose(&add_one);
-    ///
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// ```
-    pub fn compose<S>(
-        &self,
-        before: &RcFunctionOnce<S, T>,
-    ) -> RcFunctionOnce<S, R>
-    where
-        S: 'static,
-    {
-        let self_clone = Rc::clone(&self.f);
-        let before_clone = Rc::clone(&before.f);
-        RcFunctionOnce {
-            f: Rc::new(move |x: S| self_clone(before_clone(x))),
-        }
-    }
-}
-
-impl<T, R> RcFunctionOnce<T, R>
-where
-    T: 'static,
-    R: Clone + 'static,
-{
-    /// Creates a constant function
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFunctionOnce;
-    ///
-    /// let constant = RcFunctionOnce::constant("hello");
-    /// assert_eq!(constant.apply(123), "hello");
-    /// ```
-    pub fn constant(value: R) -> RcFunctionOnce<T, R> {
-        RcFunctionOnce::new(move |_| value.clone())
-    }
-}
-
-impl<T, R> FunctionOnce<T, R> for RcFunctionOnce<T, R> {
-    fn apply(self, input: T) -> R {
-        (self.f)(input)
-    }
-}
-
-impl<T, R> Clone for RcFunctionOnce<T, R> {
-    fn clone(&self) -> Self {
-        RcFunctionOnce {
-            f: Rc::clone(&self.f),
-        }
+        move |t: &T| self(t)
     }
 }
