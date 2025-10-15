@@ -1150,7 +1150,7 @@ impl<T> Supplier<T> for BoxSupplier<T> {
     where
         T: 'static,
     {
-        let mut func = self.func;
+        let func = self.func;
         RcSupplier::new(func)
     }
 
