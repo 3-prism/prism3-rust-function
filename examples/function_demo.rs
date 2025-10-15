@@ -7,290 +7,287 @@
  *
  ******************************************************************************/
 
-use prism3_function::{ArcFnFunction, BoxFnFunction, BoxFunction, FnFunctionOps, RcFnFunction};
+use prism3_function::{
+    ArcFunction, ArcFunctionMut, ArcFunctionOnce, BoxFunction, BoxFunctionMut,
+    BoxFunctionOnce, Function, FunctionMut, FunctionOnce, RcFunction,
+    RcFunctionMut, RcFunctionOnce,
+};
+use std::thread;
 
 fn main() {
-    println!("=== Function Demo - 方案三：Trait + 多种实现 ===\n");
+    println!("=== Function Demo - Three Traits with Multiple Implementations ===\n");
 
-    // ========================================================================
-    // BoxFunction - 一次性使用场景
-    // ========================================================================
-    println!("=== 1. BoxFunction - 一次性使用 ===");
+    // ====================================================================
+    // Part 1: Function - Immutable Transformation (borrows &T)
+    // ====================================================================
+    println!("=== 1. Function - Immutable Transformation ===\n");
 
-    let double = BoxFunction::new(|x: i32| x * 2);
-    println!(
-        "BoxFunction::new(|x| x * 2).apply(21) = {}",
-        double.apply(21)
-    );
-    // double 已被消耗，无法再次使用
+    // BoxFunction - Single ownership, reusable
+    println!("--- BoxFunction ---");
+    let double = BoxFunction::new(|x: &i32| x * 2);
+    let value = 21;
+    println!("double.apply(&{}) = {}", value, double.apply(&value));
+    println!("value is still usable: {}", value);
+    println!("double.apply(&{}) = {}", value, double.apply(&value));
 
-    // 恒等函数
+    // Identity and constant
     let identity = BoxFunction::<i32, i32>::identity();
-    println!("identity(42) = {}", identity.apply(42));
+    println!("identity.apply(&42) = {}", identity.apply(&42));
 
-    // 常量函数
     let constant = BoxFunction::constant("hello");
-    println!("constant(123) = {}", constant.apply(123));
-
-    // 方法链组合
-    let pipeline = BoxFunction::new(|x: i32| x + 1)
-        .and_then(|x| x * 2)
-        .and_then(|x| x.to_string());
-    println!("pipeline(5) = {} (期望: \"12\")", pipeline.apply(5));
-
+    println!("constant.apply(&123) = {}", constant.apply(&123));
     println!();
 
-    // ========================================================================
-    // BoxFnFunction - 可重复调用，单一所有权
-    // ========================================================================
-    println!("=== 2. BoxFnFunction - 可重复调用，单一所有权 ===");
+    // ArcFunction - Thread-safe, cloneable
+    println!("--- ArcFunction ---");
+    let arc_double = ArcFunction::new(|x: &i32| x * 2);
+    let arc_cloned = arc_double.clone();
 
-    let double_fn = BoxFnFunction::new(|x: i32| x * 2);
-    println!("BoxFnFunction 可以多次调用:");
-    println!("  double_fn.apply(21) = {}", double_fn.apply(21));
-    println!("  double_fn.apply(42) = {}", double_fn.apply(42));
-    println!("  double_fn.apply(10) = {}", double_fn.apply(10));
+    println!("arc_double.apply(&21) = {}", arc_double.apply(&21));
+    println!("arc_cloned.apply(&42) = {}", arc_cloned.apply(&42));
 
-    // 组合（消耗所有权）
-    let add_one = BoxFnFunction::new(|x: i32| x + 1);
-    let double = BoxFnFunction::new(|x: i32| x * 2);
-    let composed = add_one.and_then(double);
-    println!("composed(5) = {} (期望: 12)", composed.apply(5));
-    // add_one 和 double 已被消耗
-
+    // Multi-threaded usage
+    let for_thread = arc_double.clone();
+    let handle = thread::spawn(move || for_thread.apply(&100));
+    println!("In main thread: arc_double.apply(&50) = {}", arc_double.apply(&50));
+    println!("In child thread: result = {}", handle.join().unwrap());
     println!();
 
-    // ========================================================================
-    // ArcFnFunction - 多线程共享，可重复调用
-    // ========================================================================
-    println!("=== 3. ArcFnFunction - 多线程共享，可重复调用 ===");
-
-    let arc_double = ArcFnFunction::new(|x: i32| x * 2);
-
-    // 可以克隆
-    let cloned = arc_double.clone();
-    println!("ArcFnFunction 可以克隆:");
-    println!("  arc_double.apply(21) = {}", arc_double.apply(21));
-    println!("  cloned.apply(42) = {}", cloned.apply(42));
-
-    // 组合不消耗所有权（使用 &self）
-    let arc_add_one = ArcFnFunction::new(|x: i32| x + 1);
-    let arc_double_2 = ArcFnFunction::new(|x: i32| x * 2);
-    let arc_composed = arc_add_one.and_then(&arc_double_2);
-
-    println!("组合后原始函数仍可用:");
-    println!("  arc_add_one.apply(5) = {}", arc_add_one.apply(5));
-    println!("  arc_double_2.apply(5) = {}", arc_double_2.apply(5));
-    println!("  arc_composed.apply(5) = {}", arc_composed.apply(5));
-
-    // 多线程使用
-    println!("多线程使用:");
-    use std::thread;
-    let func_for_thread = arc_double.clone();
-    let handle = thread::spawn(move || func_for_thread.apply(100));
-
-    println!("  主线程: arc_double.apply(50) = {}", arc_double.apply(50));
-    println!("  子线程: result = {}", handle.join().unwrap());
-
-    println!();
-
-    // ========================================================================
-    // RcFnFunction - 单线程共享，可重复调用
-    // ========================================================================
-    println!("=== 4. RcFnFunction - 单线程共享，可重复调用 ===");
-
-    let rc_double = RcFnFunction::new(|x: i32| x * 2);
-
-    // 可以克隆
+    // RcFunction - Single-threaded, cloneable
+    println!("--- RcFunction ---");
+    let rc_double = RcFunction::new(|x: &i32| x * 2);
     let rc_cloned = rc_double.clone();
-    println!("RcFnFunction 可以克隆:");
-    println!("  rc_double.apply(21) = {}", rc_double.apply(21));
-    println!("  rc_cloned.apply(42) = {}", rc_cloned.apply(42));
 
-    // 组合不消耗所有权
-    let rc_add_one = RcFnFunction::new(|x: i32| x + 1);
-    let rc_double_2 = RcFnFunction::new(|x: i32| x * 2);
-    let rc_composed = rc_add_one.and_then(&rc_double_2);
-
-    println!("组合后原始函数仍可用:");
-    println!("  rc_add_one.apply(5) = {}", rc_add_one.apply(5));
-    println!("  rc_double_2.apply(5) = {}", rc_double_2.apply(5));
-    println!("  rc_composed.apply(5) = {}", rc_composed.apply(5));
-
+    println!("rc_double.apply(&21) = {}", rc_double.apply(&21));
+    println!("rc_cloned.apply(&42) = {}", rc_cloned.apply(&42));
     println!();
 
-    // ========================================================================
-    // 闭包扩展方法
-    // ========================================================================
-    println!("=== 5. 闭包扩展方法 - FnFunctionOps ===");
+    // ====================================================================
+    // Part 2: FunctionMut - Mutable Transformation (borrows &mut T)
+    // ====================================================================
+    println!("=== 2. FunctionMut - Mutable Transformation ===\n");
 
-    let closure_result = (|x: i32| x + 1)
+    // BoxFunctionMut - Single ownership
+    println!("--- BoxFunctionMut ---");
+    let mut double_mut = BoxFunctionMut::new(|x: &mut i32| {
+        *x *= 2;
+        *x
+    });
+
+    let mut val = 21;
+    let val_before = val;
+    let result = double_mut.apply(&mut val);
+    println!("double_mut.apply(&mut {}) = {}", val_before, result);
+    println!("val after mutation: {}", val);
+
+    // Stateful function
+    let mut count = 0;
+    let mut counter = BoxFunctionMut::new(move |x: &mut i32| {
+        count += 1;
+        *x += count;
+        (*x, count)
+    });
+
+    let mut value = 10;
+    println!("counter with state:");
+    println!("  1st call: {:?}", counter.apply(&mut value));
+    println!("  2nd call: {:?}", counter.apply(&mut value));
+    println!("  3rd call: {:?}", counter.apply(&mut value));
+    println!();
+
+    // ArcFunctionMut - Thread-safe, cloneable
+    println!("--- ArcFunctionMut ---");
+    let mut arc_increment = ArcFunctionMut::new(|x: &mut i32| {
+        *x += 1;
+        *x
+    });
+
+    let mut arc_cloned_mut = arc_increment.clone();
+
+    let mut val1 = 0;
+    let mut val2 = 10;
+    println!("arc_increment.apply(&mut 0) = {}", arc_increment.apply(&mut val1));
+    println!("arc_cloned_mut.apply(&mut 10) = {}", arc_cloned_mut.apply(&mut val2));
+    println!();
+
+    // RcFunctionMut - Single-threaded, cloneable
+    println!("--- RcFunctionMut ---");
+    let mut rc_increment = RcFunctionMut::new(|x: &mut i32| {
+        *x += 1;
+        *x
+    });
+
+    let mut rc_cloned_mut = rc_increment.clone();
+
+    let mut val3 = 0;
+    let mut val4 = 10;
+    println!("rc_increment.apply(&mut 0) = {}", rc_increment.apply(&mut val3));
+    println!("rc_cloned_mut.apply(&mut 10) = {}", rc_cloned_mut.apply(&mut val4));
+    println!();
+
+    // ====================================================================
+    // Part 3: FunctionOnce - Consuming Transformation (takes T)
+    // ====================================================================
+    println!("=== 3. FunctionOnce - Consuming Transformation ===\n");
+
+    // BoxFunctionOnce - One-time use
+    println!("--- BoxFunctionOnce ---");
+    let parse = BoxFunctionOnce::new(|s: String| {
+        s.parse::<i32>().unwrap_or(0)
+    });
+    println!("parse.apply(\"42\".to_string()) = {}", parse.apply("42".to_string()));
+    // parse is consumed and cannot be used again
+
+    // Composition
+    let add_one = BoxFunctionOnce::new(|x: i32| x + 1);
+    let pipeline = add_one
         .and_then(|x| x * 2)
         .and_then(|x| x.to_string());
-
-    println!(
-        "闭包链式调用: (|x| x + 1).and_then(...).apply(5) = {}",
-        closure_result.apply(5)
-    );
-
+    println!("pipeline(5) = {} (expected: \"12\")", pipeline.apply(5));
     println!();
 
-    // ========================================================================
-    // Option 和 Result 辅助方法
-    // ========================================================================
-    println!("=== 6. Option 和 Result 辅助方法 ===");
+    // ArcFunctionOnce - Reusable (cloneable)
+    println!("--- ArcFunctionOnce ---");
+    let arc_parse = ArcFunctionOnce::new(|s: String| {
+        s.parse::<i32>().unwrap_or(0)
+    });
 
-    // map_option
-    let double = |x: i32| x * 2;
-    let option_double = BoxFunction::map_option(double);
-    println!("map_option(Some(21)) = {:?}", option_double.apply(Some(21)));
+    let arc_parse_clone = arc_parse.clone();
 
-    let double2 = |x: i32| x * 2;
-    let option_double2 = BoxFunction::map_option(double2);
-    println!("map_option(None) = {:?}", option_double2.apply(None));
+    // Both can be used (but each consumes its String input)
+    println!("arc_parse.apply(\"42\") = {}", arc_parse.apply("42".to_string()));
+    println!("arc_parse_clone.apply(\"21\") = {}", arc_parse_clone.apply("21".to_string()));
 
-    // map_result
-    let double3 = |x: i32| x * 2;
-    let result_double = BoxFunction::map_result(double3);
-    println!(
-        "map_result(Ok(21)) = {:?}",
-        result_double.apply(Ok::<i32, &str>(21))
-    );
-
-    let double4 = |x: i32| x * 2;
-    let result_double2 = BoxFunction::map_result(double4);
-    println!(
-        "map_result(Err(\"error\")) = {:?}",
-        result_double2.apply(Err::<i32, &str>("error"))
-    );
-
-    // result_to_option
-    let to_option = BoxFunction::<Result<i32, &str>, Option<i32>>::result_to_option();
-    println!("result_to_option(Ok(42)) = {:?}", to_option.apply(Ok(42)));
-
-    let to_option2 = BoxFunction::<Result<i32, &str>, Option<i32>>::result_to_option();
-    println!(
-        "result_to_option(Err(\"error\")) = {:?}",
-        to_option2.apply(Err("error"))
-    );
-
-    // option_to_result
-    let to_result = BoxFunction::option_to_result("missing");
-    println!(
-        "option_to_result(Some(42)) = {:?}",
-        to_result.apply(Some(42))
-    );
-
-    let to_result2: BoxFunction<Option<i32>, Result<i32, &str>> =
-        BoxFunction::option_to_result("missing");
-    println!("option_to_result(None) = {:?}", to_result2.apply(None));
-
-    // match_result
-    let handle =
-        BoxFunction::match_result(|x: i32| x.to_string(), |e: &str| format!("Error: {}", e));
-    println!("match_result(Ok(42)) = {}", handle.apply(Ok(42)));
-
-    let handle2 =
-        BoxFunction::match_result(|x: i32| x.to_string(), |e: &str| format!("Error: {}", e));
-    println!(
-        "match_result(Err(\"failed\")) = {}",
-        handle2.apply(Err("failed"))
-    );
-
-    // flatten_result
-    let flatten =
-        BoxFunction::<Result<Result<i32, &str>, &str>, Result<i32, &str>>::flatten_result();
-    println!(
-        "flatten_result(Ok(Ok(42))) = {:?}",
-        flatten.apply(Ok(Ok(42)))
-    );
-
-    let flatten2 =
-        BoxFunction::<Result<Result<i32, &str>, &str>, Result<i32, &str>>::flatten_result();
-    println!(
-        "flatten_result(Ok(Err(\"inner\"))) = {:?}",
-        flatten2.apply(Ok(Err("inner")))
-    );
-
-    // flatten_option
-    let flatten_opt = BoxFunction::<Option<Option<i32>>, Option<i32>>::flatten_option();
-    println!(
-        "flatten_option(Some(Some(42))) = {:?}",
-        flatten_opt.apply(Some(Some(42)))
-    );
-
-    let flatten_opt2 = BoxFunction::<Option<Option<i32>>, Option<i32>>::flatten_option();
-    println!(
-        "flatten_option(Some(None)) = {:?}",
-        flatten_opt2.apply(Some(None))
-    );
-
+    // Thread-safe
+    let arc_parse2 = ArcFunctionOnce::new(|s: String| s.to_uppercase());
+    let for_thread2 = arc_parse2.clone();
+    let handle2 = thread::spawn(move || {
+        for_thread2.apply("hello".to_string())
+    });
+    println!("In main: arc_parse2(\"world\") = {}", arc_parse2.apply("world".to_string()));
+    println!("In thread: result = {}", handle2.join().unwrap());
     println!();
 
-    // ========================================================================
-    // 复杂场景示例
-    // ========================================================================
-    println!("=== 7. 复杂场景示例 ===");
+    // RcFunctionOnce - Single-threaded, reusable
+    println!("--- RcFunctionOnce ---");
+    let rc_parse = RcFunctionOnce::new(|s: String| {
+        s.parse::<i32>().unwrap_or(0)
+    });
 
-    // 场景1：数据处理管道（一次性）
-    println!("场景1：数据处理管道（BoxFunction）");
-    let parse_and_process = BoxFunction::new(|s: String| s.parse::<i32>().unwrap_or(0))
-        .and_then(|x| x * 2)
-        .and_then(|x| format!("Result: {}", x));
+    let rc_parse_clone = rc_parse.clone();
 
-    println!(
-        "  parse_and_process(\"21\") = {}",
-        parse_and_process.apply("21".to_string())
-    );
+    println!("rc_parse.apply(\"42\") = {}", rc_parse.apply("42".to_string()));
+    println!("rc_parse_clone.apply(\"21\") = {}", rc_parse_clone.apply("21".to_string()));
+    println!();
 
-    // 场景2：可重用的转换器（ArcFnFunction）
-    println!("场景2：可重用的转换器（ArcFnFunction）");
-    let parse = ArcFnFunction::new(|s: String| s.parse::<i32>().unwrap_or(0));
-    let double = ArcFnFunction::new(|x: i32| x * 2);
-    let to_string = ArcFnFunction::new(|x: i32| x.to_string());
+    // ====================================================================
+    // Part 4: Practical Examples
+    // ====================================================================
+    println!("=== 4. Practical Examples ===\n");
 
-    let pipeline = parse.and_then(&double).and_then(&to_string);
-
-    println!("  pipeline(\"21\") = {}", pipeline.apply("21".to_string()));
-    println!("  pipeline(\"10\") = {}", pipeline.apply("10".to_string()));
-    println!(
-        "  parse 仍可单独使用: parse(\"42\") = {}",
-        parse.apply("42".to_string())
-    );
-
-    // 场景3：错误处理
-    println!("场景3：错误处理");
-    let divide = BoxFunction::new(|x: i32| {
-        if x != 0 {
-            Ok(100 / x)
+    // Example 1: Data validation and transformation
+    println!("--- Data Validation Pipeline ---");
+    let validate_positive = BoxFunction::new(|x: &i32| {
+        if *x > 0 {
+            Some(*x)
         } else {
-            Err("division by zero")
+            None
         }
     });
 
-    let safe_divide = divide.and_then(|result| result.unwrap_or(0));
-    println!("  safe_divide(10) = {}", safe_divide.apply(10));
-
-    let divide2 = BoxFunction::new(|x: i32| {
-        if x != 0 {
-            Ok(100 / x)
-        } else {
-            Err("division by zero")
-        }
-    });
-    let safe_divide2 = divide2.and_then(|result| result.unwrap_or(0));
-    println!("  safe_divide(0) = {}", safe_divide2.apply(0));
-
+    let num1 = 42;
+    let num2 = -5;
+    println!("validate_positive(&{}) = {:?}", num1, validate_positive.apply(&num1));
+    println!("validate_positive(&{}) = {:?}", num2, validate_positive.apply(&num2));
     println!();
 
-    // ========================================================================
-    // 类型选择指南
-    // ========================================================================
-    println!("=== 8. 类型选择指南 ===");
-    println!("BoxFunction:     一次性转换，构建后立即使用");
-    println!("BoxFnFunction:   需要多次调用，但不需要克隆");
-    println!("ArcFnFunction:   需要多次调用、克隆、跨线程使用");
-    println!("RcFnFunction:    需要多次调用、克隆，仅在单线程内使用");
+    // Example 2: String processing with mutation
+    println!("--- String Processing ---");
+    let mut normalizer = BoxFunctionMut::new(|s: &mut String| {
+        *s = s.trim().to_lowercase();
+        s.len()
+    });
 
-    println!("\n=== End of Function Demo ===");
+    let mut text1 = "  HELLO World  ".to_string();
+    println!("Before: {:?}", text1);
+    let len = normalizer.apply(&mut text1);
+    println!("After: {:?} (length: {})", text1, len);
+    println!();
+
+    // Example 3: Shared configuration
+    println!("--- Shared Configuration ---");
+    let multiplier = 10;
+    let multiply_by_config = ArcFunction::new(move |x: &i32| x * multiplier);
+
+    // Can be shared across different parts of the program
+    let config1 = multiply_by_config.clone();
+    let config2 = multiply_by_config.clone();
+
+    println!("config1.apply(&5) = {}", config1.apply(&5));
+    println!("config2.apply(&7) = {}", config2.apply(&7));
+    println!("multiply_by_config.apply(&3) = {}", multiply_by_config.apply(&3));
+    println!();
+
+    // Example 4: Event handler registry
+    println!("--- Event Handler Registry ---");
+    use std::collections::HashMap;
+
+    let mut handlers: HashMap<String, RcFunction<i32, String>> = HashMap::new();
+
+    handlers.insert(
+        "double".to_string(),
+        RcFunction::new(|x: &i32| format!("Doubled: {}", x * 2))
+    );
+    handlers.insert(
+        "square".to_string(),
+        RcFunction::new(|x: &i32| format!("Squared: {}", x * x))
+    );
+
+    let value = 7;
+    if let Some(handler) = handlers.get("double") {
+        println!("Handler 'double': {}", handler.apply(&value));
+    }
+    if let Some(handler) = handlers.get("square") {
+        println!("Handler 'square': {}", handler.apply(&value));
+    }
+    println!();
+
+    // ====================================================================
+    // Part 5: Trait Usage
+    // ====================================================================
+    println!("=== 5. Trait Usage ===\n");
+
+    fn apply_function<F: Function<i32, String>>(f: &F, x: &i32) -> String {
+        f.apply(x)
+    }
+
+    let to_string = BoxFunction::new(|x: &i32| format!("Value: {}", x));
+    println!("Via trait: {}", apply_function(&to_string, &42));
+
+    fn apply_function_mut<F: FunctionMut<i32, String>>(
+        f: &mut F,
+        x: &mut i32,
+    ) -> String {
+        f.apply(x)
+    }
+
+    let mut incrementer = BoxFunctionMut::new(|x: &mut i32| {
+        *x += 1;
+        format!("Incremented to: {}", x)
+    });
+
+    let mut val = 10;
+    println!("Via trait mut: {}", apply_function_mut(&mut incrementer, &mut val));
+
+    fn apply_function_once<F: FunctionOnce<String, usize>>(
+        f: F,
+        x: String,
+    ) -> usize {
+        f.apply(x)
+    }
+
+    let length = BoxFunctionOnce::new(|s: String| s.len());
+    println!("Via trait once: {}", apply_function_once(length, "hello".to_string()));
+
+    println!("\n=== Demo Complete ===");
 }
