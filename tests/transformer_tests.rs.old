@@ -1,0 +1,1187 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+
+use prism3_function::Transformer;
+
+// ============================================================================
+// Basic Transformer Creation and Application Tests
+// ============================================================================
+
+#[cfg(test)]
+mod new_and_transform_tests {
+    use super::*;
+
+    #[test]
+    fn test_new_with_simple_transformation() {
+        let double = Transformer::new(|x: i32| x * 2);
+        assert_eq!(double.transform(21), 42);
+    }
+
+    #[test]
+    fn test_new_with_addition() {
+        let add_ten = Transformer::new(|x: i32| x + 10);
+        assert_eq!(add_ten.transform(5), 15);
+    }
+
+    #[test]
+    fn test_new_with_captured_variable() {
+        let multiplier = 3;
+        let multiply = Transformer::new(move |x: i32| x * multiplier);
+        assert_eq!(multiply.transform(7), 21);
+    }
+
+    #[test]
+    fn test_new_with_complex_logic() {
+        let clamp1 = Transformer::new(|x: i32| {
+            if x < 0 {
+                0
+            } else if x > 100 {
+                100
+            } else {
+                x
+            }
+        });
+        assert_eq!(clamp1.transform(-5), 0);
+
+        let clamp2 = Transformer::new(|x: i32| {
+            if x < 0 {
+                0
+            } else if x > 100 {
+                100
+            } else {
+                x
+            }
+        });
+        assert_eq!(clamp2.transform(50), 50);
+
+        let clamp3 = Transformer::new(|x: i32| {
+            if x < 0 {
+                0
+            } else if x > 100 {
+                100
+            } else {
+                x
+            }
+        });
+        assert_eq!(clamp3.transform(150), 100);
+    }
+
+    #[test]
+    fn test_transform_with_zero() {
+        let double = Transformer::new(|x: i32| x * 2);
+        assert_eq!(double.transform(0), 0);
+    }
+
+    #[test]
+    fn test_transform_with_negative_number() {
+        let abs = Transformer::new(|x: i32| x.abs());
+        assert_eq!(abs.transform(-42), 42);
+    }
+
+    #[test]
+    fn test_transform_with_string() {
+        let to_upper = Transformer::new(|s: String| s.to_uppercase());
+        assert_eq!(to_upper.transform(String::from("hello")), "HELLO");
+    }
+
+    #[test]
+    fn test_transform_with_empty_string() {
+        let trim = Transformer::new(|s: String| s.trim().to_string());
+        assert_eq!(trim.transform(String::new()), "");
+    }
+
+    #[test]
+    fn test_transform_with_vector() {
+        let sort_vec = Transformer::new(|mut v: Vec<i32>| {
+            v.sort();
+            v
+        });
+        assert_eq!(sort_vec.transform(vec![3, 1, 4, 1, 5]), vec![1, 1, 3, 4, 5]);
+    }
+
+    #[test]
+    fn test_transform_with_empty_vector() {
+        let reverse = Transformer::new(|mut v: Vec<i32>| {
+            v.reverse();
+            v
+        });
+        assert_eq!(reverse.transform(vec![]), Vec::<i32>::new());
+    }
+}
+
+// ============================================================================
+// Identity Transformer Tests
+// ============================================================================
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    #[test]
+    fn test_identity_with_integer() {
+        let identity = Transformer::<i32>::identity();
+        assert_eq!(identity.transform(42), 42);
+    }
+
+    #[test]
+    fn test_identity_with_zero() {
+        let identity = Transformer::<i32>::identity();
+        assert_eq!(identity.transform(0), 0);
+    }
+
+    #[test]
+    fn test_identity_with_negative() {
+        let identity = Transformer::<i32>::identity();
+        assert_eq!(identity.transform(-100), -100);
+    }
+
+    #[test]
+    fn test_identity_with_string() {
+        let identity = Transformer::<String>::identity();
+        assert_eq!(identity.transform(String::from("test")), "test");
+    }
+
+    #[test]
+    fn test_identity_with_empty_string() {
+        let identity = Transformer::<String>::identity();
+        assert_eq!(identity.transform(String::new()), "");
+    }
+
+    #[test]
+    fn test_identity_with_vector() {
+        let identity = Transformer::<Vec<i32>>::identity();
+        assert_eq!(identity.transform(vec![1, 2, 3]), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_identity_with_tuple() {
+        let identity = Transformer::<(i32, String)>::identity();
+        assert_eq!(
+            identity.transform((42, String::from("test"))),
+            (42, String::from("test"))
+        );
+    }
+
+    #[test]
+    fn test_identity_with_bool() {
+        let identity_true = Transformer::<bool>::identity();
+        assert_eq!(identity_true.transform(true), true);
+
+        let identity_false = Transformer::<bool>::identity();
+        assert_eq!(identity_false.transform(false), false);
+    }
+}
+
+// ============================================================================
+// Then Composition Tests
+// ============================================================================
+
+#[cfg(test)]
+mod then_tests {
+    use super::*;
+
+    #[test]
+    fn test_then_basic_composition() {
+        let add_one = Transformer::new(|x: i32| x + 1);
+        let composed = add_one.then(|x| x * 2);
+        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    }
+
+    #[test]
+    fn test_then_multiple_operations() {
+        let start = Transformer::new(|x: i32| x + 1);
+        let composed = start.then(|x| x * 2).then(|x| x - 3);
+        assert_eq!(composed.transform(5), 9); // ((5 + 1) * 2) - 3
+    }
+
+    #[test]
+    fn test_then_with_string() {
+        let trim = Transformer::new(|s: String| s.trim().to_string());
+        let composed = trim.then(|s| s.to_uppercase());
+        assert_eq!(
+            composed.transform(String::from("  hello  ")),
+            "HELLO"
+        );
+    }
+
+    #[test]
+    fn test_then_with_zero() {
+        let add_five = Transformer::new(|x: i32| x + 5);
+        let composed = add_five.then(|x| x * 2);
+        assert_eq!(composed.transform(0), 10); // (0 + 5) * 2
+    }
+
+    #[test]
+    fn test_then_with_negative() {
+        let abs = Transformer::new(|x: i32| x.abs());
+        let composed = abs.then(|x| x * -1);
+        assert_eq!(composed.transform(-5), -5); // abs(-5) = 5, then * -1 = -5
+    }
+
+    #[test]
+    fn test_then_order_matters() {
+        let add_one = Transformer::new(|x: i32| x + 1);
+        let composed1 = add_one.then(|x| x * 2);
+        assert_eq!(composed1.transform(5), 12); // (5 + 1) * 2
+
+        let double = Transformer::new(|x: i32| x * 2);
+        let composed2 = double.then(|x| x + 1);
+        assert_eq!(composed2.transform(5), 11); // (5 * 2) + 1
+    }
+
+    #[test]
+    fn test_then_with_long_chain() {
+        let start = Transformer::new(|x: i32| x + 1);
+        let composed = start
+            .then(|x| x * 2)
+            .then(|x| x - 3)
+            .then(|x| x / 2);
+        assert_eq!(composed.transform(10), 9); // (((10 + 1) * 2) - 3) / 2
+    }
+}
+
+// ============================================================================
+// Chain Composition Tests
+// ============================================================================
+
+#[cfg(test)]
+mod chain_tests {
+    use super::*;
+
+    #[test]
+    fn test_chain_basic_composition() {
+        let add_one = Transformer::new(|x: i32| x + 1);
+        let double = Transformer::new(|x: i32| x * 2);
+        let composed = add_one.chain(double);
+        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    }
+
+    #[test]
+    fn test_chain_multiple_transformers() {
+        let add_one = Transformer::new(|x: i32| x + 1);
+        let double = Transformer::new(|x: i32| x * 2);
+        let subtract_three = Transformer::new(|x: i32| x - 3);
+        let composed = add_one.chain(double).chain(subtract_three);
+        assert_eq!(composed.transform(5), 9); // ((5 + 1) * 2) - 3
+    }
+
+    #[test]
+    fn test_chain_with_identity() {
+        let double = Transformer::new(|x: i32| x * 2);
+        let identity = Transformer::identity();
+        let composed = double.chain(identity);
+        assert_eq!(composed.transform(5), 10);
+    }
+
+    #[test]
+    fn test_chain_with_string() {
+        let trim = Transformer::new(|s: String| s.trim().to_string());
+        let upper = Transformer::new(|s: String| s.to_uppercase());
+        let composed = trim.chain(upper);
+        assert_eq!(
+            composed.transform(String::from("  hello  ")),
+            "HELLO"
+        );
+    }
+
+    #[test]
+    fn test_chain_order_matters() {
+        let add_one = Transformer::new(|x: i32| x + 1);
+        let double = Transformer::new(|x: i32| x * 2);
+
+        let composed1 = add_one.chain(double);
+        assert_eq!(composed1.transform(5), 12); // (5 + 1) * 2
+
+        let add_one2 = Transformer::new(|x: i32| x + 1);
+        let double2 = Transformer::new(|x: i32| x * 2);
+        let composed2 = double2.chain(add_one2);
+        assert_eq!(composed2.transform(5), 11); // (5 * 2) + 1
+    }
+}
+
+// ============================================================================
+// Compose Tests
+// ============================================================================
+
+#[cfg(test)]
+mod compose_tests {
+    use super::*;
+
+    #[test]
+    fn test_compose_basic() {
+        let double = Transformer::new(|x: i32| x * 2);
+        let add_one = |x: i32| x + 1;
+        let composed = double.compose(add_one);
+        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    }
+
+    #[test]
+    fn test_compose_multiple_operations() {
+        let triple = Transformer::new(|x: i32| x * 3);
+        let composed = triple.compose(|x| x + 2).compose(|x| x * 2);
+        assert_eq!(composed.transform(5), 36); // ((5 * 2) + 2) * 3
+    }
+
+    #[test]
+    fn test_compose_with_zero() {
+        let add_ten = Transformer::new(|x: i32| x + 10);
+        let composed = add_ten.compose(|x| x * 2);
+        assert_eq!(composed.transform(0), 10); // (0 * 2) + 10
+    }
+
+    #[test]
+    fn test_compose_with_negative() {
+        let abs = Transformer::new(|x: i32| x.abs());
+        let composed = abs.compose(|x| x - 10);
+        assert_eq!(composed.transform(5), 5); // abs(5 - 10) = 5
+    }
+
+    #[test]
+    fn test_compose_order_matters() {
+        let double = Transformer::new(|x: i32| x * 2);
+        let composed1 = double.compose(|x| x + 1);
+        assert_eq!(composed1.transform(5), 12); // (5 + 1) * 2
+
+        let double2 = Transformer::new(|x: i32| x * 2);
+        let composed2 = double2.compose(|x| x * 2).compose(|x| x + 1);
+        assert_eq!(composed2.transform(5), 24); // ((5 + 1) * 2) * 2
+    }
+}
+
+// ============================================================================
+// Constant Transformer Tests
+// ============================================================================
+
+#[cfg(test)]
+mod constant_tests {
+    use super::*;
+
+    #[test]
+    fn test_constant_with_integer() {
+        let always_zero = Transformer::constant(0);
+        assert_eq!(always_zero.transform(42), 0);
+        assert_eq!(Transformer::constant(100).transform(5), 100);
+    }
+
+    #[test]
+    fn test_constant_ignores_input() {
+        let always_ten = Transformer::constant(10);
+        assert_eq!(always_ten.transform(0), 10);
+        assert_eq!(Transformer::constant(10).transform(-5), 10);
+        assert_eq!(Transformer::constant(10).transform(100), 10);
+    }
+
+    #[test]
+    fn test_constant_with_string() {
+        let always_hello = Transformer::constant(String::from("hello"));
+        assert_eq!(always_hello.transform(String::from("world")), "hello");
+    }
+
+    #[test]
+    fn test_constant_with_negative() {
+        let always_negative = Transformer::constant(-42);
+        assert_eq!(always_negative.transform(100), -42);
+    }
+
+    #[test]
+    fn test_constant_with_zero() {
+        let always_zero = Transformer::constant(0);
+        assert_eq!(always_zero.transform(999), 0);
+    }
+
+    #[test]
+    fn test_constant_with_bool() {
+        let always_true = Transformer::constant(true);
+        assert_eq!(always_true.transform(false), true);
+
+        let always_false = Transformer::constant(false);
+        assert_eq!(always_false.transform(true), false);
+    }
+
+    #[test]
+    fn test_constant_with_vector() {
+        let always_empty = Transformer::constant(Vec::<i32>::new());
+        assert_eq!(always_empty.transform(vec![1, 2, 3]), Vec::<i32>::new());
+    }
+}
+
+// ============================================================================
+// Repeat Transformer Tests
+// ============================================================================
+
+#[cfg(test)]
+mod repeat_tests {
+    use super::*;
+
+    #[test]
+    fn test_repeat_add_one() {
+        let add_one = |x: i32| x + 1;
+        let add_three = Transformer::repeat(add_one, 3);
+        assert_eq!(add_three.transform(5), 8); // 5 + 1 + 1 + 1
+    }
+
+    #[test]
+    fn test_repeat_double() {
+        let double = |x: i32| x * 2;
+        let times_eight = Transformer::repeat(double, 3);
+        assert_eq!(times_eight.transform(2), 16); // 2 * 2 * 2 * 2
+    }
+
+    #[test]
+    fn test_repeat_zero_times() {
+        let double = |x: i32| x * 2;
+        let identity = Transformer::repeat(double, 0);
+        assert_eq!(identity.transform(5), 5);
+    }
+
+    #[test]
+    fn test_repeat_once() {
+        let add_ten = |x: i32| x + 10;
+        let once = Transformer::repeat(add_ten, 1);
+        assert_eq!(once.transform(5), 15);
+    }
+
+    #[test]
+    fn test_repeat_with_zero_input() {
+        let add_one = |x: i32| x + 1;
+        let add_five = Transformer::repeat(add_one, 5);
+        assert_eq!(add_five.transform(0), 5);
+    }
+
+    #[test]
+    fn test_repeat_with_negative() {
+        let negate = |x: i32| -x;
+        let double_negate = Transformer::repeat(negate, 2);
+        assert_eq!(double_negate.transform(5), 5); // -(-5) = 5
+    }
+
+    #[test]
+    fn test_repeat_with_string() {
+        let add_exclamation = |s: String| format!("{}!", s);
+        let triple_exclamation = Transformer::repeat(add_exclamation, 3);
+        assert_eq!(
+            triple_exclamation.transform(String::from("hello")),
+            "hello!!!"
+        );
+    }
+
+    #[test]
+    fn test_repeat_many_times() {
+        let add_one = |x: i32| x + 1;
+        let add_hundred = Transformer::repeat(add_one, 100);
+        assert_eq!(add_hundred.transform(0), 100);
+    }
+}
+
+// ============================================================================
+// Map Option Tests
+// ============================================================================
+
+#[cfg(test)]
+mod map_option_tests {
+    use super::*;
+
+    #[test]
+    fn test_map_option_with_some() {
+        let double = |x: i32| x * 2;
+        let option_double = Transformer::map_option(double);
+        assert_eq!(option_double.transform(Some(21)), Some(42));
+    }
+
+    #[test]
+    fn test_map_option_with_none() {
+        let double = |x: i32| x * 2;
+        let option_double = Transformer::map_option(double);
+        assert_eq!(option_double.transform(None), None);
+    }
+
+    #[test]
+    fn test_map_option_with_zero() {
+        let add_one = |x: i32| x + 1;
+        let option_add = Transformer::map_option(add_one);
+        assert_eq!(option_add.transform(Some(0)), Some(1));
+    }
+
+    #[test]
+    fn test_map_option_with_negative() {
+        let abs = |x: i32| x.abs();
+        let option_abs = Transformer::map_option(abs);
+        assert_eq!(option_abs.transform(Some(-42)), Some(42));
+    }
+
+    #[test]
+    fn test_map_option_with_string() {
+        let to_upper = |s: String| s.to_uppercase();
+        let option_upper = Transformer::map_option(to_upper);
+        assert_eq!(
+            option_upper.transform(Some(String::from("hello"))),
+            Some(String::from("HELLO"))
+        );
+    }
+
+    #[test]
+    fn test_map_option_type_preserved() {
+        let identity = |x: i32| x;
+        let option_identity1 = Transformer::map_option(identity);
+        assert_eq!(option_identity1.transform(Some(42)), Some(42));
+
+        let identity2 = |x: i32| x;
+        let option_identity2 = Transformer::map_option(identity2);
+        assert_eq!(option_identity2.transform(None), None);
+    }
+
+    #[test]
+    fn test_map_option_complex_transformation() {
+        let complex = |x: i32| if x > 0 { x * 2 } else { 0 };
+        let option_complex1 = Transformer::map_option(complex);
+        assert_eq!(option_complex1.transform(Some(5)), Some(10));
+
+        let complex2 = |x: i32| if x > 0 { x * 2 } else { 0 };
+        let option_complex2 = Transformer::map_option(complex2);
+        assert_eq!(option_complex2.transform(Some(-5)), Some(0));
+    }
+}
+
+// ============================================================================
+// Map Result Tests
+// ============================================================================
+
+#[cfg(test)]
+mod map_result_tests {
+    use super::*;
+
+    #[test]
+    fn test_map_result_with_ok() {
+        let double = |x: i32| x * 2;
+        let result_double = Transformer::map_result(double);
+        assert_eq!(result_double.transform(Ok::<i32, &str>(21)), Ok(42));
+    }
+
+    #[test]
+    fn test_map_result_with_err() {
+        let double = |x: i32| x * 2;
+        let result_double = Transformer::map_result(double);
+        assert_eq!(
+            result_double.transform(Err::<i32, &str>("error")),
+            Err("error")
+        );
+    }
+
+    #[test]
+    fn test_map_result_with_zero() {
+        let add_one = |x: i32| x + 1;
+        let result_add = Transformer::map_result(add_one);
+        assert_eq!(result_add.transform(Ok::<i32, &str>(0)), Ok(1));
+    }
+
+    #[test]
+    fn test_map_result_with_negative() {
+        let abs = |x: i32| x.abs();
+        let result_abs = Transformer::map_result(abs);
+        assert_eq!(result_abs.transform(Ok::<i32, &str>(-42)), Ok(42));
+    }
+
+    #[test]
+    fn test_map_result_preserves_error_type() {
+        let double = |x: i32| x * 2;
+        let result_double = Transformer::map_result(double);
+        assert_eq!(
+            result_double.transform(Err::<i32, String>(String::from("fail"))),
+            Err(String::from("fail"))
+        );
+    }
+
+    #[test]
+    fn test_map_result_with_string() {
+        let to_upper = |s: String| s.to_uppercase();
+        let result_upper = Transformer::map_result(to_upper);
+        assert_eq!(
+            result_upper.transform(Ok::<String, &str>(String::from("hello"))),
+            Ok(String::from("HELLO"))
+        );
+    }
+
+    #[test]
+    fn test_map_result_complex_transformation() {
+        let complex = |x: i32| if x > 0 { x * 2 } else { 0 };
+        let result_complex1 = Transformer::map_result(complex);
+        assert_eq!(result_complex1.transform(Ok::<i32, &str>(5)), Ok(10));
+
+        let complex2 = |x: i32| if x > 0 { x * 2 } else { 0 };
+        let result_complex2 = Transformer::map_result(complex2);
+        assert_eq!(result_complex2.transform(Ok::<i32, &str>(-5)), Ok(0));
+
+        let complex3 = |x: i32| if x > 0 { x * 2 } else { 0 };
+        let result_complex3 = Transformer::map_result(complex3);
+        assert_eq!(
+            result_complex3.transform(Err::<i32, &str>("error")),
+            Err("error")
+        );
+    }
+}
+
+// ============================================================================
+// When (Conditional) Tests
+// ============================================================================
+
+#[cfg(test)]
+mod when_tests {
+    use super::*;
+
+    #[test]
+    fn test_when_condition_true() {
+        let conditional_double = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2);
+        assert_eq!(conditional_double.transform(5), 10);
+    }
+
+    #[test]
+    fn test_when_condition_false() {
+        let conditional_double = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2);
+        assert_eq!(conditional_double.transform(-3), -3);
+    }
+
+    #[test]
+    fn test_when_with_zero() {
+        let conditional_double = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2);
+        assert_eq!(conditional_double.transform(0), 0);
+    }
+
+    #[test]
+    fn test_when_with_complex_condition() {
+        let clamp_positive1 =
+            Transformer::when(|x: &i32| *x > 100, |_x: i32| 100);
+        assert_eq!(clamp_positive1.transform(150), 100);
+
+        let clamp_positive2 =
+            Transformer::when(|x: &i32| *x > 100, |_x: i32| 100);
+        assert_eq!(clamp_positive2.transform(50), 50);
+    }
+
+    #[test]
+    fn test_when_with_string() {
+        let uppercase_long1 = Transformer::when(
+            |s: &String| s.len() > 3,
+            |s: String| s.to_uppercase(),
+        );
+        assert_eq!(
+            uppercase_long1.transform(String::from("hello")),
+            "HELLO"
+        );
+
+        let uppercase_long2 = Transformer::when(
+            |s: &String| s.len() > 3,
+            |s: String| s.to_uppercase(),
+        );
+        assert_eq!(uppercase_long2.transform(String::from("hi")), "hi");
+    }
+
+    #[test]
+    fn test_when_with_even_numbers() {
+        let double_even1 = Transformer::when(|x: &i32| *x % 2 == 0, |x: i32| x * 2);
+        assert_eq!(double_even1.transform(4), 8);
+
+        let double_even2 = Transformer::when(|x: &i32| *x % 2 == 0, |x: i32| x * 2);
+        assert_eq!(double_even2.transform(5), 5);
+    }
+
+    #[test]
+    fn test_when_with_negative_values() {
+        let abs_negative1 = Transformer::when(|x: &i32| *x < 0, |x: i32| x.abs());
+        assert_eq!(abs_negative1.transform(-5), 5);
+
+        let abs_negative2 = Transformer::when(|x: &i32| *x < 0, |x: i32| x.abs());
+        assert_eq!(abs_negative2.transform(5), 5);
+    }
+
+    #[test]
+    fn test_when_in_chain() {
+        let add_one1 = Transformer::new(|x: i32| x + 1);
+        let composed1 = add_one1.then(|x| {
+            if x > 10 {
+                x * 2
+            } else {
+                x
+            }
+        });
+        assert_eq!(composed1.transform(5), 6); // 5 + 1 = 6 (not > 10)
+
+        let add_one2 = Transformer::new(|x: i32| x + 1);
+        let composed2 = add_one2.then(|x| {
+            if x > 10 {
+                x * 2
+            } else {
+                x
+            }
+        });
+        assert_eq!(composed2.transform(10), 22); // 10 + 1 = 11 (* 2)
+    }
+}
+
+// ============================================================================
+// If-Else (Conditional with branches) Tests
+// ============================================================================
+
+#[cfg(test)]
+mod if_else_tests {
+    use super::*;
+
+    #[test]
+    fn test_if_else_true_branch() {
+        let transformer = Transformer::if_else(
+            |x: &i32| *x > 0,
+            |x: i32| x * 2,
+            |x: i32| x.abs(),
+        );
+        assert_eq!(transformer.transform(5), 10);
+    }
+
+    #[test]
+    fn test_if_else_false_branch() {
+        let transformer = Transformer::if_else(
+            |x: &i32| *x > 0,
+            |x: i32| x * 2,
+            |x: i32| x.abs(),
+        );
+        assert_eq!(transformer.transform(-3), 3);
+    }
+
+    #[test]
+    fn test_if_else_with_zero() {
+        let transformer = Transformer::if_else(
+            |x: &i32| *x > 0,
+            |x: i32| x * 2,
+            |x: i32| x.abs(),
+        );
+        assert_eq!(transformer.transform(0), 0);
+    }
+
+    #[test]
+    fn test_if_else_both_branches_used() {
+        let categorize1 = Transformer::if_else(
+            |x: &i32| *x >= 0,
+            |x: i32| x + 100,
+            |x: i32| x - 100,
+        );
+        assert_eq!(categorize1.transform(5), 105);
+
+        let categorize2 = Transformer::if_else(
+            |x: &i32| *x >= 0,
+            |x: i32| x + 100,
+            |x: i32| x - 100,
+        );
+        assert_eq!(categorize2.transform(-5), -105);
+    }
+
+    #[test]
+    fn test_if_else_with_string() {
+        let transformer1 = Transformer::if_else(
+            |s: &String| s.len() > 5,
+            |s: String| s.to_uppercase(),
+            |s: String| s.to_lowercase(),
+        );
+        assert_eq!(
+            transformer1.transform(String::from("HelloWorld")),
+            "HELLOWORLD"
+        );
+
+        let transformer2 = Transformer::if_else(
+            |s: &String| s.len() > 5,
+            |s: String| s.to_uppercase(),
+            |s: String| s.to_lowercase(),
+        );
+        assert_eq!(transformer2.transform(String::from("Hi")), "hi");
+    }
+
+    #[test]
+    fn test_if_else_complex_conditions() {
+        let transformer1 = Transformer::if_else(
+            |x: &i32| *x % 2 == 0,
+            |x: i32| x / 2,
+            |x: i32| x * 3 + 1,
+        );
+        assert_eq!(transformer1.transform(10), 5); // even: 10 / 2
+
+        let transformer2 = Transformer::if_else(
+            |x: &i32| *x % 2 == 0,
+            |x: i32| x / 2,
+            |x: i32| x * 3 + 1,
+        );
+        assert_eq!(transformer2.transform(3), 10); // odd: 3 * 3 + 1
+    }
+
+    #[test]
+    fn test_if_else_symmetric_operations() {
+        let transformer1 = Transformer::if_else(
+            |x: &i32| *x > 50,
+            |x: i32| x - 50,
+            |x: i32| x + 50,
+        );
+        assert_eq!(transformer1.transform(100), 50);
+
+        let transformer2 = Transformer::if_else(
+            |x: &i32| *x > 50,
+            |x: i32| x - 50,
+            |x: i32| x + 50,
+        );
+        assert_eq!(transformer2.transform(25), 75);
+    }
+}
+
+// ============================================================================
+// Edge Cases and Complex Scenarios
+// ============================================================================
+
+#[cfg(test)]
+mod edge_cases_tests {
+    use super::*;
+
+    #[test]
+    fn test_with_max_i32() {
+        let identity = Transformer::<i32>::identity();
+        assert_eq!(identity.transform(i32::MAX), i32::MAX);
+    }
+
+    #[test]
+    fn test_with_min_i32() {
+        let identity = Transformer::<i32>::identity();
+        assert_eq!(identity.transform(i32::MIN), i32::MIN);
+    }
+
+    #[test]
+    fn test_with_very_long_string() {
+        let trim = Transformer::new(|s: String| s.trim().to_string());
+        let long_string = " ".repeat(1000) + "test" + &" ".repeat(1000);
+        assert_eq!(trim.transform(long_string), "test");
+    }
+
+    #[test]
+    fn test_with_unicode_strings() {
+        let to_upper = Transformer::new(|s: String| s.to_uppercase());
+        assert_eq!(to_upper.transform(String::from("hello 世界")), "HELLO 世界");
+    }
+
+    #[test]
+    fn test_with_empty_vec() {
+        let reverse = Transformer::new(|mut v: Vec<i32>| {
+            v.reverse();
+            v
+        });
+        assert_eq!(reverse.transform(vec![]), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_with_large_vec() {
+        let sum = Transformer::new(|v: Vec<i32>| vec![v.iter().sum()]);
+        let large_vec: Vec<i32> = (1..=1000).collect();
+        assert_eq!(sum.transform(large_vec), vec![500500]);
+    }
+
+    #[test]
+    fn test_overflow_protection() {
+        let safe_double = Transformer::new(|x: i32| x.saturating_mul(2));
+        assert_eq!(safe_double.transform(i32::MAX), i32::MAX);
+    }
+
+    #[test]
+    fn test_with_tuple() {
+        let swap = Transformer::new(|(a, b): (i32, i32)| (b, a));
+        assert_eq!(swap.transform((1, 2)), (2, 1));
+    }
+
+    #[test]
+    fn test_with_nested_option() {
+        // For transformers, input and output must be same type
+        // So we wrap the result back into Option<Option<i32>>
+        let normalize1 = Transformer::new(|opt: Option<Option<i32>>| {
+            match opt {
+                Some(Some(v)) if v > 10 => Some(Some(10)),
+                other => other,
+            }
+        });
+        assert_eq!(normalize1.transform(Some(Some(42))), Some(Some(10)));
+
+        let normalize2 = Transformer::new(|opt: Option<Option<i32>>| {
+            match opt {
+                Some(Some(v)) if v > 10 => Some(Some(10)),
+                other => other,
+            }
+        });
+        assert_eq!(normalize2.transform(Some(None)), Some(None));
+
+        let normalize3 = Transformer::new(|opt: Option<Option<i32>>| {
+            match opt {
+                Some(Some(v)) if v > 10 => Some(Some(10)),
+                other => other,
+            }
+        });
+        assert_eq!(normalize3.transform(None), None);
+    }
+
+    #[test]
+    fn test_closure_captures_multiple_variables() {
+        let a = 2;
+        let b = 3;
+        let transform = Transformer::new(move |x: i32| x * a + b);
+        assert_eq!(transform.transform(5), 13); // 5 * 2 + 3
+    }
+}
+
+// ============================================================================
+// Integration and Complex Scenarios
+// ============================================================================
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    #[test]
+    fn test_data_cleaning_pipeline() {
+        let clean = Transformer::new(|s: String| s.trim().to_string())
+            .then(|s| s.to_lowercase())
+            .then(|s| s.replace("  ", " "));
+        assert_eq!(
+            clean.transform(String::from("  Hello  WORLD  ")),
+            "hello world"
+        );
+    }
+
+    #[test]
+    fn test_number_processing_pipeline() {
+        let process1 = Transformer::new(|x: i32| x.abs())
+            .then(|x| if x > 100 { 100 } else { x })
+            .then(|x| x * 2);
+        assert_eq!(process1.transform(-50), 100); // abs(-50) = 50, * 2 = 100
+
+        let process2 = Transformer::new(|x: i32| x.abs())
+            .then(|x| if x > 100 { 100 } else { x })
+            .then(|x| x * 2);
+        assert_eq!(process2.transform(-150), 200); // abs(-150) = 150, clamp to 100, * 2 = 200
+    }
+
+    #[test]
+    fn test_conditional_with_chain() {
+        let process1 = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2)
+            .then(|x| x + 10);
+        assert_eq!(process1.transform(5), 20); // 5 * 2 + 10
+
+        let process2 = Transformer::when(|x: &i32| *x > 0, |x: i32| x * 2)
+            .then(|x| x + 10);
+        assert_eq!(process2.transform(-5), 5); // -5 (unchanged) + 10
+    }
+
+    #[test]
+    fn test_repeat_in_chain() {
+        let add_one = |x: i32| x + 1;
+        let process = Transformer::repeat(add_one, 5).then(|x| x * 2);
+        assert_eq!(process.transform(0), 10); // (0 + 5) * 2
+    }
+
+    #[test]
+    fn test_mixed_transformations() {
+        let process = Transformer::new(|x: i32| x + 1)
+            .chain(Transformer::new(|x| x * 2))
+            .chain(Transformer::constant(100));
+        assert_eq!(process.transform(5), 100); // always returns 100
+    }
+
+    #[test]
+    fn test_option_transformation_chain() {
+        let double1 = |x: i32| x * 2;
+        let process1 = Transformer::map_option(double1);
+        assert_eq!(process1.transform(Some(21)), Some(42));
+
+        let double2 = |x: i32| x * 2;
+        let process2 = Transformer::map_option(double2);
+        assert_eq!(process2.transform(None), None);
+    }
+
+    #[test]
+    fn test_result_transformation_chain() {
+        let add_ten = |x: i32| x + 10;
+        let process1 = Transformer::map_result(add_ten);
+        assert_eq!(process1.transform(Ok::<i32, &str>(5)), Ok(15));
+
+        let add_ten2 = |x: i32| x + 10;
+        let process2 = Transformer::map_result(add_ten2);
+        assert_eq!(
+            process2.transform(Err::<i32, &str>("error")),
+            Err("error")
+        );
+    }
+
+    #[test]
+    fn test_compose_multiple_functions() {
+        let triple = Transformer::new(|x: i32| x * 3);
+        let composed = triple
+            .compose(|x| x + 1)
+            .compose(|x| x * 2);
+        assert_eq!(composed.transform(5), 33); // ((5 * 2) + 1) * 3
+    }
+
+    #[test]
+    fn test_very_long_chain() {
+        let mut transformer = Transformer::new(|x: i32| x + 1);
+        for _ in 0..10 {
+            transformer = transformer.then(|x| x * 2);
+        }
+        // Start with 0: (0 + 1) * 2^10 = 1024
+        assert_eq!(transformer.transform(0), 1024);
+    }
+
+    #[test]
+    fn test_identity_in_chain() {
+        let process = Transformer::new(|x: i32| x * 2)
+            .chain(Transformer::identity())
+            .then(|x| x + 1);
+        assert_eq!(process.transform(5), 11); // (5 * 2) + 1
+    }
+}
+
+// ============================================================================
+// Custom Types Tests
+// ============================================================================
+
+#[cfg(test)]
+mod custom_types_tests {
+    use super::*;
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    #[test]
+    fn test_with_custom_struct() {
+        let translate = Transformer::new(|mut p: Point| {
+            p.x += 10;
+            p.y += 20;
+            p
+        });
+        assert_eq!(
+            translate.transform(Point { x: 5, y: 10 }),
+            Point { x: 15, y: 30 }
+        );
+    }
+
+    #[test]
+    fn test_custom_struct_chain() {
+        let translate_x = Transformer::new(|mut p: Point| {
+            p.x += 10;
+            p
+        });
+        let translate_y = Transformer::new(|mut p: Point| {
+            p.y += 20;
+            p
+        });
+        let composed = translate_x.chain(translate_y);
+        assert_eq!(
+            composed.transform(Point { x: 0, y: 0 }),
+            Point { x: 10, y: 20 }
+        );
+    }
+
+    #[test]
+    fn test_custom_struct_conditional() {
+        let clamp_x1 = Transformer::when(
+            |p: &Point| p.x > 100,
+            |mut p: Point| {
+                p.x = 100;
+                p
+            },
+        );
+        assert_eq!(
+            clamp_x1.transform(Point { x: 150, y: 50 }),
+            Point { x: 100, y: 50 }
+        );
+
+        let clamp_x2 = Transformer::when(
+            |p: &Point| p.x > 100,
+            |mut p: Point| {
+                p.x = 100;
+                p
+            },
+        );
+        assert_eq!(
+            clamp_x2.transform(Point { x: 50, y: 50 }),
+            Point { x: 50, y: 50 }
+        );
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    enum Status {
+        Active,
+        Inactive,
+        Pending,
+    }
+
+    #[test]
+    fn test_with_enum() {
+        let activate1 = Transformer::when(
+            |s: &Status| matches!(s, Status::Pending),
+            |_| Status::Active,
+        );
+        assert_eq!(activate1.transform(Status::Pending), Status::Active);
+
+        let activate2 = Transformer::when(
+            |s: &Status| matches!(s, Status::Pending),
+            |_| Status::Active,
+        );
+        assert_eq!(activate2.transform(Status::Inactive), Status::Inactive);
+    }
+}
+
+// ============================================================================
+// Performance and Stress Tests
+// ============================================================================
+
+#[cfg(test)]
+mod performance_tests {
+    use super::*;
+
+    #[test]
+    fn test_many_repeated_transformations() {
+        let add_one = |x: i32| x + 1;
+        let add_thousand = Transformer::repeat(add_one, 1000);
+        assert_eq!(add_thousand.transform(0), 1000);
+    }
+
+    #[test]
+    fn test_deep_composition() {
+        let mut transformer = Transformer::<i32>::identity();
+        for i in 1..=100 {
+            transformer = transformer.then(move |x| x + i);
+        }
+        // Sum of 1 to 100 is 5050
+        assert_eq!(transformer.transform(0), 5050);
+    }
+
+    #[test]
+    fn test_large_string_transformation() {
+        let make_upper = Transformer::new(|s: String| s.to_uppercase());
+        let large_string = "a".repeat(10000);
+        let result = make_upper.transform(large_string);
+        assert_eq!(result, "A".repeat(10000));
+    }
+
+    #[test]
+    fn test_vector_operations() {
+        let sort_and_dedup = Transformer::new(|mut v: Vec<i32>| {
+            v.sort();
+            v.dedup();
+            v
+        });
+        let input = vec![3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5];
+        assert_eq!(
+            sort_and_dedup.transform(input),
+            vec![1, 2, 3, 4, 5, 6, 9]
+        );
+    }
+}
+
