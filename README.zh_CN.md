@@ -71,7 +71,7 @@
 将类型 `T` 的值转换为类型 `R`。类似于 Java 的 `Function<T, R>`。
 
 **实现类型：**
-- `BoxFunction<T, R>`：单一所有权，一次性使用（FnOnce）
+- `BoxOnceFunction<T, R>`：单一所有权，一次性使用（FnOnce）
 - `BoxFnFunction<T, R>`：可重复使用，单一所有权（Fn）
 - `ArcFnFunction<T, R>`：线程安全，可克隆（Arc<Fn>）
 - `RcFnFunction<T, R>`：单线程，可克隆（Rc<Fn>）
@@ -164,10 +164,10 @@ assert_eq!(supplier.get(), 3);
 ### 使用 Function（函数）
 
 ```rust
-use prism3_function::{BoxFunction, Function};
+use prism3_function::{BoxOnceFunction, Function};
 
 // 链式调用函数进行数据转换
-let parse_and_double = BoxFunction::new(|s: String| s.parse::<i32>().ok())
+let parse_and_double = BoxOnceFunction::new(|s: String| s.parse::<i32>().ok())
     .and_then(|opt| opt.unwrap_or(0))
     .and_then(|x| x * 2);
 
@@ -208,7 +208,7 @@ assert_eq!(result, vec![2, 4, 6, 8, 10]);
 | Predicate | BoxPredicate | ArcPredicate | RcPredicate |
 | Consumer | BoxConsumer | ArcConsumer | RcConsumer |
 | Supplier | BoxSupplier | ArcSupplier | RcSupplier |
-| Function | BoxFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
+| Function | BoxOnceFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
 | Transformer | BoxTransformer<br>BoxFnTransformer | ArcFnTransformer | RcFnTransformer |
 
 **图例：**

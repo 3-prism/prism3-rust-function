@@ -645,7 +645,7 @@ where
 ### 设计概述
 
 定义 `Function<T, R>` trait 作为统一接口，然后提供多种具体实现：
-- `BoxFunction<T, R>`：基于 `Box<dyn FnOnce>`，单一所有权，一次性使用
+- `BoxOnceFunction<T, R>`：基于 `Box<dyn FnOnce>`，单一所有权，一次性使用
 - `BoxFnFunction<T, R>`：基于 `Box<dyn Fn>`，可重复调用，单一所有权
 - `ArcFnFunction<T, R>`：基于 `Arc<dyn Fn + Send + Sync>`，可重复调用，多线程共享
 - `RcFnFunction<T, R>`：基于 `Rc<dyn Fn>`，可重复调用，单线程共享
@@ -666,14 +666,14 @@ pub trait Function<T, R> {
 }
 
 // ============================================================================
-// 2. BoxFunction - 一次性使用，基于 FnOnce
+// 2. BoxOnceFunction - 一次性使用，基于 FnOnce
 // ============================================================================
 
-pub struct BoxFunction<T, R> {
+pub struct BoxOnceFunction<T, R> {
     f: Box<dyn FnOnce(T) -> R>,
 }
 
-impl<T, R> BoxFunction<T, R>
+impl<T, R> BoxOnceFunction<T, R>
 where
     T: 'static,
     R: 'static,
@@ -682,31 +682,31 @@ where
     where
         F: FnOnce(T) -> R + 'static,
     {
-        BoxFunction { f: Box::new(f) }
+        BoxOnceFunction { f: Box::new(f) }
     }
 
-    pub fn identity() -> BoxFunction<T, T> {
-        BoxFunction::new(|x| x)
+    pub fn identity() -> BoxOnceFunction<T, T> {
+        BoxOnceFunction::new(|x| x)
     }
 
-    pub fn and_then<S, G>(self, after: G) -> BoxFunction<T, S>
+    pub fn and_then<S, G>(self, after: G) -> BoxOnceFunction<T, S>
     where
         S: 'static,
         G: FnOnce(R) -> S + 'static,
     {
-        BoxFunction::new(move |x| after((self.f)(x)))
+        BoxOnceFunction::new(move |x| after((self.f)(x)))
     }
 
-    pub fn compose<S, G>(self, before: G) -> BoxFunction<S, R>
+    pub fn compose<S, G>(self, before: G) -> BoxOnceFunction<S, R>
     where
         S: 'static,
         G: FnOnce(S) -> T + 'static,
     {
-        BoxFunction::new(move |x| (self.f)(before(x)))
+        BoxOnceFunction::new(move |x| (self.f)(before(x)))
     }
 }
 
-impl<T, R> Function<T, R> for BoxFunction<T, R> {
+impl<T, R> Function<T, R> for BoxOnceFunction<T, R> {
     fn apply(self, input: T) -> R {
         (self.f)(input)
     }
@@ -866,24 +866,24 @@ where
 
 // 为闭包提供组合方法的扩展 trait
 pub trait FnFunctionOps<T, R>: FnOnce(T) -> R + Sized {
-    fn and_then<S, G>(self, after: G) -> BoxFunction<T, S>
+    fn and_then<S, G>(self, after: G) -> BoxOnceFunction<T, S>
     where
         Self: 'static,
         G: FnOnce(R) -> S + 'static,
         T: 'static,
         S: 'static,
     {
-        BoxFunction::new(move |x| after(self(x)))
+        BoxOnceFunction::new(move |x| after(self(x)))
     }
 
-    fn compose<S, G>(self, before: G) -> BoxFunction<S, R>
+    fn compose<S, G>(self, before: G) -> BoxOnceFunction<S, R>
     where
         Self: 'static,
         G: FnOnce(S) -> T + 'static,
         S: 'static,
         R: 'static,
     {
-        BoxFunction::new(move |x| self(before(x)))
+        BoxOnceFunction::new(move |x| self(before(x)))
     }
 }
 
@@ -894,16 +894,16 @@ impl<T, R, F> FnFunctionOps<T, R> for F where F: FnOnce(T) -> R {}
 
 ```rust
 // ============================================================================
-// 1. BoxFunction - 一次性使用场景
+// 1. BoxOnceFunction - 一次性使用场景
 // ============================================================================
 
-let func = BoxFunction::new(|x: i32| x * 2);
+let func = BoxOnceFunction::new(|x: i32| x * 2);
 let result = func.apply(21);
 assert_eq!(result, 42);
 // func 已被消耗，不能再次使用
 
 // 方法链
-let pipeline = BoxFunction::new(|x: i32| x + 1)
+let pipeline = BoxOnceFunction::new(|x: i32| x + 1)
     .and_then(|x| x * 2)
     .and_then(|x| x.to_string());
 assert_eq!(pipeline.apply(5), "12");
@@ -981,7 +981,7 @@ assert_eq!(func.apply(5), 10);
 // ============================================================================
 
 let closure = |x: i32| x + 1;
-let pipeline = closure.and_then(|x| x * 2); // 返回 BoxFunction
+let pipeline = closure.and_then(|x| x * 2); // 返回 BoxOnceFunction
 assert_eq!(pipeline.apply(5), 12);
 
 // ============================================================================
@@ -996,7 +996,7 @@ where
 }
 
 // 所有类型都可以传入
-let box_func = BoxFunction::new(|x: i32| x * 2);
+let box_func = BoxOnceFunction::new(|x: i32| x * 2);
 assert_eq!(apply_function(box_func, 21), 42);
 
 let closure = |x: i32| x * 2;
@@ -1042,7 +1042,7 @@ assert_eq!(arc_func.apply(10), 20);
 
 #### 1. **完美的语义清晰度**
 
-- ✅ **名称即文档**：`BoxFunction`（一次性）、`BoxFnFunction`（可重复）、`ArcFnFunction`（线程安全）、`RcFnFunction`（单线程共享）
+- ✅ **名称即文档**：`BoxOnceFunction`（一次性）、`BoxFnFunction`（可重复）、`ArcFnFunction`（线程安全）、`RcFnFunction`（单线程共享）
 - ✅ **对称的设计**：四个类型功能对称，易于理解和使用
 - ✅ **与标准库一致**：命名模式与 Rust 标准库的智能指针一致
 
@@ -1058,7 +1058,7 @@ assert_eq!(arc_func.apply(10), 20);
 
 | 类型 | 所有权 | 可调用次数 | 克隆 | 线程安全 | API | 适用场景 |
 |:---|:---|:---|:---|:---:|:---|:---|
-| `BoxFunction` | 单一 | 一次 | ❌ | ❌ | `self` | 一次性转换、管道构建 |
+| `BoxOnceFunction` | 单一 | 一次 | ❌ | ❌ | `self` | 一次性转换、管道构建 |
 | `BoxFnFunction` | 单一 | 多次 | ❌ | ❌ | `&self` | 本地重复使用 |
 | `ArcFnFunction` | 共享 | 多次 | ✅ | ✅ | `&self` | 多线程共享、配置 |
 | `RcFnFunction` | 共享 | 多次 | ✅ | ❌ | `&self` | 单线程复用、回调 |
@@ -1094,7 +1094,7 @@ let cloned = combined.clone();
 
 #### 6. **满足所有使用场景**
 
-- ✅ **一次性转换**：`BoxFunction`
+- ✅ **一次性转换**：`BoxOnceFunction`
 - ✅ **重复调用**：`BoxFnFunction`、`ArcFnFunction`、`RcFnFunction`
 - ✅ **多线程共享**：`ArcFnFunction`
 - ✅ **单线程复用**：`RcFnFunction`
@@ -1104,7 +1104,7 @@ let cloned = combined.clone();
 #### 1. **仍然无法直接调用**
 
 ```rust
-let func = BoxFunction::new(|x: i32| x * 2);
+let func = BoxOnceFunction::new(|x: i32| x * 2);
 // assert_eq!(func(21), 42); // ❌ 不能直接调用
 assert_eq!(func.apply(21), 42); // ✅ 必须使用 .apply()
 ```
@@ -1115,7 +1115,7 @@ assert_eq!(func.apply(21), 42); // ✅ 必须使用 .apply()
 - ⚠️ 四种不同的实现及其区别
 - ⚠️ `FnOnce` vs `Fn` 的区别
 - ⚠️ 何时使用哪种类型
-- ⚠️ 为什么 `BoxFunction` 消耗 `self` 而 `ArcFnFunction` 使用 `&self`
+- ⚠️ 为什么 `BoxOnceFunction` 消耗 `self` 而 `ArcFnFunction` 使用 `&self`
 
 #### 3. **实现成本最高**
 
@@ -1126,7 +1126,7 @@ assert_eq!(func.apply(21), 42); // ✅ 必须使用 .apply()
 #### 4. **类型选择复杂**
 
 用户需要决策：
-- 是否需要重复调用？→ `BoxFunction` vs `BoxFnFunction/ArcFnFunction/RcFnFunction`
+- 是否需要重复调用？→ `BoxOnceFunction` vs `BoxFnFunction/ArcFnFunction/RcFnFunction`
 - 是否需要跨线程？→ `ArcFnFunction` vs `RcFnFunction`
 - 是否需要克隆？→ 影响组合方式
 
@@ -1197,7 +1197,7 @@ let r2 = func.apply(s2); // ✅ 但每次都要创建新的输入
 
 | 场景 | 方案一 | 方案二 | 方案三 |
 |:---|:---|:---|:---|
-| **一次性转换** | ✅ 最佳 | ✅ 适合 | ✅ BoxFunction |
+| **一次性转换** | ✅ 最佳 | ✅ 适合 | ✅ BoxOnceFunction |
 | **重复调用** | ❌ 不支持 | ❌ 不支持 | ✅ **最佳** |
 | **方法链** | ❌ 不适合 | ✅ 适合 | ✅ **最佳** |
 | **多线程共享** | ❌ 不支持 | ❌ 不支持 | ✅ **ArcFnFunction** |
@@ -1246,7 +1246,7 @@ let r2 = func.apply(s2); // ✅ 但每次都要创建新的输入
 - 建议：在文档中明确说明 Function 是一次性使用的
 
 **选项 B：渐进式升级到方案三**
-- 第一步：保留当前 `Function<T, R>` 作为 `BoxFunction` 的别名
+- 第一步：保留当前 `Function<T, R>` 作为 `BoxOnceFunction` 的别名
 - 第二步：添加 `ArcFnFunction` 和 `RcFnFunction` 用于重复调用场景
 - 第三步：定义统一的 `Transformer<T, R>` trait
 - 优点：向后兼容，功能全面
