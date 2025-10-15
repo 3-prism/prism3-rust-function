@@ -1,0 +1,30 @@
+[package]
+name = "prism3-function"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Hu Haixing <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/3-prism/prism3-rust-function"
+description = "Common functional programming type aliases for Rust, providing Java-style functional interfaces"
+homepage = "https://github.com/3-prism/prism3-rust-function"
+documentation = "https://docs.rs/prism3-function"
+readme = "README.md"
+keywords = ["functional", "predicate", "function", "consumer", "supplier"]
+categories = ["development-tools", "rust-patterns"]
+exclude = [
+    "coverage.sh",
+    "COVERAGE.md",
+    "COVERAGE.zh_CN.md",
+    ".circleci/*",
+    "ci-check.sh",
+    ".llvm-cov.toml",
+    ".cargo-audit.toml.example",
+]
+
+[lib]
+name = "prism3_function"
+doctest = false
+
+[dependencies]
+
