@@ -1373,6 +1373,7 @@ impl<T> BoxPredicate<T> {
     }
 
     /// NOT composition
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> BoxPredicate<T>
     where
         T: 'static,
