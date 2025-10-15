@@ -905,15 +905,14 @@ mod tests {
 
             // Clone before conversion to keep the original
             let values1 = vec![1, 2, 3];
-            let result1: Vec<i32> = values1.into_iter()
+            let result1: Vec<i32> = values1
+                .into_iter()
                 .map(transformer.clone().into_fn())
                 .collect();
 
             // Original transformer is still usable
             let values2 = vec![4, 5];
-            let result2: Vec<i32> = values2.into_iter()
-                .map(transformer.into_fn())
-                .collect();
+            let result2: Vec<i32> = values2.into_iter().map(transformer.into_fn()).collect();
 
             assert_eq!(result1, vec![2, 4, 6]);
             assert_eq!(result2, vec![8, 10]);
@@ -925,15 +924,14 @@ mod tests {
 
             // Clone before conversion to keep the original
             let values1 = vec![1, 2, 3];
-            let result1: Vec<i32> = values1.into_iter()
+            let result1: Vec<i32> = values1
+                .into_iter()
                 .map(transformer.clone().into_fn())
                 .collect();
 
             // Original transformer is still usable
             let values2 = vec![4, 5];
-            let result2: Vec<i32> = values2.into_iter()
-                .map(transformer.into_fn())
-                .collect();
+            let result2: Vec<i32> = values2.into_iter().map(transformer.into_fn()).collect();
 
             assert_eq!(result1, vec![2, 4, 6]);
             assert_eq!(result2, vec![8, 10]);
@@ -945,7 +943,8 @@ mod tests {
             let values = vec![1, 2, 3, 4, 5];
 
             // Clone before conversion to keep the original
-            let result: Vec<i32> = values.into_iter()
+            let result: Vec<i32> = values
+                .into_iter()
                 .map(transformer.clone().into_fn())
                 .collect();
 
@@ -960,7 +959,8 @@ mod tests {
             let values = vec![1, 2, 3, 4, 5];
 
             // Clone before conversion to keep the original
-            let result: Vec<i32> = values.into_iter()
+            let result: Vec<i32> = values
+                .into_iter()
                 .map(transformer.clone().into_fn())
                 .collect();
 
