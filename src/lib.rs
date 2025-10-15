@@ -8,8 +8,13 @@
  ******************************************************************************/
 //! # Prism3 Function
 //!
-//! Provides alias definitions for common function types, similar to functional interfaces in Java.
-//! These type aliases simplify type declarations in functional programming, providing better readability and maintainability.
+//! Provides functional programming abstractions for Rust, including:
+//!
+//! - **Function types**: Immutable, mutable, and consuming transformations
+//! - **Consumer types**: Functions that consume values without returning
+//! - **Predicate types**: Functions that test values and return boolean
+//! - **Supplier types**: Functions that produce values without input
+//! - **Transformer types**: Specialized transformation utilities
 //!
 //! # Author
 //!
@@ -23,7 +28,9 @@ pub mod transformer;
 
 pub use consumer::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
 pub use function::{
-    ArcFnFunction, BoxFnFunction, BoxFunction, FnFunctionOps, Function, RcFnFunction,
+    ArcFunction, ArcFunctionMut, ArcFunctionOnce, BoxFunction, BoxFunctionMut,
+    BoxFunctionOnce, Function, FunctionMut, FunctionOnce, RcFunction,
+    RcFunctionMut, RcFunctionOnce,
 };
 pub use predicate::{ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate};
 pub use supplier::{ArcSupplier, BoxSupplier, FnSupplierOps, RcSupplier, Supplier};
