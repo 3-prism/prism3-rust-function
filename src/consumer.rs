@@ -160,6 +160,16 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 // ============================================================================
+// Type Aliases
+// ============================================================================
+
+/// Type alias for Arc-wrapped mutable consumer function
+type ArcMutConsumerFn<T> = Arc<Mutex<dyn FnMut(&mut T) + Send>>;
+
+/// Type alias for Rc-wrapped mutable consumer function
+type RcMutConsumerFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
+
+// ============================================================================
 // Consumer Trait - Unified Consumer Interface
 // ============================================================================
 
@@ -1386,7 +1396,7 @@ impl<T> Consumer<T> for BoxConsumer<T> {
 ///
 /// Haixing Hu
 pub struct ArcConsumer<T> {
-    func: Arc<Mutex<dyn FnMut(&mut T) + Send>>,
+    func: ArcMutConsumerFn<T>,
 }
 
 impl<T> ArcConsumer<T>
@@ -1692,7 +1702,7 @@ impl<T> Clone for ArcConsumer<T> {
 ///
 /// Haixing Hu
 pub struct RcConsumer<T> {
-    func: Rc<RefCell<dyn FnMut(&mut T)>>,
+    func: RcMutConsumerFn<T>,
 }
 
 impl<T> RcConsumer<T>
