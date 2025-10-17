@@ -1,0 +1,280 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+//! # ConsumerOnce Tests
+//!
+//! Unit tests for the ConsumerOnce trait and its implementations.
+
+use prism3_function::{BoxConsumerOnce, ConsumerOnce, FnConsumerOnceOps};
+use std::sync::{Arc, Mutex};
+
+// ============================================================================
+// BoxConsumerOnce Tests
+// ============================================================================
+
+#[cfg(test)]
+mod box_consumer_once_tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_accept() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
+
+    #[test]
+    fn test_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let chained = BoxConsumerOnce::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x * 2);
+        })
+        .and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 10);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    }
+
+    #[test]
+    fn test_and_then_multiple() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let l3 = log.clone();
+        let chained = BoxConsumerOnce::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x * 2);
+        })
+        .and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 10);
+        })
+        .and_then(move |x: &i32| {
+            l3.lock().unwrap().push(*x - 1);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15, 4]);
+    }
+
+    #[test]
+    fn test_noop() {
+        let noop = BoxConsumerOnce::<i32>::noop();
+        noop.accept(&42);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_print() {
+        let print = BoxConsumerOnce::<i32>::print();
+        print.accept(&42);
+        // Should print "42"
+    }
+
+    #[test]
+    fn test_print_with() {
+        let print = BoxConsumerOnce::<i32>::print_with("Value: ");
+        print.accept(&42);
+        // Should print "Value: 42"
+    }
+
+    #[test]
+    fn test_if_then_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let conditional = BoxConsumerOnce::if_then(
+            |x: &i32| *x > 0,
+            move |x: &i32| {
+                l.lock().unwrap().push(*x + 1);
+            },
+        );
+        conditional.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![6]);
+    }
+
+    #[test]
+    fn test_if_then_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let conditional = BoxConsumerOnce::if_then(
+            |x: &i32| *x > 0,
+            move |x: &i32| {
+                l.lock().unwrap().push(*x + 1);
+            },
+        );
+        conditional.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_if_then_else_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let conditional = BoxConsumerOnce::if_then_else(
+            |x: &i32| *x > 0,
+            move |x: &i32| {
+                l1.lock().unwrap().push(*x + 1);
+            },
+            move |x: &i32| {
+                l2.lock().unwrap().push(*x - 1);
+            },
+        );
+        conditional.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![6]);
+    }
+
+    #[test]
+    fn test_if_then_else_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let conditional = BoxConsumerOnce::if_then_else(
+            |x: &i32| *x > 0,
+            move |x: &i32| {
+                l1.lock().unwrap().push(*x + 1);
+            },
+            move |x: &i32| {
+                l2.lock().unwrap().push(*x - 1);
+            },
+        );
+        conditional.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![-6]);
+    }
+
+    #[test]
+    fn test_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let boxed = consumer.into_box();
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let func = consumer.into_fn();
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
+
+    #[test]
+    fn test_into_fn_consumes_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let func = consumer.into_fn();
+        // FnOnce can only be called once, so we call it once
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+        // Note: Cannot call func again because it's FnOnce
+    }
+}
+
+// ============================================================================
+// Closure Tests
+// ============================================================================
+
+#[cfg(test)]
+mod closure_tests {
+    use super::*;
+
+    #[test]
+    fn test_closure_accept() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        };
+        closure.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
+
+    #[test]
+    fn test_closure_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let chained = (move |x: &i32| {
+            l1.lock().unwrap().push(*x * 2);
+        })
+        .and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 10);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    }
+
+    #[test]
+    fn test_closure_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        };
+        let boxed = closure.into_box();
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
+
+    #[test]
+    fn test_closure_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        };
+        let func = closure.into_fn();
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
+
+    #[test]
+    fn test_closure_multi_step_chaining() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let l3 = log.clone();
+        let chained = (move |x: &i32| {
+            l1.lock().unwrap().push(*x * 2);
+        })
+        .and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 10);
+        })
+        .and_then(move |x: &i32| {
+            l3.lock().unwrap().push(*x / 2);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15, 2]);
+    }
+}
