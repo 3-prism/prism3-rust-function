@@ -355,7 +355,7 @@ where
     R: 'static,
 {
     /// 创建带名称的 Function（用于调试）
-    pub fn with_name(self, _name: impl Into<String>) -> Self {
+    pub fn with_name(self, _name: &str) -> Self {
         // 由于 FnOnce 限制，无法存储名称
         // 这只是一个示例，说明 struct 的扩展性
         self
