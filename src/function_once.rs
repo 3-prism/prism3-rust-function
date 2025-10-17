@@ -397,10 +397,7 @@ where
     /// assert_eq!(double.apply(21), 42);
     /// assert_eq!(composed.apply(21), "42");
     /// ```
-    pub fn and_then<S>(
-        &self,
-        after: &ArcFunctionOnce<R, S>,
-    ) -> ArcFunctionOnce<T, S>
+    pub fn and_then<S>(&self, after: &ArcFunctionOnce<R, S>) -> ArcFunctionOnce<T, S>
     where
         S: Send + Sync + 'static,
     {
@@ -440,10 +437,7 @@ where
     ///
     /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose<S>(
-        &self,
-        before: &ArcFunctionOnce<S, T>,
-    ) -> ArcFunctionOnce<S, R>
+    pub fn compose<S>(&self, before: &ArcFunctionOnce<S, T>) -> ArcFunctionOnce<S, R>
     where
         S: Send + Sync + 'static,
     {
@@ -633,10 +627,7 @@ where
     /// assert_eq!(double.apply(21), 42);
     /// assert_eq!(composed.apply(21), "42");
     /// ```
-    pub fn and_then<S>(
-        &self,
-        after: &RcFunctionOnce<R, S>,
-    ) -> RcFunctionOnce<T, S>
+    pub fn and_then<S>(&self, after: &RcFunctionOnce<R, S>) -> RcFunctionOnce<T, S>
     where
         S: 'static,
     {
@@ -676,10 +667,7 @@ where
     ///
     /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose<S>(
-        &self,
-        before: &RcFunctionOnce<S, T>,
-    ) -> RcFunctionOnce<S, R>
+    pub fn compose<S>(&self, before: &RcFunctionOnce<S, T>) -> RcFunctionOnce<S, R>
     where
         S: 'static,
     {
@@ -859,4 +847,3 @@ where
         }
     }
 }
-

@@ -290,7 +290,9 @@ impl<T, R> Function<T, R> for BoxFunction<T, R> {
         T: 'static,
         R: 'static,
     {
-        RcFunction { f: Rc::from(self.f) }
+        RcFunction {
+            f: Rc::from(self.f),
+        }
     }
 
     fn into_arc(self) -> ArcFunction<T, R>

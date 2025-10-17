@@ -355,11 +355,14 @@ impl<T, R> FunctionMut<T, R> for BoxFunctionMut<T, R> {
 /// - **Thread Safety**: Thread-safe (uses `Mutex`)
 /// - **Clonable**: Cheap cloning via `Arc::clone`
 ///
+/// 线程安全的可变函数类型别名
+type ArcFunctionMutFn<T, R> = Arc<Mutex<dyn FnMut(&mut T) -> R + Send>>;
+
 /// # Author
 ///
 /// Hu Haixing
 pub struct ArcFunctionMut<T, R> {
-    f: Arc<Mutex<dyn FnMut(&mut T) -> R + Send>>,
+    f: ArcFunctionMutFn<T, R>,
 }
 
 impl<T, R> ArcFunctionMut<T, R>
@@ -608,11 +611,14 @@ impl<T, R> Clone for ArcFunctionMut<T, R> {
 /// - **Thread Safety**: Not thread-safe (no `Send + Sync`)
 /// - **Clonable**: Cheap cloning via `Rc::clone`
 ///
+/// 单线程共享的可变函数类型别名
+type RcFunctionMutFn<T, R> = Rc<RefCell<dyn FnMut(&mut T) -> R>>;
+
 /// # Author
 ///
 /// Hu Haixing
 pub struct RcFunctionMut<T, R> {
-    f: Rc<RefCell<dyn FnMut(&mut T) -> R>>,
+    f: RcFunctionMutFn<T, R>,
 }
 
 impl<T, R> RcFunctionMut<T, R>
@@ -907,4 +913,3 @@ where
         self
     }
 }
-
