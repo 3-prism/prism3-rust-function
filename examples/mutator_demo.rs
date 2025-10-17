@@ -31,7 +31,7 @@ fn main() {
     });
     let mut value = 5;
     println!("初始值: {}", value);
-    mutator.accept(&mut value);
+    mutator.mutate(&mut value);
     println!("执行 BoxMutator 后: {}\n", value);
 
     // ========================================================================
@@ -52,7 +52,7 @@ fn main() {
 
     let mut value = 5;
     println!("初始值: {}", value);
-    chained.accept(&mut value);
+    chained.mutate(&mut value);
     println!("结果: {} (5 * 2 + 10 = 20, 20 * 20 = 400)\n", value);
 
     // ========================================================================
@@ -65,7 +65,7 @@ fn main() {
 
     let mut value = 5;
     println!("初始值: {}", value);
-    closure_chain.accept(&mut value);
+    closure_chain.mutate(&mut value);
     println!("结果: {} (5 * 2 + 10 = 20)\n", value);
 
     // ========================================================================
@@ -78,7 +78,7 @@ fn main() {
     let mut noop = BoxMutator::<i32>::noop();
     let mut value = 42;
     println!("noop 前: {}", value);
-    noop.accept(&mut value);
+    noop.mutate(&mut value);
     println!("noop 后: {} (未改变)\n", value);
 
     // ========================================================================
@@ -96,8 +96,8 @@ fn main() {
         "if_then 前 - positive: {}, negative: {}",
         positive, negative
     );
-    increment_if_positive.accept(&mut positive);
-    increment_if_positive.accept(&mut negative);
+    increment_if_positive.mutate(&mut positive);
+    increment_if_positive.mutate(&mut negative);
     println!(
         "if_then 后 - positive: {}, negative: {}\n",
         positive, negative
@@ -116,8 +116,8 @@ fn main() {
         "if_then_else 前 - positive: {}, negative: {}",
         positive, negative
     );
-    adjust.accept(&mut positive);
-    adjust.accept(&mut negative);
+    adjust.mutate(&mut positive);
+    adjust.mutate(&mut negative);
     println!(
         "if_then_else 后 - positive: {}, negative: {}\n",
         positive, negative
@@ -136,7 +136,7 @@ fn main() {
     let handle = thread::spawn(move || {
         let mut value = 5;
         let mut mutator = shared_clone;
-        mutator.accept(&mut value);
+        mutator.mutate(&mut value);
         println!("线程中: 5 * 2 = {}", value);
         value
     });
@@ -144,7 +144,7 @@ fn main() {
     // 主线程使用
     let mut value = 3;
     let mut mutator = shared;
-    mutator.accept(&mut value);
+    mutator.mutate(&mut value);
     println!("主线程: 3 * 2 = {}", value);
 
     let thread_result = handle.join().unwrap();
@@ -165,18 +165,18 @@ fn main() {
 
     let mut value1 = 5;
     let mut p1 = pipeline1;
-    p1.accept(&mut value1);
+    p1.mutate(&mut value1);
     println!("pipeline1 (double then add): 5 -> {}", value1);
 
     let mut value2 = 5;
     let mut p2 = pipeline2;
-    p2.accept(&mut value2);
+    p2.mutate(&mut value2);
     println!("pipeline2 (add then double): 5 -> {}", value2);
 
     // double 和 add_ten 仍然可用
     let mut value3 = 10;
     let mut d = double;
-    d.accept(&mut value3);
+    d.mutate(&mut value3);
     println!("原始 double 仍可用: 10 -> {}\n", value3);
 
     // ========================================================================
@@ -193,17 +193,17 @@ fn main() {
 
     let mut value1 = 5;
     let mut c1 = clone1;
-    c1.accept(&mut value1);
+    c1.mutate(&mut value1);
     println!("clone1: 5 -> {}", value1);
 
     let mut value2 = 3;
     let mut c2 = clone2;
-    c2.accept(&mut value2);
+    c2.mutate(&mut value2);
     println!("clone2: 3 -> {}", value2);
 
     let mut value3 = 7;
     let mut c3 = rc_mutator;
-    c3.accept(&mut value3);
+    c3.mutate(&mut value3);
     println!("原始: 7 -> {}\n", value3);
 
     // ========================================================================
@@ -220,12 +220,12 @@ fn main() {
 
     let mut value1 = 5;
     let mut p1 = pipeline1;
-    p1.accept(&mut value1);
+    p1.mutate(&mut value1);
     println!("pipeline1 (double then add): 5 -> {}", value1);
 
     let mut value2 = 5;
     let mut p2 = pipeline2;
-    p2.accept(&mut value2);
+    p2.mutate(&mut value2);
     println!("pipeline2 (add then double): 5 -> {}\n", value2);
 
     // ========================================================================
@@ -236,7 +236,7 @@ fn main() {
 
     fn apply_to_all<M: Mutator<i32>>(mutator: &mut M, values: &mut [i32]) {
         for value in values.iter_mut() {
-            mutator.accept(value);
+            mutator.mutate(value);
         }
     }
 
@@ -289,15 +289,15 @@ fn main() {
     });
 
     let mut value1 = -50;
-    pipeline.accept(&mut value1);
+    pipeline.mutate(&mut value1);
     println!("-50 -> {}", value1);
 
     let mut value2 = 200;
-    pipeline.accept(&mut value2);
+    pipeline.mutate(&mut value2);
     println!("200 -> {}", value2);
 
     let mut value3 = 30;
-    pipeline.accept(&mut value3);
+    pipeline.mutate(&mut value3);
     println!("30 -> {}\n", value3);
 
     // ========================================================================
@@ -312,7 +312,7 @@ fn main() {
 
     let mut text = String::from("Hello World");
     println!("原始: {}", text);
-    string_processor.accept(&mut text);
+    string_processor.mutate(&mut text);
     println!("处理后: {}\n", text);
 
     // ========================================================================
@@ -325,35 +325,35 @@ fn main() {
     let closure = |x: &mut i32| *x *= 2;
     let mut box_mut = closure.into_box();
     let mut value = 5;
-    box_mut.accept(&mut value);
+    box_mut.mutate(&mut value);
     println!("闭包 -> BoxMutator: 5 -> {}", value);
 
     // 闭包 -> RcMutator
     let closure = |x: &mut i32| *x *= 2;
     let mut rc_mut = closure.into_rc();
     let mut value = 5;
-    rc_mut.accept(&mut value);
+    rc_mut.mutate(&mut value);
     println!("闭包 -> RcMutator: 5 -> {}", value);
 
     // 闭包 -> ArcMutator
     let closure = |x: &mut i32| *x *= 2;
     let mut arc_mut = closure.into_arc();
     let mut value = 5;
-    arc_mut.accept(&mut value);
+    arc_mut.mutate(&mut value);
     println!("闭包 -> ArcMutator: 5 -> {}", value);
 
     // BoxMutator -> RcMutator
     let box_mut = BoxMutator::new(|x: &mut i32| *x *= 2);
     let mut rc_mut = box_mut.into_rc();
     let mut value = 5;
-    rc_mut.accept(&mut value);
+    rc_mut.mutate(&mut value);
     println!("BoxMutator -> RcMutator: 5 -> {}", value);
 
     // RcMutator -> BoxMutator
     let rc_mut = RcMutator::new(|x: &mut i32| *x *= 2);
     let mut box_mut = rc_mut.into_box();
     let mut value = 5;
-    box_mut.accept(&mut value);
+    box_mut.mutate(&mut value);
     println!("RcMutator -> BoxMutator: 5 -> {}\n", value);
 
     // ========================================================================
@@ -374,7 +374,7 @@ fn main() {
 
     let mut point = Point { x: 3, y: 4 };
     println!("原始点: {:?}", point);
-    processor.accept(&mut point);
+    processor.mutate(&mut point);
     println!("处理后: {:?}\n", point);
 
     println!("=== 所有示例完成 ===");

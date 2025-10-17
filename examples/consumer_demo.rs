@@ -11,12 +11,18 @@
 //!
 //! 本示例演示了 Consumer 的三种实现（BoxConsumer、ArcConsumer、RcConsumer）
 //! 以及它们的各种使用方式。
+//!
+//! Consumer 用于消费（读取）值，不修改原始值。
+//! 如果需要修改值，请参考 mutator_demo.rs
 
 use prism3_function::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 fn main() {
     println!("=== Consumer 示例 ===\n");
+    println!("注意：Consumer 只读取值，不修改原始值");
+    println!("如需修改值，请参考 mutator_demo.rs\n");
 
     // ========================================================================
     // 示例 1: BoxConsumer 基本使用
@@ -25,12 +31,12 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     let mut consumer = BoxConsumer::new(|x: &i32| {
-        println!("处理值: {}", x * 2);
+        println!("读取并计算: {} * 2 = {}", x, x * 2);
     });
     let value = 5;
-    println!("初始值: {}", value);
+    println!("值: {}", value);
     consumer.accept(&value);
-    println!("执行 BoxConsumer 后\n");
+    println!("值仍为: {} (未被修改)\n", value);
 
     // ========================================================================
     // 示例 2: BoxConsumer 方法链
@@ -38,7 +44,6 @@ fn main() {
     println!("示例 2: BoxConsumer 方法链");
     println!("{}", "-".repeat(50));
 
-    use std::sync::{Arc, Mutex};
     let results = Arc::new(Mutex::new(Vec::new()));
     let r1 = results.clone();
     let r2 = results.clone();
@@ -58,7 +63,8 @@ fn main() {
     let value = 5;
     println!("初始值: {}", value);
     chained.accept(&value);
-    println!("收集的结果: {:?}\n", *results.lock().unwrap());
+    println!("收集的结果: {:?}", *results.lock().unwrap());
+    println!("原始值: {} (未被修改)\n", value);
 
     // ========================================================================
     // 示例 3: 闭包扩展方法
@@ -72,14 +78,16 @@ fn main() {
 
     let mut closure_chain = (move |x: &i32| {
         *r1.lock().unwrap() = *x * 2;
-    }).and_then(move |_x: &i32| {
+    })
+    .and_then(move |_x: &i32| {
         *r2.lock().unwrap() += 10;
     });
 
     let value = 5;
     println!("初始值: {}", value);
     closure_chain.accept(&value);
-    println!("结果: {}\n", *result.lock().unwrap());
+    println!("计算结果: {}", *result.lock().unwrap());
+    println!("原始值: {} (未被修改)\n", value);
 
     // ========================================================================
     // 示例 4: BoxConsumer 工厂方法
@@ -88,13 +96,14 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     // noop
+    println!("noop - 不做任何操作:");
     let mut noop = BoxConsumer::<i32>::noop();
     let value = 42;
-    println!("noop 前: {}", value);
     noop.accept(&value);
-    println!("noop 后: {} (未改变)\n", value);
+    println!("值: {}\n", value);
 
     // print
+    print!("print - 打印值: ");
     let mut print = BoxConsumer::<i32>::print();
     let value = 42;
     print.accept(&value);
@@ -113,32 +122,30 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     // if_then
-    let mut increment_if_positive = BoxConsumer::if_then(
+    let mut check_positive = BoxConsumer::if_then(
         |x: &i32| *x > 0,
-        |x: &i32| println!("正数: {}", x)
+        |x: &i32| println!("正数: {}", x),
     );
 
     let positive = 5;
     let negative = -5;
-    print!("if_then - positive: {}, ", positive);
-    increment_if_positive.accept(&positive);
-    print!("negative: {}, ", negative);
-    increment_if_positive.accept(&negative);
-    println!();
+    print!("检查 {}: ", positive);
+    check_positive.accept(&positive);
+    print!("检查 {}: ", negative);
+    check_positive.accept(&negative);
+    println!("(负数不打印)\n");
 
     // if_then_else
-    let mut adjust = BoxConsumer::if_then_else(
+    let mut categorize = BoxConsumer::if_then_else(
         |x: &i32| *x > 0,
         |x: &i32| println!("正数: {}", x),
-        |x: &i32| println!("负数: {}", x),
+        |x: &i32| println!("非正数: {}", x),
     );
 
     let positive = 10;
     let negative = -10;
-    print!("if_then_else - positive: {}, ", positive);
-    adjust.accept(&positive);
-    print!("negative: {}, ", negative);
-    adjust.accept(&negative);
+    categorize.accept(&positive);
+    categorize.accept(&negative);
     println!();
 
     // ========================================================================
@@ -181,12 +188,12 @@ fn main() {
 
     let value1 = 5;
     let mut p1 = pipeline1;
-    print!("pipeline1 (double then add) 处理 5: ");
+    print!("pipeline1 处理 5: ");
     p1.accept(&value1);
 
     let value2 = 5;
     let mut p2 = pipeline2;
-    print!("pipeline2 (add then double) 处理 5: ");
+    print!("pipeline2 处理 5: ");
     p2.accept(&value2);
 
     // double 和 add_ten 仍然可用
@@ -238,12 +245,12 @@ fn main() {
 
     let value1 = 5;
     let mut p1 = pipeline1;
-    print!("pipeline1 (double then add) 处理 5: ");
+    print!("pipeline1 处理 5: ");
     p1.accept(&value1);
 
     let value2 = 5;
     let mut p2 = pipeline2;
-    print!("pipeline2 (add then double) 处理 5: ");
+    print!("pipeline2 处理 5: ");
     p2.accept(&value2);
     println!();
 
@@ -253,102 +260,85 @@ fn main() {
     println!("示例 10: 统一的 Consumer trait");
     println!("{}", "-".repeat(50));
 
-    fn apply_to_all<C: Consumer<i32>>(consumer: &mut C, values: &[i32]) {
+    fn log_all<C: Consumer<i32>>(consumer: &mut C, values: &[i32]) {
         for value in values.iter() {
             consumer.accept(value);
         }
     }
 
-    let values1 = vec![1, 2, 3, 4, 5];
+    let values = vec![1, 2, 3, 4, 5];
+
     let mut box_con = BoxConsumer::new(|x: &i32| print!("{} ", x * 2));
-    print!("使用 BoxConsumer 处理 {:?}: ", values1);
-    apply_to_all(&mut box_con, &values1);
+    print!("BoxConsumer 处理 {:?}: ", values);
+    log_all(&mut box_con, &values);
     println!();
 
-    let values2 = vec![1, 2, 3, 4, 5];
     let mut arc_con = ArcConsumer::new(|x: &i32| print!("{} ", x * 2));
-    print!("使用 ArcConsumer 处理 {:?}: ", values2);
-    apply_to_all(&mut arc_con, &values2);
+    print!("ArcConsumer 处理 {:?}: ", values);
+    log_all(&mut arc_con, &values);
     println!();
 
-    let values3 = vec![1, 2, 3, 4, 5];
     let mut rc_con = RcConsumer::new(|x: &i32| print!("{} ", x * 2));
-    print!("使用 RcConsumer 处理 {:?}: ", values3);
-    apply_to_all(&mut rc_con, &values3);
+    print!("RcConsumer 处理 {:?}: ", values);
+    log_all(&mut rc_con, &values);
     println!();
 
-    let values4 = vec![1, 2, 3, 4, 5];
     let mut closure = |x: &i32| print!("{} ", x * 2);
-    print!("使用闭包 处理 {:?}: ", values4);
-    apply_to_all(&mut closure, &values4);
+    print!("闭包 处理 {:?}: ", values);
+    log_all(&mut closure, &values);
     println!("\n");
 
     // ========================================================================
-    // 示例 11: 复杂数据处理管道
+    // 示例 11: 数据验证和日志记录
     // ========================================================================
-    println!("示例 11: 复杂数据处理管道");
+    println!("示例 11: 数据验证和日志记录");
     println!("{}", "-".repeat(50));
 
-    let mut pipeline = BoxConsumer::new(|x: &i32| {
-        // 验证：限制到 0-100
-        let clamped = if *x < 0 {
-            0
-        } else if *x > 100 {
-            100
+    let validator = BoxConsumer::new(|x: &i32| {
+        let status = if *x >= 0 && *x <= 100 {
+            "有效"
         } else {
-            *x
+            "超出范围"
         };
-        print!("验证后: {} -> ", clamped);
-    })
-    .and_then(|x: &i32| {
-        // 归一化：缩放到 0-10
-        let clamped = if *x < 0 { 0 } else if *x > 100 { 100 } else { *x };
-        let normalized = clamped / 10;
-        print!("归一化: {} -> ", normalized);
-    })
-    .and_then(|x: &i32| {
-        // 转换：平方
-        let clamped = if *x < 0 { 0 } else if *x > 100 { 100 } else { *x };
-        let normalized = clamped / 10;
-        let squared = normalized * normalized;
-        println!("平方: {}", squared);
+        println!("验证 {}: {}", x, status);
     });
 
-    print!("-50: ");
-    pipeline.accept(&-50);
+    let logger = BoxConsumer::new(|x: &i32| {
+        println!("记录到日志: 值={}, 平方={}", x, x * x);
+    });
 
-    print!("200: ");
-    pipeline.accept(&200);
+    let mut pipeline = validator.and_then(logger);
 
-    print!("30: ");
-    pipeline.accept(&30);
+    let test_values = vec![-50, 30, 200];
+    for value in test_values {
+        pipeline.accept(&value);
+    }
     println!();
 
     // ========================================================================
-    // 示例 12: 字符串处理
+    // 示例 12: 字符串分析
     // ========================================================================
-    println!("示例 12: 字符串处理");
+    println!("示例 12: 字符串分析");
     println!("{}", "-".repeat(50));
 
-    let mut string_processor = BoxConsumer::new(|s: &String| {
-        let no_space: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-        print!("去除空格: {} -> ", no_space);
+    let mut string_analyzer = BoxConsumer::new(|s: &String| {
+        println!("长度: {}", s.len());
     })
     .and_then(|s: &String| {
-        let no_space: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-        let lower = no_space.to_lowercase();
-        print!("小写: {} -> ", lower);
+        println!("小写形式: {}", s.to_lowercase());
     })
     .and_then(|s: &String| {
-        let no_space: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-        let lower = no_space.to_lowercase();
-        println!("添加后缀: {}!!!", lower);
+        println!("大写形式: {}", s.to_uppercase());
+    })
+    .and_then(|s: &String| {
+        let word_count = s.split_whitespace().count();
+        println!("单词数: {}", word_count);
     });
 
     let text = String::from("Hello World");
-    print!("原始: {} -> ", text);
-    string_processor.accept(&text);
-    println!();
+    println!("分析文本: \"{}\"", text);
+    string_analyzer.accept(&text);
+    println!("原始文本: \"{}\" (未被修改)\n", text);
 
     // ========================================================================
     // 示例 13: 类型转换
@@ -408,14 +398,56 @@ fn main() {
         y: i32,
     }
 
-    let mut processor = BoxConsumer::new(|p: &Point| println!("x * 2 = {}", p.x * 2))
-        .and_then(|p: &Point| println!("y * 2 = {}", p.y * 2))
-        .and_then(|p: &Point| println!("x + y = {}", p.x + p.y));
+    let mut analyzer = BoxConsumer::new(|p: &Point| {
+        println!("点的坐标: ({}, {})", p.x, p.y);
+    })
+    .and_then(|p: &Point| {
+        let distance = ((p.x * p.x + p.y * p.y) as f64).sqrt();
+        println!("到原点的距离: {:.2}", distance);
+    })
+    .and_then(|p: &Point| {
+        let quadrant = match (p.x >= 0, p.y >= 0) {
+            (true, true) => "第一象限",
+            (false, true) => "第二象限",
+            (false, false) => "第三象限",
+            (true, false) => "第四象限",
+        };
+        println!("所在象限: {}", quadrant);
+    });
 
     let point = Point { x: 3, y: 4 };
-    println!("处理点: {:?}", point);
-    processor.accept(&point);
-    println!();
+    println!("分析点: {:?}", point);
+    analyzer.accept(&point);
+    println!("原始点: {:?} (未被修改)\n", point);
+
+    // ========================================================================
+    // 示例 15: 数据收集和统计
+    // ========================================================================
+    println!("示例 15: 数据收集和统计");
+    println!("{}", "-".repeat(50));
+
+    let sum = Arc::new(Mutex::new(0));
+    let count = Arc::new(Mutex::new(0));
+    let sum_clone = sum.clone();
+    let count_clone = count.clone();
+
+    let mut collector = BoxConsumer::new(move |x: &i32| {
+        *sum_clone.lock().unwrap() += *x;
+        *count_clone.lock().unwrap() += 1;
+    });
+
+    let numbers = vec![10, 20, 30, 40, 50];
+    println!("数字: {:?}", numbers);
+    for num in &numbers {
+        collector.accept(num);
+    }
+
+    let total = *sum.lock().unwrap();
+    let cnt = *count.lock().unwrap();
+    println!("总和: {}", total);
+    println!("数量: {}", cnt);
+    println!("平均值: {:.2}\n", total as f64 / cnt as f64);
 
     println!("=== 所有示例完成 ===");
+    println!("\n提示：如需修改值的功能，请参考 mutator_demo.rs");
 }
