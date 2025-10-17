@@ -55,4 +55,3 @@ fn test_function_mut() {
     assert_eq!(arc.apply(&mut val3), 42);
     println!("✓ into_arc() 测试通过");
 }
-

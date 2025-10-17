@@ -55,8 +55,14 @@ fn main() {
 
     let mut val1 = 0;
     let mut val2 = 10;
-    println!("arc_increment.apply(&mut 0) = {}", arc_increment.apply(&mut val1));
-    println!("arc_cloned_mut.apply(&mut 10) = {}", arc_cloned_mut.apply(&mut val2));
+    println!(
+        "arc_increment.apply(&mut 0) = {}",
+        arc_increment.apply(&mut val1)
+    );
+    println!(
+        "arc_cloned_mut.apply(&mut 10) = {}",
+        arc_cloned_mut.apply(&mut val2)
+    );
     println!();
 
     // ====================================================================
@@ -72,8 +78,14 @@ fn main() {
 
     let mut val3 = 0;
     let mut val4 = 10;
-    println!("rc_increment.apply(&mut 0) = {}", rc_increment.apply(&mut val3));
-    println!("rc_cloned_mut.apply(&mut 10) = {}", rc_cloned_mut.apply(&mut val4));
+    println!(
+        "rc_increment.apply(&mut 0) = {}",
+        rc_increment.apply(&mut val3)
+    );
+    println!(
+        "rc_cloned_mut.apply(&mut 10) = {}",
+        rc_cloned_mut.apply(&mut val4)
+    );
     println!();
 
     // ====================================================================
@@ -99,10 +111,7 @@ fn main() {
     // ====================================================================
     println!("=== Trait Usage ===\n");
 
-    fn apply_function_mut<F: FunctionMut<i32, String>>(
-        f: &mut F,
-        x: &mut i32,
-    ) -> String {
+    fn apply_function_mut<F: FunctionMut<i32, String>>(f: &mut F, x: &mut i32) -> String {
         f.apply(x)
     }
 
@@ -112,8 +121,10 @@ fn main() {
     });
 
     let mut val = 10;
-    println!("Via trait mut: {}", apply_function_mut(&mut incrementer, &mut val));
+    println!(
+        "Via trait mut: {}",
+        apply_function_mut(&mut incrementer, &mut val)
+    );
 
     println!("\n=== Demo Complete ===");
 }
-

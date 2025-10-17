@@ -48,4 +48,3 @@ fn test_function_once() {
     assert_eq!(arc.apply("hello".to_string()), 5);
     println!("✓ into_arc() 测试通过");
 }
-

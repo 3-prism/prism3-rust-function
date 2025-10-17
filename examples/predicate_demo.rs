@@ -1,235 +1,346 @@
-use prism3_function::{ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate};
-use std::thread;
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+
+//! Comprehensive demonstration of the Predicate abstraction.
+//!
+//! This example shows:
+//! - Basic predicate usage with closures
+//! - BoxPredicate for single-ownership scenarios
+//! - RcPredicate for single-threaded reuse
+//! - ArcPredicate for multi-threaded scenarios
+//! - Logical composition (AND, OR, NOT)
+//! - Interior mutability patterns
+//! - Type conversions
+
+use prism3_function::predicate::{
+    ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate,
+};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 fn main() {
-    println!("=== Predicate 新 API 示例 ===\n");
+    println!("=== Predicate 使用示例 ===\n");
 
-    // Example 1: BoxPredicate - 单一所有权
-    println!("1. BoxPredicate 示例 (单一所有权):");
-    let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-    let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-
-    // 组合谓词 - 消耗所有权
-    let is_positive_and_even = is_positive.and(is_even);
-
-    let numbers = vec![-4, -3, 0, 3, 4, 7, 10];
-    println!("   测试数字: {:?}", numbers);
-    println!("   正数且偶数:");
-    for num in &numbers {
-        if is_positive_and_even.test(num) {
-            println!("     {}", num);
-        }
-    }
+    basic_closure_predicates();
     println!();
 
-    // Example 2: 使用闭包的 FnPredicateOps
-    println!("2. 闭包组合示例 (FnPredicateOps):");
-    let is_positive = |x: &i32| *x > 0;
-    let is_even = |x: &i32| x % 2 == 0;
+    box_predicate_examples();
+    println!();
 
-    // 闭包可以直接使用组合方法,返回 BoxPredicate
+    rc_predicate_examples();
+    println!();
+
+    arc_predicate_examples();
+    println!();
+
+    logical_composition_examples();
+    println!();
+
+    interior_mutability_examples();
+    println!();
+
+    practical_use_cases();
+}
+
+/// Basic closure predicate usage
+fn basic_closure_predicates() {
+    println!("--- 1. 闭包谓词基础用法 ---");
+
+    // Simple closure predicate
+    let is_positive = |x: &i32| *x > 0;
+    println!("5 是正数? {}", is_positive.test(&5));
+    println!("-3 是正数? {}", is_positive.test(&-3));
+
+    // Combining closures
+    let is_even = |x: &i32| x % 2 == 0;
+    let is_positive_and_even = is_positive.and(is_even);
+    println!("4 是正偶数? {}", is_positive_and_even.test(&4));
+    println!("5 是正偶数? {}", is_positive_and_even.test(&5));
+
+    // Using predicates with iterators
+    let numbers = vec![-2, -1, 0, 1, 2, 3, 4, 5];
+    let positives: Vec<_> = numbers
+        .iter()
+        .filter(|x| is_positive.test(x))
+        .copied()
+        .collect();
+    println!("正数: {:?}", positives);
+}
+
+/// BoxPredicate examples - single ownership
+fn box_predicate_examples() {
+    println!("--- 2. BoxPredicate 示例（单一所有权）---");
+
+    // Basic BoxPredicate
+    let pred = BoxPredicate::new(|x: &i32| *x > 0);
+    println!("BoxPredicate 测试 5: {}", pred.test(&5));
+
+    // Named predicate for better debugging
+    let named_pred =
+        BoxPredicate::new_with_name("is_positive_even", |x: &i32| *x > 0 && x % 2 == 0);
+    println!("谓词名称: {:?}", named_pred.name());
+    println!("测试 4: {}", named_pred.test(&4));
+
+    // Method chaining - consumes self
+    let positive = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
+    let even = BoxPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
+    let combined = positive.and(even);
+    println!("组合谓词名称: {:?}", combined.name());
+    println!("测试 4: {}", combined.test(&4));
+}
+
+/// RcPredicate examples - single-threaded reuse
+fn rc_predicate_examples() {
+    println!("--- 3. RcPredicate 示例（单线程复用）---");
+
+    let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+    let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+    // Multiple compositions without consuming the original
+    let positive_and_even = is_positive.and(is_even.clone());
+    let positive_or_even = is_positive.or(is_even.clone());
+
+    println!("原始谓词仍可用:");
+    println!("  is_positive.test(&5) = {}", is_positive.test(&5));
+    println!("  is_even.test(&4) = {}", is_even.test(&4));
+
+    println!("组合谓词:");
+    println!(
+        "  positive_and_even.test(&4) = {}",
+        positive_and_even.test(&4)
+    );
+    println!(
+        "  positive_or_even.test(&5) = {}",
+        positive_or_even.test(&5)
+    );
+
+    // Cloning
+    let cloned = is_positive.clone();
+    println!("克隆的谓词: {}", cloned.test(&10));
+}
+
+/// ArcPredicate examples - multi-threaded scenarios
+fn arc_predicate_examples() {
+    println!("--- 4. ArcPredicate 示例（多线程场景）---");
+
+    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+    let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+    // Create combined predicate
     let combined = is_positive.and(is_even);
 
-    println!("   4 是正偶数: {}", combined.test(&4));
-    println!("   3 是正偶数: {}", combined.test(&3));
-    println!();
+    // Use in multiple threads
+    let handles: Vec<_> = (0..3)
+        .map(|i| {
+            let pred = combined.clone();
+            std::thread::spawn(move || {
+                let value = i * 2;
+                println!("  线程 {} 测试 {}: {}", i, value, pred.test(&value));
+            })
+        })
+        .collect();
 
-    // Example 3: ArcPredicate - 共享所有权,线程安全
-    println!("3. ArcPredicate 示例 (共享所有权,线程安全):");
-    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+    for handle in handles {
+        handle.join().unwrap();
+    }
 
-    // 使用 &self,不消耗所有权
-    let combined = is_positive.and(&is_even);
+    // Original predicates still usable
+    println!("主线程中原始谓词仍可用:");
+    println!("  is_positive.test(&5) = {}", is_positive.test(&5));
+}
 
-    println!("   主线程测试: 4 => {}", combined.test(&4));
+/// Logical composition examples
+fn logical_composition_examples() {
+    println!("--- 5. 逻辑组合示例 ---");
 
-    // 可以克隆到其他线程
-    let combined_clone = combined.clone();
-    let handle = thread::spawn(move || {
-        println!("   子线程测试: 10 => {}", combined_clone.test(&10));
+    let positive = RcPredicate::new_with_name("positive", |x: &i32| *x > 0);
+    let even = RcPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
+    let less_than_ten = RcPredicate::new_with_name("less_than_ten", |x: &i32| *x < 10);
+
+    // AND composition
+    let positive_and_even = positive.and(even.clone());
+    println!("positive AND even: name={:?}", positive_and_even.name());
+    println!("  测试 4: {}", positive_and_even.test(&4));
+    println!("  测试 5: {}", positive_and_even.test(&5));
+
+    // OR composition
+    let positive_or_even = positive.or(even.clone());
+    println!("positive OR even: name={:?}", positive_or_even.name());
+    println!("  测试 -2: {}", positive_or_even.test(&-2));
+    println!("  测试 5: {}", positive_or_even.test(&5));
+
+    // NOT composition
+    let not_positive = positive.not();
+    println!("NOT positive: name={:?}", not_positive.name());
+    println!("  测试 5: {}", not_positive.test(&5));
+    println!("  测试 -3: {}", not_positive.test(&-3));
+
+    // NAND composition
+    let nand = positive.nand(even.clone());
+    println!("positive NAND even: name={:?}", nand.name());
+    println!("  测试 3: {}", nand.test(&3)); // true NAND false = true
+    println!("  测试 4: {}", nand.test(&4)); // true NAND true = false
+
+    // XOR composition
+    let xor = positive.xor(even.clone());
+    println!("positive XOR even: name={:?}", xor.name());
+    println!("  测试 3: {}", xor.test(&3)); // true XOR false = true
+    println!("  测试 4: {}", xor.test(&4)); // true XOR true = false
+    println!("  测试 -2: {}", xor.test(&-2)); // false XOR true = true
+
+    // NOR composition
+    let nor = positive.nor(even.clone());
+    println!("positive NOR even: name={:?}", nor.name());
+    println!("  测试 -3: {}", nor.test(&-3)); // false NOR false = true
+    println!("  测试 3: {}", nor.test(&3)); // true NOR false = false
+    println!("  测试 -2: {}", nor.test(&-2)); // false NOR true = false
+    println!("  测试 4: {}", nor.test(&4)); // true NOR true = false
+
+    // Complex composition
+    let complex = positive.and(even.clone()).and(less_than_ten.clone());
+    println!("Complex composition: name={:?}", complex.name());
+    println!("  测试 4: {}", complex.test(&4));
+    println!("  测试 12: {}", complex.test(&12));
+}
+
+/// Interior mutability examples
+fn interior_mutability_examples() {
+    println!("--- 6. 内部可变性示例 ---");
+
+    // BoxPredicate with counter (RefCell)
+    println!("BoxPredicate 带计数器:");
+    let count = RefCell::new(0);
+    let pred = BoxPredicate::new(move |x: &i32| {
+        *count.borrow_mut() += 1;
+        *x > 0
     });
+    println!("  测试 5: {}", pred.test(&5));
+    println!("  测试 -3: {}", pred.test(&-3));
+    println!("  测试 10: {}", pred.test(&10));
+    // Note: count is moved into the closure, so we can't access it here
+
+    // RcPredicate with cache (RefCell + HashMap)
+    println!("\nRcPredicate 带缓存:");
+    let cache: RefCell<HashMap<i32, bool>> = RefCell::new(HashMap::new());
+    let expensive_pred = RcPredicate::new(move |x: &i32| {
+        let mut c = cache.borrow_mut();
+        *c.entry(*x).or_insert_with(|| {
+            println!("    计算 {} 的结果（昂贵操作）", x);
+            *x > 0 && x % 2 == 0
+        })
+    });
+
+    println!("  首次测试 4:");
+    println!("    结果: {}", expensive_pred.test(&4));
+    println!("  再次测试 4（使用缓存）:");
+    println!("    结果: {}", expensive_pred.test(&4));
+    println!("  测试 3:");
+    println!("    结果: {}", expensive_pred.test(&3));
+
+    // ArcPredicate with thread-safe counter (Mutex)
+    println!("\nArcPredicate 带线程安全计数器:");
+    let counter = Arc::new(Mutex::new(0));
+    let pred = ArcPredicate::new({
+        let counter = Arc::clone(&counter);
+        move |x: &i32| {
+            let mut c = counter.lock().unwrap();
+            *c += 1;
+            *x > 0
+        }
+    });
+
+    let pred_clone = pred.clone();
+    let counter_clone = Arc::clone(&counter);
+
+    let handle = std::thread::spawn(move || {
+        pred_clone.test(&5);
+        pred_clone.test(&10);
+    });
+
+    pred.test(&3);
     handle.join().unwrap();
 
-    // 原始谓词仍然可用
-    println!("   is_positive 仍可用: 5 => {}", is_positive.test(&5));
-    println!("   is_even 仍可用: 6 => {}", is_even.test(&6));
-    println!();
+    println!("  总共调用次数: {}", counter_clone.lock().unwrap());
+}
 
-    // Example 4: RcPredicate - 共享所有权,非线程安全
-    println!("4. RcPredicate 示例 (共享所有权,非线程安全):");
-    let is_positive = RcPredicate::new(|x: &i32| *x > 0);
-    let is_small = RcPredicate::new(|x: &i32| *x < 100);
+/// Practical use cases
+fn practical_use_cases() {
+    println!("--- 7. 实际应用场景 ---");
 
-    // 使用 &self,不消耗所有权
-    let combined = is_positive.and(&is_small);
-
-    println!("   50 是正数且小于100: {}", combined.test(&50));
-    println!("   150 是正数且小于100: {}", combined.test(&150));
-
-    // 原始谓词仍然可用
-    println!("   is_positive 仍可用: 200 => {}", is_positive.test(&200));
-    println!();
-
-    // Example 5: 复杂逻辑组合
-    println!("5. 复杂逻辑组合:");
-    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-    let is_large = ArcPredicate::new(|x: &i32| *x > 10);
-
-    // (正数 AND 偶数) OR 大于10
-    let complex = is_positive.and(&is_even).or(&is_large);
-
-    let test_numbers = vec![-5, 2, 4, 7, 12, 15];
-    println!("   测试数字: {:?}", test_numbers);
-    println!("   满足 (正数且偶数) 或 大于10:");
-    for num in &test_numbers {
-        if complex.test(num) {
-            println!("     {}", num);
-        }
-    }
-    println!();
-
-    // Example 6: NOT 操作
-    println!("6. NOT 操作:");
-    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let is_not_positive = is_positive.not();
-
-    println!("   负数和零:");
-    for num in &[-5, -1, 0, 5, 10] {
-        if is_not_positive.test(num) {
-            println!("     {}", num);
-        }
-    }
-    println!();
-
-    // Example 7: XOR 操作
-    println!("7. XOR 操作:");
-    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-    let xor_result = is_positive.xor(&is_even);
-
-    println!("   正数或偶数,但不能同时满足:");
-    for num in &[-4, -3, 0, 3, 4, 7, 10] {
-        if xor_result.test(num) {
-            println!("     {}", num);
-        }
-    }
-    println!();
-
-    // Example 8: 自定义类型
-    println!("8. 自定义结构体:");
-
-    #[derive(Debug)]
-    struct Person {
+    // Validation rules
+    println!("场景 1: 表单验证");
+    struct User {
         name: String,
-        age: u32,
+        age: i32,
+        email: String,
     }
 
-    let is_adult = ArcPredicate::new(|p: &Person| p.age >= 18);
-    let is_senior = ArcPredicate::new(|p: &Person| p.age >= 60);
-    let is_working_age = is_adult.and(&is_senior.not());
+    let name_valid =
+        RcPredicate::new_with_name("name_not_empty", |user: &User| !user.name.is_empty());
 
-    let people = vec![
-        Person {
-            name: "Alice".to_string(),
-            age: 25,
-        },
-        Person {
-            name: "Bob".to_string(),
-            age: 15,
-        },
-        Person {
-            name: "Charlie".to_string(),
-            age: 65,
-        },
-    ];
+    let age_valid = RcPredicate::new_with_name("age_between_18_120", |user: &User| {
+        user.age >= 18 && user.age <= 120
+    });
 
-    println!("   工作年龄 (18-60岁):");
-    for person in &people {
-        if is_working_age.test(person) {
-            println!("     {} ({} 岁)", person.name, person.age);
-        }
-    }
-    println!();
+    let email_valid =
+        RcPredicate::new_with_name("email_contains_at", |user: &User| user.email.contains('@'));
 
-    // Example 9: 命名谓词
-    println!("9. 命名谓词:");
-    let pred = BoxPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
+    let all_valid = name_valid.and(age_valid.clone()).and(email_valid.clone());
 
-    println!("   谓词名称: {}", pred.name().unwrap_or("unnamed"));
-    println!("   测试 5: {}", pred.test(&5));
-    println!();
+    let user1 = User {
+        name: "Alice".to_string(),
+        age: 25,
+        email: "alice@example.com".to_string(),
+    };
 
-    // Example 10: 使用 into_fn() 简化迭代器操作
-    println!("10. 使用 into_fn() 简化迭代器操作:");
+    let user2 = User {
+        name: "".to_string(),
+        age: 25,
+        email: "bob@example.com".to_string(),
+    };
 
-    // 传统方式需要 lambda 包装:
-    // let predicate = BoxPredicate::new(|x: &i32| *x > 0);
-    // let result: Vec<i32> = values.into_iter().filter(|v| predicate.test(v)).collect();
+    println!("  user1 验证: {}", all_valid.test(&user1));
+    println!("  user2 验证: {}", all_valid.test(&user2));
 
-    // 新方式：使用 into_fn() 直接传递
-    let predicate = BoxPredicate::new(|x: &i32| *x > 0);
-    let values2 = vec![1, -2, 3, -4, 5];
-    let result2: Vec<i32> = values2.into_iter().filter(predicate.into_fn()).collect();
+    // Filter pipeline
+    println!("\n场景 2: 数据过滤流水线");
+    let numbers: Vec<i32> = (-10..=10).collect();
 
-    println!("   原始值: [1, -2, 3, -4, 5]");
-    println!("   过滤后的正数: {:?}", result2);
-    println!();
+    let positive = |x: &i32| *x > 0;
+    let even = |x: &i32| x % 2 == 0;
+    let less_than_eight = |x: &i32| *x < 8;
 
-    // Example 11: into_fn() 与复杂谓词组合
-    println!("11. into_fn() 与复杂谓词组合:");
-    let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-    let complex_predicate = is_positive.and(&is_even);
-
-    let values = vec![1, 2, 3, 4, 5, 6, 7, 8];
-    let result: Vec<i32> = values
-        .into_iter()
-        .filter(complex_predicate.into_fn())
-        .collect();
-
-    println!("   原始值: [1, 2, 3, 4, 5, 6, 7, 8]");
-    println!("   正数且偶数: {:?}", result);
-    println!();
-
-    // Example 12: into_fn() 与其他迭代器方法
-    println!("12. into_fn() 与其他迭代器方法:");
-
-    // take_while 示例
-    let predicate = RcPredicate::new(|x: &i32| *x > 0);
-    let values = vec![1, 2, 3, -1, 4, 5];
-    let taken: Vec<i32> = values
+    let filtered: Vec<i32> = numbers
         .iter()
+        .filter(|x| positive.test(x))
+        .filter(|x| even.test(x))
+        .filter(|x| less_than_eight.test(x))
         .copied()
-        .take_while(predicate.into_fn())
         .collect();
-    println!("   take_while(>0) from [1, 2, 3, -1, 4, 5]: {:?}", taken);
 
-    // partition 示例
-    let predicate = ArcPredicate::new(|x: &i32| *x > 0);
-    let values = vec![1, -2, 3, -4, 5];
-    let (positives, negatives): (Vec<i32>, Vec<i32>) =
-        values.into_iter().partition(predicate.into_fn());
-    println!(
-        "   partition: positives={:?}, negatives={:?}",
-        positives, negatives
-    );
-    println!();
+    println!("  过滤后的数字: {:?}", filtered);
 
-    // Example 13: into_fn() 与字符串过滤
-    println!("13. into_fn() 与字符串过滤:");
-    let predicate = BoxPredicate::new(|s: &String| s.contains('a'));
-    let words = vec![
-        "apple".to_string(),
-        "banana".to_string(),
-        "cherry".to_string(),
-        "date".to_string(),
-    ];
+    // Strategy pattern
+    println!("\n场景 3: 策略模式");
+    let mut strategies: HashMap<&str, RcPredicate<i32>> = HashMap::new();
+    strategies.insert("positive", RcPredicate::new(|x: &i32| *x > 0));
+    strategies.insert("negative", RcPredicate::new(|x: &i32| *x < 0));
+    strategies.insert("even", RcPredicate::new(|x: &i32| x % 2 == 0));
 
-    let result: Vec<String> = words.into_iter().filter(predicate.into_fn()).collect();
-    println!("   包含 'a' 的单词: {:?}", result);
-    println!();
-
-    println!("=== 示例完成 ===");
+    let test_value = 4;
+    for (name, pred) in strategies.iter() {
+        println!(
+            "  {} 策略测试 {}: {}",
+            name,
+            test_value,
+            pred.test(&test_value)
+        );
+    }
 }

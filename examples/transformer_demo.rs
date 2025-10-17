@@ -6,239 +6,200 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-
-//! Transformer usage examples
+//! Transformer demonstration
 //!
-//! This example demonstrates the four types of transformers:
-//! - BoxTransformer: One-time use, single ownership
-//! - BoxFnTransformer: Reusable, single ownership
-//! - ArcFnTransformer: Reusable, multi-threaded sharing
-//! - RcFnTransformer: Reusable, single-threaded sharing
+//! This example demonstrates the usage of Transformer types, including:
+//! - BoxTransformer: Single ownership, reusable
+//! - ArcTransformer: Thread-safe shared ownership, reusable
+//! - RcTransformer: Single-threaded shared ownership, reusable
 
-use prism3_function::{ArcFnTransformer, BoxFnTransformer, BoxTransformer, RcFnTransformer};
+use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
 
 fn main() {
-    println!("=== Transformer Examples ===\n");
+    println!("=== Transformer Demo ===\n");
 
-    // ========================================================================
-    // 1. BoxTransformer - One-time use
-    // ========================================================================
-    println!("1. BoxTransformer (one-time use):");
+    box_transformer_demo();
+    arc_transformer_demo();
+    rc_transformer_demo();
+    composition_demo();
+    blanket_impl_demo();
+}
 
-    let double = BoxTransformer::new(|x: i32| x * 2);
-    println!("   double(21) = {}", double.transform(21));
-    // double cannot be used again
+// ============================================================================
+// BoxTransformer Demonstration
+// ============================================================================
+
+fn box_transformer_demo() {
+    println!("--- BoxTransformer Demo ---");
+
+    // Basic usage
+    let double = BoxTransformer::new(|x: &i32| x * 2);
+    println!("double.transform(&21) = {}", double.transform(&21));
+    println!("double.transform(&10) = {}", double.transform(&10));
 
     // Identity transformer
     let identity = BoxTransformer::<i32>::identity();
-    println!("   identity(42) = {}", identity.transform(42));
+    println!("identity.transform(&42) = {}", identity.transform(&42));
 
     // Constant transformer
-    let always_hundred = BoxTransformer::constant(100);
-    println!("   constant(42) = {}", always_hundred.transform(42));
+    let constant = BoxTransformer::constant(100);
+    println!("constant.transform(&1) = {}", constant.transform(&1));
+    println!("constant.transform(&99) = {}", constant.transform(&99));
 
     // Composition
-    let add_one = BoxTransformer::new(|x: i32| x + 1);
-    let pipeline = add_one.then(|x| x * 2).then(|x| x - 3);
-    println!("   ((5 + 1) * 2) - 3 = {}", pipeline.transform(5));
-
-    // Conditional transformation
-    let conditional = BoxTransformer::when(|x: &i32| *x > 0, |x| x * 2);
-    println!("   when(5 > 0, x * 2) = {}", conditional.transform(5));
-
-    let conditional2 = BoxTransformer::when(|x: &i32| *x > 0, |x| x * 2);
-    println!("   when(-5 > 0, x * 2) = {}", conditional2.transform(-5));
-
-    // Repeat transformation
-    let add_one_fn = |x: i32| x + 1;
-    let add_five = BoxTransformer::repeat(add_one_fn, 5);
-    println!("   repeat(+1, 5 times)(10) = {}", add_five.transform(10));
+    let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    let triple = BoxTransformer::new(|x: &i32| x * 3);
+    let composed = add_one.and_then(triple);
+    println!(
+        "composed (add_one then triple).transform(&5) = {}",
+        composed.transform(&5)
+    ); // (5 + 1) * 3 = 18
 
     println!();
+}
 
-    // ========================================================================
-    // 2. BoxFnTransformer - Reusable, single ownership
-    // ========================================================================
-    println!("2. BoxFnTransformer (reusable, single ownership):");
+// ============================================================================
+// ArcTransformer Demonstration
+// ============================================================================
 
-    let triple = BoxFnTransformer::new(|x: i32| x * 3);
-    println!("   triple(10) = {}", triple.transform(10));
-    println!("   triple(20) = {}", triple.transform(20));
-    println!("   triple(30) = {}", triple.transform(30));
+fn arc_transformer_demo() {
+    println!("--- ArcTransformer Demo ---");
 
-    // String transformation
-    let uppercase = BoxFnTransformer::new(|s: String| s.to_uppercase());
+    // Basic usage
+    let double = ArcTransformer::new(|x: &i32| x * 2);
+    println!("double.transform(&21) = {}", double.transform(&21));
+
+    // Cloneable
+    let cloned = double.clone();
+    println!("cloned.transform(&10) = {}", cloned.transform(&10));
     println!(
-        "   uppercase('hello') = {}",
-        uppercase.transform("hello".to_string())
+        "original still usable: double.transform(&5) = {}",
+        double.transform(&5)
     );
-    println!(
-        "   uppercase('world') = {}",
-        uppercase.transform("world".to_string())
-    );
+
+    // Identity transformer
+    let identity = ArcTransformer::<i32>::identity();
+    println!("identity.transform(&42) = {}", identity.transform(&42));
+
+    // Constant transformer
+    let constant = ArcTransformer::constant(100);
+    println!("constant.transform(&1) = {}", constant.transform(&1));
+
+    // Composition with references (original remains usable)
+    let add_one = ArcTransformer::new(|x: &i32| x + 1);
+    let triple = ArcTransformer::new(|x: &i32| x * 3);
+    let composed = add_one.and_then(&triple);
+
+    println!("add_one.transform(&5) = {}", add_one.transform(&5));
+    println!("composed.transform(&5) = {}", composed.transform(&5));
 
     println!();
+}
 
-    // ========================================================================
-    // 3. ArcFnTransformer - Multi-threaded sharing
-    // ========================================================================
-    println!("3. ArcFnTransformer (multi-threaded sharing):");
+// ============================================================================
+// RcTransformer Demonstration
+// ============================================================================
 
-    let square = ArcFnTransformer::new(|x: i32| x * x);
+fn rc_transformer_demo() {
+    println!("--- RcTransformer Demo ---");
 
-    // Can be cloned and used in multiple threads
-    let square_clone1 = square.clone();
-    let square_clone2 = square.clone();
+    // Basic usage
+    let double = RcTransformer::new(|x: &i32| x * 2);
+    println!("double.transform(&21) = {}", double.transform(&21));
 
-    println!("   square(5) = {}", square.transform(5));
-    println!("   square(10) = {}", square_clone1.transform(10));
-    println!("   square(15) = {}", square_clone2.transform(15));
-
-    // Composition preserves original transformers
-    let add_two = ArcFnTransformer::new(|x: i32| x + 2);
-    let composed = square.then(&add_two);
-
-    println!("   (5^2) + 2 = {}", composed.transform(5));
+    // Cloneable
+    let cloned = double.clone();
+    println!("cloned.transform(&10) = {}", cloned.transform(&10));
     println!(
-        "   Original square still works: square(6) = {}",
-        square.transform(6)
-    );
-    println!(
-        "   Original add_two still works: add_two(10) = {}",
-        add_two.transform(10)
+        "original still usable: double.transform(&5) = {}",
+        double.transform(&5)
     );
 
-    // Multi-threaded usage
-    use std::thread;
-    let multiplier = ArcFnTransformer::new(|x: i32| x * 4);
+    // Identity transformer
+    let identity = RcTransformer::<i32>::identity();
+    println!("identity.transform(&42) = {}", identity.transform(&42));
 
-    let mut handles = vec![];
-    for i in 1..=3 {
-        let t = multiplier.clone();
-        let handle = thread::spawn(move || {
-            let result = t.transform(i);
-            println!(
-                "   Thread {:?}: transform({}) = {}",
-                thread::current().id(),
-                i,
-                result
-            );
-            result
-        });
-        handles.push(handle);
+    // Constant transformer
+    let constant = RcTransformer::constant(100);
+    println!("constant.transform(&1) = {}", constant.transform(&1));
+
+    // Composition with references (original remains usable)
+    let add_one = RcTransformer::new(|x: &i32| x + 1);
+    let triple = RcTransformer::new(|x: &i32| x * 3);
+    let composed = add_one.and_then(&triple);
+
+    println!("add_one.transform(&5) = {}", add_one.transform(&5));
+    println!("composed.transform(&5) = {}", composed.transform(&5));
+
+    println!();
+}
+
+// ============================================================================
+// Composition Demonstration
+// ============================================================================
+
+fn composition_demo() {
+    println!("--- Composition Demo ---");
+
+    // and_then: self -> after
+    let double = BoxTransformer::new(|x: &i32| x * 2);
+    let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    let composed1 = double.and_then(add_one);
+    println!(
+        "and_then (double then add_one): 5 -> {}",
+        composed1.transform(&5)
+    ); // 5 * 2 + 1 = 11
+
+    // compose: before -> self
+    let double = BoxTransformer::new(|x: &i32| x * 2);
+    let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    let composed2 = double.compose(add_one);
+    println!(
+        "compose (add_one then double): 5 -> {}",
+        composed2.transform(&5)
+    ); // (5 + 1) * 2 = 12
+
+    // Chain composition
+    let t1 = ArcTransformer::new(|x: &i32| x + 1);
+    let t2 = ArcTransformer::new(|x: &i32| x * 2);
+    let t3 = ArcTransformer::new(|x: &i32| x - 3);
+    let chained = t1.and_then(&t2).and_then(&t3);
+    println!(
+        "chain (add 1, mul 2, sub 3): 5 -> {}",
+        chained.transform(&5)
+    ); // ((5 + 1) * 2) - 3 = 9
+
+    println!();
+}
+
+// ============================================================================
+// Blanket Implementation Demonstration
+// ============================================================================
+
+fn blanket_impl_demo() {
+    println!("--- Blanket Implementation Demo ---");
+
+    // Closure can be used as Transformer directly
+    let double = |x: &i32| x * 2;
+    println!(
+        "Closure as Transformer: double.transform(&21) = {}",
+        double.transform(&21)
+    );
+
+    // Function pointer can be used as Transformer directly
+    fn triple(x: &i32) -> i32 {
+        x * 3
     }
+    println!(
+        "Function as Transformer: triple.transform(&14) = {}",
+        triple.transform(&14)
+    );
 
-    for handle in handles {
-        let _ = handle.join();
-    }
+    // Using with iterator methods
+    let values = vec![1, 2, 3, 4, 5];
+    let transformer = BoxTransformer::new(|x: &i32| x * 2);
+    let results: Vec<i32> = values.iter().map(|x| transformer.transform(x)).collect();
+    println!("Map with transformer: {:?} -> {:?}", values, results);
 
     println!();
-
-    // ========================================================================
-    // 4. RcFnTransformer - Single-threaded sharing
-    // ========================================================================
-    println!("4. RcFnTransformer (single-threaded sharing):");
-
-    let negate = RcFnTransformer::new(|x: i32| -x);
-    let negate_clone = negate.clone();
-
-    println!("   negate(42) = {}", negate.transform(42));
-    println!("   negate(-10) = {}", negate_clone.transform(-10));
-
-    // Composition
-    let abs = RcFnTransformer::new(|x: i32| x.abs());
-    let abs_then_negate = abs.then(&negate);
-
-    println!("   abs(-5) then negate = {}", abs_then_negate.transform(-5));
-    println!(
-        "   Original abs still works: abs(-5) = {}",
-        abs.transform(-5)
-    );
-
-    // Shared state example
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    let counter = Rc::new(RefCell::new(0));
-    let counter_clone = Rc::clone(&counter);
-
-    let counting_transformer = RcFnTransformer::new(move |x: i32| {
-        *counter_clone.borrow_mut() += 1;
-        x * 2
-    });
-
-    let t1 = counting_transformer.clone();
-    let t2 = counting_transformer.clone();
-
-    println!("   First call: {}", t1.transform(10));
-    println!("   Second call: {}", t2.transform(20));
-    println!("   Third call: {}", counting_transformer.transform(30));
-    println!("   Total calls: {}", *counter.borrow());
-
-    println!();
-
-    // ========================================================================
-    // 5. Option and Result transformations
-    // ========================================================================
-    println!("5. Option and Result transformations:");
-
-    let double_opt = BoxTransformer::map_option(|x: i32| x * 2);
-    println!(
-        "   map_option(Some(21)) = {:?}",
-        double_opt.transform(Some(21))
-    );
-
-    let double_opt2 = BoxTransformer::map_option(|x: i32| x * 2);
-    println!("   map_option(None) = {:?}", double_opt2.transform(None));
-
-    let double_result = BoxTransformer::map_result(|x: i32| x * 2);
-    println!(
-        "   map_result(Ok(21)) = {:?}",
-        double_result.transform(Ok::<i32, String>(21))
-    );
-
-    let double_result2 = BoxTransformer::map_result(|x: i32| x * 2);
-    println!(
-        "   map_result(Err('error')) = {:?}",
-        double_result2.transform(Err::<i32, String>("error".to_string()))
-    );
-
-    println!();
-
-    // ========================================================================
-    // 6. String processing pipeline
-    // ========================================================================
-    println!("6. String processing pipeline:");
-
-    let trim = BoxTransformer::new(|s: String| s.trim().to_string());
-    let uppercase = |s: String| s.to_uppercase();
-    let add_exclamation = |s: String| format!("{}!", s);
-
-    let pipeline = trim.then(uppercase).then(add_exclamation);
-
-    let result = pipeline.transform("  hello world  ".to_string());
-    println!("   '  hello world  ' -> '{}'", result);
-
-    println!();
-
-    // ========================================================================
-    // 7. Complex conditional transformation
-    // ========================================================================
-    println!("7. Complex conditional transformation:");
-
-    let process = BoxTransformer::if_else(
-        |x: &i32| *x > 0,
-        |x| x * 2,        // if positive, double
-        |x| x.abs() + 10, // if negative or zero, abs + 10
-    );
-
-    println!("   process(5) = {}", process.transform(5));
-
-    let process2 = BoxTransformer::if_else(|x: &i32| *x > 0, |x| x * 2, |x| x.abs() + 10);
-    println!("   process(-5) = {}", process2.transform(-5));
-
-    let process3 = BoxTransformer::if_else(|x: &i32| *x > 0, |x| x * 2, |x| x.abs() + 10);
-    println!("   process(0) = {}", process3.transform(0));
-
-    println!("\n=== End of Examples ===");
 }

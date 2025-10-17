@@ -47,4 +47,3 @@ fn test_function() {
     assert_eq!(arc.apply(&7), 42);
     println!("✓ into_arc() 测试通过");
 }
-

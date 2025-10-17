@@ -45,7 +45,10 @@ fn main() {
     // Multi-threaded usage
     let for_thread = arc_double.clone();
     let handle = thread::spawn(move || for_thread.apply(&100));
-    println!("In main thread: arc_double.apply(&50) = {}", arc_double.apply(&50));
+    println!(
+        "In main thread: arc_double.apply(&50) = {}",
+        arc_double.apply(&50)
+    );
     println!("In child thread: result = {}", handle.join().unwrap());
     println!();
 
@@ -67,18 +70,20 @@ fn main() {
 
     // Example 1: Data validation and transformation
     println!("--- Data Validation Pipeline ---");
-    let validate_positive = BoxFunction::new(|x: &i32| {
-        if *x > 0 {
-            Some(*x)
-        } else {
-            None
-        }
-    });
+    let validate_positive = BoxFunction::new(|x: &i32| if *x > 0 { Some(*x) } else { None });
 
     let num1 = 42;
     let num2 = -5;
-    println!("validate_positive(&{}) = {:?}", num1, validate_positive.apply(&num1));
-    println!("validate_positive(&{}) = {:?}", num2, validate_positive.apply(&num2));
+    println!(
+        "validate_positive(&{}) = {:?}",
+        num1,
+        validate_positive.apply(&num1)
+    );
+    println!(
+        "validate_positive(&{}) = {:?}",
+        num2,
+        validate_positive.apply(&num2)
+    );
     println!();
 
     // Example 2: Shared configuration
@@ -92,7 +97,10 @@ fn main() {
 
     println!("config1.apply(&5) = {}", config1.apply(&5));
     println!("config2.apply(&7) = {}", config2.apply(&7));
-    println!("multiply_by_config.apply(&3) = {}", multiply_by_config.apply(&3));
+    println!(
+        "multiply_by_config.apply(&3) = {}",
+        multiply_by_config.apply(&3)
+    );
     println!();
 
     // Example 3: Event handler registry
@@ -101,11 +109,11 @@ fn main() {
 
     handlers.insert(
         "double".to_string(),
-        RcFunction::new(|x: &i32| format!("Doubled: {}", x * 2))
+        RcFunction::new(|x: &i32| format!("Doubled: {}", x * 2)),
     );
     handlers.insert(
         "square".to_string(),
-        RcFunction::new(|x: &i32| format!("Squared: {}", x * x))
+        RcFunction::new(|x: &i32| format!("Squared: {}", x * x)),
     );
 
     let value = 7;
