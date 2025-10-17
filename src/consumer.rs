@@ -6,691 +6,1161 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # Consumer Types
+//! # Consumer 类型
 //!
-//! Provides Java-like `Consumer` interface implementations for performing
-//! operations that accept a single input parameter and return no result.
+//! 提供消费者接口的实现，用于执行接受单个输入参数但不返回结果的操作。
 //!
-//! This module provides a unified `Consumer` trait and three concrete
-//! implementations based on different ownership models:
+//! 本模块提供统一的 `Consumer` trait 和三种基于不同所有权模型的具体实现:
 //!
-//! - **`BoxConsumer<T>`**: Box-based single ownership implementation for
-//!   one-time use scenarios and builder patterns
-//! - **`ArcConsumer<T>`**: Arc<Mutex<>>-based thread-safe shared ownership
-//!   implementation for multi-threaded scenarios
-//! - **`RcConsumer<T>`**: Rc<RefCell<>>-based single-threaded shared
-//!   ownership implementation with no lock overhead
+//! - **`BoxConsumer<T>`**: 基于 Box 的单一所有权实现，用于一次性使用场景
+//! - **`ArcConsumer<T>`**: 基于 Arc<Mutex<>> 的线程安全共享所有权实现
+//! - **`RcConsumer<T>`**: 基于 Rc<RefCell<>> 的单线程共享所有权实现
 //!
-//! # Design Philosophy
+//! # 设计理念
 //!
-//! Unlike `Predicate` which uses `Fn(&T) -> bool`, `Consumer` requires
-//! `FnMut(&mut T)` for mutability. This introduces interior mutability
-//! challenges when sharing across contexts:
+//! Consumer 使用 `FnMut(&T)` 语义，可以修改自身状态但不修改输入值。适用于
+//! 统计、累积、事件处理等场景。
 //!
-//! - **Single Ownership**: `BoxConsumer` uses `Box<dyn FnMut>` with no
-//!   sharing overhead
-//! - **Thread-Safe Sharing**: `ArcConsumer` uses `Arc<Mutex<dyn FnMut>>`
-//!   for safe concurrent access
-//! - **Single-Threaded Sharing**: `RcConsumer` uses `Rc<RefCell<dyn FnMut>>`
-//!   for efficient single-threaded reuse
+//! # 作者
 //!
-//! # Comparison Table
-//!
-//! | Feature          | BoxConsumer | ArcConsumer | RcConsumer |
-//! |------------------|-------------|-------------|------------|
-//! | Ownership        | Single      | Shared      | Shared     |
-//! | Cloneable        | ❌          | ✅          | ✅         |
-//! | Thread-Safe      | ❌          | ✅          | ❌         |
-//! | Interior Mut.    | N/A         | Mutex       | RefCell    |
-//! | `and_then` API   | `self`      | `&self`     | `&self`    |
-//! | Lock Overhead    | None        | Yes         | None       |
-//!
-//! # Use Cases
-//!
-//! ## BoxConsumer
-//!
-//! - One-time operations that don't require sharing
-//! - Builder patterns where ownership naturally flows
-//! - Simple scenarios with no reuse requirements
-//!
-//! ## ArcConsumer
-//!
-//! - Multi-threaded shared operations
-//! - Concurrent task processing (e.g., thread pools)
-//! - Situations requiring the same consumer across threads
-//!
-//! ## RcConsumer
-//!
-//! - Single-threaded operations with multiple uses
-//! - Event handling in single-threaded UI frameworks
-//! - Performance-critical single-threaded scenarios
-//!
-//! # Examples
-//!
-//! ## Basic Usage
-//!
-//! ```rust
-//! use prism3_function::{BoxConsumer, ArcConsumer, RcConsumer, Consumer};
-//!
-//! // BoxConsumer: Single ownership, consumes self
-//! let mut consumer = BoxConsumer::new(|x: &mut i32| *x *= 2);
-//! let mut value = 5;
-//! consumer.accept(&mut value);
-//! assert_eq!(value, 10);
-//!
-//! // ArcConsumer: Shared ownership, cloneable, thread-safe
-//! let shared = ArcConsumer::new(|x: &mut i32| *x *= 2);
-//! let clone = shared.clone();
-//! let mut value = 5;
-//! let mut c = shared;
-//! c.accept(&mut value);
-//! assert_eq!(value, 10);
-//!
-//! // RcConsumer: Shared ownership, cloneable, single-threaded
-//! let rc = RcConsumer::new(|x: &mut i32| *x *= 2);
-//! let clone = rc.clone();
-//! let mut value = 5;
-//! let mut c = rc;
-//! c.accept(&mut value);
-//! assert_eq!(value, 10);
-//! ```
-//!
-//! ## Method Chaining
-//!
-//! ```rust
-//! use prism3_function::{Consumer, BoxConsumer, ArcConsumer};
-//!
-//! // BoxConsumer: Consumes self
-//! let mut chained = BoxConsumer::new(|x: &mut i32| *x *= 2)
-//!     .and_then(|x: &mut i32| *x += 10);
-//! let mut value = 5;
-//! chained.accept(&mut value);
-//! assert_eq!(value, 20); // (5 * 2) + 10
-//!
-//! // ArcConsumer: Borrows &self, original still usable
-//! let first = ArcConsumer::new(|x: &mut i32| *x *= 2);
-//! let second = ArcConsumer::new(|x: &mut i32| *x += 10);
-//! let combined = first.and_then(&second);
-//! // first and second are still usable here
-//! ```
-//!
-//! ## Working with Closures
-//!
-//! All closures automatically implement the `Consumer` trait:
-//!
-//! ```rust
-//! use prism3_function::{Consumer, FnConsumerOps};
-//!
-//! // Closures can use .accept() directly
-//! let mut closure = |x: &mut i32| *x *= 2;
-//! let mut value = 5;
-//! closure.accept(&mut value);
-//! assert_eq!(value, 10);
-//!
-//! // Closures can be chained, returning BoxConsumer
-//! let mut chained = (|x: &mut i32| *x *= 2)
-//!     .and_then(|x: &mut i32| *x += 10);
-//! let mut value = 5;
-//! chained.accept(&mut value);
-//! assert_eq!(value, 20);
-//! ```
-//!
-//! ## Type Conversions
-//!
-//! ```rust
-//! use prism3_function::Consumer;
-//!
-//! // Convert closure to concrete type
-//! let closure = |x: &mut i32| *x *= 2;
-//! let mut box_consumer = closure.into_box();
-//!
-//! let closure = |x: &mut i32| *x *= 2;
-//! let mut rc_consumer = closure.into_rc();
-//!
-//! let closure = |x: &mut i32| *x *= 2;
-//! let mut arc_consumer = closure.into_arc();
-//! ```
-//!
-//! # Author
-//!
-//! Haixing Hu
+//! 胡海星
 
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 // ============================================================================
-// Type Aliases
+// 1. Consumer Trait - 统一的 Consumer 接口
 // ============================================================================
 
-/// Type alias for Arc-wrapped mutable consumer function
-type ArcMutConsumerFn<T> = Arc<Mutex<dyn FnMut(&mut T) + Send>>;
-
-/// Type alias for Rc-wrapped mutable consumer function
-type RcMutConsumerFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
-
-// ============================================================================
-// Consumer Trait - Unified Consumer Interface
-// ============================================================================
-
-/// Consumer trait - Unified consumer interface
+/// Consumer trait - 统一的消费者接口
 ///
-/// Defines the core behavior of all consumer types. Similar to Java's
-/// `Consumer<T>` interface, it performs operations that accept a value but
-/// return no result (side effects only).
+/// 定义所有消费者类型的核心行为。类似于 Java 的 `Consumer<T>` 接口，
+/// 执行接受一个值但不返回结果的操作(仅产生副作用)。
 ///
-/// This trait is automatically implemented by:
-/// - All closures implementing `FnMut(&mut T)`
-/// - `BoxConsumer<T>`, `ArcConsumer<T>`, and `RcConsumer<T>`
+/// Consumer 可以修改自身状态(如累积、计数)，但不应该修改被消费的值本身。
 ///
-/// # Design Rationale
+/// # 自动实现
 ///
-/// The trait provides a unified abstraction over different ownership models,
-/// allowing generic code to work with any consumer type. Type conversion
-/// methods (`into_box`, `into_arc`, `into_rc`) enable flexible ownership
-/// transitions based on usage requirements.
+/// - 所有实现 `FnMut(&T)` 的闭包
+/// - `BoxConsumer<T>`, `ArcConsumer<T>`, `RcConsumer<T>`
 ///
-/// # Features
+/// # 特性
 ///
-/// - **Unified Interface**: All consumer types share the same `accept`
-///   method signature
-/// - **Automatic Implementation**: Closures automatically implement this
-///   trait with zero overhead
-/// - **Type Conversions**: Easy conversion between ownership models
-/// - **Generic Programming**: Write functions that work with any consumer
-///   type
+/// - **统一接口**: 所有消费者类型共享相同的 `accept` 方法签名
+/// - **自动实现**: 闭包自动实现此 trait，零开销
+/// - **类型转换**: 可以方便地在不同所有权模型间转换
+/// - **泛型编程**: 编写可用于任何消费者类型的函数
 ///
-/// # Examples
-///
-/// ## Generic Consumer Function
+/// # 示例
 ///
 /// ```rust
 /// use prism3_function::{Consumer, BoxConsumer, ArcConsumer};
+/// use std::sync::{Arc, Mutex};
 ///
-/// fn apply_consumer<C: Consumer<i32>>(
-///     consumer: &mut C,
-///     value: i32
-/// ) -> i32 {
-///     let mut val = value;
-///     consumer.accept(&mut val);
-///     val
+/// fn apply_consumer<C: Consumer<i32>>(consumer: &mut C, value: &i32) {
+///     consumer.accept(value);
 /// }
 ///
-/// // Works with any consumer type
-/// let mut box_con = BoxConsumer::new(|x: &mut i32| *x *= 2);
-/// assert_eq!(apply_consumer(&mut box_con, 5), 10);
-///
-/// let mut arc_con = ArcConsumer::new(|x: &mut i32| *x *= 2);
-/// assert_eq!(apply_consumer(&mut arc_con, 5), 10);
-///
-/// let mut closure = |x: &mut i32| *x *= 2;
-/// assert_eq!(apply_consumer(&mut closure, 5), 10);
+/// // 适用于任何消费者类型
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut box_con = BoxConsumer::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x);
+/// });
+/// apply_consumer(&mut box_con, &5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]);
 /// ```
 ///
-/// ## Type Conversion
+/// # 作者
 ///
-/// ```rust
-/// use prism3_function::Consumer;
-///
-/// let closure = |x: &mut i32| *x *= 2;
-///
-/// // Convert to different ownership models
-/// let box_consumer = closure.into_box();
-/// // let rc_consumer = closure.into_rc();  // closure moved
-/// // let arc_consumer = closure.into_arc(); // closure moved
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
+/// 胡海星
 pub trait Consumer<T> {
-    /// Performs the consumption operation
+    /// 执行消费操作
     ///
-    /// Executes an operation on the given mutable reference. The operation
-    /// typically modifies the input value or produces side effects.
+    /// 对给定的引用执行操作。操作通常读取输入值或产生副作用，
+    /// 但不修改输入值本身。可以修改消费者自身的状态。
     ///
-    /// # Parameters
+    /// # 参数
     ///
-    /// * `value` - A mutable reference to the value to be consumed
+    /// * `value` - 要消费的值的引用
     ///
-    /// # Examples
+    /// # 示例
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
     ///
-    /// let mut consumer = BoxConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut value = 5;
-    /// consumer.accept(&mut value);
-    /// assert_eq!(value, 10);
+    /// let mut consumer = BoxConsumer::new(|x: &i32| println!("{}", x));
+    /// let value = 5;
+    /// consumer.accept(&value);
     /// ```
-    fn accept(&mut self, value: &mut T);
+    fn accept(&mut self, value: &T);
 
-    /// Converts to BoxConsumer
+    /// 转换为 BoxConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
     ///
-    /// Converts the current consumer to `BoxConsumer<T>`.
+    /// 将当前消费者转换为 `BoxConsumer<T>`。
     ///
-    /// # Ownership
+    /// # 所有权
     ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
+    /// 此方法**消耗**消费者(获取 `self` 的所有权)。
+    /// 调用此方法后，原始消费者不再可用。
     ///
-    /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
-    /// you can call `.clone()` first if you need to keep the original:
+    /// **提示**: 对于可克隆的消费者([`ArcConsumer`], [`RcConsumer`])，
+    /// 如果需要保留原始对象，可以先调用 `.clone()`。
     ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
+    /// # 返回值
     ///
-    /// let arc_consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut box_consumer = arc_consumer.clone().into_box();  // Clone first
+    /// 返回包装后的 `BoxConsumer<T>`
     ///
-    /// // Original still available
-    /// let mut value1 = 5;
-    /// let mut c = arc_consumer;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// // Converted BoxConsumer also works
-    /// let mut value2 = 3;
-    /// box_consumer.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `BoxConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Conversion
+    /// # 示例
     ///
     /// ```rust
     /// use prism3_function::Consumer;
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let closure = |x: &mut i32| *x *= 2;
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// };
     /// let mut box_consumer = closure.into_box();
-    /// let mut value = 5;
-    /// box_consumer.accept(&mut value);
-    /// assert_eq!(value, 10);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (ArcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let arc = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    ///
-    /// // Clone before conversion to keep the original
-    /// let mut boxed = arc.clone().into_box();
-    ///
-    /// // Both are still usable
-    /// let mut value1 = 5;
-    /// let mut c = arc;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// let mut value2 = 3;
-    /// boxed.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (RcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    ///
-    /// let rc = RcConsumer::new(|x: &mut i32| *x *= 2);
-    ///
-    /// // Clone before conversion to keep the original
-    /// let mut boxed = rc.clone().into_box();
-    ///
-    /// // Both are still usable
-    /// let mut value1 = 5;
-    /// let mut c = rc;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// let mut value2 = 3;
-    /// boxed.accept(&mut value2);
-    /// assert_eq!(value2, 6);
+    /// box_consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
     fn into_box(self) -> BoxConsumer<T>
     where
         Self: Sized + 'static,
         T: 'static;
 
-    /// Converts to RcConsumer
+    /// 转换为 RcConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
     ///
-    /// Converts the current consumer to `RcConsumer<T>`.
+    /// # 返回值
     ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
-    ///
-    /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
-    /// you can call `.clone()` first if you need to keep the original:
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let arc_consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut rc_consumer = arc_consumer.clone().into_rc();  // Clone first
-    ///
-    /// // Original still available
-    /// let mut value1 = 5;
-    /// let mut c = arc_consumer;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// // Converted RcConsumer also works
-    /// let mut value2 = 3;
-    /// rc_consumer.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `RcConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Conversion
-    ///
-    /// ```rust
-    /// use prism3_function::Consumer;
-    ///
-    /// let closure = |x: &mut i32| *x *= 2;
-    /// let mut rc_consumer = closure.into_rc();
-    /// let mut value = 5;
-    /// rc_consumer.accept(&mut value);
-    /// assert_eq!(value, 10);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (ArcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let arc = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    ///
-    /// // Clone before conversion to keep the original
-    /// let mut rc = arc.clone().into_rc();
-    ///
-    /// // Both are still usable
-    /// let mut value1 = 5;
-    /// let mut c = arc;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// let mut value2 = 3;
-    /// rc.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (RcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    ///
-    /// let rc1 = RcConsumer::new(|x: &mut i32| *x *= 2);
-    ///
-    /// // Clone before conversion to keep the original
-    /// let mut rc2 = rc1.clone().into_rc();
-    ///
-    /// // Both are still usable
-    /// let mut value1 = 5;
-    /// let mut c1 = rc1;
-    /// c1.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// let mut value2 = 3;
-    /// rc2.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
+    /// 返回包装后的 `RcConsumer<T>`
     fn into_rc(self) -> RcConsumer<T>
     where
         Self: Sized + 'static,
         T: 'static;
 
-    /// Converts to ArcConsumer
+    /// 转换为 ArcConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
     ///
-    /// Converts the current consumer to `ArcConsumer<T>`.
+    /// # 返回值
     ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
-    ///
-    /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
-    /// you can call `.clone()` first if you need to keep the original:
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let arc_consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut another = arc_consumer.clone().into_arc();  // Clone first
-    ///
-    /// // Original still available
-    /// let mut value1 = 5;
-    /// let mut c = arc_consumer;
-    /// c.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// // Converted ArcConsumer also works
-    /// let mut value2 = 3;
-    /// another.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `ArcConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Conversion
-    ///
-    /// ```rust
-    /// use prism3_function::Consumer;
-    ///
-    /// let closure = |x: &mut i32| *x *= 2;
-    /// let mut arc_consumer = closure.into_arc();
-    /// let mut value = 5;
-    /// arc_consumer.accept(&mut value);
-    /// assert_eq!(value, 10);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (ArcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let arc1 = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    ///
-    /// // Clone before conversion to keep the original
-    /// let mut arc2 = arc1.clone().into_arc();
-    ///
-    /// // Both are still usable
-    /// let mut value1 = 5;
-    /// let mut c1 = arc1;
-    /// c1.accept(&mut value1);
-    /// assert_eq!(value1, 10);
-    ///
-    /// let mut value2 = 3;
-    /// arc2.accept(&mut value2);
-    /// assert_eq!(value2, 6);
-    /// ```
+    /// 返回包装后的 `ArcConsumer<T>`
     fn into_arc(self) -> ArcConsumer<T>
     where
         Self: Sized + Send + 'static,
         T: Send + 'static;
 
-    /// Converts consumer to a closure for use with iterator methods
+    /// 转换为闭包
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
     ///
-    /// This method consumes the consumer and returns a closure that can be
-    /// directly used with iterator methods like `for_each()`. This provides
-    /// a more ergonomic API when working with iterators.
+    /// 将消费者转换为闭包，可以直接用于标准库中需要 `FnMut` 的地方。
     ///
-    /// # Ownership
+    /// # 返回值
     ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available. The returned closure captures the consumer by move.
+    /// 返回实现了 `FnMut(&T)` 的闭包
     ///
-    /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
-    /// you can call `.clone()` first if you need to keep the original:
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut values = vec![1, 2, 3];
-    ///
-    /// // Clone before into_fn to keep the original
-    /// values.iter_mut().for_each(consumer.clone().into_fn());
-    ///
-    /// // Original consumer is still available
-    /// let mut value = 5;
-    /// let mut c = consumer;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 10);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure that implements `FnMut(&mut T)`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Usage with Iterator
+    /// # 示例
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let consumer = BoxConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut values = vec![1, 2, 3, 4, 5];
-    ///
-    /// values.iter_mut().for_each(consumer.into_fn());
-    ///
-    /// assert_eq!(values, vec![2, 4, 6, 8, 10]);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut func = consumer.into_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    ///
-    /// ## With Complex Consumer
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let processor = BoxConsumer::new(|x: &mut i32| *x *= 2)
-    ///     .and_then(|x: &mut i32| *x += 10);
-    ///
-    /// let mut values = vec![1, 2, 3];
-    /// values.iter_mut().for_each(processor.into_fn());
-    ///
-    /// assert_eq!(values, vec![12, 14, 16]); // (1*2)+10, (2*2)+10, (3*2)+10
-    /// ```
-    ///
-    /// ## With ArcConsumer
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut values = vec![1, 2, 3];
-    ///
-    /// values.iter_mut().for_each(consumer.into_fn());
-    ///
-    /// assert_eq!(values, vec![2, 4, 6]);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (ArcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut values1 = vec![1, 2, 3];
-    /// let mut values2 = vec![4, 5, 6];
-    ///
-    /// // Clone to use in multiple places
-    /// values1.iter_mut().for_each(consumer.clone().into_fn());
-    /// values2.iter_mut().for_each(consumer.clone().into_fn());
-    ///
-    /// assert_eq!(values1, vec![2, 4, 6]);
-    /// assert_eq!(values2, vec![8, 10, 12]);
-    ///
-    /// // Original still usable
-    /// let mut value = 7;
-    /// let mut c = consumer;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 14);
-    /// ```
-    ///
-    /// ## Clone Before Conversion (RcConsumer)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    ///
-    /// let consumer = RcConsumer::new(|x: &mut i32| *x += 10);
-    /// let mut values = vec![1, 2, 3];
-    ///
-    /// // Clone before into_fn to keep the original
-    /// values.iter_mut().for_each(consumer.clone().into_fn());
-    ///
-    /// assert_eq!(values, vec![11, 12, 13]);
-    ///
-    /// // Original still available
-    /// let mut value = 5;
-    /// let mut c = consumer;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 15);
-    /// ```
-    ///
-    /// ## Ownership Behavior
-    ///
-    /// ```rust,compile_fail
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let consumer = BoxConsumer::new(|x: &mut i32| *x *= 2);
-    /// let mut values = vec![1, 2, 3];
-    ///
-    /// values.iter_mut().for_each(consumer.into_fn());
-    ///
-    /// // ❌ Error: consumer was moved in the call to into_fn()
-    /// let mut value = 5;
-    /// consumer.accept(&mut value);
-    /// ```
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl FnMut(&T)
     where
         Self: Sized + 'static,
         T: 'static;
 }
 
 // ============================================================================
-// Implement Consumer trait for closures
+// 2. BoxConsumer - 单一所有权实现
 // ============================================================================
 
-/// Implements Consumer for all FnMut(&mut T)
+/// BoxConsumer 结构体
+///
+/// 基于 `Box<dyn FnMut(&T)>` 的消费者实现，用于单一所有权场景。
+/// 当不需要共享时，这是最简单、最高效的消费者类型。
+///
+/// # 特性
+///
+/// - **单一所有权**: 不可克隆，使用时转移所有权
+/// - **零开销**: 无引用计数或锁开销
+/// - **可变状态**: 可通过 `FnMut` 修改捕获的环境
+/// - **构建器模式**: 方法链自然地消耗 `self`
+///
+/// # 使用场景
+///
+/// 选择 `BoxConsumer` 当:
+/// - 消费者只使用一次或呈线性流
+/// - 构建流水线，所有权自然流动
+/// - 不需要跨上下文共享消费者
+/// - 性能关键且无法接受共享开销
+///
+/// # 性能
+///
+/// `BoxConsumer` 在三种消费者类型中性能最好:
+/// - 无引用计数开销
+/// - 无锁获取或运行时借用检查
+/// - 通过 vtable 直接调用函数
+/// - 最小内存占用(单个指针)
+///
+/// # 示例
+///
+/// ```rust
+/// use prism3_function::{Consumer, BoxConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = BoxConsumer::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x);
+/// });
+/// consumer.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]);
+/// ```
+///
+/// # 作者
+///
+/// 胡海星
+pub struct BoxConsumer<T> {
+    function: Box<dyn FnMut(&T)>,
+    name: Option<String>,
+}
+
+impl<T> BoxConsumer<T>
+where
+    T: 'static,
+{
+    /// 创建新的 BoxConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `BoxConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnMut(&T) + 'static,
+    {
+        BoxConsumer {
+            function: Box::new(f),
+            name: None,
+        }
+    }
+
+    /// 获取消费者的名称
+    ///
+    /// # 返回值
+    ///
+    /// 返回消费者的名称，如果未设置则返回 `None`
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// 设置消费者的名称
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 要设置的名称
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    /// 顺序链接另一个消费者
+    ///
+    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。消耗 self。
+    ///
+    /// # 类型参数
+    ///
+    /// * `C` - 下一个消费者的类型
+    ///
+    /// # 参数
+    ///
+    /// * `next` - 当前操作之后要执行的消费者
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的组合 `BoxConsumer<T>`
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut chained = BoxConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// }).and_then(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// });
+    /// chained.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    /// ```
+    pub fn and_then<C>(self, next: C) -> Self
+    where
+        C: Consumer<T> + 'static,
+    {
+        let mut first = self.function;
+        let mut second = next;
+        BoxConsumer::new(move |t| {
+            first(t);
+            second.accept(t);
+        })
+    }
+
+    /// 创建空操作消费者
+    ///
+    /// 返回不执行任何操作的消费者。
+    ///
+    /// # 返回值
+    ///
+    /// 返回空操作消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    ///
+    /// let mut noop = BoxConsumer::<i32>::noop();
+    /// noop.accept(&42);
+    /// // 值未改变
+    /// ```
+    pub fn noop() -> Self {
+        BoxConsumer::new(|_| {})
+    }
+
+    /// 创建打印消费者
+    ///
+    /// 返回一个消费者，该消费者打印输入值。
+    ///
+    /// # 返回值
+    ///
+    /// 返回打印消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    ///
+    /// let mut print = BoxConsumer::<i32>::print();
+    /// print.accept(&42); // Prints: 42
+    /// ```
+    pub fn print() -> Self
+    where
+        T: std::fmt::Debug,
+    {
+        BoxConsumer::new(|t| {
+            println!("{:?}", t);
+        })
+    }
+
+    /// 创建带前缀的打印消费者
+    ///
+    /// 返回一个消费者，该消费者使用指定前缀打印输入值。
+    ///
+    /// # 参数
+    ///
+    /// * `prefix` - 前缀字符串
+    ///
+    /// # 返回值
+    ///
+    /// 返回打印消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    ///
+    /// let mut print = BoxConsumer::<i32>::print_with("Value: ");
+    /// print.accept(&42); // Prints: Value: 42
+    /// ```
+    pub fn print_with(prefix: &str) -> Self
+    where
+        T: std::fmt::Debug,
+    {
+        let prefix = prefix.to_string();
+        BoxConsumer::new(move |t| {
+            println!("{}{:?}", prefix, t);
+        })
+    }
+
+    /// 创建条件消费者
+    ///
+    /// 返回一个消费者，仅在谓词为 true 时执行操作。
+    ///
+    /// # 类型参数
+    ///
+    /// * `P` - 谓词类型
+    /// * `C` - 消费者类型
+    ///
+    /// # 参数
+    ///
+    /// * `predicate` - 谓词函数
+    /// * `consumer` - 要执行的消费者
+    ///
+    /// # 返回值
+    ///
+    /// 返回条件消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut conditional = BoxConsumer::if_then(
+    ///     |x: &i32| *x > 0,
+    ///     move |x: &i32| {
+    ///         l.lock().unwrap().push(*x);
+    ///     },
+    /// );
+    ///
+    /// conditional.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    ///
+    /// conditional.accept(&-5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]); // Unchanged
+    /// ```
+    pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
+    where
+        P: FnMut(&T) -> bool + 'static,
+        C: FnMut(&T) + 'static,
+    {
+        let mut pred = predicate;
+        let mut cons = consumer;
+        BoxConsumer::new(move |t| {
+            if pred(t) {
+                cons(t);
+            }
+        })
+    }
+
+    /// 创建条件分支消费者
+    ///
+    /// 返回一个消费者，根据谓词执行不同的操作。
+    ///
+    /// # 类型参数
+    ///
+    /// * `P` - 谓词类型
+    /// * `C1` - then 消费者类型
+    /// * `C2` - else 消费者类型
+    ///
+    /// # 参数
+    ///
+    /// * `predicate` - 谓词函数
+    /// * `then_consumer` - 谓词为 true 时执行的消费者
+    /// * `else_consumer` - 谓词为 false 时执行的消费者
+    ///
+    /// # 返回值
+    ///
+    /// 返回条件分支消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut conditional = BoxConsumer::if_then_else(
+    ///     |x: &i32| *x > 0,
+    ///     move |x: &i32| {
+    ///         l1.lock().unwrap().push(*x);
+    ///     },
+    ///     move |x: &i32| {
+    ///         l2.lock().unwrap().push(-*x);
+    ///     },
+    /// );
+    ///
+    /// conditional.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    ///
+    /// conditional.accept(&-5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]); // -(-5) = 5
+    /// ```
+    pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
+    where
+        P: FnMut(&T) -> bool + 'static,
+        C1: FnMut(&T) + 'static,
+        C2: FnMut(&T) + 'static,
+    {
+        let mut pred = predicate;
+        let mut then_cons = then_consumer;
+        let mut else_cons = else_consumer;
+        BoxConsumer::new(move |t| {
+            if pred(t) {
+                then_cons(t);
+            } else {
+                else_cons(t);
+            }
+        })
+    }
+}
+
+impl<T> Consumer<T> for BoxConsumer<T> {
+    fn accept(&mut self, value: &T) {
+        (self.function)(value)
+    }
+
+    fn into_box(self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        self
+    }
+
+    fn into_rc(self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        let mut func = self.function;
+        RcConsumer::new(move |t| func(t))
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        // 注意：BoxConsumer 的 function 不一定是 Send，所以无法安全转换为 ArcConsumer
+        // 这里我们 panic，因为这个转换在类型系统上是不安全的
+        panic!("Cannot convert BoxConsumer to ArcConsumer: BoxConsumer's inner function may not be Send")
+    }
+
+    fn into_fn(self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        self.function
+    }
+}
+
+impl<T> fmt::Debug for BoxConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BoxConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
+
+impl<T> fmt::Display for BoxConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "BoxConsumer({})", name),
+            None => write!(f, "BoxConsumer"),
+        }
+    }
+}
+
+// ============================================================================
+// 3. ArcConsumer - 线程安全的共享所有权实现
+// ============================================================================
+
+/// ArcConsumer 结构体
+///
+/// 基于 `Arc<Mutex<dyn FnMut(&T) + Send>>` 的消费者实现，
+/// 用于线程安全的共享所有权场景。此消费者可以安全地克隆并在多个线程间共享。
+///
+/// # 特性
+///
+/// - **共享所有权**: 通过 `Arc` 可克隆，允许多个所有者
+/// - **线程安全**: 实现 `Send + Sync`，可安全地并发使用
+/// - **内部可变性**: 使用 `Mutex` 实现安全的可变访问
+/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
+/// - **跨线程共享**: 可发送到其他线程并使用
+///
+/// # 使用场景
+///
+/// 选择 `ArcConsumer` 当:
+/// - 需要在多个线程间共享消费者
+/// - 并发任务处理(如线程池)
+/// - 在多个地方同时使用相同的消费者
+/// - 需要线程安全(Send + Sync)
+///
+/// # 性能考虑
+///
+/// `ArcConsumer` 相比 `BoxConsumer` 有一些性能开销:
+/// - **引用计数**: clone/drop 时的原子操作
+/// - **Mutex 锁定**: 每次 `accept` 调用需要获取锁
+/// - **锁竞争**: 高并发可能导致竞争
+///
+/// 但这些开销对于安全的并发访问是必要的。如果不需要线程安全，
+/// 考虑使用 `RcConsumer` 以获得更少的单线程共享开销。
+///
+/// # 示例
+///
+/// ```rust
+/// use prism3_function::{Consumer, ArcConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = ArcConsumer::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x * 2);
+/// });
+/// let mut clone = consumer.clone();
+///
+/// consumer.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![10]);
+/// ```
+///
+/// # 作者
+///
+/// 胡海星
+pub struct ArcConsumer<T> {
+    function: Arc<Mutex<dyn FnMut(&T) + Send>>,
+    name: Option<String>,
+}
+
+impl<T> ArcConsumer<T>
+where
+    T: Send + 'static,
+{
+    /// 创建新的 ArcConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `ArcConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnMut(&T) + Send + 'static,
+    {
+        ArcConsumer {
+            function: Arc::new(Mutex::new(f)),
+            name: None,
+        }
+    }
+
+    /// 获取消费者的名称
+    ///
+    /// # 返回值
+    ///
+    /// 返回消费者的名称，如果未设置则返回 `None`
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// 设置消费者的名称
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 要设置的名称
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    /// 转换为闭包（不消费自身）
+    ///
+    /// 创建一个新的闭包，通过 Arc 调用底层函数。
+    ///
+    /// # 返回值
+    ///
+    /// 返回实现了 `FnMut(&T)` 的闭包
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = Arc::clone(&self.function);
+        move |t: &T| {
+            func.lock().unwrap()(t);
+        }
+    }
+
+    /// 顺序链接另一个 ArcConsumer
+    ///
+    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
+    /// 借用 &self，不消耗原始消费者。
+    ///
+    /// # 参数
+    ///
+    /// * `next` - 当前操作之后要执行的消费者
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的组合 `ArcConsumer<T>`
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = ArcConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// });
+    /// let second = ArcConsumer::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// });
+    ///
+    /// let mut chained = first.and_then(&second);
+    ///
+    /// // first 和 second 在链接后仍可使用
+    /// chained.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
+    /// ```
+    pub fn and_then(&self, next: &ArcConsumer<T>) -> ArcConsumer<T> {
+        let first = Arc::clone(&self.function);
+        let second = Arc::clone(&next.function);
+        ArcConsumer {
+            function: Arc::new(Mutex::new(move |t: &T| {
+                first.lock().unwrap()(t);
+                second.lock().unwrap()(t);
+            })),
+            name: None,
+        }
+    }
+}
+
+impl<T> Consumer<T> for ArcConsumer<T> {
+    fn accept(&mut self, value: &T) {
+        (self.function.lock().unwrap())(value)
+    }
+
+    fn into_box(self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = self.function;
+        BoxConsumer::new(move |t| func.lock().unwrap()(t))
+    }
+
+    fn into_rc(self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = self.function;
+        RcConsumer::new(move |t| func.lock().unwrap()(t))
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        self
+    }
+
+    fn into_fn(self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = self.function;
+        move |t: &T| {
+            func.lock().unwrap()(t);
+        }
+    }
+}
+
+impl<T> Clone for ArcConsumer<T> {
+    /// 克隆 ArcConsumer
+    ///
+    /// 创建与原始实例共享底层函数的新 ArcConsumer。
+    fn clone(&self) -> Self {
+        Self {
+            function: Arc::clone(&self.function),
+            name: self.name.clone(),
+        }
+    }
+}
+
+impl<T> fmt::Debug for ArcConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArcConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
+
+impl<T> fmt::Display for ArcConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "ArcConsumer({})", name),
+            None => write!(f, "ArcConsumer"),
+        }
+    }
+}
+
+// ============================================================================
+// 4. RcConsumer - 单线程共享所有权实现
+// ============================================================================
+
+/// RcConsumer 结构体
+///
+/// 基于 `Rc<RefCell<dyn FnMut(&T)>>` 的消费者实现，用于单线程共享所有权场景。
+/// 此消费者提供共享所有权的好处，而无需线程安全的开销。
+///
+/// # 特性
+///
+/// - **共享所有权**: 通过 `Rc` 可克隆，允许多个所有者
+/// - **单线程**: 非线程安全，不能跨线程发送
+/// - **内部可变性**: 使用 `RefCell` 进行运行时借用检查
+/// - **无锁开销**: 比 `ArcConsumer` 在单线程使用时更高效
+/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
+///
+/// # 使用场景
+///
+/// 选择 `RcConsumer` 当:
+/// - 需要在单线程内共享消费者
+/// - 不需要线程安全
+/// - 性能重要(避免锁开销)
+/// - 单线程框架中的 UI 事件处理
+/// - 构建复杂的单线程状态机
+///
+/// # 性能考虑
+///
+/// `RcConsumer` 在单线程场景下比 `ArcConsumer` 性能更好:
+/// - **非原子计数**: clone/drop 比 `Arc` 更便宜
+/// - **无锁开销**: `RefCell` 使用运行时检查，不用锁
+/// - **更好的缓存局部性**: 无原子操作意味着更好的 CPU 缓存行为
+///
+/// 但相比 `BoxConsumer` 仍有轻微开销:
+/// - **引用计数**: 虽非原子但仍存在
+/// - **运行时借用检查**: `RefCell` 在运行时检查
+///
+/// # 安全性
+///
+/// `RcConsumer` 不是线程安全的，未实现 `Send` 或 `Sync`。
+/// 尝试将其发送到另一个线程将导致编译错误。
+/// 对于线程安全的共享，请改用 `ArcConsumer`。
+///
+/// # 示例
+///
+/// ```rust
+/// use prism3_function::{Consumer, RcConsumer};
+/// use std::rc::Rc;
+/// use std::cell::RefCell;
+///
+/// let log = Rc::new(RefCell::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = RcConsumer::new(move |x: &i32| {
+///     l.borrow_mut().push(*x * 2);
+/// });
+/// let mut clone = consumer.clone();
+///
+/// consumer.accept(&5);
+/// assert_eq!(*log.borrow(), vec![10]);
+/// ```
+///
+/// # 作者
+///
+/// 胡海星
+pub struct RcConsumer<T> {
+    function: Rc<RefCell<dyn FnMut(&T)>>,
+    name: Option<String>,
+}
+
+impl<T> RcConsumer<T>
+where
+    T: 'static,
+{
+    /// 创建新的 RcConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `RcConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x + 1);
+    /// });
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.borrow(), vec![6]);
+    /// ```
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnMut(&T) + 'static,
+    {
+        RcConsumer {
+            function: Rc::new(RefCell::new(f)),
+            name: None,
+        }
+    }
+
+    /// 获取消费者的名称
+    ///
+    /// # 返回值
+    ///
+    /// 返回消费者的名称，如果未设置则返回 `None`
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// 设置消费者的名称
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 要设置的名称
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    /// 转换为闭包（不消费自身）
+    ///
+    /// 创建一个新的闭包，通过 Rc 调用底层函数。
+    ///
+    /// # 返回值
+    ///
+    /// 返回实现了 `FnMut(&T)` 的闭包
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = Rc::clone(&self.function);
+        move |t: &T| {
+            func.borrow_mut()(t);
+        }
+    }
+
+    /// 顺序链接另一个 RcConsumer
+    ///
+    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
+    /// 借用 &self，不消耗原始消费者。
+    ///
+    /// # 参数
+    ///
+    /// * `next` - 当前操作之后要执行的消费者
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的组合 `RcConsumer<T>`
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = RcConsumer::new(move |x: &i32| {
+    ///     l1.borrow_mut().push(*x * 2);
+    /// });
+    /// let second = RcConsumer::new(move |x: &i32| {
+    ///     l2.borrow_mut().push(*x + 10);
+    /// });
+    ///
+    /// let mut chained = first.and_then(&second);
+    ///
+    /// // first 和 second 在链接后仍可使用
+    /// chained.accept(&5);
+    /// assert_eq!(*log.borrow(), vec![10, 15]); // (5 * 2), (5 + 10)
+    /// ```
+    pub fn and_then(&self, next: &RcConsumer<T>) -> RcConsumer<T> {
+        let first = Rc::clone(&self.function);
+        let second = Rc::clone(&next.function);
+        RcConsumer {
+            function: Rc::new(RefCell::new(move |t: &T| {
+                first.borrow_mut()(t);
+                second.borrow_mut()(t);
+            })),
+            name: None,
+        }
+    }
+}
+
+impl<T> Consumer<T> for RcConsumer<T> {
+    fn accept(&mut self, value: &T) {
+        (self.function.borrow_mut())(value)
+    }
+
+    fn into_box(self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = self.function;
+        BoxConsumer::new(move |t| func.borrow_mut()(t))
+    }
+
+    fn into_rc(self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        self
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!("Cannot convert RcConsumer to ArcConsumer (not Send)")
+    }
+
+    fn into_fn(self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = self.function;
+        move |t: &T| {
+            func.borrow_mut()(t);
+        }
+    }
+}
+
+impl<T> Clone for RcConsumer<T> {
+    /// 克隆 RcConsumer
+    ///
+    /// 创建与原始实例共享底层函数的新 RcConsumer。
+    fn clone(&self) -> Self {
+        Self {
+            function: Rc::clone(&self.function),
+            name: self.name.clone(),
+        }
+    }
+}
+
+impl<T> fmt::Debug for RcConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RcConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
+
+impl<T> fmt::Display for RcConsumer<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "RcConsumer({})", name),
+            None => write!(f, "RcConsumer"),
+        }
+    }
+}
+
+// ============================================================================
+// 5. 为闭包实现 Consumer trait
+// ============================================================================
+
+/// 为所有 FnMut(&T) 实现 Consumer
 impl<T, F> Consumer<T> for F
 where
-    F: FnMut(&mut T),
+    F: FnMut(&T),
 {
-    fn accept(&mut self, value: &mut T) {
+    fn accept(&mut self, value: &T) {
         self(value)
     }
 
@@ -718,105 +1188,92 @@ where
         ArcConsumer::new(self)
     }
 
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl FnMut(&T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        self.into_box().into_fn()
+        self
     }
 }
 
 // ============================================================================
-// Provide extension methods for closures
+// 6. 为闭包提供扩展方法
 // ============================================================================
 
-/// Extension trait providing consumer composition methods for closures
+/// 为闭包提供消费者组合方法的扩展 trait
 ///
-/// Provides `and_then` and other composition methods for all closures that
-/// implement `FnMut(&mut T)`, enabling direct method chaining on closures
-/// without explicit wrapper types.
+/// 为所有实现 `FnMut(&T)` 的闭包提供 `and_then` 和其他组合方法，
+/// 使闭包无需显式包装类型即可直接进行方法链接。
 ///
-/// # Design Rationale
+/// # 设计理念
 ///
-/// This trait allows closures to be composed naturally using method syntax,
-/// similar to iterator combinators. Composition methods consume the closure
-/// and return `BoxConsumer<T>`, which can be further chained.
+/// 此 trait 允许闭包使用方法语法自然地组合，类似于迭代器组合器。
+/// 组合方法消耗闭包并返回 `BoxConsumer<T>`，可以继续链接。
 ///
-/// # Features
+/// # 特性
 ///
-/// - **Natural Syntax**: Chain operations directly on closures
-/// - **Returns BoxConsumer**: Composition results are `BoxConsumer<T>` for
-///   continued chaining
-/// - **Zero Cost**: No overhead when composing closures
-/// - **Automatic Implementation**: All `FnMut(&mut T)` closures get these
-///   methods automatically
+/// - **自然语法**: 直接在闭包上链接操作
+/// - **返回 BoxConsumer**: 组合结果是 `BoxConsumer<T>`，可继续链接
+/// - **零成本**: 组合闭包时无开销
+/// - **自动实现**: 所有 `FnMut(&T)` 闭包自动获得这些方法
 ///
-/// # Examples
-///
-/// ## Basic Chaining
+/// # 示例
 ///
 /// ```rust
 /// use prism3_function::{Consumer, FnConsumerOps};
+/// use std::sync::{Arc, Mutex};
 ///
-/// let chained = (|x: &mut i32| *x *= 2)
-///     .and_then(|x: &mut i32| *x += 10);
-/// let mut value = 5;
-/// let mut result = chained;
-/// result.accept(&mut value);
-/// assert_eq!(value, 20); // (5 * 2) + 10
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let mut chained = (move |x: &i32| {
+///     l1.lock().unwrap().push(*x * 2);
+/// }).and_then(move |x: &i32| {
+///     l2.lock().unwrap().push(*x + 10);
+/// });
+/// chained.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
 /// ```
 ///
-/// ## Multi-Step Composition
+/// # 作者
 ///
-/// ```rust
-/// use prism3_function::{Consumer, FnConsumerOps};
-///
-/// let pipeline = (|x: &mut i32| *x *= 2)
-///     .and_then(|x: &mut i32| *x += 10)
-///     .and_then(|x: &mut i32| *x /= 2);
-///
-/// let mut value = 5;
-/// let mut result = pipeline;
-/// result.accept(&mut value);
-/// assert_eq!(value, 10); // ((5 * 2) + 10) / 2
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub trait FnConsumerOps<T>: FnMut(&mut T) + Sized {
-    /// Chains another consumer in sequence
+/// 胡海星
+pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
+    /// 顺序链接另一个消费者
     ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Consumes the current closure and returns
-    /// `BoxConsumer<T>`.
+    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
+    /// 消耗当前闭包并返回 `BoxConsumer<T>`。
     ///
-    /// # Type Parameters
+    /// # 类型参数
     ///
-    /// * `C` - The type of the next consumer
+    /// * `C` - 下一个消费者的类型
     ///
-    /// # Parameters
+    /// # 参数
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - 当前操作之后要执行的消费者
     ///
-    /// # Returns
+    /// # 返回值
     ///
-    /// Returns the composed `BoxConsumer<T>`
+    /// 返回组合的 `BoxConsumer<T>`
     ///
-    /// # Examples
+    /// # 示例
     ///
     /// ```rust
     /// use prism3_function::{Consumer, FnConsumerOps};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let chained = (|x: &mut i32| *x *= 2)
-    ///     .and_then(|x: &mut i32| *x += 10)
-    ///     .and_then(|x: &mut i32| println!("Result: {}", x));
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut chained = (move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// }).and_then(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// }).and_then(|x: &i32| println!("Result: {}", x));
     ///
-    /// let mut value = 5;
-    /// let mut result = chained;
-    /// result.accept(&mut value); // Prints: Result: 20
-    /// assert_eq!(value, 20);
+    /// chained.accept(&5); // Prints: Result: 5
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     /// ```
     fn and_then<C>(self, next: C) -> BoxConsumer<T>
     where
@@ -833,1003 +1290,5 @@ pub trait FnConsumerOps<T>: FnMut(&mut T) + Sized {
     }
 }
 
-/// Implements FnConsumerOps for all closure types
-impl<T, F> FnConsumerOps<T> for F where F: FnMut(&mut T) {}
-
-// ============================================================================
-// BoxConsumer - Single Ownership Implementation
-// ============================================================================
-
-/// BoxConsumer struct
-///
-/// A consumer implementation based on `Box<dyn FnMut(&mut T)>` for single
-/// ownership scenarios. This is the simplest and most efficient consumer
-/// type when sharing is not required.
-///
-/// # Features
-///
-/// - **Single Ownership**: Not cloneable, ownership moves on use
-/// - **Zero Overhead**: No reference counting or locking
-/// - **Mutable State**: Can modify captured environment via `FnMut`
-/// - **Builder Pattern**: Method chaining consumes `self` naturally
-/// - **Factory Methods**: Convenient constructors for common patterns
-///
-/// # Comparison with Other Consumers
-///
-/// | Feature             | BoxConsumer | ArcConsumer | RcConsumer |
-/// |---------------------|-------------|-------------|------------|
-/// | Ownership Model     | Single      | Shared      | Shared     |
-/// | Cloneable           | No          | Yes         | Yes        |
-/// | Thread-Safe         | No          | Yes         | No         |
-/// | Reference Counting  | No          | Yes (Arc)   | Yes (Rc)   |
-/// | Interior Mutability | No          | Mutex       | RefCell    |
-/// | Lock Overhead       | None        | Yes         | None       |
-/// | `and_then` API      | `self`      | `&self`     | `&self`    |
-///
-/// # Use Cases
-///
-/// Choose `BoxConsumer` when:
-/// - The consumer is used only once or in a linear flow
-/// - Building pipelines where ownership naturally flows
-/// - No need to share the consumer across contexts
-/// - Performance is critical and no sharing overhead is acceptable
-///
-/// # Performance
-///
-/// `BoxConsumer` has the best performance among the three consumer types:
-/// - No reference counting overhead
-/// - No lock acquisition or runtime borrow checking
-/// - Direct function call through vtable
-/// - Minimal memory footprint (single pointer)
-///
-/// # Examples
-///
-/// ## Basic Usage
-///
-/// ```rust
-/// use prism3_function::{Consumer, BoxConsumer};
-///
-/// let mut consumer = BoxConsumer::new(|x: &mut i32| *x *= 2);
-/// let mut value = 5;
-/// consumer.accept(&mut value);
-/// assert_eq!(value, 10);
-/// ```
-///
-/// ## Method Chaining
-///
-/// ```rust
-/// use prism3_function::{Consumer, BoxConsumer};
-///
-/// let mut chained = BoxConsumer::new(|x: &mut i32| *x *= 2)
-///     .and_then(|x: &mut i32| *x += 10)
-///     .and_then(|x: &mut i32| *x -= 1);
-/// let mut value = 5;
-/// chained.accept(&mut value);
-/// assert_eq!(value, 19); // ((5 * 2) + 10) - 1
-/// ```
-///
-/// ## Using Factory Methods
-///
-/// ```rust
-/// use prism3_function::{Consumer, BoxConsumer};
-///
-/// // No-op consumer
-/// let mut noop = BoxConsumer::<i32>::noop();
-/// let mut value = 42;
-/// noop.accept(&mut value);
-/// assert_eq!(value, 42);
-///
-/// // Print consumer
-/// let mut print = BoxConsumer::<i32>::print();
-/// let mut value = 42;
-/// print.accept(&mut value); // Prints: 42
-///
-/// // Conditional consumer
-/// let mut conditional = BoxConsumer::if_then(
-///     |x: &i32| *x > 0,
-///     |x: &mut i32| *x *= 2
-/// );
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct BoxConsumer<T> {
-    func: Box<dyn FnMut(&mut T)>,
-}
-
-impl<T> BoxConsumer<T>
-where
-    T: 'static,
-{
-    /// Creates a new BoxConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxConsumer<T>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut consumer = BoxConsumer::new(|x: &mut i32| *x += 1);
-    /// let mut value = 5;
-    /// consumer.accept(&mut value);
-    /// assert_eq!(value, 6);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&mut T) + 'static,
-    {
-        BoxConsumer { func: Box::new(f) }
-    }
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Consumes self.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - The type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `BoxConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut chained = BoxConsumer::new(|x: &mut i32| *x *= 2)
-    ///     .and_then(|x: &mut i32| *x += 10)
-    ///     .and_then(|x: &mut i32| println!("Result: {}", x));
-    ///
-    /// let mut value = 5;
-    /// chained.accept(&mut value); // Prints: Result: 20
-    /// assert_eq!(value, 20);
-    /// ```
-    pub fn and_then<C>(self, next: C) -> Self
-    where
-        C: Consumer<T> + 'static,
-    {
-        let mut first = self.func;
-        let mut second = next;
-        BoxConsumer::new(move |t| {
-            first(t);
-            second.accept(t);
-        })
-    }
-
-    /// Creates a no-op consumer
-    ///
-    /// Returns a consumer that performs no operation.
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut noop = BoxConsumer::<i32>::noop();
-    /// let mut value = 42;
-    /// noop.accept(&mut value);
-    /// assert_eq!(value, 42); // Value unchanged
-    /// ```
-    pub fn noop() -> Self {
-        BoxConsumer::new(|_| {})
-    }
-
-    /// Creates a print consumer
-    ///
-    /// Returns a consumer that prints the input value.
-    ///
-    /// # Returns
-    ///
-    /// Returns a print consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut print = BoxConsumer::<i32>::print();
-    /// let mut value = 42;
-    /// print.accept(&mut value); // Prints: 42
-    /// ```
-    pub fn print() -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        BoxConsumer::new(|t| {
-            println!("{:?}", t);
-        })
-    }
-
-    /// Creates a print consumer with prefix
-    ///
-    /// Returns a consumer that prints the input value with a prefix.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - The prefix string
-    ///
-    /// # Returns
-    ///
-    /// Returns a print consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut print = BoxConsumer::<i32>::print_with("Value: ");
-    /// let mut value = 42;
-    /// print.accept(&mut value); // Prints: Value: 42
-    /// ```
-    pub fn print_with(prefix: &str) -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        let prefix = prefix.to_string();
-        BoxConsumer::new(move |t| {
-            println!("{}{:?}", prefix, t);
-        })
-    }
-
-    /// Creates a transform consumer
-    ///
-    /// Returns a consumer that applies a transformation function.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The transformation function type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The transformation function
-    ///
-    /// # Returns
-    ///
-    /// Returns a transform consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut double = BoxConsumer::transform(|x: &i32| x * 2);
-    /// let mut value = 5;
-    /// double.accept(&mut value);
-    /// assert_eq!(value, 10);
-    /// ```
-    pub fn transform<F>(f: F) -> Self
-    where
-        F: FnMut(&T) -> T + 'static,
-    {
-        let mut func = f;
-        BoxConsumer::new(move |t| {
-            *t = func(t);
-        })
-    }
-
-    /// Creates a conditional consumer
-    ///
-    /// Returns a consumer that only executes the operation when the predicate
-    /// is true.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    /// * `C` - The consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The predicate function
-    /// * `consumer` - The consumer to execute
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut conditional = BoxConsumer::if_then(
-    ///     |x: &i32| *x > 0,
-    ///     |x: &mut i32| *x += 1
-    /// );
-    ///
-    /// let mut positive = 5;
-    /// conditional.accept(&mut positive);
-    /// assert_eq!(positive, 6);
-    ///
-    /// let mut negative = -5;
-    /// conditional.accept(&mut negative);
-    /// assert_eq!(negative, -5); // Unchanged
-    /// ```
-    pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
-    where
-        P: FnMut(&T) -> bool + 'static,
-        C: FnMut(&mut T) + 'static,
-    {
-        let mut pred = predicate;
-        let mut cons = consumer;
-        BoxConsumer::new(move |t| {
-            if pred(t) {
-                cons(t);
-            }
-        })
-    }
-
-    /// Creates a conditional branch consumer
-    ///
-    /// Returns a consumer that executes different operations based on the
-    /// predicate.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    /// * `C1` - The then consumer type
-    /// * `C2` - The else consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The predicate function
-    /// * `then_consumer` - The consumer to execute when predicate is true
-    /// * `else_consumer` - The consumer to execute when predicate is false
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional branch consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut conditional = BoxConsumer::if_then_else(
-    ///     |x: &i32| *x > 0,
-    ///     |x: &mut i32| *x += 1,
-    ///     |x: &mut i32| *x -= 1
-    /// );
-    ///
-    /// let mut positive = 5;
-    /// conditional.accept(&mut positive);
-    /// assert_eq!(positive, 6);
-    ///
-    /// let mut negative = -5;
-    /// conditional.accept(&mut negative);
-    /// assert_eq!(negative, -6);
-    /// ```
-    pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
-    where
-        P: FnMut(&T) -> bool + 'static,
-        C1: FnMut(&mut T) + 'static,
-        C2: FnMut(&mut T) + 'static,
-    {
-        let mut pred = predicate;
-        let mut then_cons = then_consumer;
-        let mut else_cons = else_consumer;
-        BoxConsumer::new(move |t| {
-            if pred(t) {
-                then_cons(t);
-            } else {
-                else_cons(t);
-            }
-        })
-    }
-}
-
-impl<T> Consumer<T> for BoxConsumer<T> {
-    fn accept(&mut self, value: &mut T) {
-        (self.func)(value)
-    }
-
-    fn into_box(self) -> BoxConsumer<T>
-    where
-        T: 'static,
-    {
-        self
-    }
-
-    fn into_rc(self) -> RcConsumer<T>
-    where
-        T: 'static,
-    {
-        let mut func = self.func;
-        RcConsumer::new(move |t| func(t))
-    }
-
-    fn into_arc(self) -> ArcConsumer<T>
-    where
-        T: Send + 'static,
-    {
-        // 注意：BoxConsumer 的 func 不一定是 Send，所以无法安全转换为 ArcConsumer
-        // 这里我们 panic，因为这个转换在类型系统上是不安全的
-        panic!("Cannot convert BoxConsumer to ArcConsumer: BoxConsumer's inner function may not be Send")
-    }
-
-    fn into_fn(mut self) -> impl FnMut(&mut T)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        move |t: &mut T| (self.func)(t)
-    }
-}
-
-// ============================================================================
-// ArcConsumer - Thread-Safe Shared Ownership Implementation
-// ============================================================================
-
-/// ArcConsumer struct
-///
-/// A consumer implementation based on `Arc<Mutex<dyn FnMut(&mut T) + Send>>`
-/// for thread-safe shared ownership scenarios. This consumer can be safely
-/// cloned and shared across multiple threads.
-///
-/// # Features
-///
-/// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
-/// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
-/// - **Interior Mutability**: Uses `Mutex` for safe mutable access
-/// - **Non-Consuming API**: `and_then` borrows `&self`, original remains
-///   usable
-/// - **Cross-Thread Sharing**: Can be sent to and used by other threads
-///
-/// # Comparison with Other Consumers
-///
-/// | Feature             | BoxConsumer | ArcConsumer | RcConsumer |
-/// |---------------------|-------------|-------------|------------|
-/// | Ownership Model     | Single      | Shared      | Shared     |
-/// | Cloneable           | No          | Yes         | Yes        |
-/// | Thread-Safe         | No          | Yes         | No         |
-/// | Reference Counting  | No          | Yes (Arc)   | Yes (Rc)   |
-/// | Interior Mutability | No          | Mutex       | RefCell    |
-/// | Lock Overhead       | None        | Yes         | None       |
-/// | `and_then` API      | `self`      | `&self`     | `&self`    |
-///
-/// # Use Cases
-///
-/// Choose `ArcConsumer` when:
-/// - The consumer needs to be shared across multiple threads
-/// - Concurrent task processing (e.g., thread pools)
-/// - The same consumer is used in multiple places simultaneously
-/// - Thread safety is required (Send + Sync)
-///
-/// # Performance Considerations
-///
-/// `ArcConsumer` has some performance overhead compared to `BoxConsumer`:
-/// - **Reference Counting**: Atomic operations on clone/drop
-/// - **Mutex Locking**: Each `accept` call acquires a lock
-/// - **Lock Contention**: High concurrency may cause contention
-///
-/// However, this overhead is necessary for safe concurrent access. If thread
-/// safety is not required, consider `RcConsumer` for single-threaded
-/// sharing with less overhead.
-///
-/// # Examples
-///
-/// ## Basic Usage
-///
-/// ```rust
-/// use prism3_function::{Consumer, ArcConsumer};
-///
-/// let consumer = ArcConsumer::new(|x: &mut i32| *x *= 2);
-/// let clone = consumer.clone();
-///
-/// let mut value = 5;
-/// let mut c = consumer;
-/// c.accept(&mut value);
-/// assert_eq!(value, 10);
-/// ```
-///
-/// ## Multi-Threaded Usage
-///
-/// ```rust
-/// use prism3_function::{Consumer, ArcConsumer};
-/// use std::thread;
-///
-/// let shared = ArcConsumer::new(|x: &mut i32| *x *= 2);
-///
-/// // Clone for another thread
-/// let shared_clone = shared.clone();
-/// let handle = thread::spawn(move || {
-///     let mut value = 5;
-///     let mut consumer = shared_clone;
-///     consumer.accept(&mut value);
-///     value
-/// });
-///
-/// // Original consumer still usable
-/// let mut value = 3;
-/// let mut consumer = shared;
-/// consumer.accept(&mut value);
-/// assert_eq!(value, 6);
-/// assert_eq!(handle.join().unwrap(), 10);
-/// ```
-///
-/// ## Method Chaining with Shared Ownership
-///
-/// ```rust
-/// use prism3_function::{Consumer, ArcConsumer};
-///
-/// let first = ArcConsumer::new(|x: &mut i32| *x *= 2);
-/// let second = ArcConsumer::new(|x: &mut i32| *x += 10);
-///
-/// // Both consumers remain usable after chaining
-/// let chained = first.and_then(&second);
-///
-/// let mut value = 5;
-/// let mut c = chained;
-/// c.accept(&mut value);
-/// assert_eq!(value, 20); // (5 * 2) + 10
-///
-/// // first and second are still usable here
-/// let mut v = 3;
-/// let mut f = first;
-/// f.accept(&mut v);
-/// assert_eq!(v, 6);
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct ArcConsumer<T> {
-    func: ArcMutConsumerFn<T>,
-}
-
-impl<T> ArcConsumer<T>
-where
-    T: Send + 'static,
-{
-    /// Creates a new ArcConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `ArcConsumer<T>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let consumer = ArcConsumer::new(|x: &mut i32| *x += 1);
-    /// let mut value = 5;
-    /// let mut c = consumer;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 6);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&mut T) + Send + 'static,
-    {
-        ArcConsumer {
-            func: Arc::new(Mutex::new(f)),
-        }
-    }
-
-    /// Chains another ArcConsumer in sequence
-    ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Borrows &self, does not consume the
-    /// original consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `ArcConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    ///
-    /// let first = ArcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let second = ArcConsumer::new(|x: &mut i32| *x += 10);
-    ///
-    /// let chained = first.and_then(&second);
-    ///
-    /// // first and second are still usable
-    /// let mut value = 5;
-    /// let mut c = chained;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 20); // (5 * 2) + 10
-    /// ```
-    pub fn and_then(&self, next: &ArcConsumer<T>) -> ArcConsumer<T> {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
-        ArcConsumer {
-            func: Arc::new(Mutex::new(move |t: &mut T| {
-                first.lock().unwrap()(t);
-                second.lock().unwrap()(t);
-            })),
-        }
-    }
-}
-
-impl<T> Consumer<T> for ArcConsumer<T> {
-    fn accept(&mut self, value: &mut T) {
-        (self.func.lock().unwrap())(value)
-    }
-
-    fn into_box(self) -> BoxConsumer<T>
-    where
-        T: 'static,
-    {
-        let func = self.func;
-        BoxConsumer::new(move |t| func.lock().unwrap()(t))
-    }
-
-    fn into_rc(self) -> RcConsumer<T>
-    where
-        T: 'static,
-    {
-        let func = self.func;
-        RcConsumer::new(move |t| func.lock().unwrap()(t))
-    }
-
-    fn into_arc(self) -> ArcConsumer<T>
-    where
-        T: Send + 'static,
-    {
-        self
-    }
-
-    fn into_fn(self) -> impl FnMut(&mut T)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        let func = self.func;
-        move |t: &mut T| func.lock().unwrap()(t)
-    }
-}
-
-impl<T> Clone for ArcConsumer<T> {
-    /// Clones the ArcConsumer
-    ///
-    /// Creates a new ArcConsumer that shares the underlying function with the
-    /// original instance.
-    fn clone(&self) -> Self {
-        Self {
-            func: Arc::clone(&self.func),
-        }
-    }
-}
-
-// ============================================================================
-// RcConsumer - Single-Threaded Shared Ownership Implementation
-// ============================================================================
-
-/// RcConsumer struct
-///
-/// A consumer implementation based on `Rc<RefCell<dyn FnMut(&mut T)>>` for
-/// single-threaded shared ownership scenarios. This consumer provides the
-/// benefits of shared ownership without the overhead of thread safety.
-///
-/// # Features
-///
-/// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
-/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
-/// - **Interior Mutability**: Uses `RefCell` for runtime borrow checking
-/// - **No Lock Overhead**: More efficient than `ArcConsumer` for
-///   single-threaded use
-/// - **Non-Consuming API**: `and_then` borrows `&self`, original remains
-///   usable
-///
-/// # Comparison with Other Consumers
-///
-/// | Feature             | BoxConsumer | ArcConsumer | RcConsumer |
-/// |---------------------|-------------|-------------|------------|
-/// | Ownership Model     | Single      | Shared      | Shared     |
-/// | Cloneable           | No          | Yes         | Yes        |
-/// | Thread-Safe         | No          | Yes         | No         |
-/// | Reference Counting  | No          | Yes (Arc)   | Yes (Rc)   |
-/// | Interior Mutability | No          | Mutex       | RefCell    |
-/// | Lock Overhead       | None        | Yes         | None       |
-/// | `and_then` API      | `self`      | `&self`     | `&self`    |
-///
-/// # Use Cases
-///
-/// Choose `RcConsumer` when:
-/// - The consumer needs to be shared within a single thread
-/// - Thread safety is not required
-/// - Performance is important (avoiding lock overhead)
-/// - UI event handling in single-threaded frameworks
-/// - Building complex single-threaded state machines
-///
-/// # Performance Considerations
-///
-/// `RcConsumer` provides better performance than `ArcConsumer` for
-/// single-threaded scenarios:
-/// - **Non-Atomic Counting**: Cheaper clone/drop than `Arc`
-/// - **No Lock Overhead**: `RefCell` uses runtime checks, not locks
-/// - **Better Cache Locality**: No atomic operations means better CPU cache
-///   behavior
-///
-/// However, it has slight overhead compared to `BoxConsumer`:
-/// - **Reference Counting**: Non-atomic but still present
-/// - **Runtime Borrow Checking**: `RefCell` checks at runtime
-///
-/// # Safety
-///
-/// `RcConsumer` is NOT thread-safe and does NOT implement `Send` or `Sync`.
-/// Attempting to send it to another thread will result in a compile error.
-/// For thread-safe sharing, use `ArcConsumer` instead.
-///
-/// # Examples
-///
-/// ## Basic Usage
-///
-/// ```rust
-/// use prism3_function::{Consumer, RcConsumer};
-///
-/// let consumer = RcConsumer::new(|x: &mut i32| *x *= 2);
-/// let clone = consumer.clone();
-///
-/// let mut value = 5;
-/// let mut c = consumer;
-/// c.accept(&mut value);
-/// assert_eq!(value, 10);
-/// ```
-///
-/// ## Sharing Within a Single Thread
-///
-/// ```rust
-/// use prism3_function::{Consumer, RcConsumer};
-///
-/// let shared = RcConsumer::new(|x: &mut i32| *x *= 2);
-///
-/// // Clone for use in multiple places
-/// let clone1 = shared.clone();
-/// let clone2 = shared.clone();
-///
-/// let mut value1 = 5;
-/// let mut c1 = clone1;
-/// c1.accept(&mut value1);
-/// assert_eq!(value1, 10);
-///
-/// let mut value2 = 3;
-/// let mut c2 = clone2;
-/// c2.accept(&mut value2);
-/// assert_eq!(value2, 6);
-///
-/// // Original is still usable
-/// let mut value3 = 7;
-/// let mut c3 = shared;
-/// c3.accept(&mut value3);
-/// assert_eq!(value3, 14);
-/// ```
-///
-/// ## Method Chaining with Shared Ownership
-///
-/// ```rust
-/// use prism3_function::{Consumer, RcConsumer};
-///
-/// let first = RcConsumer::new(|x: &mut i32| *x *= 2);
-/// let second = RcConsumer::new(|x: &mut i32| *x += 10);
-///
-/// // Both consumers remain usable after chaining
-/// let chained = first.and_then(&second);
-///
-/// let mut value = 5;
-/// let mut c = chained;
-/// c.accept(&mut value);
-/// assert_eq!(value, 20); // (5 * 2) + 10
-///
-/// // first and second are still usable here
-/// let mut v = 3;
-/// let mut f = first;
-/// f.accept(&mut v);
-/// assert_eq!(v, 6);
-/// ```
-///
-/// ## Event Handler Pattern
-///
-/// ```rust
-/// use prism3_function::{Consumer, RcConsumer};
-/// use std::collections::HashMap;
-///
-/// struct EventSystem {
-///     handlers: HashMap<String, Vec<RcConsumer<i32>>>,
-/// }
-///
-/// impl EventSystem {
-///     fn new() -> Self {
-///         Self {
-///             handlers: HashMap::new(),
-///         }
-///     }
-///
-///     fn register(&mut self, event: &str, handler: RcConsumer<i32>) {
-///         self.handlers.entry(event.to_string())
-///             .or_insert_with(Vec::new)
-///             .push(handler);
-///     }
-///
-///     fn trigger(&mut self, event: &str, value: &mut i32) {
-///         if let Some(handlers) = self.handlers.get_mut(event) {
-///             for handler in handlers.iter_mut() {
-///                 handler.accept(value);
-///             }
-///         }
-///     }
-/// }
-///
-/// let mut system = EventSystem::new();
-/// let handler = RcConsumer::new(|x: &mut i32| *x *= 2);
-/// system.register("double", handler.clone());
-/// system.register("double", handler.clone());
-///
-/// let mut value = 5;
-/// system.trigger("double", &mut value);
-/// assert_eq!(value, 20); // Applied twice: 5 * 2 * 2
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct RcConsumer<T> {
-    func: RcMutConsumerFn<T>,
-}
-
-impl<T> RcConsumer<T>
-where
-    T: 'static,
-{
-    /// Creates a new RcConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `RcConsumer<T>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    ///
-    /// let consumer = RcConsumer::new(|x: &mut i32| *x += 1);
-    /// let mut value = 5;
-    /// let mut c = consumer;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 6);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&mut T) + 'static,
-    {
-        RcConsumer {
-            func: Rc::new(RefCell::new(f)),
-        }
-    }
-
-    /// Chains another RcConsumer in sequence
-    ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Borrows &self, does not consume the
-    /// original consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `RcConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    ///
-    /// let first = RcConsumer::new(|x: &mut i32| *x *= 2);
-    /// let second = RcConsumer::new(|x: &mut i32| *x += 10);
-    ///
-    /// let chained = first.and_then(&second);
-    ///
-    /// // first and second are still usable
-    /// let mut value = 5;
-    /// let mut c = chained;
-    /// c.accept(&mut value);
-    /// assert_eq!(value, 20); // (5 * 2) + 10
-    /// ```
-    pub fn and_then(&self, next: &RcConsumer<T>) -> RcConsumer<T> {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
-        RcConsumer {
-            func: Rc::new(RefCell::new(move |t: &mut T| {
-                first.borrow_mut()(t);
-                second.borrow_mut()(t);
-            })),
-        }
-    }
-}
-
-impl<T> Consumer<T> for RcConsumer<T> {
-    fn accept(&mut self, value: &mut T) {
-        (self.func.borrow_mut())(value)
-    }
-
-    fn into_box(self) -> BoxConsumer<T>
-    where
-        T: 'static,
-    {
-        let func = self.func;
-        BoxConsumer::new(move |t| func.borrow_mut()(t))
-    }
-
-    fn into_rc(self) -> RcConsumer<T>
-    where
-        T: 'static,
-    {
-        self
-    }
-
-    fn into_arc(self) -> ArcConsumer<T>
-    where
-        T: Send + 'static,
-    {
-        panic!("Cannot convert RcConsumer to ArcConsumer (not Send)")
-    }
-
-    fn into_fn(self) -> impl FnMut(&mut T)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        let func = self.func;
-        move |t: &mut T| func.borrow_mut()(t)
-    }
-}
-
-impl<T> Clone for RcConsumer<T> {
-    /// Clones the RcConsumer
-    ///
-    /// Creates a new RcConsumer that shares the underlying function with the
-    /// original instance.
-    fn clone(&self) -> Self {
-        Self {
-            func: Rc::clone(&self.func),
-        }
-    }
-}
+/// 为所有闭包类型实现 FnConsumerOps
+impl<T, F> FnConsumerOps<T> for F where F: FnMut(&T) {}

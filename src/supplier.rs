@@ -486,176 +486,6 @@ pub trait Supplier<T> {
 }
 
 // ==========================================================================
-// Implement Supplier trait for closures
-// ==========================================================================
-
-/// Implements Supplier for all FnMut() -> T
-impl<T, F> Supplier<T> for F
-where
-    F: FnMut() -> T,
-{
-    fn get(&mut self) -> T {
-        self()
-    }
-
-    fn into_box(self) -> BoxSupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        BoxSupplier::new(self)
-    }
-
-    fn into_rc(self) -> RcSupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        RcSupplier::new(self)
-    }
-
-    fn into_arc(self) -> ArcSupplier<T>
-    where
-        Self: Sized + Send + 'static,
-        T: Send + 'static,
-    {
-        ArcSupplier::new(self)
-    }
-
-    fn into_fn(self) -> impl FnMut() -> T
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        self
-    }
-}
-
-// ==========================================================================
-// Provide extension methods for closures
-// ==========================================================================
-
-/// Extension trait providing supplier composition methods for closures
-///
-/// Provides `map`, `filter`, and other composition methods for all
-/// closures that implement `FnMut() -> T`, allowing closures to be
-/// composed directly using method chaining.
-///
-/// Composition methods consume the closure and return `BoxSupplier<T>`.
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::{FnSupplierOps, Supplier};
-///
-/// let mapped = (|| 10).map(|x| x * 2);
-/// let mut result = mapped;
-/// assert_eq!(result.get(), 20);
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub trait FnSupplierOps<T>: FnMut() -> T + Sized {
-    /// Maps the output using a mapping function
-    ///
-    /// Returns a new supplier that applies the mapper to the output
-    /// of the current supplier. Consumes the current closure and
-    /// returns `BoxSupplier<U>`.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `U` - The output type after transformation
-    /// * `F` - The mapping function type
-    ///
-    /// # Parameters
-    ///
-    /// * `mapper` - The function to apply to the supplier's output
-    ///
-    /// # Returns
-    ///
-    /// Returns the mapped `BoxSupplier<U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{FnSupplierOps, Supplier};
-    ///
-    /// let mapped = (|| 10)
-    ///     .map(|x| x * 2)
-    ///     .map(|x| x + 5);
-    ///
-    /// let mut result = mapped;
-    /// assert_eq!(result.get(), 25);
-    /// ```
-    fn map<U, F>(self, mapper: F) -> BoxSupplier<U>
-    where
-        Self: 'static,
-        F: FnMut(T) -> U + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        let mut source = self;
-        let mut map_fn = mapper;
-        BoxSupplier::new(move || map_fn(source()))
-    }
-
-    /// Filters the output based on a predicate
-    ///
-    /// Returns a new supplier that returns Some(value) if the predicate
-    /// is satisfied, None otherwise. Consumes the current closure and
-    /// returns `BoxSupplier<Option<T>>`.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The predicate to test the supplied value
-    ///
-    /// # Returns
-    ///
-    /// Returns the filtered `BoxSupplier<Option<T>>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{FnSupplierOps, Supplier};
-    ///
-    /// let mut counter = 0;
-    /// let filtered = (move || {
-    ///     counter += 1;
-    ///     counter
-    /// }).filter(|x| x % 2 == 0);
-    ///
-    /// let mut result = filtered;
-    /// assert_eq!(result.get(), None);     // 1 is odd
-    /// assert_eq!(result.get(), Some(2));  // 2 is even
-    /// ```
-    fn filter<P>(self, predicate: P) -> BoxSupplier<Option<T>>
-    where
-        Self: 'static,
-        P: FnMut(&T) -> bool + 'static,
-        T: 'static,
-    {
-        let mut source = self;
-        let mut pred = predicate;
-        BoxSupplier::new(move || {
-            let value = source();
-            if pred(&value) {
-                Some(value)
-            } else {
-                None
-            }
-        })
-    }
-}
-
-/// Implements FnSupplierOps for all closure types
-impl<T, F> FnSupplierOps<T> for F where F: FnMut() -> T {}
-
-// ==========================================================================
 // BoxSupplier - Single Ownership Implementation
 // ==========================================================================
 
@@ -2298,3 +2128,173 @@ impl<T> Clone for RcSupplier<T> {
         }
     }
 }
+
+// ==========================================================================
+// Implement Supplier trait for closures
+// ==========================================================================
+
+/// Implements Supplier for all FnMut() -> T
+impl<T, F> Supplier<T> for F
+where
+    F: FnMut() -> T,
+{
+    fn get(&mut self) -> T {
+        self()
+    }
+
+    fn into_box(self) -> BoxSupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxSupplier::new(self)
+    }
+
+    fn into_rc(self) -> RcSupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        RcSupplier::new(self)
+    }
+
+    fn into_arc(self) -> ArcSupplier<T>
+    where
+        Self: Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        ArcSupplier::new(self)
+    }
+
+    fn into_fn(self) -> impl FnMut() -> T
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self
+    }
+}
+
+// ==========================================================================
+// Provide extension methods for closures
+// ==========================================================================
+
+/// Extension trait providing supplier composition methods for closures
+///
+/// Provides `map`, `filter`, and other composition methods for all
+/// closures that implement `FnMut() -> T`, allowing closures to be
+/// composed directly using method chaining.
+///
+/// Composition methods consume the closure and return `BoxSupplier<T>`.
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{FnSupplierOps, Supplier};
+///
+/// let mapped = (|| 10).map(|x| x * 2);
+/// let mut result = mapped;
+/// assert_eq!(result.get(), 20);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub trait FnSupplierOps<T>: FnMut() -> T + Sized {
+    /// Maps the output using a mapping function
+    ///
+    /// Returns a new supplier that applies the mapper to the output
+    /// of the current supplier. Consumes the current closure and
+    /// returns `BoxSupplier<U>`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `U` - The output type after transformation
+    /// * `F` - The mapping function type
+    ///
+    /// # Parameters
+    ///
+    /// * `mapper` - The function to apply to the supplier's output
+    ///
+    /// # Returns
+    ///
+    /// Returns the mapped `BoxSupplier<U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{FnSupplierOps, Supplier};
+    ///
+    /// let mapped = (|| 10)
+    ///     .map(|x| x * 2)
+    ///     .map(|x| x + 5);
+    ///
+    /// let mut result = mapped;
+    /// assert_eq!(result.get(), 25);
+    /// ```
+    fn map<U, F>(self, mapper: F) -> BoxSupplier<U>
+    where
+        Self: 'static,
+        F: FnMut(T) -> U + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let mut source = self;
+        let mut map_fn = mapper;
+        BoxSupplier::new(move || map_fn(source()))
+    }
+
+    /// Filters the output based on a predicate
+    ///
+    /// Returns a new supplier that returns Some(value) if the predicate
+    /// is satisfied, None otherwise. Consumes the current closure and
+    /// returns `BoxSupplier<Option<T>>`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `P` - The predicate type
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The predicate to test the supplied value
+    ///
+    /// # Returns
+    ///
+    /// Returns the filtered `BoxSupplier<Option<T>>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{FnSupplierOps, Supplier};
+    ///
+    /// let mut counter = 0;
+    /// let filtered = (move || {
+    ///     counter += 1;
+    ///     counter
+    /// }).filter(|x| x % 2 == 0);
+    ///
+    /// let mut result = filtered;
+    /// assert_eq!(result.get(), None);     // 1 is odd
+    /// assert_eq!(result.get(), Some(2));  // 2 is even
+    /// ```
+    fn filter<P>(self, predicate: P) -> BoxSupplier<Option<T>>
+    where
+        Self: 'static,
+        P: FnMut(&T) -> bool + 'static,
+        T: 'static,
+    {
+        let mut source = self;
+        let mut pred = predicate;
+        BoxSupplier::new(move || {
+            let value = source();
+            if pred(&value) {
+                Some(value)
+            } else {
+                None
+            }
+        })
+    }
+}
+
+/// Implements FnSupplierOps for all closure types
+impl<T, F> FnSupplierOps<T> for F where F: FnMut() -> T {}

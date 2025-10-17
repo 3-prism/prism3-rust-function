@@ -8,291 +8,83 @@
  ******************************************************************************/
 //! # Transformer Types
 //!
-//! Provides transformer types for transforming values from type T to the same
-//! type T. This is a specialization of `Function<T, T>` with additional
-//! convenience methods.
+//! Provides Rust implementations of immutable transformer traits that
+//! transform values from type T to the same type T. This is a specialization
+//! of `Function<T, T>` with additional convenience methods.
 //!
-//! This module provides a `Transformer<T>` trait as a unified interface, along
-//! with four concrete implementations:
+//! This module provides the `Transformer<T>` trait and three implementations:
 //!
-//! - [`BoxTransformer`]: Based on `Box<dyn FnOnce>`, single ownership,
-//!   one-time use
-//! - [`BoxFnTransformer`]: Based on `Box<dyn Fn>`, reusable, single ownership
-//! - [`ArcFnTransformer`]: Based on `Arc<dyn Fn>`, reusable, multi-threaded
-//!   sharing
-//! - [`RcFnTransformer`]: Based on `Rc<dyn Fn>`, reusable, single-threaded
-//!   sharing
+//! - [`BoxTransformer`]: Single ownership, not cloneable
+//! - [`ArcTransformer`]: Thread-safe shared ownership, cloneable
+//! - [`RcTransformer`]: Single-threaded shared ownership, cloneable
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::function::Function;
+
 // ============================================================================
-// Transformer Trait - Unified Interface
+// Core Trait
 // ============================================================================
 
-/// Transformer trait - unified transformation interface
+/// Transformer trait - immutable self-transformation that borrows input
 ///
-/// Defines the core behavior of transformation: converting a value of type `T`
-/// to another value of the same type `T`.
+/// Defines the behavior of an immutable transformation: converting a borrowed
+/// value of type `&T` to a value of the same type `T`. This trait extends
+/// `Function<T, T>` with specialized transformation semantics.
+///
+/// The core method is `transform()`, which provides the transformation logic.
+/// Implementations should have `apply()` call `transform()` to maintain
+/// consistency.
 ///
 /// # Type Parameters
 ///
 /// * `T` - The type of both input and output values
 ///
-/// # Implementors
-///
-/// - All closure types `FnOnce(T) -> T`
-/// - [`BoxTransformer<T>`]
-/// - [`BoxFnTransformer<T>`]
-/// - [`ArcFnTransformer<T>`]
-/// - [`RcFnTransformer<T>`]
-///
 /// # Author
 ///
-/// Hu Haixing
-pub trait Transformer<T> {
+/// Haixing Hu
+pub trait Transformer<T>: Function<T, T> {
     /// Applies the transformation to the input value
+    ///
+    /// This is the core method that must be implemented.
     ///
     /// # Parameters
     ///
-    /// * `input` - The input value
+    /// * `input` - Borrowed reference to the input value
     ///
     /// # Returns
     ///
     /// The transformed output value
-    fn transform(self, input: T) -> T;
-
-    /// Converts transformer to a closure for use with iterator methods
-    ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
-    ///
-    /// This method consumes the transformer and returns a closure that can be
-    /// directly used with iterator methods like `map()`, `flat_map()`, etc.
-    /// This provides a more ergonomic API when working with iterators.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the transformer (takes ownership of `self`).
-    /// After calling this method, the original transformer is no longer
-    /// available. The returned closure captures the transformer by move.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure that implements `FnMut(T) -> T`
-    ///
-    /// # Examples
-    ///
-    /// ## Simple Mapping
-    ///
-    /// ```rust
-    /// use prism3_function::{BoxFnTransformer, Transformer};
-    ///
-    /// let transformer = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// ## With Complex Transformer
-    ///
-    /// ```rust
-    /// use prism3_function::{BoxFnTransformer, Transformer};
-    ///
-    /// let add_one = BoxFnTransformer::new(|x: i32| x + 1);
-    /// let double = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let transformer = add_one.then(double);
-    ///
-    /// let values = vec![1, 2, 3];
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![4, 6, 8]); // (1+1)*2=4, (2+1)*2=6, (3+1)*2=8
-    /// ```
-    ///
-    /// ## With Other Iterator Methods
-    ///
-    /// ```rust
-    /// use prism3_function::{ArcFnTransformer, Transformer};
-    ///
-    /// let transformer = ArcFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .filter(|x| *x > 4)
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![6, 8, 10]);
-    /// ```
-    ///
-    /// ## Ownership Behavior
-    ///
-    /// ```rust,compile_fail
-    /// use prism3_function::{BoxTransformer, Transformer};
-    ///
-    /// let transformer = BoxTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// // ❌ Error: transformer was moved in the call to into_fn()
-    /// let result2 = transformer.transform(5);
-    /// ```
-    fn into_fn(self) -> impl FnMut(T) -> T
-    where
-        Self: Sized + 'static,
-        T: 'static;
-}
-
-// Implement Transformer trait for all FnOnce
-impl<T, F> Transformer<T> for F
-where
-    F: FnOnce(T) -> T,
-{
-    fn transform(self, input: T) -> T {
-        self(input)
-    }
-
-    fn into_fn(self) -> impl FnMut(T) -> T
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        // FnOnce can only be called once, so we wrap it in Option
-        // and panic if called more than once
-        let mut func = Some(self);
-        move |t: T| {
-            func.take()
-                .expect("FnOnce transformer can only be called once")(t)
-        }
-    }
+    fn transform(&self, input: &T) -> T;
 }
 
 // ============================================================================
-// Closure Extension Trait - Provides composition methods for closures
+// BoxTransformer - Box<dyn Fn(&T) -> T>
 // ============================================================================
 
-/// Extension trait providing transformation composition methods for closures
+/// BoxTransformer - immutable transformer wrapper based on `Box<dyn Fn>`
 ///
-/// Allows closures to use methods like `.and_then()` and `.compose()`,
-/// returning a `BoxTransformer` after composition.
-///
-/// # Author
-///
-/// Hu Haixing
-pub trait FnTransformerOps<T>: FnOnce(T) -> T + Sized {
-    /// Chain composition - applies self first, then after
-    ///
-    /// Execution order: input -> self -> after -> output
-    ///
-    /// # Parameters
-    ///
-    /// * `after` - The transformation to apply after self
-    ///
-    /// # Returns
-    ///
-    /// Returns `BoxTransformer<T>`, representing the composed transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::FnTransformerOps;
-    ///
-    /// let add_one = |x: i32| x + 1;
-    /// let double = |x: i32| x * 2;
-    /// let composed = add_one.then(double);
-    /// ```
-    fn then<G>(self, after: G) -> BoxTransformer<T>
-    where
-        Self: 'static,
-        G: FnOnce(T) -> T + 'static,
-        T: 'static,
-    {
-        BoxTransformer::new(move |x| after(self(x)))
-    }
-
-    /// Reverse composition - applies before first, then self
-    ///
-    /// Execution order: input -> before -> self -> output
-    ///
-    /// # Parameters
-    ///
-    /// * `before` - The transformation to apply before self
-    ///
-    /// # Returns
-    ///
-    /// Returns `BoxTransformer<T>`, representing the composed transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::FnTransformerOps;
-    ///
-    /// let double = |x: i32| x * 2;
-    /// let add_one = |x: i32| x + 1;
-    /// let composed = double.compose_transformer(add_one);
-    /// ```
-    fn compose_transformer<G>(self, before: G) -> BoxTransformer<T>
-    where
-        Self: 'static,
-        G: FnOnce(T) -> T + 'static,
-        T: 'static,
-    {
-        BoxTransformer::new(move |x| self(before(x)))
-    }
-}
-
-// Implement FnTransformerOps for all FnOnce
-impl<T, F> FnTransformerOps<T> for F where F: FnOnce(T) -> T {}
-
-// ============================================================================
-// BoxTransformer - Single ownership, one-time use (FnOnce)
-// ============================================================================
-
-/// BoxTransformer - transformation wrapper based on `Box<dyn FnOnce>`
-///
-/// Used for single ownership scenarios where the transformation can only be
-/// applied once.
+/// A transformer wrapper that provides single ownership with reusable
+/// immutable transformation. The transformer borrows the input and can be
+/// called multiple times.
 ///
 /// # Features
 ///
-/// - Based on `Box<dyn FnOnce(T) -> T>`
-/// - Single ownership, cannot be cloned
-/// - Can only be called once (transform consumes self)
-/// - Suitable for one-time transformations and pipeline construction
-///
-/// # Type Parameters
-///
-/// * `T` - The type of both input and output values
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::BoxTransformer;
-///
-/// let double = BoxTransformer::new(|x: i32| x * 2);
-/// let result = double.transform(21);
-/// assert_eq!(result, 42);
-/// // double has been consumed and cannot be used again
-/// ```
+/// - **Based on**: `Box<dyn Fn(&T) -> T>`
+/// - **Ownership**: Single ownership, cannot be cloned
+/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Thread Safety**: Not thread-safe (no `Send + Sync` requirement)
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxTransformer<T> {
-    f: Box<dyn FnOnce(T) -> T>,
+    f: Box<dyn Fn(&T) -> T>,
 }
 
 impl<T> BoxTransformer<T>
@@ -305,57 +97,22 @@ where
     ///
     /// * `f` - The closure or function to wrap
     ///
-    /// # Returns
-    ///
-    /// Returns a new BoxTransformer instance
-    ///
     /// # Examples
     ///
     /// ```rust
     /// use prism3_function::BoxTransformer;
     ///
-    /// let double = BoxTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// let double = BoxTransformer::new(|x: &i32| x * 2);
+    /// assert_eq!(double.transform(&21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnOnce(T) -> T + 'static,
+        F: Fn(&T) -> T + 'static,
     {
         BoxTransformer { f: Box::new(f) }
     }
 
-    /// Applies the transformation to the input value
-    ///
-    /// Consumes self and returns the result.
-    ///
-    /// # Parameters
-    ///
-    /// * `input` - The input value
-    ///
-    /// # Returns
-    ///
-    /// The transformed output value
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let double = BoxTransformer::new(|x: i32| x * 2);
-    /// let result = double.transform(21);
-    /// assert_eq!(result, 42);
-    /// ```
-    pub fn transform(self, input: T) -> T {
-        (self.f)(input)
-    }
-
-    /// Creates an identity transformation
-    ///
-    /// Returns a transformation that directly returns the input value.
-    ///
-    /// # Returns
-    ///
-    /// Returns an identity transformation
+    /// Creates an identity transformer
     ///
     /// # Examples
     ///
@@ -363,73 +120,19 @@ where
     /// use prism3_function::BoxTransformer;
     ///
     /// let identity = BoxTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
+    /// assert_eq!(identity.transform(&42), 42);
     /// ```
-    pub fn identity() -> BoxTransformer<T> {
-        BoxTransformer::new(|x| x)
+    pub fn identity() -> BoxTransformer<T>
+    where
+        T: Clone,
+    {
+        BoxTransformer::new(|x: &T| x.clone())
     }
 
     /// Chain composition - applies self first, then after
     ///
-    /// Execution order: input -> self -> after -> output
-    ///
-    /// # Parameters
-    ///
-    /// * `after` - The transformation to apply after self
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed BoxTransformer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
-    /// let double = |x: i32| x * 2;
-    /// let composed = add_one.then(double);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2 = 12
-    /// ```
-    pub fn then<G>(self, after: G) -> BoxTransformer<T>
-    where
-        G: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |x| after((self.f)(x)))
-    }
-
-    /// Reverse composition - applies before first, then self
-    ///
-    /// Execution order: input -> before -> self -> output
-    ///
-    /// # Parameters
-    ///
-    /// * `before` - The transformation to apply before self
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed BoxTransformer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let double = BoxTransformer::new(|x: i32| x * 2);
-    /// let add_one = |x: i32| x + 1;
-    /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2 = 12
-    /// ```
-    pub fn compose<G>(self, before: G) -> BoxTransformer<T>
-    where
-        G: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |x| (self.f)(before(x)))
-    }
-
-    /// Chains this transformer with another transformer
-    ///
-    /// Execution order: input -> self -> after -> output
+    /// Creates a new transformer that applies this transformer first, then
+    /// applies the after transformer to the result. Consumes self.
     ///
     /// # Parameters
     ///
@@ -437,20 +140,51 @@ where
     ///
     /// # Returns
     ///
-    /// Returns the composed BoxTransformer
+    /// A new BoxTransformer representing the composition
     ///
     /// # Examples
     ///
     /// ```rust
     /// use prism3_function::BoxTransformer;
     ///
-    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
-    /// let double = BoxTransformer::new(|x: i32| x * 2);
-    /// let composed = add_one.chain(double);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2 = 12
+    /// let double = BoxTransformer::new(|x: &i32| x * 2);
+    /// let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    /// let composed = double.and_then(add_one);
+    /// assert_eq!(composed.transform(&5), 11); // 5 * 2 + 1
     /// ```
-    pub fn chain(self, after: BoxTransformer<T>) -> BoxTransformer<T> {
-        BoxTransformer::new(move |x| (after.f)((self.f)(x)))
+    pub fn and_then(self, after: BoxTransformer<T>) -> BoxTransformer<T> {
+        let self_f = self.f;
+        let after_f = after.f;
+        BoxTransformer::new(move |x: &T| after_f(&self_f(x)))
+    }
+
+    /// Reverse composition - applies before first, then self
+    ///
+    /// Creates a new transformer that applies the before transformer first,
+    /// then applies this transformer to the result. Consumes self.
+    ///
+    /// # Parameters
+    ///
+    /// * `before` - The transformer to apply before self
+    ///
+    /// # Returns
+    ///
+    /// A new BoxTransformer representing the composition
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BoxTransformer;
+    ///
+    /// let double = BoxTransformer::new(|x: &i32| x * 2);
+    /// let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    /// let composed = double.compose(add_one);
+    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
+    /// ```
+    pub fn compose(self, before: BoxTransformer<T>) -> BoxTransformer<T> {
+        let self_f = self.f;
+        let before_f = before.f;
+        BoxTransformer::new(move |x: &T| self_f(&before_f(x)))
     }
 }
 
@@ -458,18 +192,7 @@ impl<T> BoxTransformer<T>
 where
     T: Clone + 'static,
 {
-    /// Creates a constant transformation
-    ///
-    /// Returns a transformation that ignores the input value and always
-    /// returns the same constant value.
-    ///
-    /// # Parameters
-    ///
-    /// * `value` - The constant value to return
-    ///
-    /// # Returns
-    ///
-    /// Returns a constant transformation
+    /// Creates a constant transformer
     ///
     /// # Examples
     ///
@@ -477,979 +200,493 @@ where
     /// use prism3_function::BoxTransformer;
     ///
     /// let constant = BoxTransformer::constant(42);
-    /// assert_eq!(constant.transform(100), 42);
+    /// assert_eq!(constant.transform(&123), 42);
     /// ```
     pub fn constant(value: T) -> BoxTransformer<T> {
         BoxTransformer::new(move |_| value.clone())
     }
-
-    /// Creates a conditional transformer
-    ///
-    /// Returns a transformer that applies the transformation only when the
-    /// condition is met, otherwise returns the original value.
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The condition predicate
-    /// * `transform` - The transformation to apply when condition is true
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional transformer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let conditional = BoxTransformer::when(
-    ///     |x: &i32| *x > 0,
-    ///     |x: i32| x * 2
-    /// );
-    /// assert_eq!(conditional.transform(5), 10);
-    /// ```
-    pub fn when<P, F>(predicate: P, transform: F) -> BoxTransformer<T>
-    where
-        P: FnOnce(&T) -> bool + 'static,
-        F: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |input| {
-            if predicate(&input) {
-                transform(input)
-            } else {
-                input
-            }
-        })
-    }
-
-    /// Creates a conditional transformer with else branch
-    ///
-    /// Returns a transformer that applies different transformations based on
-    /// the condition.
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The condition predicate
-    /// * `if_true` - The transformation when condition is true
-    /// * `if_false` - The transformation when condition is false
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional transformer with branching
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let transformer = BoxTransformer::if_else(
-    ///     |x: &i32| *x > 0,
-    ///     |x: i32| x * 2,
-    ///     |x: i32| x.abs()
-    /// );
-    /// assert_eq!(transformer.transform(5), 10);
-    /// ```
-    pub fn if_else<P, F, G>(predicate: P, if_true: F, if_false: G) -> BoxTransformer<T>
-    where
-        P: FnOnce(&T) -> bool + 'static,
-        F: FnOnce(T) -> T + 'static,
-        G: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |input| {
-            if predicate(&input) {
-                if_true(input)
-            } else {
-                if_false(input)
-            }
-        })
-    }
-
-    /// Repeats the transformation multiple times
-    ///
-    /// Creates a new transformer that applies the given transformation
-    /// repeatedly for the specified number of times.
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The transformation to repeat
-    /// * `times` - The number of times to repeat
-    ///
-    /// # Returns
-    ///
-    /// Returns a new transformer that repeats the transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let add_one = |x: i32| x + 1;
-    /// let add_three = BoxTransformer::repeat(add_one, 3);
-    /// assert_eq!(add_three.transform(5), 8); // 5 + 1 + 1 + 1 = 8
-    /// ```
-    pub fn repeat<F>(f: F, times: usize) -> BoxTransformer<T>
-    where
-        F: Fn(T) -> T + Clone + 'static,
-    {
-        if times == 0 {
-            return BoxTransformer::identity();
-        }
-
-        BoxTransformer::new(move |mut input| {
-            for _ in 0..times {
-                input = f.clone()(input);
-            }
-            input
-        })
-    }
 }
 
-// Option-related methods
-impl<T> BoxTransformer<Option<T>>
-where
-    T: 'static,
-{
-    /// Creates a transformer that maps over Option values
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The function to transform the value inside Some
-    ///
-    /// # Returns
-    ///
-    /// Returns a transformer for Option values
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let double = |x: i32| x * 2;
-    /// let option_double = BoxTransformer::map_option(double);
-    /// assert_eq!(option_double.transform(Some(21)), Some(42));
-    ///
-    /// // Create a new transformer for None case
-    /// let double2 = |x: i32| x * 2;
-    /// let option_double2 = BoxTransformer::map_option(double2);
-    /// assert_eq!(option_double2.transform(None), None);
-    /// ```
-    pub fn map_option<F>(f: F) -> BoxTransformer<Option<T>>
-    where
-        F: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |opt: Option<T>| opt.map(f))
-    }
-}
-
-// Result-related methods
-impl<T, E> BoxTransformer<Result<T, E>>
-where
-    T: 'static,
-    E: 'static,
-{
-    /// Creates a transformer that maps over Result success values
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The function to transform the value inside Ok
-    ///
-    /// # Returns
-    ///
-    /// Returns a transformer for Result values
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxTransformer;
-    ///
-    /// let double = |x: i32| x * 2;
-    /// let result_double = BoxTransformer::map_result(double);
-    /// assert_eq!(result_double.transform(Ok::<i32, &str>(21)), Ok(42));
-    ///
-    /// // Create a new transformer for Err case
-    /// let double2 = |x: i32| x * 2;
-    /// let result_double2 = BoxTransformer::map_result(double2);
-    /// assert_eq!(
-    ///     result_double2.transform(Err::<i32, &str>("error")),
-    ///     Err("error")
-    /// );
-    /// ```
-    pub fn map_result<F>(f: F) -> BoxTransformer<Result<T, E>>
-    where
-        F: FnOnce(T) -> T + 'static,
-    {
-        BoxTransformer::new(move |result: Result<T, E>| result.map(f))
-    }
-}
-
-// Implement Transformer trait for BoxTransformer
 impl<T> Transformer<T> for BoxTransformer<T>
 where
     T: 'static,
 {
-    fn transform(self, input: T) -> T {
+    fn transform(&self, input: &T) -> T {
         (self.f)(input)
     }
+}
 
-    fn into_fn(self) -> impl FnMut(T) -> T
+impl<T: 'static> Function<T, T> for BoxTransformer<T> {
+    fn apply(&self, input: &T) -> T {
+        self.transform(input)
+    }
+
+    fn into_box(self) -> crate::function::BoxFunction<T, T> {
+        crate::function::BoxFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_rc(self) -> crate::function::RcFunction<T, T> {
+        crate::function::RcFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_arc(self) -> crate::function::ArcFunction<T, T>
     where
-        Self: Sized + 'static,
-        T: 'static,
+        Self: Send + Sync,
+        T: Send + Sync,
     {
-        // BoxTransformer uses FnOnce internally, which can only be called once.
-        // We need to use an Option to track whether it has been called.
-        let mut f = Some(self.f);
-        move |t: T| f.take().expect("BoxTransformer can only be called once")(t)
+        unreachable!(
+            "BoxTransformer<T> does not implement Send + Sync, so this \
+             method can never be called"
+        )
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> T {
+        move |t: &T| self.apply(t)
     }
 }
 
 // ============================================================================
-// BoxFnTransformer - Single ownership, reusable (Fn)
+// ArcTransformer - Arc<dyn Fn(&T) -> T + Send + Sync>
 // ============================================================================
 
-/// BoxFnTransformer - transformation wrapper based on `Box<dyn Fn>`
+/// ArcTransformer - thread-safe immutable transformer wrapper
 ///
-/// Used for reusable scenarios, but still with single ownership (not
-/// clonable).
+/// A thread-safe, clonable transformer wrapper suitable for multi-threaded
+/// scenarios. Can be called multiple times and shared across threads.
 ///
 /// # Features
 ///
-/// - Based on `Box<dyn Fn(T) -> T>`
-/// - Single ownership, cannot be cloned
-/// - Can be called multiple times (transform uses &self)
-/// - Composition methods consume self (because Box cannot be cloned)
-///
-/// # Type Parameters
-///
-/// * `T` - The type of both input and output values
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::BoxFnTransformer;
-///
-/// let double = BoxFnTransformer::new(|x: i32| x * 2);
-/// let r1 = double.transform(21);
-/// let r2 = double.transform(42);
-/// assert_eq!(r1, 42);
-/// assert_eq!(r2, 84);
-/// ```
+/// - **Based on**: `Arc<dyn Fn(&T) -> T + Send + Sync>`
+/// - **Ownership**: Shared ownership via reference counting
+/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Thread Safety**: Thread-safe (`Send + Sync` required)
+/// - **Clonable**: Cheap cloning via `Arc::clone`
 ///
 /// # Author
 ///
-/// Hu Haixing
-pub struct BoxFnTransformer<T> {
-    f: Box<dyn Fn(T) -> T>,
+/// Haixing Hu
+pub struct ArcTransformer<T> {
+    f: Arc<dyn Fn(&T) -> T + Send + Sync>,
 }
 
-impl<T> BoxFnTransformer<T>
+impl<T> ArcTransformer<T>
 where
     T: 'static,
 {
-    /// Creates a new BoxFnTransformer
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure or function to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new BoxFnTransformer instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let double = BoxFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(T) -> T + 'static,
-    {
-        BoxFnTransformer { f: Box::new(f) }
-    }
-
-    /// Applies the transformation to the input value
-    ///
-    /// Uses &self, so can be called multiple times.
-    ///
-    /// # Parameters
-    ///
-    /// * `input` - The input value
-    ///
-    /// # Returns
-    ///
-    /// The transformed output value
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let double = BoxFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(double.transform(42), 84);
-    /// ```
-    pub fn transform(&self, input: T) -> T {
-        (self.f)(input)
-    }
-
-    /// Creates an identity transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let identity = BoxFnTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
-    /// ```
-    pub fn identity() -> BoxFnTransformer<T> {
-        BoxFnTransformer::new(|x| x)
-    }
-
-    /// Chain composition (consumes self)
-    ///
-    /// Note: Although transform can be called multiple times, composition
-    /// methods consume self because `Box<dyn Fn>` cannot be cloned.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let add_one = BoxFnTransformer::new(|x: i32| x + 1);
-    /// let double = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let composed = add_one.then(double);
-    /// assert_eq!(composed.transform(5), 12);
-    /// ```
-    pub fn then(self, after: BoxFnTransformer<T>) -> BoxFnTransformer<T> {
-        let self_f = self.f;
-        let after_f = after.f;
-        BoxFnTransformer::new(move |x| after_f(self_f(x)))
-    }
-
-    /// Reverse composition (consumes self)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let double = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let add_one = BoxFnTransformer::new(|x: i32| x + 1);
-    /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12);
-    /// ```
-    pub fn compose(self, before: BoxFnTransformer<T>) -> BoxFnTransformer<T> {
-        let self_f = self.f;
-        let before_f = before.f;
-        BoxFnTransformer::new(move |x| self_f(before_f(x)))
-    }
-}
-
-impl<T> BoxFnTransformer<T>
-where
-    T: Clone + 'static,
-{
-    /// Creates a constant transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let constant = BoxFnTransformer::constant(42);
-    /// assert_eq!(constant.transform(100), 42);
-    /// assert_eq!(constant.transform(200), 42);
-    /// ```
-    pub fn constant(value: T) -> BoxFnTransformer<T> {
-        BoxFnTransformer::new(move |_| value.clone())
-    }
-
-    /// Converts transformer to a closure for use with iterator methods
-    ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
-    ///
-    /// Consumes the transformer and returns a closure that can be used
-    /// with iterator methods like `map()`. Unlike `BoxTransformer`,
-    /// `BoxFnTransformer` uses `Fn` internally, so the returned closure
-    /// can be called multiple times.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the transformer (takes ownership of `self`).
-    /// After calling this method, the original transformer is no longer
-    /// available.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure that implements `FnMut(T) -> T` and can be called
-    /// multiple times
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Usage with Iterator
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let transformer = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// ## Multiple Calls to Returned Closure
-    ///
-    /// ```rust
-    /// use prism3_function::BoxFnTransformer;
-    ///
-    /// let transformer = BoxFnTransformer::new(|x: i32| x * 2);
-    /// let mut func = transformer.into_fn();
-    ///
-    /// // Can call the returned closure multiple times
-    /// assert_eq!(func(1), 2);
-    /// assert_eq!(func(2), 4);
-    /// assert_eq!(func(3), 6);
-    /// ```
-    pub fn into_fn(self) -> impl FnMut(T) -> T {
-        move |t: T| (self.f)(t)
-    }
-}
-
-// ============================================================================
-// ArcFnTransformer - Multi-threaded sharing, reusable (Arc + Fn)
-// ============================================================================
-
-/// ArcFnTransformer - transformation wrapper based on `Arc<dyn Fn>`
-///
-/// Used for multi-threaded sharing and reusable scenarios.
-///
-/// # Features
-///
-/// - Based on `Arc<dyn Fn(T) -> T + Send + Sync>`
-/// - Can be cloned and used across threads
-/// - Can be called multiple times (transform uses &self)
-/// - Composition methods use &self, do not consume ownership
-///
-/// # Type Parameters
-///
-/// * `T` - The type of both input and output values
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::ArcFnTransformer;
-///
-/// let double = ArcFnTransformer::new(|x: i32| x * 2);
-/// let cloned = double.clone();
-///
-/// assert_eq!(double.transform(21), 42);
-/// assert_eq!(cloned.transform(42), 84);
-/// ```
-///
-/// # Author
-///
-/// Hu Haixing
-pub struct ArcFnTransformer<T> {
-    f: Arc<dyn Fn(T) -> T + Send + Sync>,
-}
-
-impl<T> ArcFnTransformer<T>
-where
-    T: 'static,
-{
-    /// Creates a new ArcFnTransformer
+    /// Creates a new ArcTransformer
     ///
     /// # Parameters
     ///
     /// * `f` - The closure or function to wrap (must be Send + Sync)
     ///
-    /// # Returns
-    ///
-    /// Returns a new ArcFnTransformer instance
-    ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcFnTransformer;
+    /// use prism3_function::ArcTransformer;
     ///
-    /// let double = ArcFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// let double = ArcTransformer::new(|x: &i32| x * 2);
+    /// assert_eq!(double.transform(&21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(T) -> T + Send + Sync + 'static,
+        F: Fn(&T) -> T + Send + Sync + 'static,
     {
-        ArcFnTransformer { f: Arc::new(f) }
+        ArcTransformer { f: Arc::new(f) }
     }
 
-    /// Applies the transformation to the input value
+    /// Creates an identity transformer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ArcTransformer;
+    ///
+    /// let identity = ArcTransformer::<i32>::identity();
+    /// assert_eq!(identity.transform(&42), 42);
+    /// ```
+    pub fn identity() -> ArcTransformer<T>
+    where
+        T: Clone + Send + Sync,
+    {
+        ArcTransformer::new(|x: &T| x.clone())
+    }
+
+    /// Chain composition - applies self first, then after
+    ///
+    /// Creates a new transformer that applies this transformer first, then
+    /// applies the after transformer to the result. Uses &self, so original
+    /// transformer remains usable.
     ///
     /// # Parameters
     ///
-    /// * `input` - The input value
+    /// * `after` - The transformer to apply after self
     ///
     /// # Returns
     ///
-    /// The transformed output value
+    /// A new ArcTransformer representing the composition
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcFnTransformer;
+    /// use prism3_function::ArcTransformer;
     ///
-    /// let double = ArcFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(double.transform(42), 84);
+    /// let double = ArcTransformer::new(|x: &i32| x * 2);
+    /// let add_one = ArcTransformer::new(|x: &i32| x + 1);
+    /// let composed = double.and_then(&add_one);
+    ///
+    /// // Original transformers still usable
+    /// assert_eq!(double.transform(&21), 42);
+    /// assert_eq!(composed.transform(&5), 11);
     /// ```
-    pub fn transform(&self, input: T) -> T {
-        (self.f)(input)
-    }
-
-    /// Creates an identity transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let identity = ArcFnTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
-    /// ```
-    pub fn identity() -> ArcFnTransformer<T>
-    where
-        T: Send + Sync,
-    {
-        ArcFnTransformer::new(|x| x)
-    }
-
-    /// Chain composition (uses &self, does not consume ownership)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let add_one = ArcFnTransformer::new(|x: i32| x + 1);
-    /// let double = ArcFnTransformer::new(|x: i32| x * 2);
-    /// let composed = add_one.then(&double);
-    ///
-    /// // Original transformers are still usable
-    /// assert_eq!(add_one.transform(5), 6);
-    /// assert_eq!(composed.transform(5), 12);
-    /// ```
-    pub fn then(&self, after: &ArcFnTransformer<T>) -> ArcFnTransformer<T>
+    pub fn and_then(&self, after: &ArcTransformer<T>) -> ArcTransformer<T>
     where
         T: Send + Sync,
     {
         let self_clone = Arc::clone(&self.f);
         let after_clone = Arc::clone(&after.f);
-        ArcFnTransformer {
-            f: Arc::new(move |x| after_clone(self_clone(x))),
+        ArcTransformer {
+            f: Arc::new(move |x: &T| after_clone(&self_clone(x))),
         }
     }
 
-    /// Reverse composition (uses &self, does not consume ownership)
+    /// Reverse composition - applies before first, then self
+    ///
+    /// Creates a new transformer that applies the before transformer first,
+    /// then applies this transformer to the result. Uses &self, so original
+    /// transformer remains usable.
+    ///
+    /// # Parameters
+    ///
+    /// * `before` - The transformer to apply before self
+    ///
+    /// # Returns
+    ///
+    /// A new ArcTransformer representing the composition
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcFnTransformer;
+    /// use prism3_function::ArcTransformer;
     ///
-    /// let double = ArcFnTransformer::new(|x: i32| x * 2);
-    /// let add_one = ArcFnTransformer::new(|x: i32| x + 1);
+    /// let double = ArcTransformer::new(|x: &i32| x * 2);
+    /// let add_one = ArcTransformer::new(|x: &i32| x + 1);
     /// let composed = double.compose(&add_one);
     ///
-    /// assert_eq!(composed.transform(5), 12);
+    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose(&self, before: &ArcFnTransformer<T>) -> ArcFnTransformer<T>
+    pub fn compose(&self, before: &ArcTransformer<T>) -> ArcTransformer<T>
     where
         T: Send + Sync,
     {
         let self_clone = Arc::clone(&self.f);
         let before_clone = Arc::clone(&before.f);
-        ArcFnTransformer {
-            f: Arc::new(move |x| self_clone(before_clone(x))),
+        ArcTransformer {
+            f: Arc::new(move |x: &T| self_clone(&before_clone(x))),
         }
     }
 }
 
-impl<T> Clone for ArcFnTransformer<T> {
+impl<T> ArcTransformer<T>
+where
+    T: Clone + 'static,
+{
+    /// Creates a constant transformer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ArcTransformer;
+    ///
+    /// let constant = ArcTransformer::constant(42);
+    /// assert_eq!(constant.transform(&123), 42);
+    /// ```
+    pub fn constant(value: T) -> ArcTransformer<T>
+    where
+        T: Send + Sync,
+    {
+        ArcTransformer::new(move |_| value.clone())
+    }
+}
+
+impl<T> Transformer<T> for ArcTransformer<T>
+where
+    T: 'static,
+{
+    fn transform(&self, input: &T) -> T {
+        (self.f)(input)
+    }
+}
+
+impl<T> Function<T, T> for ArcTransformer<T>
+where
+    T: 'static,
+{
+    fn apply(&self, input: &T) -> T {
+        self.transform(input)
+    }
+
+    fn into_box(self) -> crate::function::BoxFunction<T, T> {
+        crate::function::BoxFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_rc(self) -> crate::function::RcFunction<T, T> {
+        crate::function::RcFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_arc(self) -> crate::function::ArcFunction<T, T>
+    where
+        T: Send + Sync,
+    {
+        crate::function::ArcFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> T {
+        move |t: &T| self.apply(t)
+    }
+}
+
+impl<T> Clone for ArcTransformer<T> {
     fn clone(&self) -> Self {
-        ArcFnTransformer {
+        ArcTransformer {
             f: Arc::clone(&self.f),
         }
     }
 }
 
-impl<T> ArcFnTransformer<T>
-where
-    T: Clone + 'static,
-{
-    /// Creates a constant transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let constant = ArcFnTransformer::constant(42);
-    /// assert_eq!(constant.transform(100), 42);
-    /// assert_eq!(constant.transform(200), 42);
-    /// ```
-    pub fn constant(value: T) -> ArcFnTransformer<T>
-    where
-        T: Send + Sync,
-    {
-        ArcFnTransformer::new(move |_| value.clone())
-    }
-
-    /// Converts transformer to a closure for use with iterator methods
-    ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
-    ///
-    /// Consumes the transformer and returns a closure that can be used
-    /// with iterator methods like `map()`.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the transformer (takes ownership of `self`).
-    /// After calling this method, the original transformer is no longer
-    /// available.
-    ///
-    /// **Tip**: Since `ArcFnTransformer` is cloneable, you can call
-    /// `.clone()` first if you need to keep the original:
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let transformer = ArcFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// // Clone before conversion to keep the original
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.clone().into_fn())
-    ///     .collect();
-    ///
-    /// // Original is still available
-    /// assert_eq!(transformer.transform(10), 20);
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure that implements `FnMut(T) -> T`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Usage
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let transformer = ArcFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// ## Cloning to Preserve Original
-    ///
-    /// ```rust
-    /// use prism3_function::ArcFnTransformer;
-    ///
-    /// let transformer = ArcFnTransformer::new(|x: i32| x * 2);
-    ///
-    /// // Use clone() to keep the original available
-    /// let values1 = vec![1, 2, 3];
-    /// let result1: Vec<i32> = values1.into_iter()
-    ///     .map(transformer.clone().into_fn())
-    ///     .collect();
-    ///
-    /// // Original transformer is still usable
-    /// let values2 = vec![4, 5];
-    /// let result2: Vec<i32> = values2.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result1, vec![2, 4, 6]);
-    /// assert_eq!(result2, vec![8, 10]);
-    /// ```
-    pub fn into_fn(self) -> impl FnMut(T) -> T
-    where
-        T: Send + Sync + 'static,
-    {
-        move |t: T| (self.f)(t)
-    }
-}
-
 // ============================================================================
-// RcFnTransformer - Single-threaded sharing, reusable (Rc + Fn)
+// RcTransformer - Rc<dyn Fn(&T) -> T>
 // ============================================================================
 
-/// RcFnTransformer - transformation wrapper based on `Rc<dyn Fn>`
+/// RcTransformer - single-threaded immutable transformer wrapper
 ///
-/// Used for single-threaded sharing and reusable scenarios.
+/// A single-threaded, clonable transformer wrapper optimized for scenarios
+/// that require sharing without thread-safety overhead.
 ///
 /// # Features
 ///
-/// - Based on `Rc<dyn Fn(T) -> T>`
-/// - Can be cloned, but cannot cross thread boundaries
-/// - Can be called multiple times (transform uses &self)
-/// - Composition methods use &self, do not consume ownership
-///
-/// # Type Parameters
-///
-/// * `T` - The type of both input and output values
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::RcFnTransformer;
-///
-/// let double = RcFnTransformer::new(|x: i32| x * 2);
-/// let cloned = double.clone();
-///
-/// assert_eq!(double.transform(21), 42);
-/// assert_eq!(cloned.transform(42), 84);
-/// ```
+/// - **Based on**: `Rc<dyn Fn(&T) -> T>`
+/// - **Ownership**: Shared ownership via reference counting (non-atomic)
+/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Thread Safety**: Not thread-safe (no `Send + Sync`)
+/// - **Clonable**: Cheap cloning via `Rc::clone`
 ///
 /// # Author
 ///
-/// Hu Haixing
-pub struct RcFnTransformer<T> {
-    f: Rc<dyn Fn(T) -> T>,
+/// Haixing Hu
+pub struct RcTransformer<T> {
+    f: Rc<dyn Fn(&T) -> T>,
 }
 
-impl<T> RcFnTransformer<T>
+impl<T> RcTransformer<T>
 where
     T: 'static,
 {
-    /// Creates a new RcFnTransformer
+    /// Creates a new RcTransformer
     ///
     /// # Parameters
     ///
     /// * `f` - The closure or function to wrap
     ///
-    /// # Returns
-    ///
-    /// Returns a new RcFnTransformer instance
-    ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcFnTransformer;
+    /// use prism3_function::RcTransformer;
     ///
-    /// let double = RcFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// let double = RcTransformer::new(|x: &i32| x * 2);
+    /// assert_eq!(double.transform(&21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(T) -> T + 'static,
+        F: Fn(&T) -> T + 'static,
     {
-        RcFnTransformer { f: Rc::new(f) }
+        RcTransformer { f: Rc::new(f) }
     }
 
-    /// Applies the transformation to the input value
+    /// Creates an identity transformer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::RcTransformer;
+    ///
+    /// let identity = RcTransformer::<i32>::identity();
+    /// assert_eq!(identity.transform(&42), 42);
+    /// ```
+    pub fn identity() -> RcTransformer<T>
+    where
+        T: Clone,
+    {
+        RcTransformer::new(|x: &T| x.clone())
+    }
+
+    /// Chain composition - applies self first, then after
+    ///
+    /// Creates a new transformer that applies this transformer first, then
+    /// applies the after transformer to the result. Uses &self, so original
+    /// transformer remains usable.
     ///
     /// # Parameters
     ///
-    /// * `input` - The input value
+    /// * `after` - The transformer to apply after self
     ///
     /// # Returns
     ///
-    /// The transformed output value
+    /// A new RcTransformer representing the composition
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcFnTransformer;
+    /// use prism3_function::RcTransformer;
     ///
-    /// let double = RcFnTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(double.transform(42), 84);
+    /// let double = RcTransformer::new(|x: &i32| x * 2);
+    /// let add_one = RcTransformer::new(|x: &i32| x + 1);
+    /// let composed = double.and_then(&add_one);
+    ///
+    /// // Original transformers still usable
+    /// assert_eq!(double.transform(&21), 42);
+    /// assert_eq!(composed.transform(&5), 11);
     /// ```
-    pub fn transform(&self, input: T) -> T {
-        (self.f)(input)
-    }
-
-    /// Creates an identity transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let identity = RcFnTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
-    /// ```
-    pub fn identity() -> RcFnTransformer<T> {
-        RcFnTransformer::new(|x| x)
-    }
-
-    /// Chain composition (uses &self, does not consume ownership)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let add_one = RcFnTransformer::new(|x: i32| x + 1);
-    /// let double = RcFnTransformer::new(|x: i32| x * 2);
-    /// let composed = add_one.then(&double);
-    ///
-    /// // Original transformers are still usable
-    /// assert_eq!(add_one.transform(5), 6);
-    /// assert_eq!(composed.transform(5), 12);
-    /// ```
-    pub fn then(&self, after: &RcFnTransformer<T>) -> RcFnTransformer<T> {
+    pub fn and_then(&self, after: &RcTransformer<T>) -> RcTransformer<T> {
         let self_clone = Rc::clone(&self.f);
         let after_clone = Rc::clone(&after.f);
-        RcFnTransformer {
-            f: Rc::new(move |x| after_clone(self_clone(x))),
+        RcTransformer {
+            f: Rc::new(move |x: &T| after_clone(&self_clone(x))),
         }
     }
 
-    /// Reverse composition (uses &self, does not consume ownership)
+    /// Reverse composition - applies before first, then self
+    ///
+    /// Creates a new transformer that applies the before transformer first,
+    /// then applies this transformer to the result. Uses &self, so original
+    /// transformer remains usable.
+    ///
+    /// # Parameters
+    ///
+    /// * `before` - The transformer to apply before self
+    ///
+    /// # Returns
+    ///
+    /// A new RcTransformer representing the composition
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcFnTransformer;
+    /// use prism3_function::RcTransformer;
     ///
-    /// let double = RcFnTransformer::new(|x: i32| x * 2);
-    /// let add_one = RcFnTransformer::new(|x: i32| x + 1);
+    /// let double = RcTransformer::new(|x: &i32| x * 2);
+    /// let add_one = RcTransformer::new(|x: &i32| x + 1);
     /// let composed = double.compose(&add_one);
     ///
-    /// assert_eq!(composed.transform(5), 12);
+    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose(&self, before: &RcFnTransformer<T>) -> RcFnTransformer<T> {
+    pub fn compose(&self, before: &RcTransformer<T>) -> RcTransformer<T> {
         let self_clone = Rc::clone(&self.f);
         let before_clone = Rc::clone(&before.f);
-        RcFnTransformer {
-            f: Rc::new(move |x| self_clone(before_clone(x))),
+        RcTransformer {
+            f: Rc::new(move |x: &T| self_clone(&before_clone(x))),
         }
     }
 }
 
-impl<T> Clone for RcFnTransformer<T> {
+impl<T> RcTransformer<T>
+where
+    T: Clone + 'static,
+{
+    /// Creates a constant transformer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::RcTransformer;
+    ///
+    /// let constant = RcTransformer::constant(42);
+    /// assert_eq!(constant.transform(&123), 42);
+    /// ```
+    pub fn constant(value: T) -> RcTransformer<T> {
+        RcTransformer::new(move |_| value.clone())
+    }
+}
+
+impl<T> Transformer<T> for RcTransformer<T>
+where
+    T: 'static,
+{
+    fn transform(&self, input: &T) -> T {
+        (self.f)(input)
+    }
+}
+
+impl<T> Function<T, T> for RcTransformer<T>
+where
+    T: 'static,
+{
+    fn apply(&self, input: &T) -> T {
+        self.transform(input)
+    }
+
+    fn into_box(self) -> crate::function::BoxFunction<T, T> {
+        crate::function::BoxFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_rc(self) -> crate::function::RcFunction<T, T> {
+        crate::function::RcFunction::new(move |x| self.apply(x))
+    }
+
+    fn into_arc(self) -> crate::function::ArcFunction<T, T>
+    where
+        Self: Send + Sync,
+        T: Send + Sync,
+    {
+        unreachable!(
+            "RcTransformer cannot be converted to ArcFunction because Rc is \
+             not Send + Sync"
+        )
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) -> T {
+        move |t: &T| self.apply(t)
+    }
+}
+
+impl<T> Clone for RcTransformer<T> {
     fn clone(&self) -> Self {
-        RcFnTransformer {
+        RcTransformer {
             f: Rc::clone(&self.f),
         }
     }
 }
 
-impl<T> RcFnTransformer<T>
-where
-    T: Clone + 'static,
-{
-    /// Creates a constant transformation
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let constant = RcFnTransformer::constant(42);
-    /// assert_eq!(constant.transform(100), 42);
-    /// assert_eq!(constant.transform(200), 42);
-    /// ```
-    pub fn constant(value: T) -> RcFnTransformer<T> {
-        RcFnTransformer::new(move |_| value.clone())
-    }
+// ============================================================================
+// Blanket implementation for standard Fn trait
+// ============================================================================
 
-    /// Converts transformer to a closure for use with iterator methods
-    ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
-    ///
-    /// Consumes the transformer and returns a closure that can be used
-    /// with iterator methods like `map()`.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the transformer (takes ownership of `self`).
-    /// After calling this method, the original transformer is no longer
-    /// available.
-    ///
-    /// **Tip**: Since `RcFnTransformer` is cloneable, you can call
-    /// `.clone()` first if you need to keep the original:
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let transformer = RcFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// // Clone before conversion to keep the original
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.clone().into_fn())
-    ///     .collect();
-    ///
-    /// // Original is still available
-    /// assert_eq!(transformer.transform(10), 20);
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure that implements `FnMut(T) -> T`
-    ///
-    /// # Examples
-    ///
-    /// ## Basic Usage
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let transformer = RcFnTransformer::new(|x: i32| x * 2);
-    /// let values = vec![1, 2, 3, 4, 5];
-    ///
-    /// let result: Vec<i32> = values.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result, vec![2, 4, 6, 8, 10]);
-    /// ```
-    ///
-    /// ## Cloning to Preserve Original
-    ///
-    /// ```rust
-    /// use prism3_function::RcFnTransformer;
-    ///
-    /// let transformer = RcFnTransformer::new(|x: i32| x * 2);
-    ///
-    /// // Use clone() to keep the original available
-    /// let values1 = vec![1, 2, 3];
-    /// let result1: Vec<i32> = values1.into_iter()
-    ///     .map(transformer.clone().into_fn())
-    ///     .collect();
-    ///
-    /// // Original transformer is still usable
-    /// let values2 = vec![4, 5];
-    /// let result2: Vec<i32> = values2.into_iter()
-    ///     .map(transformer.into_fn())
-    ///     .collect();
-    ///
-    /// assert_eq!(result1, vec![2, 4, 6]);
-    /// assert_eq!(result2, vec![8, 10]);
-    /// ```
-    pub fn into_fn(self) -> impl FnMut(T) -> T {
-        move |t: T| (self.f)(t)
+/// Implement Transformer<T> for any type that implements Fn(&T) -> T
+///
+/// This allows closures and function pointers to be used directly with our
+/// Transformer trait without wrapping.
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::Transformer;
+///
+/// fn double(x: &i32) -> i32 { x * 2 }
+///
+/// assert_eq!(double.transform(&21), 42);
+///
+/// let triple = |x: &i32| x * 3;
+/// assert_eq!(triple.transform(&14), 42);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+impl<F, T> Transformer<T> for F
+where
+    F: Fn(&T) -> T,
+    T: 'static,
+{
+    fn transform(&self, input: &T) -> T {
+        self(input)
     }
 }
