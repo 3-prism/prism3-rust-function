@@ -122,10 +122,8 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     // if_then
-    let mut check_positive = BoxConsumer::if_then(
-        |x: &i32| *x > 0,
-        |x: &i32| println!("正数: {}", x),
-    );
+    let mut check_positive =
+        BoxConsumer::if_then(|x: &i32| *x > 0, |x: &i32| println!("正数: {}", x));
 
     let positive = 5;
     let negative = -5;
