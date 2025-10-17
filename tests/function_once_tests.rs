@@ -20,9 +20,7 @@ mod box_function_once_tests {
 
     #[test]
     fn test_new_and_apply() {
-        let parse = BoxFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = BoxFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         assert_eq!(parse.apply("42".to_string()), 42);
     }
@@ -58,9 +56,7 @@ mod box_function_once_tests {
     #[test]
     fn test_pipeline() {
         let add_one = BoxFunctionOnce::new(|x: i32| x + 1);
-        let pipeline = add_one
-            .and_then(|x| x * 2)
-            .and_then(|x| x - 3);
+        let pipeline = add_one.and_then(|x| x * 2).and_then(|x| x - 3);
         assert_eq!(pipeline.apply(5), 9); // ((5 + 1) * 2) - 3
     }
 
@@ -89,18 +85,14 @@ mod arc_function_once_tests {
 
     #[test]
     fn test_new_and_apply() {
-        let parse = ArcFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = ArcFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         assert_eq!(parse.apply("42".to_string()), 42);
     }
 
     #[test]
     fn test_clone_and_reuse() {
-        let parse = ArcFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = ArcFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         let cloned = parse.clone();
 
@@ -123,15 +115,11 @@ mod arc_function_once_tests {
 
     #[test]
     fn test_thread_safe() {
-        let parse = ArcFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = ArcFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         let cloned = parse.clone();
 
-        let handle = thread::spawn(move || {
-            cloned.apply("42".to_string())
-        });
+        let handle = thread::spawn(move || cloned.apply("42".to_string()));
 
         assert_eq!(handle.join().unwrap(), 42);
         assert_eq!(parse.apply("21".to_string()), 21);
@@ -148,18 +136,14 @@ mod rc_function_once_tests {
 
     #[test]
     fn test_new_and_apply() {
-        let parse = RcFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = RcFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         assert_eq!(parse.apply("42".to_string()), 42);
     }
 
     #[test]
     fn test_clone_and_reuse() {
-        let parse = RcFunctionOnce::new(|s: String| {
-            s.parse::<i32>().unwrap_or(0)
-        });
+        let parse = RcFunctionOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         let cloned = parse.clone();
 
@@ -202,10 +186,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_function_once_trait() {
-        fn apply_function_once<F: FunctionOnce<i32, i32>>(
-            f: F,
-            x: i32,
-        ) -> i32 {
+        fn apply_function_once<F: FunctionOnce<i32, i32>>(f: F, x: i32) -> i32 {
             f.apply(x)
         }
 
@@ -213,4 +194,3 @@ mod trait_usage_tests {
         assert_eq!(apply_function_once(double, 21), 42);
     }
 }
-

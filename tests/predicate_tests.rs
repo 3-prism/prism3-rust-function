@@ -7,1652 +7,1660 @@
  *
  ******************************************************************************/
 
+//! Unit tests for the predicate module.
+
+use prism3_function::predicate::{
+    ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate,
+};
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
+
 #[cfg(test)]
-mod tests {
-    use prism3_function::predicate::{
-        ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate,
-    };
-    use std::thread;
+mod closure_predicate_tests {
+    use super::*;
 
-    // ========================================================================
-    // Predicate Trait Tests - Test closure and function pointer implementations
-    // ========================================================================
-
-    mod predicate_trait_tests {
-        use super::*;
-
-        #[test]
-        fn test_closure_implements_predicate() {
-            let is_positive = |x: &i32| *x > 0;
-            assert!(is_positive.test(&5));
-            assert!(!is_positive.test(&-3));
-            assert!(!is_positive.test(&0));
-        }
-
-        #[test]
-        fn test_function_pointer_implements_predicate() {
-            fn is_even(x: &i32) -> bool {
-                x % 2 == 0
-            }
-
-            assert!(is_even.test(&4));
-            assert!(!is_even.test(&5));
-        }
-
-        #[test]
-        fn test_predicate_with_different_types() {
-            // Test String
-            let is_empty = |s: &String| s.is_empty();
-            assert!(is_empty.test(&String::new()));
-            assert!(!is_empty.test(&String::from("hello")));
-
-            // Test &str
-            let starts_with_a = |s: &&str| s.starts_with('a');
-            assert!(starts_with_a.test(&"apple"));
-            assert!(!starts_with_a.test(&"banana"));
-
-            // Test f64
-            let is_nan = |x: &f64| x.is_nan();
-            assert!(is_nan.test(&f64::NAN));
-            assert!(!is_nan.test(&1.0));
-
-            // Test bool
-            let is_true = |x: &bool| *x;
-            assert!(is_true.test(&true));
-            assert!(!is_true.test(&false));
-        }
+    #[test]
+    fn test_closure_implements_predicate() {
+        let is_positive = |x: &i32| *x > 0;
+        assert!(is_positive.test(&5));
+        assert!(!is_positive.test(&-3));
+        assert!(!is_positive.test(&0));
     }
 
-    // ========================================================================
-    // FnPredicateOps Tests - Test extension methods for closures
-    // ========================================================================
+    #[test]
+    fn test_closure_and_composition() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
 
-    mod predicate_ext_tests {
-        use super::*;
-
-        #[test]
-        fn test_closure_and() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_even = |x: &i32| x % 2 == 0;
-
-            let combined = is_positive.and(is_even);
-            assert!(combined.test(&4));
-            assert!(combined.test(&10));
-            assert!(!combined.test(&3)); // Positive but odd
-            assert!(!combined.test(&-4)); // Even but negative
-            assert!(!combined.test(&0)); // Even but not positive
-        }
-
-        #[test]
-        fn test_closure_or() {
-            let is_negative = |x: &i32| *x < 0;
-            let is_zero = |x: &i32| *x == 0;
-
-            let combined = is_negative.or(is_zero);
-            assert!(combined.test(&-5));
-            assert!(combined.test(&0));
-            assert!(!combined.test(&5));
-        }
-
-        #[test]
-        fn test_closure_not() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_not_positive = is_positive.not();
-
-            assert!(!is_not_positive.test(&5));
-            assert!(is_not_positive.test(&-3));
-            assert!(is_not_positive.test(&0));
-        }
-
-        #[test]
-        fn test_closure_xor() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_even = |x: &i32| x % 2 == 0;
-
-            let combined = is_positive.xor(is_even);
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(!combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_closure_nand() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_even = |x: &i32| x % 2 == 0;
-
-            let combined = is_positive.nand(is_even);
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-            assert!(combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_closure_nor() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_even = |x: &i32| x % 2 == 0;
-
-            let combined = is_positive.nor(is_even);
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(!combined.test(&3)); // Positive but odd
-            assert!(!combined.test(&-4)); // Even but negative
-            assert!(combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_closure_chain_combination() {
-            let is_positive = |x: &i32| *x > 0;
-            let is_even = |x: &i32| x % 2 == 0;
-            let less_than_100 = |x: &i32| *x < 100;
-
-            // (positive AND even) OR less_than_100
-            let combined = is_positive.and(is_even).or(less_than_100);
-            assert!(combined.test(&4)); // Positive even
-            assert!(combined.test(&-5)); // Less than 100
-            assert!(combined.test(&50)); // Both conditions satisfied
-            assert!(!combined.test(&101)); // Neither condition satisfied
-        }
+        let combined = is_positive.and(is_even);
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&-2));
     }
 
-    // ========================================================================
-    // BoxPredicate Tests
-    // ========================================================================
+    #[test]
+    fn test_closure_or_composition() {
+        let is_negative = |x: &i32| *x < 0;
+        let is_even = |x: &i32| x % 2 == 0;
 
-    mod box_predicate_tests {
-        use super::*;
+        let combined = is_negative.or(is_even);
+        assert!(combined.test(&-5));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
 
-        #[test]
-        fn test_new() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
+    #[test]
+    fn test_closure_not_composition() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_not_positive = is_positive.not();
+
+        assert!(!is_not_positive.test(&5));
+        assert!(is_not_positive.test(&-3));
+        assert!(is_not_positive.test(&0));
+    }
+}
+
+#[cfg(test)]
+mod box_predicate_tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+
+    #[test]
+    fn test_new_with_name() {
+        let pred = BoxPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_set_name() {
+        let mut pred = BoxPredicate::new(|x: &i32| *x > 0);
+        assert_eq!(pred.name(), None);
+        pred.set_name("is_positive");
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_name_none() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        assert_eq!(pred.name(), None);
+    }
+
+    #[test]
+    fn test_and_composition() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = pred1.and(pred2);
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_and_with_names() {
+        let pred1 = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
+
+        let combined = pred1.and(pred2);
+        // Combined predicates do not inherit or generate names
+        assert_eq!(combined.name(), None);
+        assert!(combined.test(&4));
+    }
+
+    #[test]
+    fn test_or_composition() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x < 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = pred1.or(pred2);
+        assert!(combined.test(&-5));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_or_with_names() {
+        let pred1 = BoxPredicate::new_with_name("negative", |x: &i32| *x < 0);
+        let pred2 = BoxPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
+
+        let combined = pred1.or(pred2);
+        // Combined predicates do not inherit or generate names
+        assert_eq!(combined.name(), None);
+        assert!(combined.test(&-5));
+    }
+
+    #[test]
+    fn test_not_composition() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let negated = pred.not();
+
+        assert!(!negated.test(&5));
+        assert!(negated.test(&-3));
+        assert!(negated.test(&0));
+    }
+
+    #[test]
+    fn test_not_with_name() {
+        let pred = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        let negated = pred.not();
+
+        // Combined predicates do not inherit or generate names
+        assert_eq!(negated.name(), None);
+        assert!(!negated.test(&5));
+    }
+
+    #[test]
+    fn test_complex_composition() {
+        let positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let less_than_ten = BoxPredicate::new(|x: &i32| *x < 10);
+
+        let combined = positive.and(even).and(less_than_ten);
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&12));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_into_box() {
+        let closure = |x: &i32| *x > 0;
+        let pred: BoxPredicate<i32> = closure.into_box();
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+}
+
+#[cfg(test)]
+mod rc_predicate_tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+
+    #[test]
+    fn test_new_with_name() {
+        let pred = RcPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_set_name() {
+        let mut pred = RcPredicate::new(|x: &i32| *x > 0);
+        assert_eq!(pred.name(), None);
+        pred.set_name("is_positive");
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_clone() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let pred_clone = pred.clone();
+
+        assert!(pred.test(&5));
+        assert!(pred_clone.test(&5));
+        assert!(!pred_clone.test(&-3));
+    }
+
+    #[test]
+    fn test_and_composition() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = pred1.and(pred2.clone());
+
+        // Original predicates are still usable
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&4));
+
+        // Combined predicate works correctly
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_or_composition() {
+        let pred1 = RcPredicate::new(|x: &i32| *x < 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = pred1.or(pred2.clone());
+
+        // Original predicates are still usable
+        assert!(pred1.test(&-5));
+        assert!(pred2.test(&4));
+
+        // Combined predicate works correctly
+        assert!(combined.test(&-5));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_not_composition() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let negated = pred.not();
+
+        // Original predicate is still usable
+        assert!(pred.test(&5));
+
+        // Negated predicate works correctly
+        assert!(!negated.test(&5));
+        assert!(negated.test(&-3));
+    }
+
+    #[test]
+    fn test_complex_reuse() {
+        let positive = RcPredicate::new(|x: &i32| *x > 0);
+        let even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined1 = positive.and(even.clone());
+        let combined2 = positive.or(even.clone());
+
+        // All predicates are still usable
+        assert!(positive.test(&5));
+        assert!(even.test(&4));
+        assert!(combined1.test(&4));
+        assert!(combined2.test(&5));
+    }
+
+    #[test]
+    fn test_to_box() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = rc_pred.to_box();
+
+        assert!(rc_pred.test(&5));
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let closure = |x: &i32| *x > 0;
+        let pred: RcPredicate<i32> = closure.into_rc();
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+}
+
+#[cfg(test)]
+mod arc_predicate_tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+
+    #[test]
+    fn test_new_with_name() {
+        let pred = ArcPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_set_name() {
+        let mut pred = ArcPredicate::new(|x: &i32| *x > 0);
+        assert_eq!(pred.name(), None);
+        pred.set_name("is_positive");
+        assert_eq!(pred.name(), Some("is_positive"));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_clone() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred_clone = pred.clone();
+
+        assert!(pred.test(&5));
+        assert!(pred_clone.test(&5));
+        assert!(!pred_clone.test(&-3));
+    }
+
+    #[test]
+    fn test_send_sync() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+
+        std::thread::spawn(move || {
             assert!(pred.test(&5));
             assert!(!pred.test(&-3));
-        }
-
-        #[test]
-        fn test_with_name() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(pred.name(), Some("is_positive"));
-        }
-
-        #[test]
-        fn test_name_none() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(pred.name(), None);
-        }
-
-        #[test]
-        fn test_test_method() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
-            assert!(pred.test(&1));
-            assert!(pred.test(&100));
-            assert!(!pred.test(&0));
-            assert!(!pred.test(&-1));
-        }
-
-        #[test]
-        fn test_and() {
-            let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
-            let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.and(pred2);
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-            assert!(!combined.test(&-4));
-        }
-
-        #[test]
-        fn test_and_with_closure() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
-            let combined = pred.and(|x: &i32| x % 2 == 0);
-
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-        }
-
-        #[test]
-        fn test_or() {
-            let pred1 = BoxPredicate::new(|x: &i32| *x < 0);
-            let pred2 = BoxPredicate::new(|x: &i32| *x > 10);
-
-            let combined = pred1.or(pred2);
-            assert!(combined.test(&-5));
-            assert!(combined.test(&15));
-            assert!(!combined.test(&5));
-        }
-
-        #[test]
-        fn test_not() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
-            let negated = pred.not();
-
-            assert!(!negated.test(&5));
-            assert!(negated.test(&-3));
-            assert!(negated.test(&0));
-        }
-
-        #[test]
-        fn test_xor() {
-            let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
-            let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.xor(pred2);
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(!combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_nand() {
-            let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
-            let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nand(pred2);
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-        }
-
-        #[test]
-        fn test_nor() {
-            let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
-            let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nor(pred2);
-            assert!(!combined.test(&4)); // Positive or even
-            assert!(!combined.test(&3)); // Positive
-            assert!(!combined.test(&-4)); // Even
-            assert!(combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_chain_combination() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0)
-                .and(|x: &i32| x % 2 == 0)
-                .or(|x: &i32| *x < -10);
-
-            assert!(pred.test(&4)); // Positive even
-            assert!(pred.test(&-15)); // Less than -10
-            assert!(!pred.test(&3)); // Positive odd
-            assert!(!pred.test(&-5)); // Between -10 and 0
-        }
-
-        #[test]
-        fn test_display() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(format!("{}", pred), "BoxPredicate(is_positive)");
-
-            let unnamed = BoxPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(format!("{}", unnamed), "BoxPredicate(unnamed)");
-        }
-
-        #[test]
-        fn test_debug() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let debug_str = format!("{:?}", pred);
-            assert!(debug_str.contains("BoxPredicate"));
-            assert!(debug_str.contains("is_positive"));
-
-            let unnamed = BoxPredicate::new(|x: &i32| *x > 0);
-            let debug_str = format!("{:?}", unnamed);
-            assert!(debug_str.contains("BoxPredicate"));
-            assert!(debug_str.contains("None"));
-        }
-
-        #[test]
-        fn test_with_different_types() {
-            // String
-            let string_pred = BoxPredicate::new(|s: &String| s.len() > 5);
-            assert!(string_pred.test(&String::from("hello world")));
-            assert!(!string_pred.test(&String::from("hi")));
-
-            // f64
-            let float_pred = BoxPredicate::new(|x: &f64| *x > 0.0);
-            assert!(float_pred.test(&1.5));
-            assert!(!float_pred.test(&-1.5));
-
-            // bool
-            let bool_pred = BoxPredicate::new(|x: &bool| *x);
-            assert!(bool_pred.test(&true));
-            assert!(!bool_pred.test(&false));
-
-            // Vec
-            let vec_pred = BoxPredicate::new(|v: &Vec<i32>| !v.is_empty());
-            assert!(vec_pred.test(&vec![1, 2, 3]));
-            assert!(!vec_pred.test(&vec![]));
-        }
+        })
+        .join()
+        .unwrap();
     }
 
-    // ========================================================================
-    // ArcPredicate Tests
-    // ========================================================================
+    #[test]
+    fn test_and_composition() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
 
-    mod arc_predicate_tests {
-        use super::*;
+        let combined = pred1.and(pred2.clone());
 
-        #[test]
-        fn test_new() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            assert!(pred.test(&5));
-            assert!(!pred.test(&-3));
-        }
+        // Original predicates are still usable
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&4));
 
-        #[test]
-        fn test_with_name() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(pred.name(), Some("is_positive"));
-        }
-
-        #[test]
-        fn test_name_none() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(pred.name(), None);
-        }
-
-        #[test]
-        fn test_test_method() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            assert!(pred.test(&1));
-            assert!(pred.test(&100));
-            assert!(!pred.test(&0));
-            assert!(!pred.test(&-1));
-        }
-
-        #[test]
-        fn test_clone() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            let cloned = pred.clone();
-
-            assert!(pred.test(&5));
-            assert!(cloned.test(&5));
-            assert!(!pred.test(&-3));
-            assert!(!cloned.test(&-3));
-        }
-
-        #[test]
-        fn test_clone_preserves_name() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let cloned = pred.clone();
-
-            assert_eq!(pred.name(), Some("is_positive"));
-            assert_eq!(cloned.name(), Some("is_positive"));
-        }
-
-        #[test]
-        fn test_and() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.and(&pred2);
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-            assert!(!combined.test(&-4));
-
-            // Original predicates are still available
-            assert!(pred1.test(&5));
-            assert!(pred2.test(&6));
-        }
-
-        #[test]
-        fn test_or() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x < 0);
-            let pred2 = ArcPredicate::new(|x: &i32| *x > 10);
-
-            let combined = pred1.or(&pred2);
-            assert!(combined.test(&-5));
-            assert!(combined.test(&15));
-            assert!(!combined.test(&5));
-
-            // Original predicates are still available
-            assert!(pred1.test(&-1));
-            assert!(pred2.test(&11));
-        }
-
-        #[test]
-        fn test_not() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            let negated = pred.not();
-
-            assert!(!negated.test(&5));
-            assert!(negated.test(&-3));
-            assert!(negated.test(&0));
-
-            // Original predicates are still available
-            assert!(pred.test(&5));
-        }
-
-        #[test]
-        fn test_xor() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.xor(&pred2);
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(!combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_nand() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nand(&pred2);
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-        }
-
-        #[test]
-        fn test_nor() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nor(&pred2);
-            assert!(!combined.test(&4)); // Positive or even
-            assert!(!combined.test(&3)); // Positive
-            assert!(!combined.test(&-4)); // Even
-            assert!(combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_chain_combination() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-            let pred3 = ArcPredicate::new(|x: &i32| *x < 100);
-
-            let combined = pred1.and(&pred2).or(&pred3);
-            assert!(combined.test(&4)); // Positive even
-            assert!(combined.test(&-5)); // Less than 100
-            assert!(combined.test(&50)); // Both conditions satisfied
-            assert!(!combined.test(&101)); // Neither condition satisfied
-
-            // Original predicates are still available
-            assert!(pred1.test(&1));
-            assert!(pred2.test(&2));
-            assert!(pred3.test(&99));
-        }
-
-        #[test]
-        fn test_thread_safety() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred_clone = pred.clone();
-
-            let handle = thread::spawn(move || pred_clone.test(&5));
-
-            assert!(handle.join().unwrap());
-            // Original predicates are still available
-            assert!(pred.test(&10));
-        }
-
-        #[test]
-        fn test_multiple_threads() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0);
-
-            let handles: Vec<_> = (0..10)
-                .map(|i| {
-                    let pred_clone = pred.clone();
-                    thread::spawn(move || pred_clone.test(&i))
-                })
-                .collect();
-
-            let results: Vec<bool> = handles.into_iter().map(|h| h.join().unwrap()).collect();
-
-            assert_eq!(results[0], false); // 0
-            assert_eq!(results[1], true); // 1
-            assert_eq!(results[5], true); // 5
-            assert_eq!(results[9], true); // 9
-        }
-
-        #[test]
-        fn test_display() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(format!("{}", pred), "ArcPredicate(is_positive)");
-
-            let unnamed = ArcPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(format!("{}", unnamed), "ArcPredicate(unnamed)");
-        }
-
-        #[test]
-        fn test_debug() {
-            let pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let debug_str = format!("{:?}", pred);
-            assert!(debug_str.contains("ArcPredicate"));
-            assert!(debug_str.contains("is_positive"));
-
-            let unnamed = ArcPredicate::new(|x: &i32| *x > 0);
-            let debug_str = format!("{:?}", unnamed);
-            assert!(debug_str.contains("ArcPredicate"));
-            assert!(debug_str.contains("None"));
-        }
-
-        #[test]
-        fn test_with_different_types() {
-            // String
-            let string_pred = ArcPredicate::new(|s: &String| s.len() > 5);
-            assert!(string_pred.test(&String::from("hello world")));
-            assert!(!string_pred.test(&String::from("hi")));
-
-            // f64
-            let float_pred = ArcPredicate::new(|x: &f64| *x > 0.0);
-            assert!(float_pred.test(&1.5));
-            assert!(!float_pred.test(&-1.5));
-
-            // bool
-            let bool_pred = ArcPredicate::new(|x: &bool| *x);
-            assert!(bool_pred.test(&true));
-            assert!(!bool_pred.test(&false));
-
-            // Vec
-            let vec_pred = ArcPredicate::new(|v: &Vec<i32>| !v.is_empty());
-            assert!(vec_pred.test(&vec![1, 2, 3]));
-            assert!(!vec_pred.test(&vec![]));
-        }
+        // Combined predicate works correctly
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
     }
 
-    // ========================================================================
-    // RcPredicate Tests
-    // ========================================================================
+    #[test]
+    fn test_or_composition() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x < 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
 
-    mod rc_predicate_tests {
-        use super::*;
+        let combined = pred1.or(pred2.clone());
 
-        #[test]
-        fn test_new() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0);
-            assert!(pred.test(&5));
-            assert!(!pred.test(&-3));
-        }
+        // Original predicates are still usable
+        assert!(pred1.test(&-5));
+        assert!(pred2.test(&4));
 
-        #[test]
-        fn test_with_name() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(pred.name(), Some("is_positive"));
-        }
-
-        #[test]
-        fn test_name_none() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(pred.name(), None);
-        }
-
-        #[test]
-        fn test_test_method() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0);
-            assert!(pred.test(&1));
-            assert!(pred.test(&100));
-            assert!(!pred.test(&0));
-            assert!(!pred.test(&-1));
-        }
-
-        #[test]
-        fn test_clone() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0);
-            let cloned = pred.clone();
-
-            assert!(pred.test(&5));
-            assert!(cloned.test(&5));
-            assert!(!pred.test(&-3));
-            assert!(!cloned.test(&-3));
-        }
-
-        #[test]
-        fn test_clone_preserves_name() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let cloned = pred.clone();
-
-            assert_eq!(pred.name(), Some("is_positive"));
-            assert_eq!(cloned.name(), Some("is_positive"));
-        }
-
-        #[test]
-        fn test_and() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.and(&pred2);
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-            assert!(!combined.test(&-4));
-
-            // Original predicates are still available
-            assert!(pred1.test(&5));
-            assert!(pred2.test(&6));
-        }
-
-        #[test]
-        fn test_or() {
-            let pred1 = RcPredicate::new(|x: &i32| *x < 0);
-            let pred2 = RcPredicate::new(|x: &i32| *x > 10);
-
-            let combined = pred1.or(&pred2);
-            assert!(combined.test(&-5));
-            assert!(combined.test(&15));
-            assert!(!combined.test(&5));
-
-            // Original predicates are still available
-            assert!(pred1.test(&-1));
-            assert!(pred2.test(&11));
-        }
-
-        #[test]
-        fn test_not() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0);
-            let negated = pred.not();
-
-            assert!(!negated.test(&5));
-            assert!(negated.test(&-3));
-            assert!(negated.test(&0));
-
-            // Original predicates are still available
-            assert!(pred.test(&5));
-        }
-
-        #[test]
-        fn test_xor() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.xor(&pred2);
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(!combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_nand() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nand(&pred2);
-            assert!(!combined.test(&4)); // Positive and even
-            assert!(combined.test(&3)); // Positive but odd
-            assert!(combined.test(&-4)); // Even but negative
-        }
-
-        #[test]
-        fn test_nor() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let combined = pred1.nor(&pred2);
-            assert!(!combined.test(&4)); // Positive or even
-            assert!(!combined.test(&3)); // Positive
-            assert!(!combined.test(&-4)); // Even
-            assert!(combined.test(&-3)); // Negative and odd
-        }
-
-        #[test]
-        fn test_chain_combination() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-            let pred3 = RcPredicate::new(|x: &i32| *x < 100);
-
-            let combined = pred1.and(&pred2).or(&pred3);
-            assert!(combined.test(&4)); // Positive even
-            assert!(combined.test(&-5)); // Less than 100
-            assert!(combined.test(&50)); // Both conditions satisfied
-            assert!(!combined.test(&101)); // Neither condition satisfied
-
-            // Original predicates are still available
-            assert!(pred1.test(&1));
-            assert!(pred2.test(&2));
-            assert!(pred3.test(&99));
-        }
-
-        #[test]
-        fn test_display() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            assert_eq!(format!("{}", pred), "RcPredicate(is_positive)");
-
-            let unnamed = RcPredicate::new(|x: &i32| *x > 0);
-            assert_eq!(format!("{}", unnamed), "RcPredicate(unnamed)");
-        }
-
-        #[test]
-        fn test_debug() {
-            let pred = RcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let debug_str = format!("{:?}", pred);
-            assert!(debug_str.contains("RcPredicate"));
-            assert!(debug_str.contains("is_positive"));
-
-            let unnamed = RcPredicate::new(|x: &i32| *x > 0);
-            let debug_str = format!("{:?}", unnamed);
-            assert!(debug_str.contains("RcPredicate"));
-            assert!(debug_str.contains("None"));
-        }
-
-        #[test]
-        fn test_with_different_types() {
-            // String
-            let string_pred = RcPredicate::new(|s: &String| s.len() > 5);
-            assert!(string_pred.test(&String::from("hello world")));
-            assert!(!string_pred.test(&String::from("hi")));
-
-            // f64
-            let float_pred = RcPredicate::new(|x: &f64| *x > 0.0);
-            assert!(float_pred.test(&1.5));
-            assert!(!float_pred.test(&-1.5));
-
-            // bool
-            let bool_pred = RcPredicate::new(|x: &bool| *x);
-            assert!(bool_pred.test(&true));
-            assert!(!bool_pred.test(&false));
-
-            // Vec
-            let vec_pred = RcPredicate::new(|v: &Vec<i32>| !v.is_empty());
-            assert!(vec_pred.test(&vec![1, 2, 3]));
-            assert!(!vec_pred.test(&vec![]));
-        }
+        // Combined predicate works correctly
+        assert!(combined.test(&-5));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
     }
 
-    // ========================================================================
-    // Mixed Type Combination Tests
-    // ========================================================================
+    #[test]
+    fn test_not_composition() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let negated = pred.not();
 
-    mod mixed_type_combination_tests {
-        use super::*;
+        // Original predicate is still usable
+        assert!(pred.test(&5));
 
-        #[test]
-        fn test_box_with_closure() {
-            let box_pred = BoxPredicate::new(|x: &i32| *x > 0);
-            let combined = box_pred.and(|x: &i32| x % 2 == 0);
-
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-        }
-
-        #[test]
-        fn test_closure_to_box() {
-            let closure = |x: &i32| *x > 0;
-            let combined = closure.and(|x: &i32| x % 2 == 0);
-
-            // combined is BoxPredicate
-            assert!(combined.test(&4));
-            assert!(!combined.test(&3));
-        }
-
-        #[test]
-        fn test_arc_preserves_original() {
-            let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let _combined = pred1.and(&pred2);
-
-            // Original predicates should still be available
-            assert!(pred1.test(&5));
-            assert!(pred2.test(&6));
-        }
-
-        #[test]
-        fn test_rc_preserves_original() {
-            let pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let _combined = pred1.and(&pred2);
-
-            // Original predicates should still be available
-            assert!(pred1.test(&5));
-            assert!(pred2.test(&6));
-        }
+        // Negated predicate works correctly
+        assert!(!negated.test(&5));
+        assert!(negated.test(&-3));
     }
 
-    // ========================================================================
-    // Edge Case and Special Condition Tests
-    // ========================================================================
+    #[test]
+    fn test_thread_safe_composition() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
 
-    mod edge_case_tests {
-        use super::*;
+        let combined = pred1.and(pred2.clone());
+        let combined_clone = combined.clone();
 
-        #[test]
-        fn test_always_true() {
-            let always_true = BoxPredicate::new(|_: &i32| true);
-            assert!(always_true.test(&0));
-            assert!(always_true.test(&-1));
-            assert!(always_true.test(&1));
-        }
+        let handle = std::thread::spawn(move || {
+            assert!(combined_clone.test(&4));
+            assert!(!combined_clone.test(&3));
+        });
 
-        #[test]
-        fn test_always_false() {
-            let always_false = BoxPredicate::new(|_: &i32| false);
-            assert!(!always_false.test(&0));
-            assert!(!always_false.test(&-1));
-            assert!(!always_false.test(&1));
-        }
-
-        #[test]
-        fn test_double_negation() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0);
-            let double_negated = pred.not().not();
-
-            assert!(double_negated.test(&5));
-            assert!(!double_negated.test(&-3));
-        }
-
-        #[test]
-        fn test_complex_chain() {
-            let pred = BoxPredicate::new(|x: &i32| *x > 0)
-                .and(|x: &i32| x % 2 == 0)
-                .or(|x: &i32| *x < -10)
-                .not();
-
-            assert!(!pred.test(&4)); // Positive even
-            assert!(!pred.test(&-15)); // Less than -10
-            assert!(pred.test(&3)); // Positive odd
-            assert!(pred.test(&-5)); // Between -10 and 0
-        }
-
-        #[test]
-        fn test_with_zero() {
-            let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-            let is_negative = BoxPredicate::new(|x: &i32| *x < 0);
-
-            assert!(!is_positive.test(&0));
-            assert!(!is_negative.test(&0));
-        }
-
-        #[test]
-        fn test_with_large_numbers() {
-            let pred = BoxPredicate::new(|x: &i64| *x > 1_000_000_000);
-            assert!(pred.test(&2_000_000_000));
-            assert!(!pred.test(&500_000_000));
-        }
-
-        #[test]
-        fn test_with_floating_point() {
-            let pred = BoxPredicate::new(|x: &f64| (*x - 1.0).abs() < 0.0001);
-            assert!(pred.test(&1.00001));
-            assert!(pred.test(&0.99999));
-            assert!(!pred.test(&1.1));
-        }
-
-        #[test]
-        fn test_with_empty_string() {
-            let pred = BoxPredicate::new(|s: &String| !s.is_empty());
-            assert!(pred.test(&String::from("hello")));
-            assert!(!pred.test(&String::new()));
-        }
-
-        #[test]
-        fn test_with_empty_vec() {
-            let pred = BoxPredicate::new(|v: &Vec<i32>| v.len() > 2);
-            assert!(pred.test(&vec![1, 2, 3]));
-            assert!(!pred.test(&vec![1, 2]));
-            assert!(!pred.test(&vec![]));
-        }
+        assert!(combined.test(&4));
+        handle.join().unwrap();
     }
 
-    // ========================================================================
-    // Generic Constraint Tests - Test generic constraints accepting various Predicate types
-    // ========================================================================
+    #[test]
+    fn test_to_box() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = arc_pred.to_box();
 
-    mod generic_constraint_tests {
-        use super::*;
+        assert!(arc_pred.test(&5));
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+    }
 
-        /// Generic filter function using Predicate trait as constraint
-        fn filter_numbers<P>(numbers: &[i32], predicate: P) -> Vec<i32>
-        where
-            P: Predicate<i32>,
-        {
-            numbers
-                .iter()
-                .copied()
-                .filter(|x| predicate.test(x))
-                .collect()
-        }
+    #[test]
+    fn test_to_rc() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let rc_pred = arc_pred.to_rc();
 
-        /// Generic count function
-        fn count_matching<T, P>(items: &[T], predicate: P) -> usize
-        where
-            P: Predicate<T>,
-        {
-            items.iter().filter(|item| predicate.test(item)).count()
-        }
+        assert!(arc_pred.test(&5));
+        assert!(rc_pred.test(&5));
+        assert!(!rc_pred.test(&-3));
+    }
 
-        /// Generic find function
-        fn find_first<T, P>(items: &[T], predicate: P) -> Option<&T>
-        where
-            P: Predicate<T>,
-        {
-            items.iter().find(|item| predicate.test(item))
-        }
+    #[test]
+    fn test_into_arc() {
+        let closure = |x: &i32| *x > 0;
+        let pred: ArcPredicate<i32> = closure.into_arc();
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+    }
+}
 
-        #[test]
-        fn test_generic_function_accepts_closure() {
-            let numbers = vec![-5, -2, 0, 3, 4, 7, 10];
+#[cfg(test)]
+mod interior_mutability_tests {
+    use super::*;
 
-            // Using closure
-            let positive = filter_numbers(&numbers, |x: &i32| *x > 0);
-            assert_eq!(positive, vec![3, 4, 7, 10]);
+    #[test]
+    fn test_box_predicate_with_refcell_counter() {
+        let count = RefCell::new(0);
+        let pred = BoxPredicate::new(move |x: &i32| {
+            *count.borrow_mut() += 1;
+            *x > 0
+        });
 
-            let even = filter_numbers(&numbers, |x: &i32| x % 2 == 0);
-            assert_eq!(even, vec![-2, 0, 4, 10]);
-        }
+        assert!(pred.test(&5));
+        assert!(pred.test(&10));
+        assert!(!pred.test(&-3));
+    }
 
-        #[test]
-        fn test_generic_function_accepts_function_pointer() {
-            fn is_positive(x: &i32) -> bool {
+    #[test]
+    fn test_arc_predicate_with_mutex_counter() {
+        let count = Arc::new(Mutex::new(0));
+        let count_clone = Arc::clone(&count);
+
+        let pred = ArcPredicate::new(move |x: &i32| {
+            let mut c = count_clone.lock().unwrap();
+            *c += 1;
+            *x > 0
+        });
+
+        assert!(pred.test(&5));
+        assert!(pred.test(&10));
+        assert!(!pred.test(&-3));
+
+        assert_eq!(*count.lock().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_rc_predicate_with_refcell_cache() {
+        use std::collections::HashMap;
+
+        let cache = RefCell::new(HashMap::new());
+        let pred = RcPredicate::new(move |x: &i32| {
+            let mut c = cache.borrow_mut();
+            *c.entry(*x).or_insert_with(|| *x > 0 && x % 2 == 0)
+        });
+
+        // First call computes and caches
+        assert!(pred.test(&4));
+        // Second call uses cache
+        assert!(pred.test(&4));
+        assert!(!pred.test(&3));
+    }
+
+    #[test]
+    fn test_arc_predicate_thread_safe_counter() {
+        let count = Arc::new(Mutex::new(0));
+        let pred = ArcPredicate::new({
+            let count = Arc::clone(&count);
+            move |x: &i32| {
+                let mut c = count.lock().unwrap();
+                *c += 1;
                 *x > 0
             }
+        });
 
-            fn is_even(x: &i32) -> bool {
-                x % 2 == 0
-            }
+        let pred_clone = pred.clone();
+        let count_clone = Arc::clone(&count);
 
-            let numbers = vec![-5, -2, 0, 3, 4, 7, 10];
+        let handle = std::thread::spawn(move || {
+            assert!(pred_clone.test(&5));
+            assert!(pred_clone.test(&10));
+        });
 
-            let positive = filter_numbers(&numbers, is_positive);
-            assert_eq!(positive, vec![3, 4, 7, 10]);
+        assert!(pred.test(&3));
+        handle.join().unwrap();
 
-            let even = filter_numbers(&numbers, is_even);
-            assert_eq!(even, vec![-2, 0, 4, 10]);
-        }
+        assert_eq!(*count_clone.lock().unwrap(), 3);
+    }
+}
 
-        #[test]
-        fn test_generic_function_accepts_box_predicate() {
-            let numbers = vec![-5, -2, 0, 3, 4, 7, 10];
+#[cfg(test)]
+mod type_conversion_tests {
+    use super::*;
 
-            let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-            let positive = filter_numbers(&numbers, is_positive);
-            assert_eq!(positive, vec![3, 4, 7, 10]);
-
-            let is_large = BoxPredicate::new(|x: &i32| *x > 5);
-            let large = filter_numbers(&numbers, is_large);
-            assert_eq!(large, vec![7, 10]);
-        }
-
-        #[test]
-        fn test_generic_function_accepts_arc_predicate() {
-            let numbers = vec![-5, -2, 0, 3, 4, 7, 10];
-
-            let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-            let positive = filter_numbers(&numbers, is_positive.clone());
-            assert_eq!(positive, vec![3, 4, 7, 10]);
-
-            // ArcPredicate can be reused
-            let positive_again = filter_numbers(&numbers, is_positive.clone());
-            assert_eq!(positive_again, vec![3, 4, 7, 10]);
-        }
-
-        #[test]
-        fn test_generic_function_accepts_rc_predicate() {
-            let numbers = vec![-5, -2, 0, 3, 4, 7, 10];
-
-            let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
-            let even = filter_numbers(&numbers, is_even.clone());
-            assert_eq!(even, vec![-2, 0, 4, 10]);
-
-            // RcPredicate can be reused
-            let even_again = filter_numbers(&numbers, is_even.clone());
-            assert_eq!(even_again, vec![-2, 0, 4, 10]);
-        }
-
-        #[test]
-        fn test_generic_count_with_different_predicate_types() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Closure
-            assert_eq!(count_matching(&numbers, |x: &i32| *x > 5), 5);
-
-            // BoxPredicate
-            let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-            assert_eq!(count_matching(&numbers, is_even), 5);
-
-            // ArcPredicate
-            let is_large = ArcPredicate::new(|x: &i32| *x > 7);
-            assert_eq!(count_matching(&numbers, is_large.clone()), 3);
-
-            // RcPredicate
-            let is_small = RcPredicate::new(|x: &i32| *x < 4);
-            assert_eq!(count_matching(&numbers, is_small.clone()), 3);
-        }
-
-        #[test]
-        fn test_generic_find_with_different_predicate_types() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Closure
-            assert_eq!(find_first(&numbers, |x: &i32| *x > 5), Some(&6));
-
-            // BoxPredicate
-            let is_even_large = BoxPredicate::new(|x: &i32| x % 2 == 0 && *x > 5);
-            assert_eq!(find_first(&numbers, is_even_large), Some(&6));
-
-            // ArcPredicate
-            let is_odd = ArcPredicate::new(|x: &i32| x % 2 == 1);
-            assert_eq!(find_first(&numbers, is_odd.clone()), Some(&1));
-
-            // RcPredicate
-            let is_nine = RcPredicate::new(|x: &i32| *x == 9);
-            assert_eq!(find_first(&numbers, is_nine.clone()), Some(&9));
-        }
-
-        #[test]
-        fn test_generic_with_custom_types() {
-            #[derive(Debug, PartialEq)]
-            struct Person {
-                name: String,
-                age: u32,
-            }
-
-            let people = vec![
-                Person {
-                    name: "Alice".to_string(),
-                    age: 25,
-                },
-                Person {
-                    name: "Bob".to_string(),
-                    age: 17,
-                },
-                Person {
-                    name: "Charlie".to_string(),
-                    age: 30,
-                },
-            ];
-
-            // Use closure
-            assert_eq!(count_matching(&people, |p: &Person| p.age >= 18), 2);
-
-            // Use BoxPredicate
-            let is_adult = BoxPredicate::new(|p: &Person| p.age >= 18);
-            assert_eq!(count_matching(&people, is_adult), 2);
-
-            // Use ArcPredicate
-            let is_young = ArcPredicate::new(|p: &Person| p.age < 30);
-            assert_eq!(count_matching(&people, is_young.clone()), 2);
-
-            // Use RcPredicate
-            let name_starts_with_a = RcPredicate::new(|p: &Person| p.name.starts_with('A'));
-            let alice = find_first(&people, name_starts_with_a.clone());
-            assert_eq!(alice.map(|p| p.name.as_str()), Some("Alice"));
-        }
-
-        #[test]
-        fn test_generic_with_combined_predicates() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Use BoxPredicate composition
-            let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-            let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-            let combined = is_positive.and(is_even);
-            assert_eq!(count_matching(&numbers, combined), 5);
-
-            // Use ArcPredicate composition
-            let is_large = ArcPredicate::new(|x: &i32| *x > 5);
-            let is_odd = ArcPredicate::new(|x: &i32| x % 2 == 1);
-            let combined = is_large.and(&is_odd);
-            assert_eq!(count_matching(&numbers, combined.clone()), 2); // 7, 9
-        }
-
-        #[test]
-        fn test_mixed_predicate_types_in_sequence() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // First filter with closure
-            let positive = filter_numbers(&numbers, |x: &i32| *x > 0);
-
-            // Then filter with BoxPredicate
-            let even_box = BoxPredicate::new(|x: &i32| x % 2 == 0);
-            let even = filter_numbers(&positive, even_box);
-
-            // Finally filter with ArcPredicate
-            let large_arc = ArcPredicate::new(|x: &i32| *x > 5);
-            let large = filter_numbers(&even, large_arc.clone());
-
-            assert_eq!(large, vec![6, 8, 10]);
-        }
-
-        #[test]
-        fn test_thread_safety_with_arc_predicate() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-            let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-
-            let pred_clone = is_even.clone();
-            let numbers_clone = numbers.clone();
-            let handle = thread::spawn(move || count_matching(&numbers_clone, pred_clone));
-
-            let result = handle.join().unwrap();
-            assert_eq!(result, 5);
-
-            // Original predicate is still available
-            assert_eq!(count_matching(&numbers, is_even.clone()), 5);
-        }
-
-        #[test]
-        fn test_generic_function_with_string_predicates() {
-            let words = vec![
-                "hello".to_string(),
-                "world".to_string(),
-                "rust".to_string(),
-                "programming".to_string(),
-            ];
-
-            // Closure
-            assert_eq!(
-                count_matching(&words, |s: &String| s.len() > 5),
-                1 // Only "programming" has length > 5
-            );
-
-            // BoxPredicate
-            let starts_with_r = BoxPredicate::new(|s: &String| s.starts_with('r'));
-            assert_eq!(count_matching(&words, starts_with_r), 1);
-
-            // ArcPredicate
-            let is_long = ArcPredicate::new(|s: &String| s.len() > 7);
-            assert_eq!(count_matching(&words, is_long.clone()), 1); // "programming"
-
-            // RcPredicate
-            let contains_o = RcPredicate::new(|s: &String| s.contains('o'));
-            assert_eq!(count_matching(&words, contains_o.clone()), 3); // hello, world, programming
-        }
-
-        #[test]
-        fn test_generic_with_option_predicates() {
-            let options = vec![None, Some(5), None, Some(10), Some(3)];
-
-            // Closure
-            assert_eq!(
-                count_matching(&options, |opt: &Option<i32>| opt.is_some()),
-                3
-            );
-
-            // BoxPredicate
-            let is_some_large =
-                BoxPredicate::new(|opt: &Option<i32>| matches!(opt, Some(x) if *x > 5));
-            assert_eq!(count_matching(&options, is_some_large), 1);
-
-            // ArcPredicate
-            let is_none = ArcPredicate::new(|opt: &Option<i32>| opt.is_none());
-            assert_eq!(count_matching(&options, is_none.clone()), 2);
-        }
-
-        #[test]
-        fn test_predicate_as_struct_field() {
-            struct Filter<P> {
-                predicate: P,
-            }
-
-            impl<P> Filter<P> {
-                fn new(predicate: P) -> Self {
-                    Self { predicate }
-                }
-
-                fn apply<'a, T>(&self, items: &'a [T]) -> Vec<&'a T>
-                where
-                    P: Predicate<T>,
-                {
-                    items
-                        .iter()
-                        .filter(|item| self.predicate.test(item))
-                        .collect()
-                }
-            }
-
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Use BoxPredicate
-            let filter = Filter::new(BoxPredicate::new(|x: &i32| *x > 5));
-            let result: Vec<i32> = filter.apply(&numbers).into_iter().copied().collect();
-            assert_eq!(result, vec![6, 7, 8, 9, 10]);
-
-            // Use ArcPredicate
-            let filter = Filter::new(ArcPredicate::new(|x: &i32| x % 2 == 0));
-            let result: Vec<i32> = filter.apply(&numbers).into_iter().copied().collect();
-            assert_eq!(result, vec![2, 4, 6, 8, 10]);
-        }
-
-        #[test]
-        fn test_returning_predicate_from_function() {
-            fn create_range_predicate(min: i32, max: i32) -> BoxPredicate<i32> {
-                BoxPredicate::new(move |x: &i32| *x >= min && *x <= max)
-            }
-
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-            let in_range = create_range_predicate(3, 7);
-            let result = filter_numbers(&numbers, in_range);
-            assert_eq!(result, vec![3, 4, 5, 6, 7]);
-        }
-
-        #[test]
-        fn test_predicate_with_borrowed_data() {
-            let threshold = 5;
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Closure captures external variable
-            let greater_than_threshold = |x: &i32| *x > threshold;
-            assert_eq!(count_matching(&numbers, greater_than_threshold), 5);
-
-            // BoxPredicate captures external variable
-            let multiplier = 2;
-            let pred = BoxPredicate::new(move |x: &i32| *x > threshold * multiplier);
-            assert_eq!(count_matching(&numbers, pred), 0); // None greater than 10
-        }
+    #[test]
+    fn test_closure_to_box() {
+        let closure = |x: &i32| *x > 0;
+        let pred: BoxPredicate<i32> = closure.into_box();
+        assert!(pred.test(&5));
     }
 
-    // ========================================================================
-    // Conversion Tests - Test into_box, into_rc, into_arc conversion methods
-    // ========================================================================
-
-    mod conversion_tests {
-        use super::*;
-
-        #[test]
-        fn test_closure_into_box() {
-            let closure = |x: &i32| *x > 0;
-            let box_pred: BoxPredicate<i32> = closure.into_box();
-            assert!(box_pred.test(&5));
-            assert!(!box_pred.test(&-3));
-        }
-
-        #[test]
-        fn test_closure_into_rc() {
-            let closure = |x: &i32| *x > 0;
-            let rc_pred: RcPredicate<i32> = closure.into_rc();
-            assert!(rc_pred.test(&5));
-            assert!(!rc_pred.test(&-3));
-        }
-
-        #[test]
-        fn test_closure_into_arc() {
-            let closure = |x: &i32| *x > 0;
-            let arc_pred: ArcPredicate<i32> = closure.into_arc();
-            assert!(arc_pred.test(&5));
-            assert!(!arc_pred.test(&-3));
-        }
-
-        #[test]
-        fn test_box_to_box_zero_cost() {
-            let box_pred1 = BoxPredicate::new(|x: &i32| *x > 0);
-            let box_pred2 = box_pred1.into_box(); // Zero-cost
-            assert!(box_pred2.test(&5));
-        }
-
-        #[test]
-        fn test_box_to_rc() {
-            let box_pred = BoxPredicate::new(|x: &i32| *x > 0);
-            let rc_pred = box_pred.into_rc();
-            assert!(rc_pred.test(&5));
-        }
-
-        #[test]
-        fn test_box_to_rc_preserves_name() {
-            let box_pred = BoxPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let rc_pred = box_pred.into_rc();
-            assert_eq!(rc_pred.name(), Some("is_positive"));
-            assert!(rc_pred.test(&5));
-        }
-
-        // Note: BoxPredicate::into_arc() method exists but is almost unusable
-        //
-        // Since BoxPredicate internally uses `Box<dyn Fn(&T) -> bool>` (without Send + Sync bounds),
-        // instances created through BoxPredicate::new() do not satisfy the `Self: Send + Sync` constraint required by into_arc().
-        //
-        // If you need to create a thread-safe predicate, you should:
-        // 1. Call .into_arc() directly from a closure -> ArcPredicate
-        // 2. Or use ArcPredicate::new() directly
-        //
-        // The tests below demonstrate the correct approach:
-
-        #[test]
-        fn test_closure_to_arc_instead_of_box_to_arc() {
-            // Correct approach: Convert from closure to ArcPredicate directly
-            let closure = |x: &i32| *x > 0;
-            let arc_pred = closure.into_arc();
-
-            assert!(arc_pred.test(&5));
-            assert!(!arc_pred.test(&-3));
-
-            // Can be used across threads
-            let arc_clone = arc_pred.clone();
-            let handle = thread::spawn(move || arc_clone.test(&10));
-            assert!(handle.join().unwrap());
-        }
-
-        #[test]
-        fn test_arc_predicate_new_instead_of_box() {
-            // Another correct approach: Use ArcPredicate::new() directly
-            let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
-
-            assert!(arc_pred.test(&5));
-
-            // Can be used across threads
-            let arc_clone = arc_pred.clone();
-            let handle = thread::spawn(move || arc_clone.test(&10));
-            assert!(handle.join().unwrap());
-        }
-
-        #[test]
-        fn test_arc_to_arc_zero_cost() {
-            let arc_pred1 = ArcPredicate::new(|x: &i32| *x > 0);
-            let arc_pred2 = arc_pred1.into_arc(); // Zero-cost
-            assert!(arc_pred2.test(&5));
-        }
-
-        #[test]
-        fn test_arc_to_box() {
-            let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
-            let box_pred = arc_pred.into_box();
-            assert!(box_pred.test(&5));
-        }
-
-        #[test]
-        fn test_arc_to_box_preserves_name() {
-            let arc_pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let box_pred = arc_pred.into_box();
-            assert_eq!(box_pred.name(), Some("is_positive"));
-            assert!(box_pred.test(&5));
-        }
-
-        #[test]
-        fn test_arc_to_rc() {
-            let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
-            let rc_pred = arc_pred.into_rc();
-            assert!(rc_pred.test(&5));
-        }
-
-        #[test]
-        fn test_arc_to_rc_preserves_name() {
-            let arc_pred = ArcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let rc_pred = arc_pred.into_rc();
-            assert_eq!(rc_pred.name(), Some("is_positive"));
-            assert!(rc_pred.test(&5));
-        }
-
-        #[test]
-        fn test_rc_to_rc_zero_cost() {
-            let rc_pred1 = RcPredicate::new(|x: &i32| *x > 0);
-            let rc_pred2 = rc_pred1.into_rc(); // Zero-cost
-            assert!(rc_pred2.test(&5));
-        }
-
-        #[test]
-        fn test_rc_to_box() {
-            let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
-            let box_pred = rc_pred.into_box();
-            assert!(box_pred.test(&5));
-        }
-
-        #[test]
-        fn test_rc_to_box_preserves_name() {
-            let rc_pred = RcPredicate::new(|x: &i32| *x > 0).with_name("is_positive");
-            let box_pred = rc_pred.into_box();
-            assert_eq!(box_pred.name(), Some("is_positive"));
-            assert!(box_pred.test(&5));
-        }
-
-        #[test]
-        fn test_struct_storing_box_predicate() {
-            struct MyFilter {
-                predicate: BoxPredicate<i32>,
-            }
-
-            impl MyFilter {
-                fn new<P>(predicate: P) -> Self
-                where
-                    P: Predicate<i32> + 'static,
-                {
-                    Self {
-                        predicate: predicate.into_box(),
-                    }
-                }
-
-                fn test(&self, value: &i32) -> bool {
-                    self.predicate.test(value)
-                }
-            }
-
-            // Create with closure
-            let filter1 = MyFilter::new(|x: &i32| *x > 0);
-            assert!(filter1.test(&5));
-            assert!(!filter1.test(&-3));
-
-            // Create with BoxPredicate (zero-cost)
-            let filter2 = MyFilter::new(BoxPredicate::new(|x: &i32| x % 2 == 0));
-            assert!(filter2.test(&4));
-            assert!(!filter2.test(&3));
-
-            // Create with ArcPredicate
-            let filter3 = MyFilter::new(ArcPredicate::new(|x: &i32| *x < 10));
-            assert!(filter3.test(&5));
-            assert!(!filter3.test(&15));
-
-            // Create with RcPredicate
-            let filter4 = MyFilter::new(RcPredicate::new(|x: &i32| *x != 0));
-            assert!(filter4.test(&5));
-            assert!(!filter4.test(&0));
-        }
-
-        #[test]
-        fn test_struct_storing_arc_predicate() {
-            struct ThreadSafeFilter {
-                predicate: ArcPredicate<i32>,
-            }
-
-            impl ThreadSafeFilter {
-                fn new<P>(predicate: P) -> Self
-                where
-                    P: Predicate<i32> + Send + Sync + 'static,
-                {
-                    Self {
-                        predicate: predicate.into_arc(),
-                    }
-                }
-
-                fn test(&self, value: &i32) -> bool {
-                    self.predicate.test(value)
-                }
-            }
-
-            // Create with closure
-            let filter1 = ThreadSafeFilter::new(|x: &i32| *x > 0);
-            assert!(filter1.test(&5));
-
-            // Create with ArcPredicate (zero-cost)
-            let filter2 = ThreadSafeFilter::new(ArcPredicate::new(|x: &i32| x % 2 == 0));
-            assert!(filter2.test(&4));
-
-            // Note: Cannot create with RcPredicate because Rc is not Send + Sync
-            // let filter3 = ThreadSafeFilter::new(RcPredicate::new(|x| *x > 0)); // Compilation error
-        }
-
-        #[test]
-        fn test_conversion_chain() {
-            // Test conversion chain
-            let closure = |x: &i32| *x > 5;
-
-            // Closure -> BoxPredicate -> test
-            let box_pred = closure.into_box();
-            assert!(box_pred.test(&10));
-
-            // Closure -> RcPredicate -> BoxPredicate -> test
-            let closure2 = |x: &i32| *x < 5;
-            let rc_pred = closure2.into_rc();
-            let box_pred2 = rc_pred.into_box();
-            assert!(box_pred2.test(&3));
-
-            // Closure -> ArcPredicate -> BoxPredicate -> test
-            let closure3 = |x: &i32| x % 2 == 0;
-            let arc_pred = closure3.into_arc();
-            let box_pred3 = arc_pred.into_box();
-            assert!(box_pred3.test(&4));
-        }
-
-        #[test]
-        fn test_conversion_preserves_behavior() {
-            let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-            // Original closure
-            let closure = |x: &i32| *x > 5;
-            let count1 = numbers.iter().filter(|x| closure.test(x)).count();
-
-            // Convert to BoxPredicate
-            let box_pred = (|x: &i32| *x > 5).into_box();
-            let count2 = numbers.iter().filter(|x| box_pred.test(x)).count();
-
-            // Convert to RcPredicate
-            let rc_pred = (|x: &i32| *x > 5).into_rc();
-            let count3 = numbers.iter().filter(|x| rc_pred.test(x)).count();
-
-            // Convert to ArcPredicate
-            let arc_pred = (|x: &i32| *x > 5).into_arc();
-            let count4 = numbers.iter().filter(|x| arc_pred.test(x)).count();
-
-            // All conversions should maintain the same behavior
-            assert_eq!(count1, 5);
-            assert_eq!(count2, 5);
-            assert_eq!(count3, 5);
-            assert_eq!(count4, 5);
-        }
+    #[test]
+    fn test_closure_to_rc() {
+        let closure = |x: &i32| *x > 0;
+        let pred: RcPredicate<i32> = closure.into_rc();
+        assert!(pred.test(&5));
     }
 
-    // ========================================================================
-    // into_fn() Tests - Test converting predicates to closures for iterators
-    // ========================================================================
+    #[test]
+    fn test_closure_to_arc() {
+        let closure = |x: &i32| *x > 0;
+        let pred: ArcPredicate<i32> = closure.into_arc();
+        assert!(pred.test(&5));
+    }
 
-    mod into_fn_tests {
-        use super::*;
+    #[test]
+    fn test_rc_to_box() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = rc_pred.to_box();
+        assert!(box_pred.test(&5));
+    }
 
-        #[test]
-        fn test_box_predicate_into_fn_with_filter() {
-            let predicate = BoxPredicate::new(|x: &i32| *x > 0);
-            let values = vec![1, -2, 3, -4, 5];
+    #[test]
+    fn test_arc_to_box() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = arc_pred.to_box();
+        assert!(box_pred.test(&5));
+    }
 
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+    #[test]
+    fn test_arc_to_rc() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let rc_pred = arc_pred.to_rc();
+        assert!(rc_pred.test(&5));
+    }
+}
 
-            assert_eq!(result, vec![1, 3, 5]);
-        }
+#[cfg(test)]
+mod different_types_tests {
+    use super::*;
 
-        #[test]
-        fn test_arc_predicate_into_fn_with_filter() {
-            let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-            let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-            let predicate = is_positive.and(&is_even);
+    #[test]
+    fn test_string_predicate() {
+        let pred = BoxPredicate::new(|s: &String| s.len() > 3);
+        assert!(pred.test(&"hello".to_string()));
+        assert!(!pred.test(&"hi".to_string()));
+    }
 
-            let values = vec![1, 2, 3, 4, 5, 6];
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+    #[test]
+    fn test_str_predicate() {
+        let pred = BoxPredicate::new(|s: &&str| s.len() > 3);
+        assert!(pred.test(&"hello"));
+        assert!(!pred.test(&"hi"));
+    }
 
-            assert_eq!(result, vec![2, 4, 6]);
-        }
+    #[test]
+    fn test_vec_predicate() {
+        let pred = BoxPredicate::new(|v: &Vec<i32>| v.len() > 2);
+        assert!(pred.test(&vec![1, 2, 3]));
+        assert!(!pred.test(&vec![1]));
+    }
 
-        #[test]
-        fn test_rc_predicate_into_fn_with_filter() {
-            let predicate = RcPredicate::new(|x: &i32| *x > 0);
-            let values = vec![1, -2, 3, -4, 5];
+    #[test]
+    fn test_option_predicate() {
+        let pred = BoxPredicate::new(|opt: &Option<i32>| opt.is_some());
+        assert!(pred.test(&Some(5)));
+        assert!(!pred.test(&None));
+    }
 
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+    #[test]
+    fn test_tuple_predicate() {
+        let pred = BoxPredicate::new(|(a, b): &(i32, i32)| a + b > 10);
+        assert!(pred.test(&(6, 5)));
+        assert!(!pred.test(&(2, 3)));
+    }
+}
 
-            assert_eq!(result, vec![1, 3, 5]);
-        }
+#[cfg(test)]
+mod generic_function_tests {
+    use super::*;
 
-        #[test]
-        fn test_closure_into_fn_with_filter() {
-            let predicate = |x: &i32| *x > 0;
-            let values = vec![1, -2, 3, -4, 5];
+    fn filter_by_predicate<T, P>(items: Vec<T>, pred: P) -> Vec<T>
+    where
+        P: Predicate<T>,
+    {
+        items.into_iter().filter(|item| pred.test(item)).collect()
+    }
 
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+    #[test]
+    fn test_with_box_predicate() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let result = filter_by_predicate(vec![-2, -1, 0, 1, 2], pred);
+        assert_eq!(result, vec![1, 2]);
+    }
 
-            assert_eq!(result, vec![1, 3, 5]);
-        }
+    #[test]
+    fn test_with_rc_predicate() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let pred_clone = pred.clone();
+        let result = filter_by_predicate(vec![-2, -1, 0, 1, 2], pred_clone);
+        assert_eq!(result, vec![1, 2]);
 
-        #[test]
-        fn test_into_fn_with_take_while() {
-            let predicate = RcPredicate::new(|x: &i32| *x > 0);
-            let values = vec![1, 2, -3, 4, -5, 6];
+        // pred is still usable
+        assert!(pred.test(&5));
+    }
 
-            let result: Vec<i32> = values
-                .iter()
-                .copied()
-                .take_while(predicate.into_fn())
-                .collect();
+    #[test]
+    fn test_with_arc_predicate() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred_clone = pred.clone();
+        let result = filter_by_predicate(vec![-2, -1, 0, 1, 2], pred_clone);
+        assert_eq!(result, vec![1, 2]);
 
-            assert_eq!(result, vec![1, 2]);
-        }
+        // pred is still usable
+        assert!(pred.test(&5));
+    }
 
-        #[test]
-        fn test_into_fn_with_skip_while() {
-            let predicate = BoxPredicate::new(|x: &i32| *x < 0);
-            let values = vec![-1, -2, 3, 4, -5, 6];
+    #[test]
+    fn test_with_closure() {
+        let pred = |x: &i32| *x > 0;
+        let result = filter_by_predicate(vec![-2, -1, 0, 1, 2], pred);
+        assert_eq!(result, vec![1, 2]);
+    }
+}
 
-            let result: Vec<i32> = values
-                .iter()
-                .copied()
-                .skip_while(predicate.into_fn())
-                .collect();
+#[cfg(test)]
+mod logical_operations_tests {
+    use super::*;
 
-            assert_eq!(result, vec![3, 4, -5, 6]);
-        }
+    // BoxPredicate NAND tests
+    #[test]
+    fn test_box_nand_basic() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
 
-        #[test]
-        fn test_into_fn_with_partition() {
-            let predicate = ArcPredicate::new(|x: &i32| *x > 0);
-            let values = vec![1, -2, 3, -4, 5];
+        let nand = is_positive.nand(is_even);
 
-            let (positives, negatives): (Vec<i32>, Vec<i32>) =
-                values.into_iter().partition(predicate.into_fn());
+        // NAND: true unless both are true
+        assert!(nand.test(&3)); // positive but odd: true && false = false, !false = true
+        assert!(nand.test(&-2)); // negative but even: false && true = false, !false = true
+        assert!(nand.test(&-1)); // negative and odd: false && false = false, !false = true
+        assert!(!nand.test(&4)); // positive and even: true && true = true, !true = false
+    }
 
-            assert_eq!(positives, vec![1, 3, 5]);
-            assert_eq!(negatives, vec![-2, -4]);
-        }
+    // BoxPredicate XOR tests
+    #[test]
+    fn test_box_xor_basic() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
 
-        #[test]
-        fn test_into_fn_with_complex_composition() {
-            let predicate = BoxPredicate::new(|x: &i32| *x > 0)
-                .and(|x: &i32| x % 2 == 0)
-                .or(|x: &i32| *x > 100);
+        let xor = is_positive.xor(is_even);
 
-            let values = vec![1, 2, 3, 4, -5, 150];
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+        // XOR: true if exactly one is true
+        assert!(xor.test(&3)); // positive but odd: true ^ false = true
+        assert!(xor.test(&-2)); // negative but even: false ^ true = true
+        assert!(!xor.test(&-1)); // negative and odd: false ^ false = false
+        assert!(!xor.test(&4)); // positive and even: true ^ true = false
+    }
 
-            assert_eq!(result, vec![2, 4, 150]);
-        }
+    // BoxPredicate NOR tests
+    #[test]
+    fn test_box_nor_basic() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
 
-        #[test]
-        fn test_into_fn_with_string() {
-            let predicate = BoxPredicate::new(|s: &String| s.contains('a'));
-            let values = vec![
-                "apple".to_string(),
-                "banana".to_string(),
-                "cherry".to_string(),
-                "date".to_string(),
-            ];
+        let nor = is_positive.nor(is_even);
 
-            let result: Vec<String> = values.into_iter().filter(predicate.into_fn()).collect();
+        // NOR: true only when both are false
+        assert!(nor.test(&-3)); // negative and odd: !(false || false) = true
+        assert!(!nor.test(&3)); // positive but odd: !(true || false) = false
+        assert!(!nor.test(&-2)); // negative but even: !(false || true) = false
+        assert!(!nor.test(&4)); // positive and even: !(true || true) = false
+    }
 
-            assert_eq!(
-                result,
-                vec![
-                    "apple".to_string(),
-                    "banana".to_string(),
-                    "date".to_string()
-                ]
-            );
-        }
+    // RcPredicate NAND tests
+    #[test]
+    fn test_rc_nand_basic() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
 
-        #[test]
-        fn test_into_fn_preserves_closure_semantics() {
-            // Test that the converted closure works correctly
-            let threshold = 5;
-            let predicate = BoxPredicate::new(move |x: &i32| *x > threshold);
+        let nand = is_positive.nand(is_even.clone());
 
-            let values = vec![1, 5, 6, 10];
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+        assert!(nand.test(&3)); // positive but odd
+        assert!(nand.test(&-2)); // negative but even
+        assert!(nand.test(&-1)); // negative and odd
+        assert!(!nand.test(&4)); // positive and even
 
-            assert_eq!(result, vec![6, 10]);
-        }
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
 
-        #[test]
-        fn test_into_fn_with_references() {
-            // Test with owned values in iterator
-            let predicate = RcPredicate::new(|x: &i32| *x > 0);
-            let values = vec![1, -2, 3, -4, 5];
+    // RcPredicate XOR tests
+    #[test]
+    fn test_rc_xor_basic() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
 
-            // Use into_iter() to get owned values
-            let result: Vec<i32> = values.into_iter().filter(predicate.into_fn()).collect();
+        let xor = is_positive.xor(is_even.clone());
 
-            assert_eq!(result, vec![1, 3, 5]);
-        }
+        assert!(xor.test(&3)); // positive but odd
+        assert!(xor.test(&-2)); // negative but even
+        assert!(!xor.test(&-1)); // negative and odd
+        assert!(!xor.test(&4)); // positive and even
+
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
+
+    // RcPredicate NOR tests
+    #[test]
+    fn test_rc_nor_basic() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let nor = is_positive.nor(is_even.clone());
+
+        // NOR: true only when both are false
+        assert!(nor.test(&-3)); // negative and odd: !(false || false) = true
+        assert!(!nor.test(&3)); // positive but odd: !(true || false) = false
+        assert!(!nor.test(&-2)); // negative but even: !(false || true) = false
+        assert!(!nor.test(&4)); // positive and even: !(true || true) = false
+
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
+
+    // ArcPredicate NAND tests
+    #[test]
+    fn test_arc_nand_basic() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let nand = is_positive.nand(is_even.clone());
+
+        assert!(nand.test(&3)); // positive but odd
+        assert!(nand.test(&-2)); // negative but even
+        assert!(nand.test(&-1)); // negative and odd
+        assert!(!nand.test(&4)); // positive and even
+
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
+
+    // ArcPredicate XOR tests
+    #[test]
+    fn test_arc_xor_basic() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let xor = is_positive.xor(is_even.clone());
+
+        assert!(xor.test(&3)); // positive but odd
+        assert!(xor.test(&-2)); // negative but even
+        assert!(!xor.test(&-1)); // negative and odd
+        assert!(!xor.test(&4)); // positive and even
+
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
+
+    // ArcPredicate NOR tests
+    #[test]
+    fn test_arc_nor_basic() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let nor = is_positive.nor(is_even.clone());
+
+        // NOR: true only when both are false
+        assert!(nor.test(&-3)); // negative and odd: !(false || false) = true
+        assert!(!nor.test(&3)); // positive but odd: !(true || false) = false
+        assert!(!nor.test(&-2)); // negative but even: !(false || true) = false
+        assert!(!nor.test(&4)); // positive and even: !(true || true) = false
+
+        // Original predicates still usable
+        assert!(is_positive.test(&5));
+        assert!(is_even.test(&6));
+    }
+
+    // Closure NAND tests (via FnPredicateOps)
+    #[test]
+    fn test_closure_nand_basic() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
+
+        let nand = is_positive.nand(is_even);
+
+        assert!(nand.test(&3)); // positive but odd
+        assert!(nand.test(&-2)); // negative but even
+        assert!(nand.test(&-1)); // negative and odd
+        assert!(!nand.test(&4)); // positive and even
+    }
+
+    // Closure XOR tests (via FnPredicateOps)
+    #[test]
+    fn test_closure_xor_basic() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
+
+        let xor = is_positive.xor(is_even);
+
+        assert!(xor.test(&3)); // positive but odd
+        assert!(xor.test(&-2)); // negative but even
+        assert!(!xor.test(&-1)); // negative and odd
+        assert!(!xor.test(&4)); // positive and even
+    }
+
+    // Closure NOR tests (via FnPredicateOps)
+    #[test]
+    fn test_closure_nor_basic() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
+
+        let nor = is_positive.nor(is_even);
+
+        // NOR: true only when both are false
+        assert!(nor.test(&-3)); // negative and odd: !(false || false) = true
+        assert!(!nor.test(&3)); // positive but odd: !(true || false) = false
+        assert!(!nor.test(&-2)); // negative but even: !(false || true) = false
+        assert!(!nor.test(&4)); // positive and even: !(true || true) = false
+    }
+
+    // Complex composition with NAND
+    #[test]
+    fn test_complex_nand_composition() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
+        let is_small = |x: &i32| x.abs() < 10;
+
+        // (positive NAND even) AND small
+        let complex = is_positive.nand(is_even).and(BoxPredicate::new(is_small));
+
+        assert!(complex.test(&3)); // !(true && false) && true = true && true = true
+        assert!(complex.test(&-2)); // !(false && true) && true = true && true = true
+        assert!(!complex.test(&4)); // !(true && true) && true = false && true = false
+        assert!(!complex.test(&15)); // !(true && false) && false = true && false = false
+    }
+
+    // Complex composition with XOR
+    #[test]
+    fn test_complex_xor_composition() {
+        let is_positive = |x: &i32| *x > 0;
+        let is_even = |x: &i32| x % 2 == 0;
+        let is_small = |x: &i32| x.abs() < 10;
+
+        // (positive XOR even) AND small
+        let complex = is_positive.xor(is_even).and(BoxPredicate::new(is_small));
+
+        assert!(complex.test(&3)); // (true ^ false) && true = true && true = true
+        assert!(complex.test(&-2)); // (false ^ true) && true = true && true = true
+        assert!(!complex.test(&4)); // (true ^ true) && true = false && true = false
+        assert!(!complex.test(&-1)); // (false ^ false) && true = false && true = false
+    }
+
+    // NAND with string predicates
+    #[test]
+    fn test_nand_with_strings() {
+        let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+
+        let nand = is_long.nand(has_uppercase);
+
+        assert!(nand.test(&"hello".to_string())); // short, no uppercase: !(false && false) = true
+        assert!(nand.test(&"Hello".to_string())); // short, has uppercase: !(false && true) = true
+        assert!(nand.test(&"goodbye".to_string())); // long, no uppercase: !(true && false) = true
+        assert!(!nand.test(&"HelloWorld".to_string())); // long, has uppercase: !(true && true) = false
+    }
+
+    // XOR with string predicates
+    #[test]
+    fn test_xor_with_strings() {
+        let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+
+        let xor = is_long.xor(has_uppercase);
+
+        assert!(!xor.test(&"hello".to_string())); // short, no uppercase: false ^ false = false
+        assert!(xor.test(&"Hello".to_string())); // short, has uppercase: false ^ true = true
+        assert!(xor.test(&"goodbye".to_string())); // long, no uppercase: true ^ false = true
+        assert!(!xor.test(&"HelloWorld".to_string())); // long, has uppercase: true ^ true = false
+    }
+
+    // NOR with string predicates
+    #[test]
+    fn test_nor_with_strings() {
+        let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+
+        let nor = is_long.nor(has_uppercase);
+
+        assert!(nor.test(&"hello".to_string())); // short, no uppercase: !(false || false) = true
+        assert!(!nor.test(&"Hello".to_string())); // short, has uppercase: !(false || true) = false
+        assert!(!nor.test(&"goodbye".to_string())); // long, no uppercase: !(true || false) = false
+        assert!(!nor.test(&"HelloWorld".to_string())); // long, has uppercase: !(true || true) = false
+    }
+}
+
+#[cfg(test)]
+mod parameter_types_tests {
+    use super::*;
+
+    // 辅助函数
+    fn is_even(x: &i32) -> bool {
+        x % 2 == 0
+    }
+
+    fn is_large(x: &i32) -> bool {
+        *x > 100
+    }
+
+    // ============================================================================
+    // BoxPredicate::and 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_box_and_with_closure() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(|x: &i32| x % 2 == 0);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_box_and_with_function() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_box_and_with_box_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let combined = pred1.and(pred2);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_box_and_with_rc_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let combined = pred1.and(pred2);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    // ============================================================================
+    // BoxPredicate::or 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_box_or_with_closure() {
+        let pred = BoxPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(|x: &i32| *x > 100);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+    }
+
+    #[test]
+    fn test_box_or_with_function() {
+        let pred = BoxPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(is_large);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+    }
+
+    #[test]
+    fn test_box_or_with_box_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x < 0);
+        let pred2 = BoxPredicate::new(|x: &i32| *x > 100);
+        let combined = pred1.or(pred2);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+    }
+
+    // ============================================================================
+    // BoxPredicate::nand 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_box_nand_with_closure() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(|x: &i32| x % 2 == 0);
+
+        assert!(nand.test(&3)); // !(true && false)
+        assert!(!nand.test(&4)); // !(true && true)
+    }
+
+    #[test]
+    fn test_box_nand_with_function() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(is_even);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+    }
+
+    #[test]
+    fn test_box_nand_with_box_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let nand = pred1.nand(pred2);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+    }
+
+    // ============================================================================
+    // BoxPredicate::xor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_box_xor_with_closure() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(|x: &i32| x % 2 == 0);
+
+        assert!(xor.test(&3)); // true ^ false
+        assert!(!xor.test(&4)); // true ^ true
+        assert!(!xor.test(&-1)); // false ^ false
+    }
+
+    #[test]
+    fn test_box_xor_with_function() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(is_even);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(!xor.test(&-1));
+    }
+
+    #[test]
+    fn test_box_xor_with_box_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let xor = pred1.xor(pred2);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(!xor.test(&-1));
+    }
+
+    // ============================================================================
+    // BoxPredicate::nor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_box_nor_with_closure() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(|x: &i32| x % 2 == 0);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(!nor.test(&3));
+    }
+
+    #[test]
+    fn test_box_nor_with_function() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(is_even);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+    }
+
+    #[test]
+    fn test_box_nor_with_box_predicate() {
+        let pred1 = BoxPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let nor = pred1.nor(pred2);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(!nor.test(&3));
+    }
+
+    // ============================================================================
+    // RcPredicate::and 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_rc_and_with_closure() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(|x: &i32| x % 2 == 0);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+
+        // 原 predicate 仍可用
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_and_with_function() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_and_with_rc_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let combined = pred1.and(pred2.clone());
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+
+        // 两个原 predicate 都可用
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    #[test]
+    fn test_rc_and_with_box_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
+        let combined = pred1.and(pred2);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred1.test(&5));
+    }
+
+    // ============================================================================
+    // RcPredicate::or 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_rc_or_with_closure() {
+        let pred = RcPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(|x: &i32| *x > 100);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+        assert!(pred.test(&-10));
+    }
+
+    #[test]
+    fn test_rc_or_with_function() {
+        let pred = RcPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(is_large);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(pred.test(&-10));
+    }
+
+    #[test]
+    fn test_rc_or_with_rc_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x < 0);
+        let pred2 = RcPredicate::new(|x: &i32| *x > 100);
+        let combined = pred1.or(pred2.clone());
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(pred1.test(&-10));
+        assert!(pred2.test(&150));
+    }
+
+    // ============================================================================
+    // RcPredicate::nand 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_rc_nand_with_closure() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(|x: &i32| x % 2 == 0);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_nand_with_function() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(is_even);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_nand_with_rc_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let nand = pred1.nand(pred2.clone());
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // RcPredicate::xor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_rc_xor_with_closure() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(|x: &i32| x % 2 == 0);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(!xor.test(&-1));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_xor_with_function() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(is_even);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_xor_with_rc_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let xor = pred1.xor(pred2.clone());
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // RcPredicate::nor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_rc_nor_with_closure() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(|x: &i32| x % 2 == 0);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_nor_with_function() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(is_even);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_rc_nor_with_rc_predicate() {
+        let pred1 = RcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let nor = pred1.nor(pred2.clone());
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // ArcPredicate::and 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_arc_and_with_closure() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(|x: &i32| x % 2 == 0);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_and_with_function() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let combined = pred.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_and_with_arc_predicate() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
+        let combined = pred1.and(pred2.clone());
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // ArcPredicate::or 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_arc_or_with_closure() {
+        let pred = ArcPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(|x: &i32| *x > 100);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+        assert!(pred.test(&-10));
+    }
+
+    #[test]
+    fn test_arc_or_with_function() {
+        let pred = ArcPredicate::new(|x: &i32| *x < 0);
+        let combined = pred.or(is_large);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(pred.test(&-10));
+    }
+
+    #[test]
+    fn test_arc_or_with_arc_predicate() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x < 0);
+        let pred2 = ArcPredicate::new(|x: &i32| *x > 100);
+        let combined = pred1.or(pred2.clone());
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(pred1.test(&-10));
+        assert!(pred2.test(&150));
+    }
+
+    // ============================================================================
+    // ArcPredicate::nand 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_arc_nand_with_closure() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(|x: &i32| x % 2 == 0);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_nand_with_function() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let nand = pred.nand(is_even);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_nand_with_arc_predicate() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
+        let nand = pred1.nand(pred2.clone());
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // ArcPredicate::xor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_arc_xor_with_closure() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(|x: &i32| x % 2 == 0);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(!xor.test(&-1));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_xor_with_function() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let xor = pred.xor(is_even);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_xor_with_arc_predicate() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
+        let xor = pred1.xor(pred2.clone());
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // ArcPredicate::nor 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_arc_nor_with_closure() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(|x: &i32| x % 2 == 0);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(!nor.test(&3));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_nor_with_function() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let nor = pred.nor(is_even);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_nor_with_arc_predicate() {
+        let pred1 = ArcPredicate::new(|x: &i32| *x > 0);
+        let pred2 = ArcPredicate::new(|x: &i32| x % 2 == 0);
+        let nor = pred1.nor(pred2.clone());
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(pred1.test(&5));
+        assert!(pred2.test(&6));
+    }
+
+    // ============================================================================
+    // FnPredicateOps (闭包) 参数类型测试
+    // ============================================================================
+
+    #[test]
+    fn test_closure_and_with_closure() {
+        let is_pos = |x: &i32| *x > 0;
+        let is_even_closure = |x: &i32| x % 2 == 0;
+
+        let combined = is_pos.and(is_even_closure);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_closure_and_with_function() {
+        let is_pos = |x: &i32| *x > 0;
+        let combined = is_pos.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_closure_and_with_box_predicate() {
+        let is_pos = |x: &i32| *x > 0;
+        let pred = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = is_pos.and(pred);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_closure_or_with_closure() {
+        let is_neg = |x: &i32| *x < 0;
+        let is_large_closure = |x: &i32| *x > 100;
+
+        let combined = is_neg.or(is_large_closure);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+        assert!(!combined.test(&50));
+    }
+
+    #[test]
+    fn test_closure_or_with_function() {
+        let is_neg = |x: &i32| *x < 0;
+        let combined = is_neg.or(is_large);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+    }
+
+    #[test]
+    fn test_closure_or_with_box_predicate() {
+        let is_neg = |x: &i32| *x < 0;
+        let pred = BoxPredicate::new(|x: &i32| *x > 100);
+
+        let combined = is_neg.or(pred);
+
+        assert!(combined.test(&-5));
+        assert!(combined.test(&150));
+    }
+
+    #[test]
+    fn test_closure_nand_with_closure() {
+        let is_pos = |x: &i32| *x > 0;
+        let is_even_closure = |x: &i32| x % 2 == 0;
+
+        let nand = is_pos.nand(is_even_closure);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+    }
+
+    #[test]
+    fn test_closure_nand_with_function() {
+        let is_pos = |x: &i32| *x > 0;
+        let nand = is_pos.nand(is_even);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+    }
+
+    #[test]
+    fn test_closure_nand_with_box_predicate() {
+        let is_pos = |x: &i32| *x > 0;
+        let pred = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let nand = is_pos.nand(pred);
+
+        assert!(nand.test(&3));
+        assert!(!nand.test(&4));
+    }
+
+    #[test]
+    fn test_closure_xor_with_closure() {
+        let is_pos = |x: &i32| *x > 0;
+        let is_even_closure = |x: &i32| x % 2 == 0;
+
+        let xor = is_pos.xor(is_even_closure);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+        assert!(!xor.test(&-1));
+    }
+
+    #[test]
+    fn test_closure_xor_with_function() {
+        let is_pos = |x: &i32| *x > 0;
+        let xor = is_pos.xor(is_even);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+    }
+
+    #[test]
+    fn test_closure_xor_with_box_predicate() {
+        let is_pos = |x: &i32| *x > 0;
+        let pred = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let xor = is_pos.xor(pred);
+
+        assert!(xor.test(&3));
+        assert!(!xor.test(&4));
+    }
+
+    #[test]
+    fn test_closure_nor_with_closure() {
+        let is_pos = |x: &i32| *x > 0;
+        let is_even_closure = |x: &i32| x % 2 == 0;
+
+        let nor = is_pos.nor(is_even_closure);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+        assert!(!nor.test(&3));
+    }
+
+    #[test]
+    fn test_closure_nor_with_function() {
+        let is_pos = |x: &i32| *x > 0;
+        let nor = is_pos.nor(is_even);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
+    }
+
+    #[test]
+    fn test_closure_nor_with_box_predicate() {
+        let is_pos = |x: &i32| *x > 0;
+        let pred = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let nor = is_pos.nor(pred);
+
+        assert!(nor.test(&-3));
+        assert!(!nor.test(&4));
     }
 }

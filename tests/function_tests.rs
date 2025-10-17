@@ -121,10 +121,7 @@ mod arc_function_tests {
             })
             .collect();
 
-        let results: Vec<_> = handles
-            .into_iter()
-            .map(|h| h.join().unwrap())
-            .collect();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
         assert_eq!(results, vec![0, 1, 4, 9]);
     }

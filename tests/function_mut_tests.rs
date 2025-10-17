@@ -195,10 +195,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_function_mut_trait() {
-        fn apply_function_mut<F: FunctionMut<i32, i32>>(
-            f: &mut F,
-            x: &mut i32,
-        ) -> i32 {
+        fn apply_function_mut<F: FunctionMut<i32, i32>>(f: &mut F, x: &mut i32) -> i32 {
             f.apply(x)
         }
 
@@ -211,4 +208,3 @@ mod trait_usage_tests {
         assert_eq!(apply_function_mut(&mut double, &mut value), 42);
     }
 }
-
