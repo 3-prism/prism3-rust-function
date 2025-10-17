@@ -645,6 +645,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// # Returns
     ///
     /// A new `BoxPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> BoxPredicate<T> {
         BoxPredicate {
             function: Box::new(move |value: &T| !(self.function)(value)),
@@ -1167,6 +1168,7 @@ impl<T: 'static> RcPredicate<T> {
     /// # Returns
     ///
     /// A new `RcPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> RcPredicate<T> {
         let self_fn = Rc::clone(&self.function);
         RcPredicate {
@@ -1657,6 +1659,7 @@ impl<T: 'static> ArcPredicate<T> {
     /// # Returns
     ///
     /// A new `ArcPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> ArcPredicate<T>
     where
         T: Send + Sync,

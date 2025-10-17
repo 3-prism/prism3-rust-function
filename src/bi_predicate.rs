@@ -148,6 +148,19 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// Type alias for bi-predicate function to simplify complex types.
+///
+/// This type alias represents a function that takes two references and returns a boolean.
+/// It is used to reduce type complexity in struct definitions.
+type BiPredicateFn<T, U> = dyn Fn(&T, &U) -> bool;
+
+/// Type alias for thread-safe bi-predicate function to simplify complex types.
+///
+/// This type alias represents a function that takes two references and returns a boolean,
+/// with Send + Sync bounds for thread-safe usage. It is used to reduce type complexity
+/// in Arc-based struct definitions.
+type SendSyncBiPredicateFn<T, U> = dyn Fn(&T, &U) -> bool + Send + Sync;
+
 /// BiPredicate name constant for always-true bi-predicates
 const ALWAYS_TRUE_NAME: &str = "always_true";
 
@@ -350,7 +363,7 @@ pub trait BiPredicate<T, U> {
 ///
 /// Haixing Hu
 pub struct BoxBiPredicate<T, U> {
-    function: Box<dyn Fn(&T, &U) -> bool>,
+    function: Box<BiPredicateFn<T, U>>,
     name: Option<String>,
 }
 
@@ -530,6 +543,7 @@ impl<T, U> BoxBiPredicate<T, U> {
     /// # Returns
     ///
     /// A new `BoxBiPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> BoxBiPredicate<T, U>
     where
         T: 'static,
@@ -714,7 +728,7 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
 ///
 /// Haixing Hu
 pub struct RcBiPredicate<T, U> {
-    function: Rc<dyn Fn(&T, &U) -> bool>,
+    function: Rc<BiPredicateFn<T, U>>,
     name: Option<String>,
 }
 
@@ -882,6 +896,7 @@ impl<T, U> RcBiPredicate<T, U> {
     /// # Returns
     ///
     /// A new `RcBiPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> RcBiPredicate<T, U>
     where
         T: 'static,
@@ -1147,7 +1162,7 @@ impl<T, U> std::fmt::Debug for RcBiPredicate<T, U> {
 ///
 /// Haixing Hu
 pub struct ArcBiPredicate<T, U> {
-    function: Arc<dyn Fn(&T, &U) -> bool + Send + Sync>,
+    function: Arc<SendSyncBiPredicateFn<T, U>>,
     name: Option<String>,
 }
 
@@ -1316,6 +1331,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// # Returns
     ///
     /// A new `ArcBiPredicate` representing the logical negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> ArcBiPredicate<T, U>
     where
         T: Send + Sync + 'static,

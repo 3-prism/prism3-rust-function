@@ -30,6 +30,19 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+/// Type alias for consumer function to simplify complex types.
+///
+/// This type alias represents a mutable function that takes a reference and returns nothing.
+/// It is used to reduce type complexity in struct definitions.
+type ConsumerFn<T> = dyn FnMut(&T);
+
+/// Type alias for thread-safe consumer function to simplify complex types.
+///
+/// This type alias represents a mutable function that takes a reference and returns nothing,
+/// with Send bound for thread-safe usage. It is used to reduce type complexity
+/// in Arc-based struct definitions.
+type SendConsumerFn<T> = dyn FnMut(&T) + Send;
+
 // ============================================================================
 // 1. Consumer Trait - 统一的 Consumer 接口
 // ============================================================================
@@ -654,7 +667,7 @@ impl<T> fmt::Display for BoxConsumer<T> {
 ///
 /// 胡海星
 pub struct ArcConsumer<T> {
-    function: Arc<Mutex<dyn FnMut(&T) + Send>>,
+    function: Arc<Mutex<SendConsumerFn<T>>>,
     name: Option<String>,
 }
 
@@ -934,7 +947,7 @@ impl<T> fmt::Display for ArcConsumer<T> {
 ///
 /// 胡海星
 pub struct RcConsumer<T> {
-    function: Rc<RefCell<dyn FnMut(&T)>>,
+    function: Rc<RefCell<ConsumerFn<T>>>,
     name: Option<String>,
 }
 
