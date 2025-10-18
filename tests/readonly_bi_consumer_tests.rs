@@ -13,6 +13,7 @@ use prism3_function::{
     ArcReadonlyBiConsumer, BoxReadonlyBiConsumer, FnReadonlyBiConsumerOps, RcReadonlyBiConsumer,
     ReadonlyBiConsumer,
 };
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -274,5 +275,229 @@ mod closure_tests {
 
         chained.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 2);
+    }
+}
+
+// ============================================================================
+// Edge Cases Tests
+// ============================================================================
+
+#[cfg(test)]
+mod edge_cases_tests {
+    use super::*;
+
+    #[test]
+    fn test_noop_multiple_calls() {
+        let consumer = BoxReadonlyBiConsumer::<i32, i32>::noop();
+        consumer.accept(&5, &3);
+        consumer.accept(&10, &20);
+        consumer.accept(&1, &2);
+        // Should do nothing
+    }
+
+    #[test]
+    fn test_and_then_with_noop() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let consumer = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+            *c.lock().unwrap() += 1;
+        })
+        .and_then(BoxReadonlyBiConsumer::noop());
+        consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_complex_chain() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+        let c3 = counter.clone();
+        let consumer = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+            *c1.lock().unwrap() += 1;
+        })
+        .and_then(move |_x: &i32, _y: &i32| {
+            *c2.lock().unwrap() += 1;
+        })
+        .and_then(BoxReadonlyBiConsumer::noop())
+        .and_then(move |_x: &i32, _y: &i32| {
+            *c3.lock().unwrap() += 1;
+        });
+        consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_with_different_types() {
+        let counter = Arc::new(std::sync::Mutex::new(String::new()));
+        let c = counter.clone();
+        let consumer = BoxReadonlyBiConsumer::new(move |s: &String, n: &i32| {
+            *c.lock().unwrap() = format!("{}: {}", s, n);
+        });
+        consumer.accept(&"Count".to_string(), &42);
+        assert_eq!(*counter.lock().unwrap(), "Count: 42");
+    }
+
+    #[test]
+    fn test_arc_consumer_multiple_threads() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        });
+
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                let cons = consumer.clone();
+                std::thread::spawn(move || {
+                    cons.accept(&i, &1);
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // Sum of (0+1) + (1+1) + ... + (9+1) = 55
+        assert_eq!(*counter.lock().unwrap(), 55);
+    }
+
+    #[test]
+    fn test_rc_consumer_multiple_clones() {
+        let counter = Rc::new(RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.borrow_mut() += x + y;
+        });
+
+        let cons1 = consumer.clone();
+        let cons2 = consumer.clone();
+        let cons3 = consumer.clone();
+
+        cons1.accept(&1, &2);
+        cons2.accept(&3, &4);
+        cons3.accept(&5, &6);
+
+        assert_eq!(*counter.borrow(), 21); // 3 + 7 + 11
+    }
+
+    #[test]
+    fn test_name_with_and_then() {
+        let mut consumer1 = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer1.set_name("first");
+        let consumer2 = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let chained = consumer1.and_then(consumer2);
+        // Name is not preserved through and_then
+        assert_eq!(chained.name(), None);
+    }
+
+    #[test]
+    fn test_arc_to_fn_multiple_calls() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        });
+        let func = consumer.to_fn();
+        func(&1, &2);
+        func(&3, &4);
+        func(&5, &6);
+        assert_eq!(*counter.lock().unwrap(), 21); // 3 + 7 + 11
+    }
+
+    #[test]
+    fn test_rc_to_fn_multiple_calls() {
+        let counter = Rc::new(RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.borrow_mut() += x + y;
+        });
+        let func = consumer.to_fn();
+        func(&1, &2);
+        func(&3, &4);
+        func(&5, &6);
+        assert_eq!(*counter.borrow(), 21); // 3 + 7 + 11
+    }
+}
+
+// ============================================================================
+// Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_arc_to_box() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        });
+        let box_consumer = arc_consumer.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 8);
+    }
+
+    #[test]
+    fn test_arc_to_rc() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        });
+        let rc_consumer = arc_consumer.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 8);
+    }
+
+    #[test]
+    fn test_rc_to_box() {
+        let counter = Rc::new(RefCell::new(0));
+        let c = counter.clone();
+        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            *c.borrow_mut() += x + y;
+        });
+        let box_consumer = rc_consumer.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*counter.borrow(), 8);
+    }
+
+    #[test]
+    fn test_closure_to_box() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let closure = move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        };
+        let box_consumer = closure.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 8);
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        let counter = Arc::new(std::sync::Mutex::new(0));
+        let c = counter.clone();
+        let closure = move |x: &i32, y: &i32| {
+            *c.lock().unwrap() += x + y;
+        };
+        let arc_consumer = closure.into_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*counter.lock().unwrap(), 8);
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        let counter = Rc::new(RefCell::new(0));
+        let c = counter.clone();
+        let closure = move |x: &i32, y: &i32| {
+            *c.borrow_mut() += x + y;
+        };
+        let rc_consumer = closure.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*counter.borrow(), 8);
     }
 }
