@@ -5,8 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/prism3-function.svg?color=blue)](https://crates.io/crates/prism3-function)
 [![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-
-[English](#english) | [中文](#中文)
+[English](#english) | [中文](README.zh_CN.md)
 
 ---
 
@@ -14,15 +13,15 @@
 
 ## English
 
-Common functional programming type aliases for Rust, providing Java-style functional interfaces.
+Comprehensive functional programming abstractions for Rust, providing Java-style functional interfaces with Rust's ownership models.
 
 ### Overview
 
-This crate provides comprehensive functional programming abstractions for Rust, inspired by Java's functional interfaces. It offers a complete set of functional types with multiple ownership models to cover various use cases, from simple single-threaded scenarios to complex multi-threaded applications.
+This crate provides a complete set of functional programming abstractions inspired by Java's functional interfaces, adapted to Rust's ownership system. It offers multiple implementations for each abstraction (Box/Arc/Rc) to cover various use cases from simple single-threaded scenarios to complex multi-threaded applications.
 
 ### Key Features
 
-- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, and Function
+- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, Transformer, Mutator, BiConsumer, BiPredicate, and Comparator
 - **Multiple Ownership Models**: Box-based single ownership, Arc-based thread-safe sharing, and Rc-based single-threaded sharing
 - **Flexible API Design**: Trait-based unified interface with concrete implementations optimized for different scenarios
 - **Method Chaining**: All types support fluent API and functional composition
@@ -33,61 +32,119 @@ This crate provides comprehensive functional programming abstractions for Rust, 
 
 #### Predicate<T>
 
-Represents a condition test that returns `bool`. Similar to Java's `Predicate<T>` interface.
+Tests whether a value satisfies a condition, returning `bool`. Similar to Java's `Predicate<T>` interface.
 
 **Implementations:**
-- `BoxPredicate<T>`: Single ownership, one-time use
+- `BoxPredicate<T>`: Single ownership, non-cloneable
 - `ArcPredicate<T>`: Thread-safe shared ownership, cloneable
 - `RcPredicate<T>`: Single-threaded shared ownership, cloneable
 
 **Features:**
 - Logical composition: `and`, `or`, `not`, `xor`
-- Method chaining with type preservation
-- Extension trait for closures
+- Type-preserving method chaining
+- Extension trait for closures (`FnPredicateOps`)
 
 #### Consumer<T>
 
 Accepts a single input parameter and performs operations without returning a result. Similar to Java's `Consumer<T>`.
 
 **Implementations:**
-- `BoxConsumer<T>`: Single ownership, consumes self
+- `BoxConsumer<T>`: Single ownership, uses `FnMut(&T)`
 - `ArcConsumer<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
 - `RcConsumer<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
+- `BoxConsumerOnce<T>`: One-time use with `FnOnce(&T)`
 
 **Features:**
 - Method chaining with `and_then`
 - Interior mutability for stateful operations
 - Both thread-safe and single-threaded options
+- Readonly variant (`ReadonlyConsumer`) for pure observation
+
+#### Mutator<T>
+
+Modifies values in-place by accepting mutable references. Similar to Java's `UnaryOperator<T>` but with in-place modification.
+
+**Implementations:**
+- `BoxMutator<T>`: Single ownership, uses `FnMut(&mut T)`
+- `ArcMutator<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
+- `RcMutator<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
+- `BoxMutatorOnce<T>`: One-time use with `FnOnce(&mut T)`
+
+**Features:**
+- Method chaining with `and_then`
+- Conditional execution with `when` and `or_else`
+- Supports if-then-else logic
+- Distinct from Consumer (reads vs modifies)
 
 #### Supplier<T>
 
 Generates values lazily without input parameters. Similar to Java's `Supplier<T>`.
 
 **Implementations:**
-- `BoxSupplier<T>`: Single ownership, one-time use
+- `BoxSupplier<T>`: Single ownership, uses `FnMut() -> T`
 - `ArcSupplier<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
 - `RcSupplier<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
+- `BoxSupplierOnce<T>`: One-time use with `FnOnce() -> T`
 
 **Features:**
 - Stateful value generation
 - Method chaining: `map`, `filter`, `flat_map`
-- Support for sequences and counters
+- Factory methods: `constant`, `counter`
+- Support for sequences and generators
 
-#### Function<T, R>
+#### Transformer<T, R>
 
-Transforms values from type `T` to type `R`. Similar to Java's `Function<T, R>`.
+Transforms values from type `T` to type `R` by consuming input. Similar to Java's `Function<T, R>`.
 
 **Implementations:**
-- `BoxOnceFunction<T, R>`: Single ownership, one-time use (FnOnce)
-- `BoxFnFunction<T, R>`: Reusable, single ownership (Fn)
-- `ArcFnFunction<T, R>`: Thread-safe, cloneable (Arc<Fn>)
-- `RcFnFunction<T, R>`: Single-threaded, cloneable (Rc<Fn>)
+- `BoxTransformer<T, R>`: Reusable, single ownership (Fn)
+- `ArcTransformer<T, R>`: Thread-safe, cloneable (Arc<Fn>)
+- `RcTransformer<T, R>`: Single-threaded, cloneable (Rc<Fn>)
+- `BoxTransformerOnce<T, R>`: One-time use (FnOnce)
 
 **Features:**
 - Function composition: `and_then`, `compose`
-- Both one-time and reusable variants
-- Support for consuming transformations
+- Factory methods: `identity`, `constant`
+- Consumes input for maximum flexibility
+- Conversion to standard closures with `into_fn`
 
+#### BiConsumer<T, U>
+
+Accepts two input parameters and performs operations without returning a result. Similar to Java's `BiConsumer<T, U>`.
+
+**Implementations:**
+- `BoxBiConsumer<T, U>`: Single ownership
+- `ArcBiConsumer<T, U>`: Thread-safe, cloneable
+- `RcBiConsumer<T, U>`: Single-threaded, cloneable
+- `BoxBiConsumerOnce<T, U>`: One-time use
+
+**Features:**
+- Method chaining with `and_then`
+- Readonly variant (`ReadonlyBiConsumer`)
+
+#### BiPredicate<T, U>
+
+Tests whether two values satisfy a condition, returning `bool`. Similar to Java's `BiPredicate<T, U>`.
+
+**Implementations:**
+- `BoxBiPredicate<T, U>`: Single ownership
+- `ArcBiPredicate<T, U>`: Thread-safe, cloneable
+- `RcBiPredicate<T, U>`: Single-threaded, cloneable
+
+**Features:**
+- Logical composition: `and`, `or`, `not`
+
+#### Comparator<T>
+
+Compares two values and returns an `Ordering`. Similar to Java's `Comparator<T>`.
+
+**Implementations:**
+- `BoxComparator<T>`: Single ownership
+- `ArcComparator<T>`: Thread-safe, cloneable
+- `RcComparator<T>`: Single-threaded, cloneable
+
+**Features:**
+- Method chaining: `reversed`, `then`
 
 ### Installation
 
@@ -105,7 +162,7 @@ prism3-function = "0.1.0"
 ```rust
 use prism3_function::{ArcPredicate, Predicate, FnPredicateOps};
 
-// Create a predicate with logical composition
+// Create predicates with logical composition
 let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
 let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
 
@@ -128,13 +185,47 @@ let result: Vec<i32> = numbers
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
 
-// Create a consumer that modifies values
-let mut consumer = BoxConsumer::new(|x: &mut i32| *x *= 2)
+// Create a consumer for observation (not modification)
+let mut consumer = BoxConsumer::new(|x: &i32| {
+    println!("Observed value: {}", x);
+});
+
+let value = 10;
+consumer.accept(&value);
+// value is unchanged
+```
+
+#### Using Mutator
+
+```rust
+use prism3_function::{BoxMutator, Mutator};
+
+// Create a mutator that modifies values
+let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
     .and_then(|x: &mut i32| *x += 1);
 
 let mut value = 10;
-consumer.accept(&mut value);
+mutator.mutate(&mut value);
 assert_eq!(value, 21); // (10 * 2) + 1
+```
+
+#### Using Conditional Mutator
+
+```rust
+use prism3_function::{BoxMutator, Mutator};
+
+// Create a conditional mutator with if-then-else logic
+let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+    .when(|x: &i32| *x > 0)
+    .or_else(|x: &mut i32| *x -= 1);
+
+let mut positive = 5;
+mutator.mutate(&mut positive);
+assert_eq!(positive, 10); // 5 * 2
+
+let mut negative = -5;
+mutator.mutate(&mut negative);
+assert_eq!(negative, -6); // -5 - 1
 ```
 
 #### Using Supplier
@@ -143,30 +234,31 @@ assert_eq!(value, 21); // (10 * 2) + 1
 use prism3_function::{BoxSupplier, Supplier};
 
 // Create a counter supplier
-let mut counter = 0;
-let mut supplier = BoxSupplier::new(move || {
-    counter += 1;
-    counter
-});
+let mut counter = {
+    let mut count = 0;
+    BoxSupplier::new(move || {
+        count += 1;
+        count
+    })
+};
 
-assert_eq!(supplier.get(), 1);
-assert_eq!(supplier.get(), 2);
-assert_eq!(supplier.get(), 3);
+assert_eq!(counter.get(), 1);
+assert_eq!(counter.get(), 2);
+assert_eq!(counter.get(), 3);
 ```
 
-#### Using Function
+#### Using Transformer
 
 ```rust
-use prism3_function::{BoxOnceFunction, Function};
+use prism3_function::{BoxTransformer, Transformer};
 
-// Chain functions for data transformation
-let parse_and_double = BoxOnceFunction::new(|s: String| s.parse::<i32>().ok())
-    .and_then(|opt| opt.unwrap_or(0))
-    .and_then(|x| x * 2);
+// Chain transformers for data transformation
+let parse_and_double = BoxTransformer::new(|s: String| s.parse::<i32>().ok())
+    .and_then(|opt: Option<i32>| opt.unwrap_or(0))
+    .and_then(|x: i32| x * 2);
 
-assert_eq!(parse_and_double.apply("21".to_string()), 42);
+assert_eq!(parse_and_double.transform("21".to_string()), 42);
 ```
-
 
 ### Design Philosophy
 
@@ -184,13 +276,44 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 |------|--------------|-------------------|-------------------|
 | Predicate | BoxPredicate | ArcPredicate | RcPredicate |
 | Consumer | BoxConsumer | ArcConsumer | RcConsumer |
+| Mutator | BoxMutator | ArcMutator | RcMutator |
 | Supplier | BoxSupplier | ArcSupplier | RcSupplier |
-| Function | BoxOnceFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
+| Transformer | BoxTransformer | ArcTransformer | RcTransformer |
+| BiConsumer | BoxBiConsumer | ArcBiConsumer | RcBiConsumer |
+| BiPredicate | BoxBiPredicate | ArcBiPredicate | RcBiPredicate |
+| Comparator | BoxComparator | ArcComparator | RcComparator |
 
 **Legend:**
 - **Box**: Single ownership, cannot be cloned, consumes self
 - **Arc**: Shared ownership, thread-safe, cloneable
 - **Rc**: Shared ownership, single-threaded, cloneable
+
+### Documentation
+
+- [Predicate Design](doc/predicate_design.md) | [中文](doc/predicate_design.zh_CN.md)
+- [Consumer Design](doc/consumer_design.md) | [中文](doc/consumer_design.zh_CN.md)
+- [Mutator Design](doc/mutator_design.md) | [中文](doc/mutator_design.zh_CN.md)
+- [Supplier Design](doc/supplier_design.md) | [中文](doc/supplier_design.zh_CN.md)
+- [Transformer Design](doc/transformer_design.md) | [中文](doc/transformer_design.zh_CN.md)
+
+### Examples
+
+The `examples/` directory contains comprehensive demonstrations:
+
+- `predicate_demo.rs`: Predicate usage patterns
+- `consumer_demo.rs`: Consumer usage patterns
+- `mutator_demo.rs`: Mutator usage patterns
+- `mutator_once_conditional_demo.rs`: Conditional mutator patterns
+- `supplier_demo.rs`: Supplier usage patterns
+- `transformer_demo.rs`: Transformer usage patterns
+- And more...
+
+Run examples with:
+```bash
+cargo run --example predicate_demo
+cargo run --example consumer_demo
+cargo run --example mutator_demo
+```
 
 ### License
 
@@ -198,197 +321,4 @@ Licensed under Apache License, Version 2.0.
 
 ### Author
 
-Hu Haixing <starfish.hu@gmail.com>
-
----
-
-<a name="中文"></a>
-
-## 中文
-
-为 Rust 提供常用函数式编程类型别名，实现类似 Java 的函数式接口。
-
-### 概述
-
-本 crate 为 Rust 提供全面的函数式编程抽象，灵感来自 Java 的函数式接口。它提供了一套完整的函数式类型，支持多种所有权模型，涵盖从简单的单线程场景到复杂的多线程应用的各种使用场景。
-
-### 核心特性
-
-- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Function（函数）
-- **多种所有权模型**：基于 Box 的单一所有权、基于 Arc 的线程安全共享、基于 Rc 的单线程共享
-- **灵活的 API 设计**：基于 trait 的统一接口，针对不同场景优化的具体实现
-- **方法链式调用**：所有类型都支持流式 API 和函数组合
-- **线程安全选项**：在线程安全（Arc）和高效单线程（Rc）实现之间选择
-- **零成本抽象**：高效的实现，最小的运行时开销
-
-### 核心类型
-
-#### Predicate<T>（谓词）
-
-表示返回 `bool` 的条件测试。类似于 Java 的 `Predicate<T>` 接口。
-
-**实现类型：**
-- `BoxPredicate<T>`：单一所有权，一次性使用
-- `ArcPredicate<T>`：线程安全的共享所有权，可克隆
-- `RcPredicate<T>`：单线程共享所有权，可克隆
-
-**特性：**
-- 逻辑组合：`and`、`or`、`not`、`xor`
-- 类型保持的方法链式调用
-- 为闭包提供的扩展 trait
-
-#### Consumer<T>（消费者）
-
-接受单个输入参数并执行操作，不返回结果。类似于 Java 的 `Consumer<T>`。
-
-**实现类型：**
-- `BoxConsumer<T>`：单一所有权，消耗 self
-- `ArcConsumer<T>`：使用 `Arc<Mutex<>>` 的线程安全实现，可克隆
-- `RcConsumer<T>`：使用 `Rc<RefCell<>>` 的单线程实现，可克隆
-
-**特性：**
-- 使用 `and_then` 的方法链式调用
-- 支持有状态操作的内部可变性
-- 提供线程安全和单线程两种选项
-
-#### Supplier<T>（供应者）
-
-无需输入参数即可惰性生成值。类似于 Java 的 `Supplier<T>`。
-
-**实现类型：**
-- `BoxSupplier<T>`：单一所有权，一次性使用
-- `ArcSupplier<T>`：使用 `Arc<Mutex<>>` 的线程安全实现，可克隆
-- `RcSupplier<T>`：使用 `Rc<RefCell<>>` 的单线程实现，可克隆
-
-**特性：**
-- 有状态的值生成
-- 方法链式调用：`map`、`filter`、`flat_map`
-- 支持序列和计数器
-
-#### Function<T, R>（函数）
-
-将类型 `T` 的值转换为类型 `R`。类似于 Java 的 `Function<T, R>`。
-
-**实现类型：**
-- `BoxOnceFunction<T, R>`：单一所有权，一次性使用（FnOnce）
-- `BoxFnFunction<T, R>`：可重复使用，单一所有权（Fn）
-- `ArcFnFunction<T, R>`：线程安全，可克隆（Arc<Fn>）
-- `RcFnFunction<T, R>`：单线程，可克隆（Rc<Fn>）
-
-**特性：**
-- 函数组合：`and_then`、`compose`
-- 同时提供一次性和可重复使用的变体
-- 支持消耗型转换
-
-
-### 安装
-
-在 `Cargo.toml` 中添加：
-
-```toml
-[dependencies]
-prism3-function = "0.1.0"
-```
-
-### 快速入门示例
-
-#### 使用 Predicate（谓词）
-
-```rust
-use prism3_function::{ArcPredicate, Predicate, FnPredicateOps};
-
-// 创建带逻辑组合的谓词
-let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
-let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-
-// 组合谓词，同时保持可克隆性
-let is_even_and_positive = is_even.and(&is_positive);
-
-assert!(is_even_and_positive.test(&4));
-assert!(!is_even_and_positive.test(&3));
-
-// 与闭包一起使用
-let numbers = vec![1, 2, 3, 4, 5, 6];
-let result: Vec<i32> = numbers
-    .into_iter()
-    .filter(|x| (|n: &i32| *n > 2).and(|n: &i32| n % 2 == 0).test(x))
-    .collect();
-```
-
-#### 使用 Consumer（消费者）
-
-```rust
-use prism3_function::{BoxConsumer, Consumer};
-
-// 创建修改值的消费者
-let mut consumer = BoxConsumer::new(|x: &mut i32| *x *= 2)
-    .and_then(|x: &mut i32| *x += 1);
-
-let mut value = 10;
-consumer.accept(&mut value);
-assert_eq!(value, 21); // (10 * 2) + 1
-```
-
-#### 使用 Supplier（供应者）
-
-```rust
-use prism3_function::{BoxSupplier, Supplier};
-
-// 创建计数器供应者
-let mut counter = 0;
-let mut supplier = BoxSupplier::new(move || {
-    counter += 1;
-    counter
-});
-
-assert_eq!(supplier.get(), 1);
-assert_eq!(supplier.get(), 2);
-assert_eq!(supplier.get(), 3);
-```
-
-#### 使用 Function（函数）
-
-```rust
-use prism3_function::{BoxOnceFunction, Function};
-
-// 链式调用函数进行数据转换
-let parse_and_double = BoxOnceFunction::new(|s: String| s.parse::<i32>().ok())
-    .and_then(|opt| opt.unwrap_or(0))
-    .and_then(|x| x * 2);
-
-assert_eq!(parse_and_double.apply("21".to_string()), 42);
-```
-
-
-### 设计理念
-
-本 crate 采用 **Trait + 多实现** 模式，提供：
-
-1. **统一接口**：每个函数式类型都有一个定义核心行为的 trait
-2. **专门实现**：针对不同场景优化的多个具体类型
-3. **类型保持**：组合方法返回相同的具体类型
-4. **所有权灵活性**：在单一所有权、线程安全共享或单线程共享之间选择
-5. **人体工学 API**：无需显式克隆的自然方法链式调用
-
-### 类型对比表
-
-| 类型 | Box（单一所有权） | Arc（线程安全） | Rc（单线程） |
-|------|--------------|-------------------|-------------------|
-| Predicate | BoxPredicate | ArcPredicate | RcPredicate |
-| Consumer | BoxConsumer | ArcConsumer | RcConsumer |
-| Supplier | BoxSupplier | ArcSupplier | RcSupplier |
-| Function | BoxOnceFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
-
-**图例：**
-- **Box**：单一所有权，不可克隆，消耗 self
-- **Arc**：共享所有权，线程安全，可克隆
-- **Rc**：共享所有权，单线程，可克隆
-
-### 许可证
-
-采用 Apache License, Version 2.0 许可证。
-
-### 作者
-
-胡海星 <starfish.hu@gmail.com>
-
+Haixing Hu <starfish.hu@gmail.com>
