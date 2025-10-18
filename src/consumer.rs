@@ -30,6 +30,8 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+
 /// Type alias for consumer function to simplify complex types.
 ///
 /// This type alias represents a mutable function that takes a reference and returns nothing.
@@ -424,80 +426,25 @@ where
         })
     }
 
-    /// Create a print consumer
+    /// Creates a conditional consumer
     ///
-    /// Returns a consumer that prints the input value.
-    ///
-    /// # Return Value
-    ///
-    /// Returns a print consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut print = BoxConsumer::<i32>::print();
-    /// print.accept(&42); // Prints: 42
-    /// ```
-    pub fn print() -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        BoxConsumer::new(|t| {
-            println!("{:?}", t);
-        })
-    }
-
-    /// Create a print consumer with prefix
-    ///
-    /// Returns a consumer that prints the input value with the specified prefix.
+    /// Returns a consumer that only executes when a predicate is satisfied.
     ///
     /// # Parameters
     ///
-    /// * `prefix` - Prefix string
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Return Value
     ///
-    /// Returns a print consumer
+    /// Returns `BoxConditionalConsumer<T>`
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut print = BoxConsumer::<i32>::print_with("Value: ");
-    /// print.accept(&42); // Prints: Value: 42
-    /// ```
-    pub fn print_with(prefix: &str) -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        let prefix = prefix.to_string();
-        BoxConsumer::new(move |t| {
-            println!("{}{:?}", prefix, t);
-        })
-    }
-
-    /// Create a conditional consumer
-    ///
-    /// Returns a consumer that executes the operation only when the predicate is true.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - Predicate type
-    /// * `C` - Consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - Predicate function
-    /// * `consumer` - Consumer to execute
-    ///
-    /// # Return Value
-    ///
-    /// Returns a conditional consumer
-    ///
-    /// # Examples
+    /// ## Using a closure
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -505,12 +452,10 @@ where
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l = log.clone();
-    /// let mut conditional = BoxConsumer::if_then(
-    ///     |x: &i32| *x > 0,
-    ///     move |x: &i32| {
-    ///         l.lock().unwrap().push(*x);
-    ///     },
-    /// );
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut conditional = consumer.when(|x: &i32| *x > 0);
     ///
     /// conditional.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -518,81 +463,33 @@ where
     /// conditional.accept(&-5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]); // Unchanged
     /// ```
-    pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
-    where
-        P: FnMut(&T) -> bool + 'static,
-        C: FnMut(&T) + 'static,
-    {
-        let mut pred = predicate;
-        let mut cons = consumer;
-        BoxConsumer::new(move |t| {
-            if pred(t) {
-                cons(t);
-            }
-        })
-    }
-
-    /// Create a conditional branch consumer
     ///
-    /// Returns a consumer that executes different operations based on the predicate.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - Predicate type
-    /// * `C1` - then consumer type
-    /// * `C2` - else consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - Predicate function
-    /// * `then_consumer` - Consumer to execute when predicate is true
-    /// * `else_consumer` - Consumer to execute when predicate is false
-    ///
-    /// # Return Value
-    ///
-    /// Returns a conditional branch consumer
-    ///
-    /// # Examples
+    /// ## Using BoxPredicate
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
     /// use std::sync::{Arc, Mutex};
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut conditional = BoxConsumer::if_then_else(
-    ///     |x: &i32| *x > 0,
-    ///     move |x: &i32| {
-    ///         l1.lock().unwrap().push(*x);
-    ///     },
-    ///     move |x: &i32| {
-    ///         l2.lock().unwrap().push(-*x);
-    ///     },
-    /// );
+    /// let l = log.clone();
+    /// let pred = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut conditional = consumer.when(pred);
     ///
     /// conditional.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    ///
-    /// conditional.accept(&-5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]); // -(-5) = 5
     /// ```
-    pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
+    pub fn when<P>(self, predicate: P) -> BoxConditionalConsumer<T>
     where
-        P: FnMut(&T) -> bool + 'static,
-        C1: FnMut(&T) + 'static,
-        C2: FnMut(&T) + 'static,
+        P: Predicate<T> + 'static,
     {
-        let mut pred = predicate;
-        let mut then_cons = then_consumer;
-        let mut else_cons = else_consumer;
-        BoxConsumer::new(move |t| {
-            if pred(t) {
-                then_cons(t);
-            } else {
-                else_cons(t);
-            }
-        })
+        BoxConditionalConsumer {
+            consumer: self,
+            predicate: predicate.into_box(),
+        }
     }
 }
 
@@ -652,7 +549,241 @@ impl<T> fmt::Display for BoxConsumer<T> {
 }
 
 // ============================================================================
-// 3. ArcConsumer - Thread-Safe Shared Ownership Implementation
+// 3. BoxConditionalConsumer - Box-based Conditional Consumer
+// ============================================================================
+
+/// BoxConditionalConsumer struct
+///
+/// A conditional consumer that only executes when a predicate is satisfied.
+/// Uses `BoxConsumer` and `BoxPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements Consumer**: Can be used anywhere a `Consumer` is expected
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{Consumer, BoxConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let consumer = BoxConsumer::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x);
+/// });
+/// let mut conditional = consumer.when(|x: &i32| *x > 0);
+///
+/// conditional.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]); // Executed
+///
+/// conditional.accept(&-5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]); // Not executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{Consumer, BoxConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let mut consumer = BoxConsumer::new(move |x: &i32| {
+///     l1.lock().unwrap().push(*x);
+/// })
+/// .when(|x: &i32| *x > 0)
+/// .or_else(move |x: &i32| {
+///     l2.lock().unwrap().push(-*x);
+/// });
+///
+/// consumer.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]); // when branch executed
+///
+/// consumer.accept(&-5);
+/// assert_eq!(*log.lock().unwrap(), vec![5, 5]); // or_else branch executed
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub struct BoxConditionalConsumer<T> {
+    consumer: BoxConsumer<T>,
+    predicate: BoxPredicate<T>,
+}
+
+impl<T> Consumer<T> for BoxConditionalConsumer<T>
+where
+    T: 'static,
+{
+    fn accept(&mut self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    fn into_box(self) -> BoxConsumer<T> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxConsumer::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcConsumer<T> {
+        let pred = self.predicate.into_rc();
+        let consumer = self.consumer.into_rc();
+        let pred_fn = pred.to_fn();
+        let mut consumer_fn = consumer;
+        RcConsumer::new(move |t| {
+            if pred_fn(t) {
+                consumer_fn.accept(t);
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!(
+            "Cannot convert BoxConditionalConsumer to ArcConsumer: \
+             predicate and consumer may not be Send + Sync"
+        )
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        }
+    }
+}
+
+impl<T> BoxConditionalConsumer<T>
+where
+    T: 'static,
+{
+    /// Chains another consumer in sequence
+    ///
+    /// Combines the current conditional consumer with another consumer into a new
+    /// consumer. The current conditional consumer executes first, followed by the
+    /// next consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `next` - The next consumer to execute
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond1 = BoxConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// }).when(|x: &i32| *x > 0);
+    /// let cond2 = BoxConsumer::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 100);
+    /// }).when(|x: &i32| *x > 10);
+    /// let mut chained = cond1.and_then(cond2);
+    ///
+    /// chained.accept(&6);
+    /// assert_eq!(*log.lock().unwrap(), vec![12, 106]); // First *2 = 12, then +100 = 106
+    /// ```
+    pub fn and_then<C>(self, next: C) -> BoxConsumer<T>
+    where
+        C: Consumer<T> + 'static,
+    {
+        let mut first = self;
+        let mut second = next;
+        BoxConsumer::new(move |t| {
+            first.accept(t);
+            second.accept(t);
+        })
+    }
+
+    /// Adds an else branch
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch, can be:
+    ///   - Closure: `|x: &T|`
+    ///   - `BoxConsumer<T>`, `RcConsumer<T>`, `ArcConsumer<T>`
+    ///   - Any type implementing `Consumer<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x);
+    /// })
+    /// .when(|x: &i32| *x > 0)
+    /// .or_else(move |x: &i32| {
+    ///     l2.lock().unwrap().push(-*x);
+    /// });
+    ///
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]); // Condition satisfied, execute first
+    ///
+    /// consumer.accept(&-5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]); // Condition not satisfied, execute else
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> BoxConsumer<T>
+    where
+        C: Consumer<T> + 'static,
+    {
+        let pred = self.predicate;
+        let mut then_cons = self.consumer;
+        let mut else_cons = else_consumer;
+        BoxConsumer::new(move |t| {
+            if pred.test(t) {
+                then_cons.accept(t);
+            } else {
+                else_cons.accept(t);
+            }
+        })
+    }
+}
+
+// ============================================================================
+// 4. ArcConsumer - Thread-Safe Shared Ownership Implementation
 // ============================================================================
 
 /// ArcConsumer struct
@@ -912,6 +1043,53 @@ where
             func.lock().unwrap()(t);
         }
     }
+
+    /// Creates a conditional consumer (thread-safe version)
+    ///
+    /// Returns a consumer that only executes when a predicate is satisfied.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, must be `Send + Sync`, can be:
+    ///   - Closure: `|x: &T| -> bool` (requires `Send + Sync`)
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T> + Send + Sync`
+    ///
+    /// # Returns
+    ///
+    /// Returns `ArcConditionalConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let conditional = consumer.when(|x: &i32| *x > 0);
+    ///
+    /// let conditional_clone = conditional.clone();
+    ///
+    /// let mut positive = 5;
+    /// let mut m = conditional;
+    /// m.accept(&positive);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    pub fn when<P>(self, predicate: P) -> ArcConditionalConsumer<T>
+    where
+        P: Predicate<T> + Send + Sync + 'static,
+        T: Send + Sync,
+    {
+        ArcConditionalConsumer {
+            consumer: self,
+            predicate: predicate.into_arc(),
+        }
+    }
 }
 
 impl<T> Consumer<T> for ArcConsumer<T> {
@@ -984,7 +1162,198 @@ impl<T> fmt::Display for ArcConsumer<T> {
 }
 
 // ============================================================================
-// 4. RcConsumer - Single-Threaded Shared Ownership Implementation
+// 5. ArcConditionalConsumer - Arc-based Conditional Consumer
+// ============================================================================
+
+/// ArcConditionalConsumer struct
+///
+/// A thread-safe conditional consumer that only executes when a predicate is
+/// satisfied. Uses `ArcConsumer` and `ArcPredicate` for shared ownership across
+/// threads.
+///
+/// This type is typically created by calling `ArcConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
+/// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{Consumer, ArcConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let conditional = ArcConsumer::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x);
+/// })
+/// .when(|x: &i32| *x > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// let mut value = 5;
+/// let mut m = conditional;
+/// m.accept(&value);
+/// assert_eq!(*log.lock().unwrap(), vec![5]);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub struct ArcConditionalConsumer<T> {
+    consumer: ArcConsumer<T>,
+    predicate: ArcPredicate<T>,
+}
+
+impl<T> Consumer<T> for ArcConditionalConsumer<T>
+where
+    T: Send + 'static,
+{
+    fn accept(&mut self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    fn into_box(self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxConsumer::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        let pred = self.predicate.to_rc();
+        let consumer = self.consumer.into_rc();
+        let pred_fn = pred.to_fn();
+        let mut consumer_fn = consumer;
+        RcConsumer::new(move |t| {
+            if pred_fn(t) {
+                consumer_fn.accept(t);
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        ArcConsumer::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        }
+    }
+}
+
+impl<T> ArcConditionalConsumer<T>
+where
+    T: Send + 'static,
+{
+    /// Adds an else branch (thread-safe version)
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch, can be:
+    ///   - Closure: `|x: &T|` (must be `Send`)
+    ///   - `ArcConsumer<T>`, `BoxConsumer<T>`
+    ///   - Any type implementing `Consumer<T> + Send`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `ArcConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x);
+    /// })
+    /// .when(|x: &i32| *x > 0)
+    /// .or_else(move |x: &i32| {
+    ///     l2.lock().unwrap().push(-*x);
+    /// });
+    ///
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    ///
+    /// consumer.accept(&-5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]);
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> ArcConsumer<T>
+    where
+        C: Consumer<T> + Send + 'static,
+        T: Send + Sync,
+    {
+        let pred = self.predicate;
+        let mut then_cons = self.consumer;
+        let mut else_cons = else_consumer;
+
+        ArcConsumer::new(move |t: &T| {
+            if pred.test(t) {
+                then_cons.accept(t);
+            } else {
+                else_cons.accept(t);
+            }
+        })
+    }
+}
+
+impl<T> Clone for ArcConditionalConsumer<T> {
+    /// Clones the conditional consumer
+    ///
+    /// Creates a new instance that shares the underlying consumer and predicate
+    /// with the original instance.
+    fn clone(&self) -> Self {
+        Self {
+            consumer: self.consumer.clone(),
+            predicate: self.predicate.clone(),
+        }
+    }
+}
+
+// ============================================================================
+// 6. RcConsumer - Single-Threaded Shared Ownership Implementation
 // ============================================================================
 
 /// RcConsumer struct
@@ -1257,6 +1626,53 @@ where
             func.borrow_mut()(t);
         }
     }
+
+    /// Creates a conditional consumer (single-threaded shared version)
+    ///
+    /// Returns a consumer that only executes when a predicate is satisfied.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `RcPredicate<T>`, `BoxPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns `RcConditionalConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let conditional = consumer.when(|x: &i32| *x > 0);
+    ///
+    /// let conditional_clone = conditional.clone();
+    ///
+    /// let mut positive = 5;
+    /// let mut m = conditional;
+    /// m.accept(&positive);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    pub fn when<P>(self, predicate: P) -> RcConditionalConsumer<T>
+    where
+        P: Predicate<T> + 'static,
+    {
+        RcConditionalConsumer {
+            consumer: self,
+            predicate: predicate.into_rc(),
+        }
+    }
 }
 
 impl<T> Consumer<T> for RcConsumer<T> {
@@ -1328,7 +1744,182 @@ impl<T> fmt::Display for RcConsumer<T> {
 }
 
 // ============================================================================
-// 5. Implement Consumer trait for closures
+// 7. RcConditionalConsumer - Rc-based Conditional Consumer
+// ============================================================================
+
+/// RcConditionalConsumer struct
+///
+/// A single-threaded conditional consumer that only executes when a predicate is
+/// satisfied. Uses `RcConsumer` and `RcPredicate` for shared ownership within a
+/// single thread.
+///
+/// This type is typically created by calling `RcConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
+/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **No Lock Overhead**: More efficient than `ArcConditionalConsumer`
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{Consumer, RcConsumer};
+/// use std::rc::Rc;
+/// use std::cell::RefCell;
+///
+/// let log = Rc::new(RefCell::new(Vec::new()));
+/// let l = log.clone();
+/// let conditional = RcConsumer::new(move |x: &i32| {
+///     l.borrow_mut().push(*x);
+/// })
+/// .when(|x: &i32| *x > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// let mut value = 5;
+/// let mut m = conditional;
+/// m.accept(&value);
+/// assert_eq!(*log.borrow(), vec![5]);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub struct RcConditionalConsumer<T> {
+    consumer: RcConsumer<T>,
+    predicate: RcPredicate<T>,
+}
+
+impl<T> Consumer<T> for RcConditionalConsumer<T>
+where
+    T: 'static,
+{
+    fn accept(&mut self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    fn into_box(self) -> BoxConsumer<T> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxConsumer::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcConsumer<T> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        RcConsumer::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!("Cannot convert RcConditionalConsumer to ArcConsumer: not Send")
+    }
+
+    fn into_fn(self) -> impl FnMut(&T) {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        }
+    }
+}
+
+impl<T> RcConditionalConsumer<T>
+where
+    T: 'static,
+{
+    /// Adds an else branch (single-threaded shared version)
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch, can be:
+    ///   - Closure: `|x: &T|`
+    ///   - `RcConsumer<T>`, `BoxConsumer<T>`
+    ///   - Any type implementing `Consumer<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `RcConsumer<T>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = RcConsumer::new(move |x: &i32| {
+    ///     l1.borrow_mut().push(*x);
+    /// })
+    /// .when(|x: &i32| *x > 0)
+    /// .or_else(move |x: &i32| {
+    ///     l2.borrow_mut().push(-*x);
+    /// });
+    ///
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    ///
+    /// consumer.accept(&-5);
+    /// assert_eq!(*log.borrow(), vec![5, 5]);
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> RcConsumer<T>
+    where
+        C: Consumer<T> + 'static,
+    {
+        let pred = self.predicate;
+        let mut then_cons = self.consumer;
+        let mut else_cons = else_consumer;
+
+        RcConsumer::new(move |t: &T| {
+            if pred.test(t) {
+                then_cons.accept(t);
+            } else {
+                else_cons.accept(t);
+            }
+        })
+    }
+}
+
+impl<T> Clone for RcConditionalConsumer<T> {
+    /// Clones the conditional consumer
+    ///
+    /// Creates a new instance that shares the underlying consumer and predicate
+    /// with the original instance.
+    fn clone(&self) -> Self {
+        Self {
+            consumer: self.consumer.clone(),
+            predicate: self.predicate.clone(),
+        }
+    }
+}
+
+// ============================================================================
+// 8. Implement Consumer trait for closures
 // ============================================================================
 
 /// Implement Consumer for all FnMut(&T)
@@ -1374,7 +1965,7 @@ where
 }
 
 // ============================================================================
-// 6. Extension methods for closures
+// 9. Extension methods for closures
 // ============================================================================
 
 /// Extension trait providing consumer composition methods for closures

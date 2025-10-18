@@ -38,6 +38,8 @@
 
 use std::fmt;
 
+use crate::bi_predicate::{BiPredicate, BoxBiPredicate};
+
 // ==========================================================================
 // Type Aliases
 // ==========================================================================
@@ -264,6 +266,46 @@ where
         }
     }
 
+    /// Creates a new BoxBiConsumerOnce with a name
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - The closure type
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name of the consumer
+    /// * `f` - The closure to wrap
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxBiConsumerOnce<T, U>` instance with the specified name
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumerOnce::new_with_name("sum_logger", move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// assert_eq!(consumer.name(), Some("sum_logger"));
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    pub fn new_with_name<F>(name: &str, f: F) -> Self
+    where
+        F: FnOnce(&T, &U) + 'static,
+    {
+        BoxBiConsumerOnce {
+            function: Box::new(f),
+            name: Some(name.to_string()),
+        }
+    }
+
     /// Gets the name of the consumer
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -272,6 +314,25 @@ where
     /// Sets the name of the consumer
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
+    }
+
+    /// Creates a no-op bi-consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op bi-consumer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+    ///
+    /// let noop = BoxBiConsumerOnce::<i32, i32>::noop();
+    /// noop.accept(&42, &10);
+    /// // Values unchanged
+    /// ```
+    pub fn noop() -> Self {
+        BoxBiConsumerOnce::new(|_, _| {})
     }
 
     /// Chains another one-time bi-consumer in sequence
@@ -320,100 +381,25 @@ where
         })
     }
 
-    /// Creates a no-op bi-consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op bi-consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
-    ///
-    /// let noop = BoxBiConsumerOnce::<i32, i32>::noop();
-    /// noop.accept(&42, &10);
-    /// // Values unchanged
-    /// ```
-    pub fn noop() -> Self {
-        BoxBiConsumerOnce::new(|_, _| {})
-    }
-
-    /// Creates a print bi-consumer
-    ///
-    /// Returns a bi-consumer that prints the input values.
-    ///
-    /// # Returns
-    ///
-    /// Returns a print bi-consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
-    ///
-    /// let print = BoxBiConsumerOnce::<i32, i32>::print();
-    /// print.accept(&42, &10); // Prints: (42, 10)
-    /// ```
-    pub fn print() -> Self
-    where
-        T: std::fmt::Debug,
-        U: std::fmt::Debug,
-    {
-        BoxBiConsumerOnce::new(|t, u| {
-            println!("({:?}, {:?})", t, u);
-        })
-    }
-
-    /// Creates a print bi-consumer with prefix
-    ///
-    /// Returns a bi-consumer that prints the input values with a prefix.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - The prefix string
-    ///
-    /// # Returns
-    ///
-    /// Returns a print bi-consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
-    ///
-    /// let print = BoxBiConsumerOnce::<i32, i32>::print_with("Values: ");
-    /// print.accept(&42, &10); // Prints: Values: (42, 10)
-    /// ```
-    pub fn print_with(prefix: &str) -> Self
-    where
-        T: std::fmt::Debug,
-        U: std::fmt::Debug,
-    {
-        let prefix = prefix.to_string();
-        BoxBiConsumerOnce::new(move |t, u| {
-            println!("{}{:?}, {:?}", prefix, t, u);
-        })
-    }
-
     /// Creates a conditional bi-consumer
     ///
-    /// Returns a bi-consumer that only executes when the predicate is
-    /// true.
+    /// Returns a bi-consumer that only executes when a predicate is satisfied.
     ///
     /// # Type Parameters
     ///
     /// * `P` - The predicate type
-    /// * `C` - The consumer type
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The predicate function
-    /// * `consumer` - The consumer to execute
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T, y: &U| -> bool`
+    ///   - Function pointer: `fn(&T, &U) -> bool`
+    ///   - `BoxBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
-    /// Returns a conditional bi-consumer
+    /// Returns `BoxConditionalBiConsumerOnce<T, U>`
     ///
     /// # Examples
     ///
@@ -423,84 +409,22 @@ where
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l = log.clone();
-    /// let conditional = BoxBiConsumerOnce::if_then(
-    ///     |x: &i32, y: &i32| *x > 0 && *y > 0,
-    ///     move |x: &i32, y: &i32| {
-    ///         l.lock().unwrap().push(*x + *y);
-    ///     },
-    /// );
+    /// let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
     ///
     /// conditional.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
+    pub fn when<P>(self, predicate: P) -> BoxConditionalBiConsumerOnce<T, U>
     where
-        P: FnOnce(&T, &U) -> bool + 'static,
-        C: FnOnce(&T, &U) + 'static,
+        P: BiPredicate<T, U> + 'static,
     {
-        BoxBiConsumerOnce::new(move |t, u| {
-            if predicate(t, u) {
-                consumer(t, u);
-            }
-        })
-    }
-
-    /// Creates a conditional branch bi-consumer
-    ///
-    /// Returns a bi-consumer that executes different operations based on
-    /// the predicate.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    /// * `C1` - The then consumer type
-    /// * `C2` - The else consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The predicate function
-    /// * `then_consumer` - The consumer to execute when predicate is true
-    /// * `else_consumer` - The consumer to execute when predicate is false
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional branch bi-consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let conditional = BoxBiConsumerOnce::if_then_else(
-    ///     |x: &i32, y: &i32| *x > *y,
-    ///     move |x: &i32, _y: &i32| {
-    ///         l1.lock().unwrap().push(*x);
-    ///     },
-    ///     move |_x: &i32, y: &i32| {
-    ///         l2.lock().unwrap().push(*y);
-    ///     },
-    /// );
-    ///
-    /// conditional.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    /// ```
-    pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
-    where
-        P: FnOnce(&T, &U) -> bool + 'static,
-        C1: FnOnce(&T, &U) + 'static,
-        C2: FnOnce(&T, &U) + 'static,
-    {
-        BoxBiConsumerOnce::new(move |t, u| {
-            if predicate(t, u) {
-                then_consumer(t, u);
-            } else {
-                else_consumer(t, u);
-            }
-        })
+        BoxConditionalBiConsumerOnce {
+            consumer: self,
+            predicate: predicate.into_box(),
+        }
     }
 }
 
@@ -545,7 +469,210 @@ impl<T, U> fmt::Display for BoxBiConsumerOnce<T, U> {
 }
 
 // =======================================================================
-// 3. Implement BiConsumerOnce trait for closures
+// 3. BoxConditionalBiConsumerOnce - Box-based Conditional BiConsumerOnce
+// =======================================================================
+
+/// BoxConditionalBiConsumerOnce struct
+///
+/// A conditional one-time bi-consumer that only executes when a predicate is satisfied.
+/// Uses `BoxBiConsumerOnce` and `BoxBiPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxBiConsumerOnce::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements BiConsumerOnce**: Can be used anywhere a `BiConsumerOnce` is expected
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
+/// });
+/// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+///
+/// conditional.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]); // Executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+///     l1.lock().unwrap().push(*x + *y);
+/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+///   .or_else(move |x: &i32, y: &i32| {
+///     l2.lock().unwrap().push(*x * *y);
+/// });
+///
+/// consumer.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]); // when branch executed
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct BoxConditionalBiConsumerOnce<T, U> {
+    consumer: BoxBiConsumerOnce<T, U>,
+    predicate: BoxBiPredicate<T, U>,
+}
+
+impl<T, U> BiConsumerOnce<T, U> for BoxConditionalBiConsumerOnce<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    fn into_box(self) -> BoxBiConsumerOnce<T, U> {
+        let pred = self.predicate;
+        let consumer = self.consumer;
+        BoxBiConsumerOnce::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl FnOnce(&T, &U) {
+        let pred = self.predicate;
+        let consumer = self.consumer;
+        move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        }
+    }
+}
+
+impl<T, U> BoxConditionalBiConsumerOnce<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    /// Chains another consumer in sequence
+    ///
+    /// Combines the current conditional consumer with another consumer into a new
+    /// consumer. The current conditional consumer executes first, followed by the
+    /// next consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `next` - The next consumer to execute
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+    ///
+    /// let chained = cond.and_then(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// ```
+    pub fn and_then<C>(self, next: C) -> BoxBiConsumerOnce<T, U>
+    where
+        C: BiConsumerOnce<T, U> + 'static,
+    {
+        let first = self;
+        let second = next;
+        BoxBiConsumerOnce::new(move |t, u| {
+            first.accept(t, u);
+            second.accept(t, u);
+        })
+    }
+
+    /// Adds an else branch
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch, can be:
+    ///   - Closure: `|x: &T, y: &U|`
+    ///   - `BoxBiConsumerOnce<T, U>`
+    ///   - Any type implementing `BiConsumerOnce<T, U>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+    ///   .or_else(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]); // Condition satisfied
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> BoxBiConsumerOnce<T, U>
+    where
+        C: BiConsumerOnce<T, U> + 'static,
+    {
+        let pred = self.predicate;
+        let then_cons = self.consumer;
+        let else_cons = else_consumer;
+        BoxBiConsumerOnce::new(move |t, u| {
+            if pred.test(t, u) {
+                then_cons.accept(t, u);
+            } else {
+                else_cons.accept(t, u);
+            }
+        })
+    }
+}
+
+// =======================================================================
+// 5. Implement BiConsumerOnce trait for closures
 // =======================================================================
 
 /// Implements BiConsumerOnce for all FnOnce(&T, &U)
@@ -577,7 +704,7 @@ where
 }
 
 // =======================================================================
-// 4. Provide extension methods for closures
+// 6. Provide extension methods for closures
 // =======================================================================
 
 /// Extension trait providing one-time bi-consumer composition methods for

@@ -33,6 +33,8 @@
 
 use std::fmt;
 
+use crate::predicate::{BoxPredicate, Predicate};
+
 // ============================================================================
 // 1. ConsumerOnce Trait - Unified ConsumerOnce Interface
 // ============================================================================
@@ -309,78 +311,21 @@ where
         BoxConsumerOnce::new(|_| {})
     }
 
-    /// Create a print consumer
+    /// Creates a conditional consumer
     ///
-    /// Returns a consumer that prints the input value.
-    ///
-    /// # Returns
-    ///
-    /// Returns a print consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
-    ///
-    /// let print = BoxConsumerOnce::<i32>::print();
-    /// print.accept(&42); // Prints: 42
-    /// ```
-    pub fn print() -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        BoxConsumerOnce::new(|t| {
-            println!("{:?}", t);
-        })
-    }
-
-    /// Create a print consumer with prefix
-    ///
-    /// Returns a consumer that prints the input value with the specified prefix.
+    /// Returns a consumer that only executes when a predicate is satisfied.
     ///
     /// # Parameters
     ///
-    /// * `prefix` - Prefix string
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `BoxPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
-    /// Returns a print consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
-    ///
-    /// let print = BoxConsumerOnce::<i32>::print_with("Value: ");
-    /// print.accept(&42); // Prints: Value: 42
-    /// ```
-    pub fn print_with(prefix: &str) -> Self
-    where
-        T: std::fmt::Debug,
-    {
-        let prefix = prefix.to_string();
-        BoxConsumerOnce::new(move |t| {
-            println!("{}{:?}", prefix, t);
-        })
-    }
-
-    /// Create a conditional consumer
-    ///
-    /// Returns a consumer that executes the operation only when the predicate is true.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - Predicate type
-    /// * `C` - Consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - Predicate function
-    /// * `consumer` - Consumer to execute
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional consumer
+    /// Returns `BoxConditionalConsumerOnce<T>`
     ///
     /// # Examples
     ///
@@ -390,83 +335,22 @@ where
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l = log.clone();
-    /// let conditional = BoxConsumerOnce::if_then(
-    ///     |x: &i32| *x > 0,
-    ///     move |x: &i32| {
-    ///         l.lock().unwrap().push(*x);
-    ///     },
-    /// );
+    /// let consumer = BoxConsumerOnce::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let conditional = consumer.when(|x: &i32| *x > 0);
     ///
     /// conditional.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
+    pub fn when<P>(self, predicate: P) -> BoxConditionalConsumerOnce<T>
     where
-        P: FnOnce(&T) -> bool + 'static,
-        C: FnOnce(&T) + 'static,
+        P: Predicate<T> + 'static,
     {
-        BoxConsumerOnce::new(move |t| {
-            if predicate(t) {
-                consumer(t);
-            }
-        })
-    }
-
-    /// Create a conditional branch consumer
-    ///
-    /// Returns a consumer that executes different operations based on the predicate.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - Predicate type
-    /// * `C1` - Then consumer type
-    /// * `C2` - Else consumer type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - Predicate function
-    /// * `then_consumer` - Consumer to execute when predicate is true
-    /// * `else_consumer` - Consumer to execute when predicate is false
-    ///
-    /// # Returns
-    ///
-    /// Returns a conditional branch consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let conditional = BoxConsumerOnce::if_then_else(
-    ///     |x: &i32| *x > 0,
-    ///     move |x: &i32| {
-    ///         l1.lock().unwrap().push(*x);
-    ///     },
-    ///     move |x: &i32| {
-    ///         l2.lock().unwrap().push(-*x);
-    ///     },
-    /// );
-    ///
-    /// conditional.accept(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    /// ```
-    pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
-    where
-        P: FnOnce(&T) -> bool + 'static,
-        C1: FnOnce(&T) + 'static,
-        C2: FnOnce(&T) + 'static,
-    {
-        BoxConsumerOnce::new(move |t| {
-            if predicate(t) {
-                then_consumer(t);
-            } else {
-                else_consumer(t);
-            }
-        })
+        BoxConditionalConsumerOnce {
+            consumer: self,
+            predicate: predicate.into_box(),
+        }
     }
 }
 
@@ -509,7 +393,210 @@ impl<T> fmt::Display for BoxConsumerOnce<T> {
 }
 
 // ============================================================================
-// 3. Implement ConsumerOnce trait for closures
+// 3. BoxConditionalConsumerOnce - Box-based Conditional Consumer
+// ============================================================================
+
+/// BoxConditionalConsumerOnce struct
+///
+/// A conditional one-time consumer that only executes when a predicate is satisfied.
+/// Uses `BoxConsumerOnce` and `BoxPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxConsumerOnce::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements ConsumerOnce**: Can be used anywhere a `ConsumerOnce` is expected
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let consumer = BoxConsumerOnce::new(move |x: &i32| {
+///     l.lock().unwrap().push(*x);
+/// });
+/// let conditional = consumer.when(|x: &i32| *x > 0);
+///
+/// conditional.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]); // Executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let consumer = BoxConsumerOnce::new(move |x: &i32| {
+///     l1.lock().unwrap().push(*x);
+/// })
+/// .when(|x: &i32| *x > 0)
+/// .or_else(move |x: &i32| {
+///     l2.lock().unwrap().push(-*x);
+/// });
+///
+/// consumer.accept(&5);
+/// assert_eq!(*log.lock().unwrap(), vec![5]); // when branch executed
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub struct BoxConditionalConsumerOnce<T> {
+    consumer: BoxConsumerOnce<T>,
+    predicate: BoxPredicate<T>,
+}
+
+impl<T> ConsumerOnce<T> for BoxConditionalConsumerOnce<T>
+where
+    T: 'static,
+{
+    fn accept(self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    fn into_box(self) -> BoxConsumerOnce<T> {
+        let pred = self.predicate;
+        let consumer = self.consumer;
+        BoxConsumerOnce::new(move |t| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl FnOnce(&T) {
+        let pred = self.predicate;
+        let consumer = self.consumer;
+        move |t: &T| {
+            if pred.test(t) {
+                consumer.accept(t);
+            }
+        }
+    }
+}
+
+impl<T> BoxConditionalConsumerOnce<T>
+where
+    T: 'static,
+{
+    /// Chains another consumer in sequence
+    ///
+    /// Combines the current conditional consumer with another consumer into a new
+    /// consumer. The current conditional consumer executes first, followed by the
+    /// next consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `next` - The next consumer to execute
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond1 = BoxConsumerOnce::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// }).when(|x: &i32| *x > 0);
+    /// let cond2 = BoxConsumerOnce::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 100);
+    /// }).when(|x: &i32| *x > 10);
+    /// let chained = cond1.and_then(cond2);
+    ///
+    /// chained.accept(&6);
+    /// assert_eq!(*log.lock().unwrap(), vec![12, 106]); // First *2 = 12, then +100 = 106
+    /// ```
+    pub fn and_then<C>(self, next: C) -> BoxConsumerOnce<T>
+    where
+        C: ConsumerOnce<T> + 'static,
+    {
+        let first = self;
+        let second = next;
+        BoxConsumerOnce::new(move |t| {
+            first.accept(t);
+            second.accept(t);
+        })
+    }
+
+    /// Adds an else branch
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch, can be:
+    ///   - Closure: `|x: &T|`
+    ///   - `BoxConsumerOnce<T>`
+    ///   - Any type implementing `ConsumerOnce<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let consumer = BoxConsumerOnce::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x);
+    /// })
+    /// .when(|x: &i32| *x > 0)
+    /// .or_else(move |x: &i32| {
+    ///     l2.lock().unwrap().push(-*x);
+    /// });
+    ///
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]); // Condition satisfied, execute first
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> BoxConsumerOnce<T>
+    where
+        C: ConsumerOnce<T> + 'static,
+    {
+        let pred = self.predicate;
+        let then_cons = self.consumer;
+        let else_cons = else_consumer;
+        BoxConsumerOnce::new(move |t| {
+            if pred.test(t) {
+                then_cons.accept(t);
+            } else {
+                else_cons.accept(t);
+            }
+        })
+    }
+}
+
+// ============================================================================
+// 4. Implement ConsumerOnce trait for closures
 // ============================================================================
 
 /// Implement ConsumerOnce for all FnOnce(&T)
@@ -539,7 +626,7 @@ where
 }
 
 // ============================================================================
-// 4. Extension methods for closures
+// 5. Extension methods for closures
 // ============================================================================
 
 /// Extension trait providing one-time consumer composition methods for closures
