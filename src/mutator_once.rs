@@ -415,7 +415,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxMutatorOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutatorOnce<T>`
+    ///   - Any type implementing `MutatorOnce<T>`
     ///
     /// # Returns
     ///
@@ -461,10 +467,14 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `BoxPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -498,22 +508,26 @@ where
     /// assert_eq!(empty, Vec::<i32>::new()); // Unchanged
     /// ```
     ///
-    /// ## Using BoxPredicate
+    /// ## Preserving predicate with clone
     ///
     /// ```rust
-    /// use prism3_function::{MutatorOnce, BoxMutatorOnce};
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    /// use prism3_function::{MutatorOnce, BoxMutatorOnce, RcPredicate};
     ///
-    /// let pred = BoxPredicate::new(|x: &Vec<i32>| !x.is_empty());
     /// let data = vec![1, 2, 3];
     /// let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
     ///     x.extend(data);
     /// });
-    /// let conditional = mutator.when(pred);
+    /// let predicate = RcPredicate::new(|x: &Vec<i32>| !x.is_empty());
+    ///
+    /// // Clone to preserve original predicate
+    /// let conditional = mutator.when(predicate.clone());
     ///
     /// let mut target = vec![0];
     /// conditional.mutate(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]);
+    ///
+    /// // Original predicate still usable
+    /// assert!(predicate.test(&vec![1, 2]));
     /// ```
     ///
     /// ## Using composed predicate
@@ -679,7 +693,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The next mutator to execute
+    /// * `next` - The next mutator to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** Since `BoxMutatorOnce` cannot
+    ///   be cloned, the parameter will be consumed. Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutatorOnce<T>`
+    ///   - Any type implementing `MutatorOnce<T>`
     ///
     /// # Returns
     ///
@@ -700,11 +719,14 @@ where
     ///     x.extend(data2);
     /// }).when(|x: &Vec<i32>| x.len() < 10);
     ///
+    /// // Both cond1 and cond2 are moved and consumed
     /// let chained = cond1.and_then(cond2);
     ///
     /// let mut target = vec![0];
     /// chained.mutate(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
+    /// // cond1.mutate(&mut target); // Would not compile - moved
+    /// // cond2.mutate(&mut target); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxMutatorOnce<T>
     where
@@ -724,9 +746,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_mutator` - The mutator for the else branch, can be:
-    ///   - Closure: `|x: &mut T|`
-    ///   - `BoxMutatorOnce<T>`
+    /// * `else_mutator` - The mutator for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** Since `BoxMutatorOnce`
+    ///   cannot be cloned, the parameter will be consumed. Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutatorOnce<T>`
     ///   - Any type implementing `MutatorOnce<T>`
     ///
     /// # Returns
@@ -852,7 +876,13 @@ pub trait FnMutatorOnceOps<T>: FnOnce(&mut T) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxMutatorOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutatorOnce<T>`
+    ///   - Any type implementing `MutatorOnce<T>`
     ///
     /// # Returns
     ///
@@ -866,12 +896,14 @@ pub trait FnMutatorOnceOps<T>: FnOnce(&mut T) + Sized {
     /// let data1 = vec![1, 2];
     /// let data2 = vec![3, 4];
     ///
+    /// // Both closures are moved and consumed
     /// let chained = (move |x: &mut Vec<i32>| x.extend(data1))
     ///     .and_then(move |x: &mut Vec<i32>| x.extend(data2));
     ///
     /// let mut target = vec![0];
     /// chained.mutate(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
+    /// // The original closures are consumed and no longer usable
     /// ```
     fn and_then<C>(self, next: C) -> BoxMutatorOnce<T>
     where

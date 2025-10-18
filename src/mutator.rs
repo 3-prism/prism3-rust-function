@@ -533,7 +533,15 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original mutator, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `ArcMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
     ///
@@ -541,16 +549,40 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{Mutator, BoxMutator};
     ///
-    /// let mut chained = BoxMutator::new(|x: &mut i32| *x *= 2)
-    ///     .and_then(|x: &mut i32| *x += 10)
-    ///     .and_then(|x: &mut i32| println!("Result: {}", x));
+    /// let first = BoxMutator::new(|x: &mut i32| *x *= 2);
+    /// let second = BoxMutator::new(|x: &mut i32| *x += 10);
     ///
+    /// // second is moved here
+    /// let mut chained = first.and_then(second);
     /// let mut value = 5;
-    /// chained.mutate(&mut value); // Prints: Result: 20
+    /// chained.mutate(&mut value);
     /// assert_eq!(value, 20);
+    /// // second.mutate(&mut value); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Mutator, BoxMutator};
+    ///
+    /// let first = BoxMutator::new(|x: &mut i32| *x *= 2);
+    /// let second = BoxMutator::new(|x: &mut i32| *x += 10);
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = first.and_then(second.clone());
+    /// let mut value = 5;
+    /// chained.mutate(&mut value);
+    /// assert_eq!(value, 20);
+    ///
+    /// // Original still usable
+    /// let mut value2 = 3;
+    /// second.mutate(&mut value2);
+    /// assert_eq!(value2, 13);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -570,10 +602,15 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`).
+    ///   Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -808,7 +845,14 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The next mutator to execute
+    /// * `next` - The next mutator to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original mutator, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `ArcMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
     ///
@@ -816,16 +860,40 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{Mutator, BoxMutator};
     ///
     /// let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
     /// let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
-    /// let mut chained = cond1.and_then(cond2);
     ///
+    /// // cond2 is moved here
+    /// let mut chained = cond1.and_then(cond2);
     /// let mut value = 60;
     /// chained.mutate(&mut value);
     /// assert_eq!(value, 100); // First *2 = 120, then capped to 100
+    /// // cond2.mutate(&mut value); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Mutator, BoxMutator};
+    ///
+    /// let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+    /// let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = cond1.and_then(cond2.clone());
+    /// let mut value = 60;
+    /// chained.mutate(&mut value);
+    /// assert_eq!(value, 100); // First *2 = 120, then capped to 100
+    ///
+    /// // Original still usable
+    /// let mut value2 = 50;
+    /// cond2.mutate(&mut value2);
+    /// assert_eq!(value2, 100);
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxMutator<T>
     where
@@ -846,9 +914,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_mutator` - The mutator for the else branch, can be:
-    ///   - Closure: `|x: &mut T|`
-    ///   - `BoxMutator<T>`, `RcMutator<T>`, `ArcMutator<T>`
+    /// * `else_mutator` - The mutator for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original mutator, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - An `ArcMutator<T>`
     ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
@@ -1042,10 +1114,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `RcPredicate<T>`, `BoxPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - An `RcPredicate<T>`
+    ///   - A `BoxPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -1228,9 +1303,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_mutator` - The mutator for the else branch, can be:
-    ///   - Closure: `|x: &mut T|`
-    ///   - `RcMutator<T>`, `BoxMutator<T>`
+    /// * `else_mutator` - The mutator for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original mutator, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - An `RcMutator<T>`
+    ///   - A `BoxMutator<T>`
     ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
@@ -1437,10 +1515,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, must be `Send + Sync`, can be:
-    ///   - Closure: `|x: &T| -> bool` (requires `Send + Sync`)
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`).
+    ///   Must be `Send + Sync`, can be:
+    ///   - A closure: `|x: &T| -> bool` (requires `Send + Sync`)
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T> + Send + Sync`
     ///
     /// # Returns
@@ -1642,9 +1723,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_mutator` - The mutator for the else branch, can be:
-    ///   - Closure: `|x: &mut T|` (must be `Send`)
-    ///   - `ArcMutator<T>`, `BoxMutator<T>`
+    /// * `else_mutator` - The mutator for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original mutator, clone it first (if it implements `Clone`).
+    ///   Must be `Send`, can be:
+    ///   - A closure: `|x: &mut T|` (must be `Send`)
+    ///   - An `ArcMutator<T>`
+    ///   - A `BoxMutator<T>`
     ///   - Any type implementing `Mutator<T> + Send`
     ///
     /// # Returns
@@ -1795,7 +1880,15 @@ pub trait FnMutatorOps<T>: FnMut(&mut T) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original mutator, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `ArcMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
     ///
