@@ -821,7 +821,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with
+    /// * `other` - The other supplier to combine with. **Note: This parameter
+    ///   is passed by reference, so the original supplier remains usable.**
+    ///   Can be:
+    ///   - An `ArcSupplier<U>` (passed by reference)
+    ///   - Any type implementing `Supplier<U> + Send`
     ///
     /// # Returns
     ///
@@ -834,10 +838,18 @@ where
     ///
     /// let first = ArcSupplier::new(|| 42);
     /// let second = ArcSupplier::new(|| "hello");
+    ///
+    /// // second is passed by reference, so it remains usable
     /// let zipped = first.zip(&second);
     ///
     /// let mut z = zipped;
     /// assert_eq!(z.get(), (42, "hello"));
+    ///
+    /// // Both first and second still usable
+    /// let mut f = first;
+    /// let mut s = second;
+    /// assert_eq!(f.get(), 42);
+    /// assert_eq!(s.get(), "hello");
     /// ```
     pub fn zip<U>(&self, other: &ArcSupplier<U>) -> ArcSupplier<(T, U)>
     where
@@ -1159,7 +1171,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with
+    /// * `other` - The other supplier to combine with. **Note: This parameter
+    ///   is passed by reference, so the original supplier remains usable.**
+    ///   Can be:
+    ///   - An `RcSupplier<U>` (passed by reference)
+    ///   - Any type implementing `Supplier<U>`
     ///
     /// # Returns
     ///
@@ -1172,10 +1188,18 @@ where
     ///
     /// let first = RcSupplier::new(|| 42);
     /// let second = RcSupplier::new(|| "hello");
+    ///
+    /// // second is passed by reference, so it remains usable
     /// let zipped = first.zip(&second);
     ///
     /// let mut z = zipped;
     /// assert_eq!(z.get(), (42, "hello"));
+    ///
+    /// // Both first and second still usable
+    /// let mut f = first;
+    /// let mut s = second;
+    /// assert_eq!(f.get(), 42);
+    /// assert_eq!(s.get(), "hello");
     /// ```
     pub fn zip<U>(&self, other: &RcSupplier<U>) -> RcSupplier<(T, U)>
     where

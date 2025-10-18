@@ -63,6 +63,27 @@ mod test_supplier_trait {
         let mut arc = closure.into_arc();
         assert_eq!(arc.get(), 42);
     }
+
+    #[test]
+    fn test_closure_get() {
+        // Test the get method in impl<T, F> Supplier<T> for F
+        let mut closure = || 42;
+        assert_eq!(closure.get(), 42);
+        assert_eq!(closure.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_get_stateful() {
+        // Test stateful closure
+        let mut counter = 0;
+        let mut closure = move || {
+            counter += 1;
+            counter
+        };
+        assert_eq!(closure.get(), 1);
+        assert_eq!(closure.get(), 2);
+        assert_eq!(closure.get(), 3);
+    }
 }
 
 // ==========================================================================
