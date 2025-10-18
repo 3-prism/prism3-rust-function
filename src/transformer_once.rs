@@ -228,7 +228,7 @@ where
     /// Creates a conditional transformer
     ///
     /// Returns a transformer that only executes when a predicate is satisfied.
-    /// When the predicate returns false, the input value is returned unchanged.
+    /// You must call `or_else()` to provide an alternative transformer.
     ///
     /// # Parameters
     ///
@@ -244,21 +244,24 @@ where
     ///
     /// # Examples
     ///
-    /// ## Using a closure
+    /// ## Basic usage with or_else
     ///
     /// ```rust
     /// use prism3_function::{TransformerOnce, BoxTransformerOnce};
     ///
     /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
-    /// let conditional = double.when(|x: &i32| *x > 0);
-    ///
+    /// let identity = BoxTransformerOnce::<i32, i32>::identity();
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(identity);
     /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional.transform(-5), -5); // Unchanged
+    ///
+    /// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
+    /// let identity2 = BoxTransformerOnce::<i32, i32>::identity();
+    /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(identity2);
+    /// assert_eq!(conditional2.transform(-5), -5);
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalTransformerOnce<T, R>
     where
         P: Predicate<T> + 'static,
-        R: From<T>,
     {
         BoxConditionalTransformerOnce {
             transformer: self,
@@ -333,18 +336,6 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
 ///
 /// # Examples
 ///
-/// ## Basic Conditional Execution
-///
-/// ```rust
-/// use prism3_function::{TransformerOnce, BoxTransformerOnce};
-///
-/// let double = BoxTransformerOnce::new(|x: i32| x * 2);
-/// let conditional = double.when(|x: &i32| *x > 0);
-///
-/// assert_eq!(conditional.transform(5), 10); // Executed
-/// assert_eq!(conditional.transform(-5), -5); // Not executed
-/// ```
-///
 /// ## With or_else Branch
 ///
 /// ```rust
@@ -353,9 +344,12 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
 /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
 /// let negate = BoxTransformerOnce::new(|x: i32| -x);
 /// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
-///
 /// assert_eq!(conditional.transform(5), 10); // when branch executed
-/// assert_eq!(conditional.transform(-5), 5); // or_else branch executed
+///
+/// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
+/// let negate2 = BoxTransformerOnce::new(|x: i32| -x);
+/// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(negate2);
+/// assert_eq!(conditional2.transform(-5), 5); // or_else branch executed
 /// ```
 ///
 /// # Author
@@ -364,44 +358,6 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
 pub struct BoxConditionalTransformerOnce<T, R> {
     transformer: BoxTransformerOnce<T, R>,
     predicate: BoxPredicate<T>,
-}
-
-impl<T, R> TransformerOnce<T, R> for BoxConditionalTransformerOnce<T, R>
-where
-    T: 'static,
-    R: From<T> + 'static,
-{
-    fn transform(self, input: T) -> R {
-        if self.predicate.test(&input) {
-            self.transformer.transform(input)
-        } else {
-            R::from(input)
-        }
-    }
-
-    fn into_box(self) -> BoxTransformerOnce<T, R> {
-        let pred = self.predicate;
-        let transformer = self.transformer;
-        BoxTransformerOnce::new(move |t| {
-            if pred.test(&t) {
-                transformer.transform(t)
-            } else {
-                R::from(t)
-            }
-        })
-    }
-
-    fn into_fn(self) -> impl FnOnce(T) -> R {
-        let pred = self.predicate;
-        let transformer = self.transformer;
-        move |t: T| {
-            if pred.test(&t) {
-                transformer.transform(t)
-            } else {
-                R::from(t)
-            }
-        }
-    }
 }
 
 impl<T, R> BoxConditionalTransformerOnce<T, R>
@@ -434,9 +390,11 @@ where
     ///
     /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
-    ///
     /// assert_eq!(conditional.transform(5), 10); // Condition satisfied, execute double
-    /// assert_eq!(conditional.transform(-5), 5); // Condition not satisfied, execute negate
+    ///
+    /// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
+    /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    /// assert_eq!(conditional2.transform(-5), 5); // Condition not satisfied, execute negate
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> BoxTransformerOnce<T, R>
     where
