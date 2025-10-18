@@ -5,21 +5,15 @@
 [![Crates.io](https://img.shields.io/crates/v/prism3-function.svg?color=blue)](https://crates.io/crates/prism3-function)
 [![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[English](#english) | [中文](README.zh_CN.md)
-
----
-
-<a name="english"></a>
-
-## English
+[![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 Comprehensive functional programming abstractions for Rust, providing Java-style functional interfaces with Rust's ownership models.
 
-### Overview
+## Overview
 
 This crate provides a complete set of functional programming abstractions inspired by Java's functional interfaces, adapted to Rust's ownership system. It offers multiple implementations for each abstraction (Box/Arc/Rc) to cover various use cases from simple single-threaded scenarios to complex multi-threaded applications.
 
-### Key Features
+## Key Features
 
 - **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, Transformer, Mutator, BiConsumer, BiPredicate, and Comparator
 - **Multiple Ownership Models**: Box-based single ownership, Arc-based thread-safe sharing, and Rc-based single-threaded sharing
@@ -28,9 +22,9 @@ This crate provides a complete set of functional programming abstractions inspir
 - **Thread-Safety Options**: Choose between thread-safe (Arc) and efficient single-threaded (Rc) implementations
 - **Zero-Cost Abstractions**: Efficient implementations with minimal runtime overhead
 
-### Core Types
+## Core Types
 
-#### Predicate<T>
+### Predicate<T>
 
 Tests whether a value satisfies a condition, returning `bool`. Similar to Java's `Predicate<T>` interface.
 
@@ -44,7 +38,7 @@ Tests whether a value satisfies a condition, returning `bool`. Similar to Java's
 - Type-preserving method chaining
 - Extension trait for closures (`FnPredicateOps`)
 
-#### Consumer<T>
+### Consumer<T>
 
 Accepts a single input parameter and performs operations without returning a result. Similar to Java's `Consumer<T>`.
 
@@ -60,7 +54,7 @@ Accepts a single input parameter and performs operations without returning a res
 - Both thread-safe and single-threaded options
 - Readonly variant (`ReadonlyConsumer`) for pure observation
 
-#### Mutator<T>
+### Mutator<T>
 
 Modifies values in-place by accepting mutable references. Similar to Java's `UnaryOperator<T>` but with in-place modification.
 
@@ -76,7 +70,7 @@ Modifies values in-place by accepting mutable references. Similar to Java's `Una
 - Supports if-then-else logic
 - Distinct from Consumer (reads vs modifies)
 
-#### Supplier<T>
+### Supplier<T>
 
 Generates values lazily without input parameters. Similar to Java's `Supplier<T>`.
 
@@ -92,7 +86,7 @@ Generates values lazily without input parameters. Similar to Java's `Supplier<T>
 - Factory methods: `constant`, `counter`
 - Support for sequences and generators
 
-#### Transformer<T, R>
+### Transformer<T, R>
 
 Transforms values from type `T` to type `R` by consuming input. Similar to Java's `Function<T, R>`.
 
@@ -108,7 +102,7 @@ Transforms values from type `T` to type `R` by consuming input. Similar to Java'
 - Consumes input for maximum flexibility
 - Conversion to standard closures with `into_fn`
 
-#### BiConsumer<T, U>
+### BiConsumer<T, U>
 
 Accepts two input parameters and performs operations without returning a result. Similar to Java's `BiConsumer<T, U>`.
 
@@ -122,7 +116,7 @@ Accepts two input parameters and performs operations without returning a result.
 - Method chaining with `and_then`
 - Readonly variant (`ReadonlyBiConsumer`)
 
-#### BiPredicate<T, U>
+### BiPredicate<T, U>
 
 Tests whether two values satisfy a condition, returning `bool`. Similar to Java's `BiPredicate<T, U>`.
 
@@ -134,7 +128,7 @@ Tests whether two values satisfy a condition, returning `bool`. Similar to Java'
 **Features:**
 - Logical composition: `and`, `or`, `not`
 
-#### Comparator<T>
+### Comparator<T>
 
 Compares two values and returns an `Ordering`. Similar to Java's `Comparator<T>`.
 
@@ -146,7 +140,7 @@ Compares two values and returns an `Ordering`. Similar to Java's `Comparator<T>`
 **Features:**
 - Method chaining: `reversed`, `then`
 
-### Installation
+## Installation
 
 Add this to your `Cargo.toml`:
 
@@ -155,9 +149,9 @@ Add this to your `Cargo.toml`:
 prism3-function = "0.1.0"
 ```
 
-### Quick Start Examples
+## Quick Start Examples
 
-#### Using Predicate
+### Using Predicate
 
 ```rust
 use prism3_function::{ArcPredicate, Predicate, FnPredicateOps};
@@ -180,7 +174,7 @@ let result: Vec<i32> = numbers
     .collect();
 ```
 
-#### Using Consumer
+### Using Consumer
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -195,7 +189,7 @@ consumer.accept(&value);
 // value is unchanged
 ```
 
-#### Using Mutator
+### Using Mutator
 
 ```rust
 use prism3_function::{BoxMutator, Mutator};
@@ -209,7 +203,7 @@ mutator.mutate(&mut value);
 assert_eq!(value, 21); // (10 * 2) + 1
 ```
 
-#### Using Conditional Mutator
+### Using Conditional Mutator
 
 ```rust
 use prism3_function::{BoxMutator, Mutator};
@@ -228,7 +222,7 @@ mutator.mutate(&mut negative);
 assert_eq!(negative, -6); // -5 - 1
 ```
 
-#### Using Supplier
+### Using Supplier
 
 ```rust
 use prism3_function::{BoxSupplier, Supplier};
@@ -247,7 +241,7 @@ assert_eq!(counter.get(), 2);
 assert_eq!(counter.get(), 3);
 ```
 
-#### Using Transformer
+### Using Transformer
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -260,7 +254,7 @@ let parse_and_double = BoxTransformer::new(|s: String| s.parse::<i32>().ok())
 assert_eq!(parse_and_double.transform("21".to_string()), 42);
 ```
 
-### Design Philosophy
+## Design Philosophy
 
 This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 
@@ -270,7 +264,7 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 4. **Ownership Flexibility**: Choose between single ownership, thread-safe sharing, or single-threaded sharing
 5. **Ergonomic API**: Natural method chaining without explicit cloning
 
-### Comparison Table
+## Comparison Table
 
 | Type | Box (Single) | Arc (Thread-Safe) | Rc (Single-Thread) |
 |------|--------------|-------------------|-------------------|
@@ -288,7 +282,7 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 - **Arc**: Shared ownership, thread-safe, cloneable
 - **Rc**: Shared ownership, single-threaded, cloneable
 
-### Documentation
+## Documentation
 
 - [Predicate Design](doc/predicate_design.md) | [中文](doc/predicate_design.zh_CN.md)
 - [Consumer Design](doc/consumer_design.md) | [中文](doc/consumer_design.zh_CN.md)
@@ -296,7 +290,7 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 - [Supplier Design](doc/supplier_design.md) | [中文](doc/supplier_design.zh_CN.md)
 - [Transformer Design](doc/transformer_design.md) | [中文](doc/transformer_design.zh_CN.md)
 
-### Examples
+## Examples
 
 The `examples/` directory contains comprehensive demonstrations:
 
@@ -315,10 +309,10 @@ cargo run --example consumer_demo
 cargo run --example mutator_demo
 ```
 
-### License
+## License
 
 Licensed under Apache License, Version 2.0.
 
-### Author
+## Author
 
 Haixing Hu <starfish.hu@gmail.com>
