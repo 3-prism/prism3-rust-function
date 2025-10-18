@@ -469,3 +469,219 @@ mod edge_cases_tests {
         assert_eq!(target, vec![0, 1, 2, 3, 4, 5, 6]);
     }
 }
+
+// ============================================================================
+// Conditional Execution Tests
+// ============================================================================
+
+#[cfg(test)]
+mod conditional_tests {
+    use super::*;
+    use prism3_function::predicate::{BoxPredicate, FnPredicateOps};
+
+    #[test]
+    fn test_when_condition_satisfied() {
+        let data = vec![1, 2, 3];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data);
+        });
+        let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
+
+        let mut target = vec![0];
+        conditional.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_when_condition_not_satisfied() {
+        let data = vec![1, 2, 3];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data);
+        });
+        let conditional = mutator.when(|x: &Vec<i32>| x.len() > 5);
+
+        let mut target = vec![0];
+        conditional.mutate(&mut target);
+        assert_eq!(target, vec![0]); // Unchanged
+    }
+
+    #[test]
+    fn test_when_with_box_predicate() {
+        let pred = BoxPredicate::new(|x: &Vec<i32>| !x.is_empty());
+        let data = vec![1, 2, 3];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data);
+        });
+        let conditional = mutator.when(pred);
+
+        let mut target = vec![0];
+        conditional.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_when_with_composed_predicate() {
+        let pred = (|x: &Vec<i32>| !x.is_empty()).and(|x: &Vec<i32>| x.len() < 10);
+        let data = vec![1, 2, 3];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data);
+        });
+        let conditional = mutator.when(pred);
+
+        let mut target = vec![0];
+        conditional.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_when_with_integer() {
+        let mutator = BoxMutatorOnce::new(|x: &mut i32| *x *= 2);
+        let conditional = mutator.when(|x: &i32| *x > 0);
+
+        let mut positive = 5;
+        conditional.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_when_negative_not_executed() {
+        let mutator = BoxMutatorOnce::new(|x: &mut i32| *x *= 2);
+        let conditional = mutator.when(|x: &i32| *x > 0);
+
+        let mut negative = -5;
+        conditional.mutate(&mut negative);
+        assert_eq!(negative, -5); // Unchanged
+    }
+
+    #[test]
+    fn test_or_else_when_branch() {
+        let data1 = vec![1, 2, 3];
+        let data2 = vec![99];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data1);
+        })
+        .when(|x: &Vec<i32>| !x.is_empty())
+        .or_else(move |x: &mut Vec<i32>| {
+            x.extend(data2);
+        });
+
+        let mut target = vec![0];
+        mutator.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3]); // when branch executed
+    }
+
+    #[test]
+    fn test_or_else_else_branch() {
+        let data1 = vec![1, 2, 3];
+        let data2 = vec![99];
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data1);
+        })
+        .when(|x: &Vec<i32>| x.is_empty())
+        .or_else(move |x: &mut Vec<i32>| {
+            x.extend(data2);
+        });
+
+        let mut target = vec![0];
+        mutator.mutate(&mut target);
+        assert_eq!(target, vec![0, 99]); // or_else branch executed
+    }
+
+    #[test]
+    fn test_or_else_with_integers() {
+        let mutator = BoxMutatorOnce::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x -= 1);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10); // when branch
+
+        let mutator2 = BoxMutatorOnce::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x -= 1);
+
+        let mut negative = -5;
+        mutator2.mutate(&mut negative);
+        assert_eq!(negative, -6); // or_else branch
+    }
+
+    #[test]
+    fn test_conditional_and_then() {
+        let data1 = vec![1, 2];
+        let cond1 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data1);
+        })
+        .when(|x: &Vec<i32>| !x.is_empty());
+
+        let data2 = vec![3, 4];
+        let cond2 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data2);
+        })
+        .when(|x: &Vec<i32>| x.len() < 10);
+
+        let chained = cond1.and_then(cond2);
+
+        let mut target = vec![0];
+        chained.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_conditional_and_then_second_not_executed() {
+        let data1 = vec![1, 2];
+        let cond1 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data1);
+        })
+        .when(|x: &Vec<i32>| !x.is_empty());
+
+        let data2 = vec![3, 4];
+        let cond2 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data2);
+        })
+        .when(|x: &Vec<i32>| x.len() > 10);
+
+        let chained = cond1.and_then(cond2);
+
+        let mut target = vec![0];
+        chained.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2]); // Second condition not satisfied
+    }
+
+    #[test]
+    fn test_into_box_from_conditional() {
+        let data = vec![1, 2, 3];
+        let conditional = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data);
+        })
+        .when(|x: &Vec<i32>| !x.is_empty());
+
+        let boxed = conditional.into_box();
+
+        let mut target = vec![0];
+        boxed.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_complex_conditional_chain() {
+        let data1 = vec![1, 2];
+        let data2 = vec![3, 4];
+        let data3 = vec![5, 6];
+
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+            x.extend(data1);
+        })
+        .when(|x: &Vec<i32>| !x.is_empty())
+        .or_else(move |x: &mut Vec<i32>| {
+            x.extend(data2);
+        })
+        .and_then(move |x: &mut Vec<i32>| {
+            x.extend(data3);
+        });
+
+        let mut target = vec![0];
+        mutator.mutate(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 5, 6]);
+    }
+}
