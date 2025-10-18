@@ -480,7 +480,8 @@ mod closure_tests {
 
         let chained = (move |_x: &i32| {
             *c1.lock().unwrap() += 1;
-        }).and_then(move |_x: &i32| {
+        })
+        .and_then(move |_x: &i32| {
             *c2.lock().unwrap() += 1;
         });
 
@@ -594,4 +595,3 @@ mod generic_tests {
         apply_consumer(&closure, &5);
     }
 }
-
