@@ -50,7 +50,7 @@ pub use mutator::{
     ArcConditionalMutator, ArcMutator, BoxConditionalMutator, BoxMutator, FnMutatorOps, Mutator,
     RcConditionalMutator, RcMutator,
 };
-pub use mutator_once::{BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
+pub use mutator_once::{BoxConditionalMutatorOnce, BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
 pub use predicate::{ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate};
 pub use readonly_bi_consumer::{
     ArcReadonlyBiConsumer, BoxReadonlyBiConsumer, FnReadonlyBiConsumerOps, RcReadonlyBiConsumer,
