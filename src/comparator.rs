@@ -434,7 +434,14 @@ impl<T: 'static> BoxComparator<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The comparator to use for tie-breaking
+    /// * `other` - The comparator to use for tie-breaking. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original comparator, clone it first (if it
+    ///   implements `Clone`). Can be:
+    ///   - A `BoxComparator<T>`
+    ///   - An `RcComparator<T>`
+    ///   - An `ArcComparator<T>`
+    ///   - Any type implementing `Comparator<T>`
     ///
     /// # Returns
     ///
@@ -458,11 +465,14 @@ impl<T: 'static> BoxComparator<T> {
     /// let by_age = BoxComparator::new(|a: &Person, b: &Person| {
     ///     a.age.cmp(&b.age)
     /// });
+    ///
+    /// // by_age is moved here
     /// let cmp = by_name.then_comparing(by_age);
     ///
     /// let p1 = Person { name: "Alice".to_string(), age: 30 };
     /// let p2 = Person { name: "Alice".to_string(), age: 25 };
     /// assert_eq!(cmp.compare(&p1, &p2), Ordering::Greater);
+    /// // by_age.compare(&p1, &p2); // Would not compile - moved
     /// ```
     pub fn then_comparing(self, other: Self) -> Self {
         Self {
