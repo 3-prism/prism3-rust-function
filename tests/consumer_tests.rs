@@ -461,3 +461,254 @@ mod test_fn_consumer_ops {
         assert_eq!(*log.borrow(), vec![5]);
     }
 }
+
+// ============================================================================
+// Name Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_consumer_names {
+    use super::*;
+
+    #[test]
+    fn test_box_consumer_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = BoxConsumer::new_with_name("logger", move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        assert_eq!(consumer.name(), Some("logger"));
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_box_consumer_set_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        assert_eq!(consumer.name(), None);
+        consumer.set_name("my_consumer");
+        assert_eq!(consumer.name(), Some("my_consumer"));
+    }
+
+    #[test]
+    fn test_arc_consumer_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcConsumer::new_with_name("logger", move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        assert_eq!(consumer.name(), Some("logger"));
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_arc_consumer_set_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        assert_eq!(consumer.name(), None);
+        consumer.set_name("my_consumer");
+        assert_eq!(consumer.name(), Some("my_consumer"));
+    }
+
+    #[test]
+    fn test_rc_consumer_with_name() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcConsumer::new_with_name("logger", move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        assert_eq!(consumer.name(), Some("logger"));
+        consumer.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_rc_consumer_set_name() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        assert_eq!(consumer.name(), None);
+        consumer.set_name("my_consumer");
+        assert_eq!(consumer.name(), Some("my_consumer"));
+    }
+}
+
+// ============================================================================
+// to_fn Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_to_fn {
+    use super::*;
+
+    #[test]
+    fn test_arc_consumer_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut func = consumer.to_fn();
+        func(&5);
+        func(&10);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_rc_consumer_to_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        let mut func = consumer.to_fn();
+        func(&5);
+        func(&10);
+        assert_eq!(*log.borrow(), vec![5, 10]);
+    }
+}
+
+// ============================================================================
+// Edge Cases Tests
+// ============================================================================
+
+#[cfg(test)]
+mod test_edge_cases {
+    use super::*;
+
+    #[test]
+    fn test_noop_with_name() {
+        let mut consumer = BoxConsumer::<i32>::noop();
+        consumer.set_name("noop_consumer");
+        assert_eq!(consumer.name(), Some("noop_consumer"));
+        consumer.accept(&5); // Should do nothing
+    }
+
+    #[test]
+    fn test_print_with_multiple_values() {
+        let mut consumer = BoxConsumer::print();
+        consumer.accept(&1);
+        consumer.accept(&2);
+        consumer.accept(&3);
+    }
+
+    #[test]
+    fn test_print_with_prefix_multiple_values() {
+        let mut consumer = BoxConsumer::print_with("Value: ");
+        consumer.accept(&1);
+        consumer.accept(&2);
+        consumer.accept(&3);
+    }
+
+    #[test]
+    fn test_if_then_with_always_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = BoxConsumer::if_then(
+            |_: &i32| true,
+            move |x: &i32| {
+                l.lock().unwrap().push(*x);
+            },
+        );
+        consumer.accept(&5);
+        consumer.accept(&10);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_if_then_with_always_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = BoxConsumer::if_then(
+            |_: &i32| false,
+            move |x: &i32| {
+                l.lock().unwrap().push(*x);
+            },
+        );
+        consumer.accept(&5);
+        consumer.accept(&10);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_if_then_else_all_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let mut consumer = BoxConsumer::if_then_else(
+            |_: &i32| true,
+            move |x: &i32| {
+                l1.lock().unwrap().push(*x);
+            },
+            move |x: &i32| {
+                l2.lock().unwrap().push(*x * 100);
+            },
+        );
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_if_then_else_all_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let mut consumer = BoxConsumer::if_then_else(
+            |_: &i32| false,
+            move |x: &i32| {
+                l1.lock().unwrap().push(*x);
+            },
+            move |x: &i32| {
+                l2.lock().unwrap().push(*x * 100);
+            },
+        );
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![500]);
+    }
+
+    #[test]
+    fn test_and_then_with_noop() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        })
+        .and_then(BoxConsumer::noop());
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_complex_chain() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let l3 = log.clone();
+        let l4 = log.clone();
+        let mut consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        })
+        .and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 2);
+        })
+        .and_then(BoxConsumer::noop())
+        .and_then(move |x: &i32| {
+            l3.lock().unwrap().push(*x + 10);
+        })
+        .and_then(move |x: &i32| {
+            l4.lock().unwrap().push(*x - 5);
+        });
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10, 15, 0]);
+    }
+}
