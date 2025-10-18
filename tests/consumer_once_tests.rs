@@ -290,4 +290,46 @@ mod debug_display_tests {
         consumer.set_name("test");
         assert_eq!(consumer.name(), Some("test"));
     }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_conditional_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let chained = conditional.and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 2);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
 }

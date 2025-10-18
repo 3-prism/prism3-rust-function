@@ -284,6 +284,21 @@ mod arc_conditional_tests {
         assert_eq!(result.transform(-5), 5);
         assert_eq!(result.transform(0), 0);
     }
+
+    #[test]
+    fn test_conditional_clone() {
+        let double = ArcTransformer::new(|x: i32| x * 2);
+        let conditional = double.when(|x: &i32| *x > 0);
+        let cloned = conditional.clone();
+
+        let result1 = conditional.or_else(|x: i32| -x);
+        let result2 = cloned.or_else(|x: i32| -x);
+
+        assert_eq!(result1.transform(5), 10);
+        assert_eq!(result2.transform(5), 10);
+        assert_eq!(result1.transform(-5), 5);
+        assert_eq!(result2.transform(-5), 5);
+    }
 }
 
 #[cfg(test)]
@@ -310,6 +325,21 @@ mod rc_conditional_tests {
         assert_eq!(result.transform(5), 10);
         assert_eq!(result.transform(-5), 5);
         assert_eq!(result.transform(0), 0);
+    }
+
+    #[test]
+    fn test_conditional_clone() {
+        let double = RcTransformer::new(|x: i32| x * 2);
+        let conditional = double.when(|x: &i32| *x > 0);
+        let cloned = conditional.clone();
+
+        let result1 = conditional.or_else(|x: i32| -x);
+        let result2 = cloned.or_else(|x: i32| -x);
+
+        assert_eq!(result1.transform(5), 10);
+        assert_eq!(result2.transform(5), 10);
+        assert_eq!(result1.transform(-5), 5);
+        assert_eq!(result2.transform(-5), 5);
     }
 }
 
@@ -616,5 +646,21 @@ mod type_conversion_tests {
         let add = RcTransformer::new(|x: i32| x + 10);
         let boxed = add.into_box();
         assert_eq!(boxed.transform(20), 30);
+    }
+
+    #[test]
+    fn test_arc_constant_with_clone() {
+        let constant = ArcTransformer::constant(42);
+        assert_eq!(constant.transform(1), 42);
+        assert_eq!(constant.transform(2), 42);
+        assert_eq!(constant.transform(3), 42);
+    }
+
+    #[test]
+    fn test_rc_constant_with_clone() {
+        let constant = RcTransformer::constant("test");
+        assert_eq!(constant.transform(1), "test");
+        assert_eq!(constant.transform(2), "test");
+        assert_eq!(constant.transform(3), "test");
     }
 }

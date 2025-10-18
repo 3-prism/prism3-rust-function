@@ -138,6 +138,61 @@ mod box_bi_consumer_once_tests {
         consumer.accept(&5, &3);
         // data is no longer available here
     }
+
+    #[test]
+    fn test_new_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer =
+            BoxBiConsumerOnce::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+                l.lock().unwrap().push(*x + *y);
+            });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let chained = conditional.and_then(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x * *y);
+        });
+        chained.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    }
 }
 
 #[cfg(test)]

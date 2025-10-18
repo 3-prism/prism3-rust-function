@@ -132,6 +132,82 @@ mod box_bi_consumer_tests {
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
     }
+
+    #[test]
+    fn test_new_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer =
+            BoxBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+                l.lock().unwrap().push(*x + *y);
+            });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut boxed = conditional.into_box();
+        boxed.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        boxed.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut rc_consumer = conditional.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        rc_consumer.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut func = conditional.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        func(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut chained = conditional.and_then(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x * *y);
+        });
+        chained.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+        chained.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15, -15]);
+    }
 }
 
 #[cfg(test)]
@@ -230,6 +306,128 @@ mod arc_bi_consumer_tests {
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
     }
+
+    #[test]
+    fn test_new_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer =
+            ArcBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+                l.lock().unwrap().push(*x + *y);
+            });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_when() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        conditional.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_clone() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut clone1 = conditional.clone();
+        let mut clone2 = conditional.clone();
+
+        clone1.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        clone2.accept(&10, &2);
+        assert_eq!(*log.lock().unwrap(), vec![8, 12]);
+    }
+
+    #[test]
+    fn test_conditional_into_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut arc_consumer = conditional.into_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        arc_consumer.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut box_consumer = conditional.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        box_consumer.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut rc_consumer = conditional.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        rc_consumer.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut func = conditional.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        func(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_or_else() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut with_else = conditional.or_else(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x * *y);
+        });
+        with_else.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        with_else.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, -15]);
+    }
 }
 
 #[cfg(test)]
@@ -315,6 +513,112 @@ mod rc_bi_consumer_tests {
 
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_new_with_name() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_when() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        conditional.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_clone() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut clone1 = conditional.clone();
+        let mut clone2 = conditional.clone();
+
+        clone1.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        clone2.accept(&10, &2);
+        assert_eq!(*log.borrow(), vec![8, 12]);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut rc_consumer = conditional.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        rc_consumer.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut box_consumer = conditional.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        box_consumer.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut func = conditional.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        func(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_conditional_or_else() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut with_else = conditional.or_else(move |x: &i32, y: &i32| {
+            l2.borrow_mut().push(*x * *y);
+        });
+        with_else.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        with_else.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8, -15]);
     }
 }
 

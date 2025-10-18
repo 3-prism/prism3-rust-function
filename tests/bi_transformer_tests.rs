@@ -261,15 +261,16 @@ mod arc_conditional_tests {
     #[test]
     fn test_conditional_clone() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
-        let multiply = ArcBiTransformer::new(|x: i32, y: i32| x * y);
-        let conditional = add
-            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-            .or_else(multiply);
+        let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let cloned = conditional.clone();
 
-        let conditional_clone = conditional.clone();
+        let result1 = conditional.or_else(|x: i32, y: i32| x * y);
+        let result2 = cloned.or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(conditional.transform(5, 3), 8);
-        assert_eq!(conditional_clone.transform(-5, 3), -15);
+        assert_eq!(result1.transform(5, 3), 8);
+        assert_eq!(result2.transform(5, 3), 8);
+        assert_eq!(result1.transform(-5, 3), -15);
+        assert_eq!(result2.transform(-5, 3), -15);
     }
 }
 
@@ -304,15 +305,16 @@ mod rc_conditional_tests {
     #[test]
     fn test_conditional_clone() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
-        let multiply = RcBiTransformer::new(|x: i32, y: i32| x * y);
-        let conditional = add
-            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-            .or_else(multiply);
+        let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let cloned = conditional.clone();
 
-        let conditional_clone = conditional.clone();
+        let result1 = conditional.or_else(|x: i32, y: i32| x * y);
+        let result2 = cloned.or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(conditional.transform(5, 3), 8);
-        assert_eq!(conditional_clone.transform(-5, 3), -15);
+        assert_eq!(result1.transform(5, 3), 8);
+        assert_eq!(result2.transform(5, 3), 8);
+        assert_eq!(result1.transform(-5, 3), -15);
+        assert_eq!(result2.transform(-5, 3), -15);
     }
 }
 

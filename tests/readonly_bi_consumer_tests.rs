@@ -71,6 +71,15 @@ mod box_readonly_bi_consumer_tests {
     }
 
     #[test]
+    fn test_box_into_box() {
+        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let box_consumer = consumer.into_box();
+        box_consumer.accept(&5, &3);
+    }
+
+    #[test]
     fn test_name() {
         let mut consumer = BoxReadonlyBiConsumer::<i32, i32>::noop();
         assert_eq!(consumer.name(), None);
@@ -228,6 +237,20 @@ mod arc_readonly_bi_consumer_tests {
         });
         let func = consumer.into_fn();
         func(&5, &3);
+    }
+
+    #[test]
+    fn test_arc_into_fn_with_state() {
+        use std::sync::Mutex;
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let func = consumer.into_fn();
+        func(&5, &3);
+        func(&10, &20);
+        assert_eq!(*log.lock().unwrap(), vec![8, 30]);
     }
 
     #[test]
