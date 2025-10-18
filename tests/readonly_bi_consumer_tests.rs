@@ -410,6 +410,16 @@ mod closure_tests {
         chained.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 2);
     }
+
+    #[test]
+    fn test_closure_into_fn() {
+        // Test into_fn in impl<T, U, F> ReadonlyBiConsumer<T, U> for F
+        let closure = |x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        };
+        let func = closure.into_fn();
+        func(&5, &3);
+    }
 }
 
 // ============================================================================

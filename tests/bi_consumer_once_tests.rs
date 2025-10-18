@@ -96,6 +96,26 @@ mod box_bi_consumer_once_tests {
     }
 
     #[test]
+    fn test_when_or_else_false_branch() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, _y: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let conditional =
+            consumer
+                .when(|x: &i32, y: &i32| *x > *y)
+                .or_else(move |_x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*y);
+                });
+
+        // Condition is false (3 is not > 5), so else branch should execute
+        conditional.accept(&3, &5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
     fn test_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
@@ -224,6 +244,18 @@ mod closure_tests {
 
         chained.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    }
+
+    #[test]
+    fn test_closure_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        };
+        let func = closure.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 }
 

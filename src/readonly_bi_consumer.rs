@@ -295,7 +295,15 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxReadonlyBiConsumer<T, U>`
+    ///   - An `RcReadonlyBiConsumer<T, U>`
+    ///   - An `ArcReadonlyBiConsumer<T, U>`
+    ///   - Any type implementing `ReadonlyBiConsumer<T, U>`
     ///
     /// # Returns
     ///
@@ -303,15 +311,42 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{ReadonlyBiConsumer, BoxReadonlyBiConsumer};
     ///
-    /// let chained = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    /// let first = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
     ///     println!("First: {}, {}", x, y);
-    /// }).and_then(|x: &i32, y: &i32| {
+    /// });
+    /// let second = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
     ///     println!("Second: sum = {}", x + y);
     /// });
+    ///
+    /// // second is moved here
+    /// let chained = first.and_then(second);
     /// chained.accept(&5, &3);
+    /// // second.accept(&2, &3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyBiConsumer, BoxReadonlyBiConsumer, RcReadonlyBiConsumer};
+    ///
+    /// let first = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("First: {}, {}", x, y);
+    /// });
+    /// let second = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("Second: sum = {}", x + y);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let chained = first.and_then(second.clone());
+    /// chained.accept(&5, &3);
+    ///
+    /// // Original still usable
+    /// second.accept(&2, &3);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -537,7 +572,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by reference, so the original consumer remains
+    ///   usable.** Can be:
+    ///   - An `ArcReadonlyBiConsumer<T, U>` (passed by reference)
+    ///   - Any type implementing `ReadonlyBiConsumer<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -555,10 +594,13 @@ where
     ///     println!("Second: sum = {}", x + y);
     /// });
     ///
+    /// // second is passed by reference, so it remains usable
     /// let chained = first.and_then(&second);
     ///
     /// // first and second still usable after chaining
     /// chained.accept(&5, &3);
+    /// first.accept(&2, &3); // Still usable
+    /// second.accept(&7, &8); // Still usable
     /// ```
     pub fn and_then(&self, next: &ArcReadonlyBiConsumer<T, U>) -> ArcReadonlyBiConsumer<T, U> {
         let first = Arc::clone(&self.function);
@@ -789,7 +831,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by reference, so the original consumer remains
+    ///   usable.** Can be:
+    ///   - An `RcReadonlyBiConsumer<T, U>` (passed by reference)
+    ///   - Any type implementing `ReadonlyBiConsumer<T, U>`
     ///
     /// # Returns
     ///
@@ -807,10 +853,13 @@ where
     ///     println!("Second: sum = {}", x + y);
     /// });
     ///
+    /// // second is passed by reference, so it remains usable
     /// let chained = first.and_then(&second);
     ///
     /// // first and second still usable after chaining
     /// chained.accept(&5, &3);
+    /// first.accept(&2, &3); // Still usable
+    /// second.accept(&7, &8); // Still usable
     /// ```
     pub fn and_then(&self, next: &RcReadonlyBiConsumer<T, U>) -> RcReadonlyBiConsumer<T, U> {
         let first = Rc::clone(&self.function);

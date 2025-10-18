@@ -425,13 +425,23 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
     ///
     /// Returns a new composed `BoxBiConsumer<T, U>`
     ///
     /// # Examples
+    ///
+    /// ## Direct value passing (ownership transfer)
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
@@ -440,13 +450,44 @@ where
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l1 = log.clone();
     /// let l2 = log.clone();
-    /// let mut chained = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    /// let first = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     ///     l1.lock().unwrap().push(*x + *y);
-    /// }).and_then(move |x: &i32, y: &i32| {
+    /// });
+    /// let second = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
+    ///
+    /// // second is moved here
+    /// let mut chained = first.and_then(second);
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // second.accept(&2, &3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// });
+    /// let second = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = first.and_then(second.clone());
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    ///
+    /// // Original still usable
+    /// second.accept(&2, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -466,7 +507,15 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original bi-predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -682,13 +731,22 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The next consumer to execute
+    /// * `next` - The next consumer to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
     ///
     /// Returns a new `BoxBiConsumer<T, U>`
     ///
     /// # Examples
+    ///
+    /// ## Direct value passing (ownership transfer)
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
@@ -700,13 +758,41 @@ where
     /// let cond = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     ///     l1.lock().unwrap().push(*x + *y);
     /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    ///
-    /// let mut chained = cond.and_then(move |x: &i32, y: &i32| {
+    /// let second = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
     ///
+    /// // second is moved here
+    /// let mut chained = cond.and_then(second);
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // second.accept(&2, &3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+    /// let second = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = cond.and_then(second.clone());
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    ///
+    /// // Original still usable
+    /// second.accept(&2, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxBiConsumer<T, U>
     where
@@ -727,9 +813,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T, y: &U|`
-    ///   - `BoxBiConsumer<T, U>`, `RcBiConsumer<T, U>`, `ArcBiConsumer<T, U>`
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
     ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
@@ -985,7 +1075,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by reference, so the original consumer remains
+    ///   usable.** Can be:
+    ///   - An `ArcBiConsumer<T, U>` (passed by reference)
+    ///   - Any type implementing `BiConsumer<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1007,11 +1101,13 @@ where
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
     ///
+    /// // second is passed by reference, so it remains usable
     /// let mut chained = first.and_then(&second);
     ///
     /// // first and second still usable after chaining
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // second.accept(&2, &3); // Still usable
     /// ```
     pub fn and_then(&self, next: &ArcBiConsumer<T, U>) -> ArcBiConsumer<T, U> {
         let first = Arc::clone(&self.function);
@@ -1035,10 +1131,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, must be `Send + Sync`, can be:
-    ///   - Closure: `|x: &T, y: &U| -> bool` (requires `Send + Sync`)
-    ///   - Function pointer: `fn(&T, &U) -> bool`
-    ///   - `ArcBiPredicate<T, U>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original bi-predicate, clone it first (if it implements `Clone`).
+    ///   Must be `Send + Sync`, can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool` (requires `Send + Sync`)
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - An `ArcBiPredicate<T, U>`
     ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
@@ -1282,9 +1381,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T, y: &U|` (must be `Send`)
-    ///   - `ArcBiConsumer<T, U>`, `BoxBiConsumer<T, U>`
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`).
+    ///   Must be `Send`, can be:
+    ///   - A closure: `|x: &T, y: &U|` (must be `Send`)
+    ///   - An `ArcBiConsumer<T, U>`
+    ///   - A `BoxBiConsumer<T, U>`
     ///   - Any type implementing `BiConsumer<T, U> + Send`
     ///
     /// # Returns
@@ -1621,10 +1724,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T, y: &U| -> bool`
-    ///   - Function pointer: `fn(&T, &U) -> bool`
-    ///   - `RcBiPredicate<T, U>`, `BoxBiPredicate<T, U>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original bi-predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - A `BoxBiPredicate<T, U>`
     ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
@@ -1847,9 +1953,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T, y: &U|`
-    ///   - `RcBiConsumer<T, U>`, `BoxBiConsumer<T, U>`
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - A `BoxBiConsumer<T, U>`
     ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
@@ -2022,7 +2131,15 @@ pub trait FnBiConsumerOps<T, U>: FnMut(&T, &U) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** If you
+    ///   need to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
     ///

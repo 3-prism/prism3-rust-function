@@ -652,6 +652,19 @@ mod closure_tests {
         chained.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     }
+
+    #[test]
+    fn test_closure_into_fn() {
+        // Test into_fn in impl<T, U, F> BiConsumer<T, U> for F
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        };
+        let mut func = closure.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
 }
 
 // ============================================================================
@@ -1090,5 +1103,40 @@ mod additional_conversion_tests {
         });
         let mut boxed = consumer.into_box();
         boxed.accept(&10, &20);
+    }
+}
+
+// ============================================================================
+// into_arc() Tests
+// ============================================================================
+//
+// Note: The into_arc() methods for BoxBiConsumer, BoxConditionalBiConsumer, RcBiConsumer and
+// RcConditionalBiConsumer cannot be called at compile time due to type system constraints
+// (trait requires Self: Send).
+// The panic! in these methods is to provide runtime error information in extreme cases
+// (such as unsafe code), but cannot be tested in normal safe Rust code.
+//
+// Therefore, we only test the into_arc() methods for ArcBiConsumer and ArcConditionalBiConsumer,
+// which can be called normally.
+
+#[cfg(test)]
+mod into_arc_tests {
+    use super::*;
+
+    #[test]
+    fn test_arc_consumer_into_arc_succeeds() {
+        // ArcBiConsumer's into_arc should succeed
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut arc = consumer.into_arc();
+        arc.accept(&5, &3); // Ensure it can be used normally
+    }
+
+    #[test]
+    fn test_arc_conditional_consumer_into_arc_succeeds() {
+        // ArcConditionalBiConsumer's into_arc should succeed
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut arc = conditional.into_arc();
+        arc.accept(&5, &3); // Ensure it can be used normally
     }
 }

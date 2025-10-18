@@ -346,7 +346,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxBiConsumerOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumerOnce<T, U>`
+    ///   - Any type implementing `BiConsumerOnce<T, U>`
     ///
     /// # Returns
     ///
@@ -361,13 +367,19 @@ where
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l1 = log.clone();
     /// let l2 = log.clone();
-    /// let chained = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+    /// let first = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
     ///     l1.lock().unwrap().push(*x + *y);
-    /// }).and_then(move |x: &i32, y: &i32| {
+    /// });
+    /// let second = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
+    ///
+    /// // Both first and second are moved and consumed
+    /// let chained = first.and_then(second);
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // first.accept(&2, &3); // Would not compile - moved
+    /// // second.accept(&2, &3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -391,10 +403,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T, y: &U| -> bool`
-    ///   - Function pointer: `fn(&T, &U) -> bool`
-    ///   - `BoxBiPredicate<T, U>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original bi-predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
     ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
@@ -579,7 +593,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The next consumer to execute
+    /// * `next` - The next consumer to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** Since `BoxBiConsumerOnce`
+    ///   cannot be cloned, the parameter will be consumed. Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumerOnce<T, U>`
+    ///   - Any type implementing `BiConsumerOnce<T, U>`
     ///
     /// # Returns
     ///
@@ -597,13 +616,16 @@ where
     /// let cond = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
     ///     l1.lock().unwrap().push(*x + *y);
     /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    ///
-    /// let chained = cond.and_then(move |x: &i32, y: &i32| {
+    /// let second = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
     ///
+    /// // Both cond and second are moved and consumed
+    /// let chained = cond.and_then(second);
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // cond.accept(&2, &3); // Would not compile - moved
+    /// // second.accept(&2, &3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxBiConsumerOnce<T, U>
     where
@@ -624,9 +646,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T, y: &U|`
-    ///   - `BoxBiConsumerOnce<T, U>`
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** Since
+    ///   `BoxBiConsumerOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumerOnce<T, U>`
     ///   - Any type implementing `BiConsumerOnce<T, U>`
     ///
     /// # Returns
@@ -757,7 +782,13 @@ pub trait FnBiConsumerOnceOps<T, U>: FnOnce(&T, &U) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. **Note:
+    ///   This parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxBiConsumerOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumerOnce<T, U>`
+    ///   - Any type implementing `BiConsumerOnce<T, U>`
     ///
     /// # Returns
     ///
