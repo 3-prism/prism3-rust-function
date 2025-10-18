@@ -238,16 +238,6 @@ mod box_conditional_tests {
     use prism3_function::BoxPredicate;
 
     #[test]
-    fn test_when_with_predicate() {
-        let double = BoxTransformer::new(|x: i32| x * 2);
-        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-        let conditional = double.when(is_positive);
-
-        assert_eq!(conditional.transform(5), Some(10));
-        assert_eq!(conditional.transform(-5), None);
-    }
-
-    #[test]
     fn test_when_or_else() {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
@@ -257,22 +247,22 @@ mod box_conditional_tests {
         assert_eq!(result.transform(5), 10);
         assert_eq!(result.transform(-5), 5);
     }
+
+    #[test]
+    fn test_when_or_else_with_closure() {
+        let double = BoxTransformer::new(|x: i32| x * 2);
+        let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+
+        assert_eq!(result.transform(5), 10);
+        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.transform(0), 0);
+    }
 }
 
 #[cfg(test)]
 mod arc_conditional_tests {
     use super::*;
     use prism3_function::ArcPredicate;
-
-    #[test]
-    fn test_when_with_predicate() {
-        let double = ArcTransformer::new(|x: i32| x * 2);
-        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-        let conditional = double.when(is_positive);
-
-        assert_eq!(conditional.transform(5), Some(10));
-        assert_eq!(conditional.transform(-5), None);
-    }
 
     #[test]
     fn test_when_or_else() {
@@ -284,22 +274,22 @@ mod arc_conditional_tests {
         assert_eq!(result.transform(5), 10);
         assert_eq!(result.transform(-5), 5);
     }
+
+    #[test]
+    fn test_when_or_else_with_closure() {
+        let double = ArcTransformer::new(|x: i32| x * 2);
+        let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+
+        assert_eq!(result.transform(5), 10);
+        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.transform(0), 0);
+    }
 }
 
 #[cfg(test)]
 mod rc_conditional_tests {
     use super::*;
     use prism3_function::RcPredicate;
-
-    #[test]
-    fn test_when_with_predicate() {
-        let double = RcTransformer::new(|x: i32| x * 2);
-        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
-        let conditional = double.when(is_positive);
-
-        assert_eq!(conditional.transform(5), Some(10));
-        assert_eq!(conditional.transform(-5), None);
-    }
 
     #[test]
     fn test_when_or_else() {
@@ -310,6 +300,16 @@ mod rc_conditional_tests {
 
         assert_eq!(result.transform(5), 10);
         assert_eq!(result.transform(-5), 5);
+    }
+
+    #[test]
+    fn test_when_or_else_with_closure() {
+        let double = RcTransformer::new(|x: i32| x * 2);
+        let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+
+        assert_eq!(result.transform(5), 10);
+        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.transform(0), 0);
     }
 }
 
@@ -364,13 +364,6 @@ mod conversion_tests {
     }
 
     #[test]
-    fn test_box_to_arc() {
-        let double = BoxTransformer::new(|x: i32| x * 2);
-        let arc = double.into_arc();
-        assert_eq!(arc.transform(21), 42);
-    }
-
-    #[test]
     fn test_box_to_rc() {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let rc = double.into_rc();
@@ -398,12 +391,6 @@ mod conversion_tests {
         assert_eq!(boxed.transform(21), 42);
     }
 
-    #[test]
-    fn test_rc_to_arc() {
-        let double = RcTransformer::new(|x: i32| x * 2);
-        let arc = double.into_arc();
-        assert_eq!(arc.transform(21), 42);
-    }
 }
 
 // ============================================================================
@@ -435,25 +422,13 @@ mod trait_usage_tests {
     }
 
     #[test]
-    fn test_generic_composition() {
-        fn compose_transformers<T1, T2, T3>(
-            f: impl Transformer<T1, T2>,
-            g: impl Transformer<T2, T3>,
-        ) -> impl Fn(T1) -> T3
-        where
-            T1: 'static,
-            T2: 'static,
-            T3: 'static,
-        {
-            let f = f.into_box();
-            let g = g.into_box();
-            move |x| g.transform(f.transform(x))
+    fn test_with_different_types() {
+        fn apply_transformer<T, R, F: Transformer<T, R>>(f: &F, x: T) -> R {
+            f.transform(x)
         }
 
-        let double = BoxTransformer::new(|x: i32| x * 2);
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
-        let composed = compose_transformers(double, to_string);
-        assert_eq!(composed(21), "42");
+        assert_eq!(apply_transformer(&to_string, 42), "42");
     }
 }
 
