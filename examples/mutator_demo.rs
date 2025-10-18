@@ -264,12 +264,7 @@ fn main() {
 
     let mut pipeline = BoxMutator::new(|x: &mut i32| {
         // 验证：限制到 0-100
-        if *x < 0 {
-            *x = 0;
-        }
-        if *x > 100 {
-            *x = 100;
-        }
+        *x = (*x).clamp(0, 100);
     })
     .and_then(|x: &mut i32| {
         // 归一化：缩放到 0-10

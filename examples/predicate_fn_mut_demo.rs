@@ -85,7 +85,7 @@ fn demo_thread_safe() {
 
     // 闭包可以在线程间传递
     let handle = std::thread::spawn(move || {
-        let numbers = vec![-2, -1, 0, 1, 2, 3];
+        let numbers = [-2, -1, 0, 1, 2, 3];
         numbers.iter().copied().filter(closure).count()
     });
 

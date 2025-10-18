@@ -25,7 +25,7 @@ fn main() {
     });
 
     // 将 consumer 转换为闭包，传递给 for_each
-    vec![1, 2, 3, 4, 5].iter().for_each(consumer.into_fn());
+    [1, 2, 3, 4, 5].iter().for_each(consumer.into_fn());
     println!("   结果: {:?}\n", *log.lock().unwrap());
 
     // 示例 2: 使用 ArcConsumer::to_fn 可以多次使用
@@ -37,10 +37,10 @@ fn main() {
     });
 
     // to_fn 不消费 consumer，可以多次调用
-    vec![1, 2, 3].iter().for_each(consumer2.to_fn());
+    [1, 2, 3].iter().for_each(consumer2.to_fn());
     println!("   第一次: {:?}", *log2.lock().unwrap());
 
-    vec![4, 5].iter().for_each(consumer2.to_fn());
+    [4, 5].iter().for_each(consumer2.to_fn());
     println!("   第二次: {:?}\n", *log2.lock().unwrap());
 
     // 示例 3: 使用 RcConsumer::to_fn
@@ -51,7 +51,7 @@ fn main() {
         l3.borrow_mut().push(*x * 3);
     });
 
-    vec![1, 2, 3, 4].iter().for_each(consumer3.to_fn());
+    [1, 2, 3, 4].iter().for_each(consumer3.to_fn());
     println!("   结果: {:?}\n", *log3.borrow());
 
     // 示例 4: 在自定义函数中使用
@@ -86,7 +86,7 @@ fn main() {
         l6.lock().unwrap().push(format!("B: {}", x));
     });
 
-    vec![1, 2].iter().for_each(chained.into_fn());
+    [1, 2].iter().for_each(chained.into_fn());
     println!("   结果: {:?}\n", *log5.lock().unwrap());
 
     println!("=== 演示完成 ===");

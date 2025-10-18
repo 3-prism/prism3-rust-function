@@ -65,7 +65,7 @@ fn basic_closure_predicates() {
     println!("5 是正偶数? {}", is_positive_and_even.test(&5));
 
     // Using predicates with iterators
-    let numbers = vec![-2, -1, 0, 1, 2, 3, 4, 5];
+    let numbers = [-2, -1, 0, 1, 2, 3, 4, 5];
     let positives: Vec<_> = numbers
         .iter()
         .filter(|x| is_positive.test(x))
