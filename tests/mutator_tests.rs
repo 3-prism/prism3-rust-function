@@ -115,7 +115,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_true() {
-        let mut mutator = BoxMutator::if_then(|x: &i32| *x > 0, |x: &mut i32| *x += 10);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = 5;
         mutator.mutate(&mut value);
@@ -124,7 +124,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_false() {
-        let mut mutator = BoxMutator::if_then(|x: &i32| *x > 0, |x: &mut i32| *x += 10);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = -5;
         mutator.mutate(&mut value);
@@ -133,11 +133,9 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_else() {
-        let mut mutator = BoxMutator::if_then_else(
-            |x: &i32| *x > 0,
-            |x: &mut i32| *x *= 2,
-            |x: &mut i32| *x = -*x,
-        );
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x = -*x);
 
         let mut positive = 10;
         mutator.mutate(&mut positive);
@@ -564,9 +562,9 @@ mod test_complex_scenarios {
 
     #[test]
     fn test_conditional_processing() {
-        let mut processor = BoxMutator::if_then(|x: &i32| *x > 0, |x: &mut i32| *x *= 2).and_then(
-            BoxMutator::if_then(|x: &i32| *x > 100, |x: &mut i32| *x = 100),
-        );
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
+        let mut processor = cond1.and_then(cond2);
 
         let mut small = 5;
         processor.mutate(&mut small);
@@ -579,12 +577,10 @@ mod test_complex_scenarios {
 
     #[test]
     fn test_mixed_operations() {
+        let cond = BoxMutator::new(|x: &mut i32| *x -= 20).when(|x: &i32| *x > 50);
         let mut processor = BoxMutator::new(|x: &mut i32| *x += 10)
             .and_then(|x: &mut i32| *x = *x * 2)
-            .and_then(BoxMutator::if_then(
-                |x: &i32| *x > 50,
-                |x: &mut i32| *x -= 20,
-            ));
+            .and_then(cond);
 
         let mut value1 = 5;
         processor.mutate(&mut value1);
@@ -673,17 +669,15 @@ mod test_custom_types {
 
     #[test]
     fn test_conditional_with_custom_struct() {
-        let mut normalizer = BoxMutator::if_then(
-            |p: &Point| p.x < 0 || p.y < 0,
-            |p: &mut Point| {
-                if p.x < 0 {
-                    p.x = 0;
-                }
-                if p.y < 0 {
-                    p.y = 0;
-                }
-            },
-        );
+        let mut normalizer = BoxMutator::new(|p: &mut Point| {
+            if p.x < 0 {
+                p.x = 0;
+            }
+            if p.y < 0 {
+                p.y = 0;
+            }
+        })
+        .when(|p: &Point| p.x < 0 || p.y < 0);
 
         let mut point1 = Point { x: -5, y: 10 };
         normalizer.mutate(&mut point1);
@@ -929,7 +923,7 @@ mod test_into_fn {
 
     #[test]
     fn test_into_fn_with_conditional() {
-        let mutator = BoxMutator::if_then(|x: &i32| *x > 0, |x: &mut i32| *x *= 2);
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
 
         let mut values = vec![-2, -1, 0, 1, 2, 3];
         values.iter_mut().for_each(mutator.into_fn());
@@ -1014,5 +1008,750 @@ mod test_into_fn {
         points.iter_mut().for_each(mutator.into_fn());
 
         assert_eq!(points, vec![Point { x: 2, y: 4 }, Point { x: 6, y: 8 }]);
+    }
+}
+
+// ============================================================================
+// Conditional Execution Tests (when/or_else with various parameter types)
+// ============================================================================
+
+#[cfg(test)]
+mod test_conditional_execution {
+    use super::*;
+    use prism3_function::predicate::{ArcPredicate, BoxPredicate, RcPredicate};
+
+    // Helper function pointer for testing
+    fn is_positive(x: &i32) -> bool {
+        *x > 0
+    }
+
+    fn negate(x: &mut i32) {
+        *x = -*x;
+    }
+
+    // ========================================================================
+    // BoxMutator::when() tests
+    // ========================================================================
+
+    #[test]
+    fn test_box_when_with_closure() {
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_box_when_with_function_pointer() {
+        let mut mutator =
+            BoxMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_box_when_with_box_predicate() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_box_when_with_rc_predicate() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_box_when_with_arc_predicate() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    // ========================================================================
+    // BoxConditionalMutator::or_else() tests
+    // ========================================================================
+
+    #[test]
+    fn test_box_or_else_with_closure() {
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x -= 1);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -6);
+    }
+
+    #[test]
+    fn test_box_or_else_with_function_pointer() {
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(negate as fn(&mut i32));
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 5);
+    }
+
+    #[test]
+    fn test_box_or_else_with_box_mutator() {
+        let else_mutator = BoxMutator::new(|x: &mut i32| *x = 0);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 0);
+    }
+
+    #[test]
+    fn test_box_or_else_with_rc_mutator() {
+        let else_mutator = RcMutator::new(|x: &mut i32| *x = 100);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 100);
+    }
+
+    #[test]
+    fn test_box_or_else_with_arc_mutator() {
+        let else_mutator = ArcMutator::new(|x: &mut i32| *x = 200);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 200);
+    }
+
+    // ========================================================================
+    // BoxConditionalMutator::and_then() tests
+    // ========================================================================
+
+    #[test]
+    fn test_box_conditional_and_then_with_closure() {
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut chained = cond1.and_then(|x: &mut i32| *x += 10);
+
+        let mut positive = 5;
+        chained.mutate(&mut positive);
+        assert_eq!(positive, 20); // 5 * 2 + 10
+
+        let mut negative = -5;
+        chained.mutate(&mut negative);
+        assert_eq!(negative, 5); // -5 + 10 (not doubled)
+    }
+
+    #[test]
+    fn test_box_conditional_and_then_with_box_mutator() {
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let next = BoxMutator::new(|x: &mut i32| *x += 100);
+        let mut chained = cond1.and_then(next);
+
+        let mut positive = 10;
+        chained.mutate(&mut positive);
+        assert_eq!(positive, 120); // 10 * 2 + 100
+
+        let mut negative = -10;
+        chained.mutate(&mut negative);
+        assert_eq!(negative, 90); // -10 + 100 (not doubled)
+    }
+
+    #[test]
+    fn test_box_conditional_and_then_conditional() {
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
+        let mut chained = cond1.and_then(cond2);
+
+        let mut small = 5;
+        chained.mutate(&mut small);
+        assert_eq!(small, 10); // 5 * 2 = 10 (< 100, not capped)
+
+        let mut large = 60;
+        chained.mutate(&mut large);
+        assert_eq!(large, 100); // 60 * 2 = 120 (> 100, capped)
+    }
+
+    // ========================================================================
+    // RcMutator::when() tests
+    // ========================================================================
+
+    #[test]
+    fn test_rc_when_with_closure() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_when_with_function_pointer() {
+        let conditional =
+            RcMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_when_with_rc_predicate() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_when_with_box_predicate() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    // ========================================================================
+    // RcConditionalMutator::or_else() tests
+    // ========================================================================
+
+    #[test]
+    fn test_rc_or_else_with_closure() {
+        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x -= 1);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -6);
+    }
+
+    #[test]
+    fn test_rc_or_else_with_function_pointer() {
+        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(negate as fn(&mut i32));
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 5);
+    }
+
+    #[test]
+    fn test_rc_or_else_with_rc_mutator() {
+        let else_mutator = RcMutator::new(|x: &mut i32| *x = 100);
+        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 100);
+    }
+
+    #[test]
+    fn test_rc_or_else_with_box_mutator() {
+        let else_mutator = BoxMutator::new(|x: &mut i32| *x = 200);
+        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 200);
+    }
+
+    // ========================================================================
+    // RcConditionalMutator::clone() tests
+    // ========================================================================
+
+    #[test]
+    fn test_rc_conditional_clone() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut clone1 = conditional.clone();
+        let mut clone2 = conditional.clone();
+
+        let mut value1 = 5;
+        clone1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        let mut value2 = -5;
+        clone2.mutate(&mut value2);
+        assert_eq!(value2, -5);
+    }
+
+    // ========================================================================
+    // ArcMutator::when() tests
+    // ========================================================================
+
+    #[test]
+    fn test_arc_when_with_closure() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_when_with_function_pointer() {
+        let conditional =
+            ArcMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_when_with_arc_predicate() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut m = conditional.clone();
+
+        let mut positive = 5;
+        m.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        m.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    // ========================================================================
+    // ArcConditionalMutator::or_else() tests
+    // ========================================================================
+
+    #[test]
+    fn test_arc_or_else_with_closure() {
+        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x -= 1);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -6);
+    }
+
+    #[test]
+    fn test_arc_or_else_with_function_pointer() {
+        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(negate as fn(&mut i32));
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 5);
+    }
+
+    #[test]
+    fn test_arc_or_else_with_arc_mutator() {
+        let else_mutator = ArcMutator::new(|x: &mut i32| *x = 100);
+        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(else_mutator);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 100);
+    }
+
+    // Note: BoxMutator is not Send, so it cannot be used with ArcMutator::or_else()
+
+    // ========================================================================
+    // ArcConditionalMutator::clone() tests
+    // ========================================================================
+
+    #[test]
+    fn test_arc_conditional_clone() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut clone1 = conditional.clone();
+        let mut clone2 = conditional.clone();
+
+        let mut value1 = 5;
+        clone1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        let mut value2 = -5;
+        clone2.mutate(&mut value2);
+        assert_eq!(value2, -5);
+    }
+
+    // ========================================================================
+    // Thread safety tests for ArcConditionalMutator
+    // ========================================================================
+
+    #[test]
+    fn test_arc_conditional_thread_safety() {
+        use std::thread;
+
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let clone = conditional.clone();
+
+        let handle = thread::spawn(move || {
+            let mut value = 5;
+            let mut m = clone;
+            m.mutate(&mut value);
+            value
+        });
+
+        let mut value = -5;
+        let mut m = conditional;
+        m.mutate(&mut value);
+        assert_eq!(value, -5);
+
+        assert_eq!(handle.join().unwrap(), 10);
+    }
+
+    #[test]
+    fn test_arc_or_else_thread_safety() {
+        use std::thread;
+
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x = 0);
+
+        let clone = mutator.clone();
+
+        let handle = thread::spawn(move || {
+            let mut value = -5;
+            let mut m = clone;
+            m.mutate(&mut value);
+            value
+        });
+
+        let mut value = 5;
+        let mut m = mutator;
+        m.mutate(&mut value);
+        assert_eq!(value, 10);
+
+        assert_eq!(handle.join().unwrap(), 0);
+    }
+
+    // ========================================================================
+    // Type conversion tests for ConditionalMutator
+    // ========================================================================
+
+    #[test]
+    fn test_box_conditional_into_box() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        boxed.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_box_conditional_into_rc() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        rc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_box() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        boxed.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_rc() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        rc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_box() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        boxed.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_rc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        rc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_arc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut arc = conditional.into_arc();
+
+        let mut positive = 5;
+        arc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        arc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    // ========================================================================
+    // into_fn tests for ConditionalMutator
+    // ========================================================================
+
+    #[test]
+    fn test_box_conditional_into_fn() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut values = vec![-2, -1, 0, 1, 2, 3];
+
+        values.iter_mut().for_each(conditional.into_fn());
+
+        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_fn() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut values = vec![-2, -1, 0, 1, 2, 3];
+
+        values.iter_mut().for_each(conditional.into_fn());
+
+        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_fn() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut values = vec![-2, -1, 0, 1, 2, 3];
+
+        values.iter_mut().for_each(conditional.into_fn());
+
+        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    // ========================================================================
+    // Complex conditional composition tests
+    // ========================================================================
+
+    #[test]
+    fn test_nested_conditionals() {
+        // When x > 0: multiply by 2, then if result > 10: cap at 10
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .and_then(BoxMutator::new(|x: &mut i32| *x = 10).when(|x: &i32| *x > 10));
+
+        let mut small = 3;
+        mutator.mutate(&mut small);
+        assert_eq!(small, 6); // 3 * 2 = 6 (not capped)
+
+        let mut medium = 5;
+        mutator.mutate(&mut medium);
+        assert_eq!(medium, 10); // 5 * 2 = 10 (not capped)
+
+        let mut large = 8;
+        mutator.mutate(&mut large);
+        assert_eq!(large, 10); // 8 * 2 = 16 -> capped to 10
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -5); // Not doubled (condition failed)
+    }
+
+    #[test]
+    fn test_or_else_chaining() {
+        // If positive: double, else: triple
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x *= 3);
+
+        let mut positive = 5;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, -15);
+
+        let mut zero = 0;
+        mutator.mutate(&mut zero);
+        assert_eq!(zero, 0); // 0 * 3
+    }
+
+    #[test]
+    fn test_combined_predicate_types() {
+        use prism3_function::predicate::FnPredicateOps;
+
+        // Combine predicates: x > 0 AND x < 100
+        let pred = (|x: &i32| *x > 0).and(|x: &i32| *x < 100);
+        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
+
+        let mut in_range = 50;
+        mutator.mutate(&mut in_range);
+        assert_eq!(in_range, 100); // Doubled
+
+        let mut too_small = -10;
+        mutator.mutate(&mut too_small);
+        assert_eq!(too_small, -10); // Not doubled
+
+        let mut too_large = 150;
+        mutator.mutate(&mut too_large);
+        assert_eq!(too_large, 150); // Not doubled
     }
 }
