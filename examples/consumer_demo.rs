@@ -104,13 +104,13 @@ fn main() {
 
     // print
     print!("print - prints value: ");
-    let mut print = BoxConsumer::<i32>::print();
+    let mut print = BoxConsumer::new(|x: &i32| println!("{}", x));
     let value = 42;
     print.accept(&value);
     println!();
 
-    // print_with
-    let mut print_with = BoxConsumer::<i32>::print_with("Value is: ");
+    // print with prefix
+    let mut print_with = BoxConsumer::new(|x: &i32| println!("Value is: {}", x));
     let value = 42;
     print_with.accept(&value);
     println!();
@@ -121,9 +121,9 @@ fn main() {
     println!("Example 5: Conditional Consumer");
     println!("{}", "-".repeat(50));
 
-    // if_then
+    // when
     let mut check_positive =
-        BoxConsumer::if_then(|x: &i32| *x > 0, |x: &i32| println!("Positive: {}", x));
+        BoxConsumer::new(|x: &i32| println!("Positive: {}", x)).when(|x: &i32| *x > 0);
 
     let positive = 5;
     let negative = -5;
@@ -133,12 +133,10 @@ fn main() {
     check_positive.accept(&negative);
     println!("(negative numbers not printed)\n");
 
-    // if_then_else
-    let mut categorize = BoxConsumer::if_then_else(
-        |x: &i32| *x > 0,
-        |x: &i32| println!("Positive: {}", x),
-        |x: &i32| println!("Non-positive: {}", x),
-    );
+    // when().or_else()
+    let mut categorize = BoxConsumer::new(|x: &i32| println!("Positive: {}", x))
+        .when(|x: &i32| *x > 0)
+        .or_else(|x: &i32| println!("Non-positive: {}", x));
 
     let positive = 10;
     let negative = -10;

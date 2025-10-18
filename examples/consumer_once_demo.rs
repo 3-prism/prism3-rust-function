@@ -62,34 +62,30 @@ fn main() {
 
         // Print consumer
         print!("  Print consumer: ");
-        let print = BoxConsumerOnce::<i32>::print();
+        let print = BoxConsumerOnce::new(|x: &i32| println!("{}", x));
         print.accept(&42);
 
         // Print with prefix
         print!("  Print with prefix: ");
-        let print_with = BoxConsumerOnce::<i32>::print_with("Value: ");
+        let print_with = BoxConsumerOnce::new(|x: &i32| println!("Value: {}", x));
         print_with.accept(&42);
 
         // Conditional consumer
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxConsumerOnce::if_then(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x * 2);
-            },
-        );
+        let conditional = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        })
+        .when(|x: &i32| *x > 0);
         conditional.accept(&5);
         println!("  Conditional (positive): {:?}", *log.lock().unwrap());
 
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxConsumerOnce::if_then(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x * 2);
-            },
-        );
+        let conditional = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        })
+        .when(|x: &i32| *x > 0);
         conditional.accept(&-5);
         println!("  Conditional (negative): {:?}\n", *log.lock().unwrap());
     }

@@ -49,12 +49,10 @@ fn main() {
     println!("3. Conditional execution - true case:");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
-    let conditional = BoxBiConsumerOnce::if_then(
-        |x: &i32, y: &i32| *x > 0 && *y > 0,
-        move |x: &i32, y: &i32| {
-            l.lock().unwrap().push(*x + *y);
-        },
-    );
+    let conditional = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+        l.lock().unwrap().push(*x + *y);
+    })
+    .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
     conditional.accept(&5, &3);
     println!("  Positive values: {:?}\n", *log.lock().unwrap());
 
@@ -62,12 +60,10 @@ fn main() {
     println!("4. Conditional execution - false case:");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
-    let conditional = BoxBiConsumerOnce::if_then(
-        |x: &i32, y: &i32| *x > 0 && *y > 0,
-        move |x: &i32, y: &i32| {
-            l.lock().unwrap().push(*x + *y);
-        },
-    );
+    let conditional = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+        l.lock().unwrap().push(*x + *y);
+    })
+    .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
     conditional.accept(&-5, &3);
     println!("  Negative value (unchanged): {:?}\n", *log.lock().unwrap());
 
@@ -76,15 +72,13 @@ fn main() {
     let log = Arc::new(Mutex::new(Vec::new()));
     let l1 = log.clone();
     let l2 = log.clone();
-    let branch = BoxBiConsumerOnce::if_then_else(
-        |x: &i32, y: &i32| *x > *y,
-        move |x: &i32, _y: &i32| {
-            l1.lock().unwrap().push(*x);
-        },
-        move |_x: &i32, y: &i32| {
-            l2.lock().unwrap().push(*y);
-        },
-    );
+    let branch = BoxBiConsumerOnce::new(move |x: &i32, _y: &i32| {
+        l1.lock().unwrap().push(*x);
+    })
+    .when(|x: &i32, y: &i32| *x > *y)
+    .or_else(move |_x: &i32, y: &i32| {
+        l2.lock().unwrap().push(*y);
+    });
     branch.accept(&15, &10);
     println!("  When x > y: {:?}\n", *log.lock().unwrap());
 
@@ -147,10 +141,11 @@ fn main() {
 
     // 11. Print helpers
     println!("11. Print helpers:");
-    let print = BoxBiConsumerOnce::<i32, i32>::print();
+    let print = BoxBiConsumerOnce::new(|x: &i32, y: &i32| println!("{}, {}", x, y));
     print.accept(&42, &10);
 
-    let print_with = BoxBiConsumerOnce::<i32, i32>::print_with("Dimensions: ");
+    let print_with =
+        BoxBiConsumerOnce::new(|x: &i32, y: &i32| println!("Dimensions: {}, {}", x, y));
     print_with.accept(&800, &600);
     println!();
 
