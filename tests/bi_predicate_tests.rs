@@ -1422,3 +1422,76 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod to_fn_tests {
+    use prism3_function::bi_predicate::{ArcBiPredicate, RcBiPredicate};
+
+    #[test]
+    fn test_rc_to_fn() {
+        let pred = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+        let func = pred.to_fn();
+
+        assert!(func(&5, &3));
+        assert!(!func(&-5, &-3));
+        assert!(!func(&0, &0));
+    }
+
+    #[test]
+    fn test_rc_to_fn_multiple_calls() {
+        let pred = RcBiPredicate::new(|x: &i32, y: &i32| x % 2 == 0 && y % 2 == 0);
+        let func = pred.to_fn();
+
+        assert!(func(&2, &4));
+        assert!(func(&4, &6));
+        assert!(!func(&3, &4));
+        assert!(!func(&2, &5));
+    }
+
+    #[test]
+    fn test_arc_to_fn() {
+        let pred = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+        let func = pred.to_fn();
+
+        assert!(func(&5, &3));
+        assert!(!func(&-5, &-3));
+        assert!(!func(&0, &0));
+    }
+
+    #[test]
+    fn test_arc_to_fn_multiple_calls() {
+        let pred = ArcBiPredicate::new(|x: &i32, y: &i32| x % 2 == 0 && y % 2 == 0);
+        let func = pred.to_fn();
+
+        assert!(func(&2, &4));
+        assert!(func(&4, &6));
+        assert!(!func(&3, &4));
+        assert!(!func(&2, &5));
+    }
+
+    #[test]
+    fn test_rc_to_fn_with_composition() {
+        let is_sum_positive = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+        let is_both_even = RcBiPredicate::new(|x: &i32, y: &i32| x % 2 == 0 && y % 2 == 0);
+
+        let combined = is_sum_positive.and(is_both_even);
+        let func = combined.to_fn();
+
+        assert!(func(&2, &4));
+        assert!(!func(&1, &3));
+        assert!(!func(&-2, &-4));
+    }
+
+    #[test]
+    fn test_arc_to_fn_with_composition() {
+        let is_sum_positive = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+        let is_both_even = ArcBiPredicate::new(|x: &i32, y: &i32| x % 2 == 0 && y % 2 == 0);
+
+        let combined = is_sum_positive.and(is_both_even);
+        let func = combined.to_fn();
+
+        assert!(func(&2, &4));
+        assert!(!func(&1, &3));
+        assert!(!func(&-2, &-4));
+    }
+}

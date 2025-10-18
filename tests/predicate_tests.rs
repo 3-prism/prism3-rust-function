@@ -1664,3 +1664,477 @@ mod parameter_types_tests {
         assert!(!nor.test(&4));
     }
 }
+
+#[cfg(test)]
+mod always_predicates_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_always_true() {
+        let pred = BoxPredicate::<i32>::always_true();
+        assert!(pred.test(&5));
+        assert!(pred.test(&-5));
+        assert!(pred.test(&0));
+    }
+
+    #[test]
+    fn test_box_always_false() {
+        let pred = BoxPredicate::<i32>::always_false();
+        assert!(!pred.test(&5));
+        assert!(!pred.test(&-5));
+        assert!(!pred.test(&0));
+    }
+
+    #[test]
+    fn test_rc_always_true() {
+        let pred = RcPredicate::<i32>::always_true();
+        assert!(pred.test(&5));
+        assert!(pred.test(&-5));
+        assert!(pred.test(&0));
+    }
+
+    #[test]
+    fn test_rc_always_false() {
+        let pred = RcPredicate::<i32>::always_false();
+        assert!(!pred.test(&5));
+        assert!(!pred.test(&-5));
+        assert!(!pred.test(&0));
+    }
+
+    #[test]
+    fn test_arc_always_true() {
+        let pred = ArcPredicate::<i32>::always_true();
+        assert!(pred.test(&5));
+        assert!(pred.test(&-5));
+        assert!(pred.test(&0));
+    }
+
+    #[test]
+    fn test_arc_always_false() {
+        let pred = ArcPredicate::<i32>::always_false();
+        assert!(!pred.test(&5));
+        assert!(!pred.test(&-5));
+        assert!(!pred.test(&0));
+    }
+
+    #[test]
+    fn test_always_true_with_composition() {
+        let always = BoxPredicate::<i32>::always_true();
+        let is_positive = |x: &i32| *x > 0;
+
+        let and_result = always.and(is_positive);
+        assert!(and_result.test(&5));
+        assert!(!and_result.test(&-5));
+    }
+
+    #[test]
+    fn test_always_false_with_composition() {
+        let never = BoxPredicate::<i32>::always_false();
+        let is_positive = |x: &i32| *x > 0;
+
+        let or_result = never.or(is_positive);
+        assert!(or_result.test(&5));
+        assert!(!or_result.test(&-5));
+    }
+
+    #[test]
+    fn test_new_with_name() {
+        let mut pred = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("positive"));
+        assert!(pred.test(&5));
+
+        pred.set_name("updated");
+        assert_eq!(pred.name(), Some("updated"));
+    }
+
+    #[test]
+    fn test_rc_new_with_name() {
+        let mut pred = RcPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("positive"));
+        assert!(pred.test(&5));
+
+        pred.set_name("updated");
+        assert_eq!(pred.name(), Some("updated"));
+    }
+
+    #[test]
+    fn test_arc_new_with_name() {
+        let mut pred = ArcPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        assert_eq!(pred.name(), Some("positive"));
+        assert!(pred.test(&5));
+
+        pred.set_name("updated");
+        assert_eq!(pred.name(), Some("updated"));
+    }
+}
+
+#[cfg(test)]
+mod to_fn_tests {
+    use super::*;
+
+    #[test]
+    fn test_rc_to_fn() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let func = pred.to_fn();
+
+        assert!(func(&5));
+        assert!(!func(&-5));
+        assert!(!func(&0));
+    }
+
+    #[test]
+    fn test_rc_to_fn_multiple_calls() {
+        let pred = RcPredicate::new(|x: &i32| *x % 2 == 0);
+        let func = pred.to_fn();
+
+        assert!(func(&2));
+        assert!(func(&4));
+        assert!(!func(&3));
+        assert!(!func(&5));
+    }
+
+    #[test]
+    fn test_arc_to_fn() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let func = pred.to_fn();
+
+        assert!(func(&5));
+        assert!(!func(&-5));
+        assert!(!func(&0));
+    }
+
+    #[test]
+    fn test_arc_to_fn_multiple_calls() {
+        let pred = ArcPredicate::new(|x: &i32| *x % 2 == 0);
+        let func = pred.to_fn();
+
+        assert!(func(&2));
+        assert!(func(&4));
+        assert!(!func(&3));
+        assert!(!func(&5));
+    }
+
+    #[test]
+    fn test_rc_to_fn_with_composition() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = is_positive.and(is_even);
+        let func = combined.to_fn();
+
+        assert!(func(&4));
+        assert!(!func(&3));
+        assert!(!func(&-2));
+    }
+
+    #[test]
+    fn test_arc_to_fn_with_composition() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = is_positive.and(is_even);
+        let func = combined.to_fn();
+
+        assert!(func(&4));
+        assert!(!func(&3));
+        assert!(!func(&-2));
+    }
+}
+
+#[cfg(test)]
+mod not_composition_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_not_and_composition() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.and(is_even);
+
+        assert!(combined.test(&-2));
+        assert!(!combined.test(&-3));
+        assert!(!combined.test(&4));
+    }
+
+    #[test]
+    fn test_box_not_or_composition() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.or(is_even);
+
+        assert!(combined.test(&-3));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_rc_not_and_composition() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.and(is_even);
+
+        assert!(combined.test(&-2));
+        assert!(!combined.test(&-3));
+        assert!(!combined.test(&4));
+    }
+
+    #[test]
+    fn test_rc_not_or_composition() {
+        let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.or(is_even);
+
+        assert!(combined.test(&-3));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_arc_not_and_composition() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.and(is_even);
+
+        assert!(combined.test(&-2));
+        assert!(!combined.test(&-3));
+        assert!(!combined.test(&4));
+    }
+
+    #[test]
+    fn test_arc_not_or_composition() {
+        let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+        let is_even = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.or(is_even);
+
+        assert!(combined.test(&-3));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_double_not() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let not_positive = is_positive.not();
+        let double_not = not_positive.not();
+
+        assert!(double_not.test(&5));
+        assert!(!double_not.test(&-5));
+    }
+
+    #[test]
+    fn test_not_with_nand() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.nand(is_even);
+
+        assert!(combined.test(&-3));
+        assert!(combined.test(&3));
+        assert!(!combined.test(&-2));
+    }
+
+    #[test]
+    fn test_not_with_xor() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.xor(is_even);
+
+        assert!(combined.test(&-3));
+        assert!(combined.test(&4));
+        assert!(!combined.test(&-2));
+        assert!(!combined.test(&3));
+    }
+
+    #[test]
+    fn test_not_with_nor() {
+        let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let not_positive = is_positive.not();
+        let combined = not_positive.nor(is_even);
+
+        assert!(combined.test(&3));
+        assert!(!combined.test(&-3));
+        assert!(!combined.test(&4));
+        assert!(!combined.test(&-2));
+    }
+}
+
+// ============================================================================
+// Additional Type Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod additional_type_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_into_box() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let boxed = pred.into_box();
+        assert!(boxed.test(&5));
+        assert!(!boxed.test(&-3));
+    }
+
+    #[test]
+    fn test_box_into_rc() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let rc = pred.into_rc();
+        assert!(rc.test(&5));
+        assert!(!rc.test(&-3));
+    }
+
+    #[test]
+    fn test_box_into_fn() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let func = pred.into_fn();
+        assert!(func(&5));
+        assert!(!func(&-3));
+    }
+
+    #[test]
+    fn test_arc_into_arc() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let arc = pred.into_arc();
+        assert!(arc.test(&5));
+        assert!(!arc.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_into_box() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let boxed = pred.into_box();
+        assert!(boxed.test(&5));
+        assert!(!boxed.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_into_rc() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let rc = pred.into_rc();
+        assert!(rc.test(&5));
+        assert!(!rc.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_into_fn() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let func = pred.into_fn();
+        assert!(func(&5));
+        assert!(!func(&-3));
+    }
+
+    #[test]
+    fn test_rc_into_rc() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let rc = pred.into_rc();
+        assert!(rc.test(&5));
+        assert!(!rc.test(&-3));
+    }
+
+    #[test]
+    fn test_rc_into_box() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let boxed = pred.into_box();
+        assert!(boxed.test(&5));
+        assert!(!boxed.test(&-3));
+    }
+
+    #[test]
+    fn test_rc_into_fn() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let func = pred.into_fn();
+        assert!(func(&5));
+        assert!(!func(&-3));
+    }
+}
+
+// ============================================================================
+// Display and Debug Tests
+// ============================================================================
+
+#[cfg(test)]
+mod display_debug_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_display_unnamed() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "BoxPredicate(unnamed)");
+    }
+
+    #[test]
+    fn test_box_display_named() {
+        let pred = BoxPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "BoxPredicate(is_positive)");
+    }
+
+    #[test]
+    fn test_box_debug() {
+        let pred = BoxPredicate::new(|x: &i32| *x > 0);
+        let debug_str = format!("{:?}", pred);
+        assert!(debug_str.contains("BoxPredicate"));
+        assert!(debug_str.contains("name"));
+    }
+
+    #[test]
+    fn test_arc_display_unnamed() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "ArcPredicate(unnamed)");
+    }
+
+    #[test]
+    fn test_arc_display_named() {
+        let pred = ArcPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "ArcPredicate(is_positive)");
+    }
+
+    #[test]
+    fn test_arc_debug() {
+        let pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let debug_str = format!("{:?}", pred);
+        assert!(debug_str.contains("ArcPredicate"));
+        assert!(debug_str.contains("name"));
+    }
+
+    #[test]
+    fn test_rc_display_unnamed() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "RcPredicate(unnamed)");
+    }
+
+    #[test]
+    fn test_rc_display_named() {
+        let pred = RcPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
+        let display_str = format!("{}", pred);
+        assert_eq!(display_str, "RcPredicate(is_positive)");
+    }
+
+    #[test]
+    fn test_rc_debug() {
+        let pred = RcPredicate::new(|x: &i32| *x > 0);
+        let debug_str = format!("{:?}", pred);
+        assert!(debug_str.contains("RcPredicate"));
+        assert!(debug_str.contains("name"));
+    }
+}

@@ -187,3 +187,97 @@ mod closure_tests {
         assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     }
 }
+
+#[cfg(test)]
+mod debug_display_tests {
+    use super::*;
+
+    #[test]
+    fn test_debug() {
+        let consumer = BoxBiConsumerOnce::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxBiConsumerOnce"));
+    }
+
+    #[test]
+    fn test_debug_with_name() {
+        let mut consumer = BoxBiConsumerOnce::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxBiConsumerOnce"));
+        assert!(debug_str.contains("test_consumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = BoxBiConsumerOnce::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxBiConsumerOnce");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let mut consumer = BoxBiConsumerOnce::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxBiConsumerOnce(my_consumer)");
+    }
+
+    #[test]
+    fn test_name_methods() {
+        let mut consumer = BoxBiConsumerOnce::new(|_x: &i32, _y: &i32| {});
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("test");
+        assert_eq!(consumer.name(), Some("test"));
+    }
+}
+
+// ============================================================================
+// Type Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod type_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_into_box() {
+        let consumer = BoxBiConsumerOnce::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let boxed = consumer.into_box();
+        boxed.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_box_into_fn() {
+        let consumer = BoxBiConsumerOnce::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let func = consumer.into_fn();
+        func(&10, &20);
+    }
+
+    #[test]
+    fn test_if_then_else_conversion() {
+        use std::sync::Arc;
+        use std::sync::Mutex;
+
+        let result = Arc::new(Mutex::new(0));
+        let result_clone1 = result.clone();
+        let result_clone2 = result.clone();
+
+        let consumer = BoxBiConsumerOnce::if_then_else(
+            |x: &i32, y: &i32| x > y,
+            move |x: &i32, _y: &i32| {
+                *result_clone1.lock().unwrap() = *x;
+            },
+            move |_x: &i32, y: &i32| {
+                *result_clone2.lock().unwrap() = *y;
+            },
+        );
+        consumer.accept(&5, &3);
+        assert_eq!(*result.lock().unwrap(), 5);
+    }
+}

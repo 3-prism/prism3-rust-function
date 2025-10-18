@@ -747,9 +747,9 @@ mod test_edge_cases {
     #[test]
     fn test_unicode() {
         let mut mutator = BoxMutator::new(|s: &mut String| *s = s.to_uppercase());
-        let mut text = String::from("héllo 世界");
+        let mut text = String::from("héllo world");
         mutator.mutate(&mut text);
-        assert_eq!(text, "HÉLLO 世界");
+        assert_eq!(text, "HÉLLO WORLD");
     }
 }
 

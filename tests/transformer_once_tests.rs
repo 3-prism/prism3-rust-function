@@ -290,3 +290,26 @@ mod trait_usage_tests {
         assert_eq!(apply_transformer_once(to_string, 42), "42");
     }
 }
+
+// ============================================================================
+// Type Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod type_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_into_box() {
+        let add = BoxTransformerOnce::new(|x: i32| x + 10);
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(20), 30);
+    }
+
+    #[test]
+    fn test_box_into_fn() {
+        let add = BoxTransformerOnce::new(|x: i32| x + 10);
+        let func = add.into_fn();
+        assert_eq!(func(20), 30);
+    }
+}

@@ -539,3 +539,82 @@ mod edge_cases_tests {
         assert_eq!(process.transform(data), 5050);
     }
 }
+
+// ============================================================================
+// Type Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod type_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_into_box() {
+        let add = BoxTransformer::new(|x: i32| x + 10);
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(20), 30);
+    }
+
+    #[test]
+    fn test_box_into_rc() {
+        let add = BoxTransformer::new(|x: i32| x + 10);
+        let rc = add.into_rc();
+        assert_eq!(rc.transform(20), 30);
+    }
+
+    #[test]
+    fn test_arc_into_arc() {
+        let add = ArcTransformer::new(|x: i32| x + 10);
+        let arc = add.into_arc();
+        assert_eq!(arc.transform(20), 30);
+    }
+
+    #[test]
+    fn test_arc_into_fn() {
+        let add = ArcTransformer::new(|x: i32| x + 10);
+        let func = add.into_fn();
+        assert_eq!(func(20), 30);
+    }
+
+    #[test]
+    fn test_rc_into_rc() {
+        let add = RcTransformer::new(|x: i32| x + 10);
+        let rc = add.into_rc();
+        assert_eq!(rc.transform(20), 30);
+    }
+
+    #[test]
+    fn test_rc_into_fn() {
+        let add = RcTransformer::new(|x: i32| x + 10);
+        let func = add.into_fn();
+        assert_eq!(func(20), 30);
+    }
+
+    #[test]
+    fn test_box_into_fn() {
+        let add = BoxTransformer::new(|x: i32| x + 10);
+        let func = add.into_fn();
+        assert_eq!(func(20), 30);
+    }
+
+    #[test]
+    fn test_arc_into_box() {
+        let add = ArcTransformer::new(|x: i32| x + 10);
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(20), 30);
+    }
+
+    #[test]
+    fn test_arc_into_rc() {
+        let add = ArcTransformer::new(|x: i32| x + 10);
+        let rc = add.into_rc();
+        assert_eq!(rc.transform(20), 30);
+    }
+
+    #[test]
+    fn test_rc_into_box() {
+        let add = RcTransformer::new(|x: i32| x + 10);
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(20), 30);
+    }
+}

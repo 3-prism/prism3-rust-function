@@ -278,3 +278,38 @@ mod closure_tests {
         assert_eq!(*log.lock().unwrap(), vec![10, 15, 2]);
     }
 }
+
+#[cfg(test)]
+mod debug_display_tests {
+    use super::*;
+
+    #[test]
+    fn test_debug() {
+        let consumer = BoxConsumerOnce::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxConsumerOnce"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = BoxConsumerOnce::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxConsumerOnce");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let mut consumer = BoxConsumerOnce::new(|_x: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxConsumerOnce(my_consumer)");
+    }
+
+    #[test]
+    fn test_name() {
+        let mut consumer = BoxConsumerOnce::new(|_x: &i32| {});
+        assert_eq!(consumer.name(), None);
+        consumer.set_name("test");
+        assert_eq!(consumer.name(), Some("test"));
+    }
+}

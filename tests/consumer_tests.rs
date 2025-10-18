@@ -192,6 +192,72 @@ mod test_box_consumer {
         conditional.accept(&negative);
         assert_eq!(*log.lock().unwrap(), vec![5, 5]); // -(-5) = 5
     }
+
+    #[test]
+    fn test_debug() {
+        let consumer = BoxConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxConsumer"));
+    }
+
+    #[test]
+    fn test_debug_with_name() {
+        let consumer = BoxConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxConsumer"));
+        assert!(debug_str.contains("test_consumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = BoxConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let consumer = BoxConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut func = consumer.into_fn();
+        func(&5);
+        func(&10);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_into_rc_from_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        let mut rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut box_consumer = consumer.into_box();
+        box_consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
 }
 
 // ============================================================================
@@ -272,6 +338,92 @@ mod test_arc_consumer {
         result.sort();
         assert_eq!(result, vec![1, 2]);
     }
+
+    #[test]
+    fn test_noop() {
+        let mut noop = ArcConsumer::<i32>::noop();
+        noop.accept(&42);
+        // No assertion needed, just ensure it doesn't panic
+    }
+
+    #[test]
+    fn test_debug() {
+        let consumer = ArcConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcConsumer"));
+    }
+
+    #[test]
+    fn test_debug_with_name() {
+        let consumer = ArcConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcConsumer"));
+        assert!(debug_str.contains("test_consumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = ArcConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let consumer = ArcConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut func = consumer.into_fn();
+        func(&5);
+        func(&10);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut box_consumer = consumer.into_box();
+        box_consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let arc_consumer = consumer.into_arc();
+        let mut arc_consumer2 = arc_consumer.clone();
+        arc_consumer2.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
 }
 
 // ============================================================================
@@ -324,6 +476,80 @@ mod test_rc_consumer {
         let value = 5;
         chained.accept(&value);
         assert_eq!(*log.borrow(), vec![10, 15]);
+    }
+
+    #[test]
+    fn test_noop() {
+        let mut noop = RcConsumer::<i32>::noop();
+        noop.accept(&42);
+        // No assertion needed, just ensure it doesn't panic
+    }
+
+    #[test]
+    fn test_debug() {
+        let consumer = RcConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcConsumer"));
+    }
+
+    #[test]
+    fn test_debug_with_name() {
+        let consumer = RcConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcConsumer"));
+        assert!(debug_str.contains("test_consumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = RcConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let consumer = RcConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        let mut func = consumer.into_fn();
+        func(&5);
+        func(&10);
+        assert_eq!(*log.borrow(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_into_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        let mut box_consumer = consumer.into_box();
+        box_consumer.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+        let rc_consumer = consumer.into_rc();
+        let mut rc_consumer2 = rc_consumer.clone();
+        rc_consumer2.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
     }
 }
 

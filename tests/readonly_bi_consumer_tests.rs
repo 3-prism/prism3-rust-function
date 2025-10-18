@@ -78,6 +78,37 @@ mod box_readonly_bi_consumer_tests {
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
     }
+
+    #[test]
+    fn test_debug() {
+        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxReadonlyBiConsumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyBiConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5, &3);
+    }
 }
 
 #[cfg(test)]
@@ -167,6 +198,46 @@ mod arc_readonly_bi_consumer_tests {
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
     }
+
+    #[test]
+    fn test_debug() {
+        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcReadonlyBiConsumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyBiConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let func = consumer.into_fn();
+        func(&5, &3);
+    }
+
+    #[test]
+    fn test_into_arc() {
+        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let arc_consumer = consumer.into_arc();
+        arc_consumer.accept(&5, &3);
+    }
 }
 
 #[cfg(test)]
@@ -246,6 +317,46 @@ mod rc_readonly_bi_consumer_tests {
 
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_debug() {
+        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcReadonlyBiConsumer"));
+    }
+
+    #[test]
+    fn test_display() {
+        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_display_with_name() {
+        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyBiConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let func = consumer.into_fn();
+        func(&5, &3);
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("Sum: {}", x + y);
+        });
+        let rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5, &3);
     }
 }
 

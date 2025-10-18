@@ -165,4 +165,30 @@ mod test_box_supplier_once {
             assert_eq!(*result, vec![1, 2, 3]);
         }
     }
+
+    mod test_into_box_once_conversion {
+        use super::*;
+
+        #[test]
+        fn test_returns_self() {
+            let once = BoxSupplierOnce::new(|| 42);
+            let boxed = once.into_box_once();
+            assert_eq!(boxed.get(), 42);
+        }
+
+        #[test]
+        fn test_closure_into_box_once() {
+            let closure = || 42;
+            let boxed = closure.into_box_once();
+            assert_eq!(boxed.get(), 42);
+        }
+
+        #[test]
+        fn test_closure_with_move() {
+            let data = String::from("hello");
+            let closure = move || data;
+            let boxed = closure.into_box_once();
+            assert_eq!(boxed.get(), "hello");
+        }
+    }
 }

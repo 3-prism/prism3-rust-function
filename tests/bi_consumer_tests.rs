@@ -663,3 +663,164 @@ mod conversion_tests {
         assert_eq!(*log.borrow(), vec![8]);
     }
 }
+
+#[cfg(test)]
+mod debug_display_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_debug() {
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxBiConsumer"));
+    }
+
+    #[test]
+    fn test_box_display() {
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxBiConsumer");
+    }
+
+    #[test]
+    fn test_box_display_with_name() {
+        let mut consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxBiConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_arc_debug() {
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcBiConsumer"));
+    }
+
+    #[test]
+    fn test_arc_display() {
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcBiConsumer");
+    }
+
+    #[test]
+    fn test_arc_display_with_name() {
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcBiConsumer(my_consumer)");
+    }
+
+    #[test]
+    fn test_rc_debug() {
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcBiConsumer"));
+    }
+
+    #[test]
+    fn test_rc_display() {
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcBiConsumer");
+    }
+
+    #[test]
+    fn test_rc_display_with_name() {
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("my_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcBiConsumer(my_consumer)");
+    }
+}
+
+// ============================================================================
+// Additional Type Conversion Tests
+// ============================================================================
+
+#[cfg(test)]
+mod additional_conversion_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_into_box() {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut boxed = consumer.into_box();
+        boxed.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_box_into_rc() {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut rc = consumer.into_rc();
+        rc.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_arc_into_arc() {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut arc = consumer.into_arc();
+        arc.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_arc_into_fn() {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut func = consumer.into_fn();
+        func(&10, &20);
+    }
+
+    #[test]
+    fn test_rc_into_rc() {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut rc = consumer.into_rc();
+        rc.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_rc_into_fn() {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut func = consumer.into_fn();
+        func(&10, &20);
+    }
+
+    #[test]
+    fn test_arc_into_box() {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut boxed = consumer.into_box();
+        boxed.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_arc_into_rc() {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut rc = consumer.into_rc();
+        rc.accept(&10, &20);
+    }
+
+    #[test]
+    fn test_rc_into_box() {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
+            println!("x: {}, y: {}", x, y);
+        });
+        let mut boxed = consumer.into_box();
+        boxed.accept(&10, &20);
+    }
+}
