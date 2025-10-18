@@ -467,3 +467,292 @@ where
         move |input: T| -> R { self(input) }
     }
 }
+
+// ============================================================================
+// FnTransformerOnceOps - Extension trait for FnOnce transformers
+// ============================================================================
+
+/// Extension trait for closures implementing `FnOnce(T) -> R`
+///
+/// Provides composition methods (`and_then`, `compose`, `when`) for one-time
+/// use closures and function pointers without requiring explicit wrapping in
+/// `BoxTransformerOnce`.
+///
+/// This trait is automatically implemented for all closures and function
+/// pointers that implement `FnOnce(T) -> R`.
+///
+/// # Design Rationale
+///
+/// While closures automatically implement `TransformerOnce<T, R>` through
+/// blanket implementation, they don't have access to instance methods like
+/// `and_then`, `compose`, and `when`. This extension trait provides those
+/// methods, returning `BoxTransformerOnce` for maximum flexibility.
+///
+/// # Examples
+///
+/// ## Chain composition with and_then
+///
+/// ```rust
+/// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+///
+/// let parse = |s: String| s.parse::<i32>().unwrap_or(0);
+/// let double = |x: i32| x * 2;
+///
+/// let composed = parse.and_then(double);
+/// assert_eq!(composed.transform("21".to_string()), 42);
+/// ```
+///
+/// ## Reverse composition with compose
+///
+/// ```rust
+/// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+///
+/// let double = |x: i32| x * 2;
+/// let to_string = |x: i32| x.to_string();
+///
+/// let composed = to_string.compose(double);
+/// assert_eq!(composed.transform(21), "42");
+/// ```
+///
+/// ## Conditional transformation with when
+///
+/// ```rust
+/// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+///
+/// let double = |x: i32| x * 2;
+/// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+///
+/// assert_eq!(conditional.transform(5), 10);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
+    /// Chain composition - applies self first, then after
+    ///
+    /// Creates a new transformer that applies this transformer first, then
+    /// applies the after transformer to the result. Consumes self and returns
+    /// a `BoxTransformerOnce`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The output type of the after transformer
+    /// * `G` - The type of the after transformer (must implement
+    ///   TransformerOnce<R, S>)
+    ///
+    /// # Parameters
+    ///
+    /// * `after` - The transformer to apply after self, can be:
+    ///   - Closure: `|x: R| -> S`
+    ///   - Function pointer: `fn(R) -> S`
+    ///   - `BoxTransformerOnce<R, S>`
+    ///   - Any type implementing `TransformerOnce<R, S>`
+    ///
+    /// # Returns
+    ///
+    /// A new `BoxTransformerOnce<T, S>` representing the composition
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+    ///
+    /// let parse = |s: String| s.parse::<i32>().unwrap_or(0);
+    /// let double = |x: i32| x * 2;
+    ///
+    /// let composed = parse.and_then(double);
+    /// assert_eq!(composed.transform("21".to_string()), 42);
+    /// ```
+    fn and_then<S, G>(self, after: G) -> BoxTransformerOnce<T, S>
+    where
+        S: 'static,
+        G: TransformerOnce<R, S> + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformerOnce::new(move |x: T| {
+            let intermediate = self(x);
+            after.transform(intermediate)
+        })
+    }
+
+    /// Reverse composition - applies before first, then self
+    ///
+    /// Creates a new transformer that applies the before transformer first,
+    /// then applies this transformer to the result. Consumes self and returns
+    /// a `BoxTransformerOnce`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The input type of the before transformer
+    /// * `G` - The type of the before transformer (must implement
+    ///   TransformerOnce<S, T>)
+    ///
+    /// # Parameters
+    ///
+    /// * `before` - The transformer to apply before self, can be:
+    ///   - Closure: `|x: S| -> T`
+    ///   - Function pointer: `fn(S) -> T`
+    ///   - `BoxTransformerOnce<S, T>`
+    ///   - Any type implementing `TransformerOnce<S, T>`
+    ///
+    /// # Returns
+    ///
+    /// A new `BoxTransformerOnce<S, R>` representing the composition
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let to_string = |x: i32| x.to_string();
+    ///
+    /// let composed = to_string.compose(double);
+    /// assert_eq!(composed.transform(21), "42");
+    /// ```
+    fn compose<S, G>(self, before: G) -> BoxTransformerOnce<S, R>
+    where
+        S: 'static,
+        G: TransformerOnce<S, T> + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformerOnce::new(move |x: S| {
+            let intermediate = before.transform(x);
+            self(intermediate)
+        })
+    }
+
+    /// Creates a conditional transformer
+    ///
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// You must call `or_else()` to provide an alternative transformer for when
+    /// the condition is not satisfied.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `BoxPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxConditionalTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{TransformerOnce, FnTransformerOnceOps};
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// ```
+    fn when<P>(self, predicate: P) -> BoxConditionalTransformerOnce<T, R>
+    where
+        P: Predicate<T> + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformerOnce::new(self).when(predicate)
+    }
+}
+
+/// Blanket implementation of FnTransformerOnceOps for all FnOnce closures
+///
+/// Automatically implements `FnTransformerOnceOps<T, R>` for any type that
+/// implements `FnOnce(T) -> R`.
+///
+/// # Author
+///
+/// Hu Haixing
+impl<T, R, F> FnTransformerOnceOps<T, R> for F where F: FnOnce(T) -> R + 'static {}
+
+// ============================================================================
+// UnaryOperatorOnce Trait - Marker trait for TransformerOnce<T, T>
+// ============================================================================
+
+/// UnaryOperatorOnce trait - marker trait for one-time use unary operators
+///
+/// A one-time use unary operator transforms a value of type `T` to another
+/// value of the same type `T`, consuming self in the process. This trait
+/// extends `TransformerOnce<T, T>` to provide semantic clarity for same-type
+/// transformations with consuming semantics. Equivalent to Java's
+/// `UnaryOperator<T>` but with FnOnce semantics.
+///
+/// # Automatic Implementation
+///
+/// This trait is automatically implemented for all types that implement
+/// `TransformerOnce<T, T>`, so you don't need to implement it manually.
+///
+/// # Type Parameters
+///
+/// * `T` - The type of both input and output values
+///
+/// # Examples
+///
+/// ## Using in generic constraints
+///
+/// ```rust
+/// use prism3_function::{UnaryOperatorOnce, TransformerOnce};
+///
+/// fn apply_once<T, O>(value: T, op: O) -> T
+/// where
+///     O: UnaryOperatorOnce<T>,
+/// {
+///     op.transform(value)
+/// }
+///
+/// let double = |x: i32| x * 2;
+/// assert_eq!(apply_once(21, double), 42);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub trait UnaryOperatorOnce<T>: TransformerOnce<T, T> {}
+
+/// Blanket implementation of UnaryOperatorOnce for all TransformerOnce<T, T>
+///
+/// This automatically implements `UnaryOperatorOnce<T>` for any type that
+/// implements `TransformerOnce<T, T>`.
+///
+/// # Author
+///
+/// Hu Haixing
+impl<F, T> UnaryOperatorOnce<T> for F
+where
+    F: TransformerOnce<T, T>,
+    T: 'static,
+{
+    // empty
+}
+
+// ============================================================================
+// Type Aliases for UnaryOperatorOnce (TransformerOnce<T, T>)
+// ============================================================================
+
+/// Type alias for `BoxTransformerOnce<T, T>`
+///
+/// Represents a one-time use unary operator that transforms a value of type `T`
+/// to another value of the same type `T`. Equivalent to Java's `UnaryOperator<T>`
+/// with consuming semantics (FnOnce).
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{BoxUnaryOperatorOnce, TransformerOnce};
+///
+/// let increment: BoxUnaryOperatorOnce<i32> = BoxUnaryOperatorOnce::new(|x| x + 1);
+/// assert_eq!(increment.transform(41), 42);
+/// ```
+///
+/// # Author
+///
+/// Hu Haixing
+pub type BoxUnaryOperatorOnce<T> = BoxTransformerOnce<T, T>;
