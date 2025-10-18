@@ -612,3 +612,180 @@ mod conversion_tests {
         assert_eq!(*counter.borrow(), 8);
     }
 }
+
+// ============================================================================
+// Name Tests - Testing name() and set_name() methods
+// ============================================================================
+
+#[cfg(test)]
+mod name_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_consumer_name() {
+        let mut consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("{} + {} = {}", x, y, x + y);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("add_printer");
+        assert_eq!(consumer.name(), Some("add_printer"));
+    }
+
+    #[test]
+    fn test_arc_consumer_name() {
+        let mut consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("{} + {} = {}", x, y, x + y);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("add_printer");
+        assert_eq!(consumer.name(), Some("add_printer"));
+    }
+
+    #[test]
+    fn test_rc_consumer_name() {
+        let mut consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+            println!("{} + {} = {}", x, y, x + y);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("add_printer");
+        assert_eq!(consumer.name(), Some("add_printer"));
+    }
+
+    #[test]
+    fn test_box_consumer_name_with_accept() {
+        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1, &2);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_arc_consumer_name_with_accept() {
+        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1, &2);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_rc_consumer_name_with_accept() {
+        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1, &2);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_box_consumer_name_change() {
+        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("name1");
+        assert_eq!(consumer.name(), Some("name1"));
+        consumer.set_name("name2");
+        assert_eq!(consumer.name(), Some("name2"));
+    }
+
+    #[test]
+    fn test_arc_consumer_name_change() {
+        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("name1");
+        assert_eq!(consumer.name(), Some("name1"));
+        consumer.set_name("name2");
+        assert_eq!(consumer.name(), Some("name2"));
+    }
+
+    #[test]
+    fn test_rc_consumer_name_change() {
+        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("name1");
+        assert_eq!(consumer.name(), Some("name1"));
+        consumer.set_name("name2");
+        assert_eq!(consumer.name(), Some("name2"));
+    }
+}
+
+// ============================================================================
+// Display and Debug Tests
+// ============================================================================
+
+#[cfg(test)]
+mod display_debug_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_consumer_debug() {
+        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxReadonlyBiConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_box_consumer_display_without_name() {
+        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_box_consumer_display_with_name() {
+        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyBiConsumer(test_consumer)");
+    }
+
+    #[test]
+    fn test_arc_consumer_debug() {
+        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcReadonlyBiConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_arc_consumer_display_without_name() {
+        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_arc_consumer_display_with_name() {
+        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyBiConsumer(test_consumer)");
+    }
+
+    #[test]
+    fn test_rc_consumer_debug() {
+        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcReadonlyBiConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_rc_consumer_display_without_name() {
+        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyBiConsumer");
+    }
+
+    #[test]
+    fn test_rc_consumer_display_with_name() {
+        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyBiConsumer(test_consumer)");
+    }
+}

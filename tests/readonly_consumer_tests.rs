@@ -595,3 +595,153 @@ mod generic_tests {
         apply_consumer(&closure, &5);
     }
 }
+
+// ============================================================================
+// Name Tests - Testing name() and set_name() methods
+// ============================================================================
+
+#[cfg(test)]
+mod name_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_consumer_name() {
+        let mut consumer = BoxReadonlyConsumer::new(|x: &i32| {
+            println!("Value: {}", x);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("printer");
+        assert_eq!(consumer.name(), Some("printer"));
+    }
+
+    #[test]
+    fn test_arc_consumer_name() {
+        let mut consumer = ArcReadonlyConsumer::new(|x: &i32| {
+            println!("Value: {}", x);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("printer");
+        assert_eq!(consumer.name(), Some("printer"));
+    }
+
+    #[test]
+    fn test_rc_consumer_name() {
+        let mut consumer = RcReadonlyConsumer::new(|x: &i32| {
+            println!("Value: {}", x);
+        });
+        assert_eq!(consumer.name(), None);
+
+        consumer.set_name("printer");
+        assert_eq!(consumer.name(), Some("printer"));
+    }
+
+    #[test]
+    fn test_box_consumer_name_with_accept() {
+        let mut consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_arc_consumer_name_with_accept() {
+        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+
+    #[test]
+    fn test_rc_consumer_name_with_accept() {
+        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept(&1);
+        assert_eq!(consumer.name(), Some("test_consumer"));
+    }
+}
+
+// ============================================================================
+// Display and Debug Tests
+// ============================================================================
+
+#[cfg(test)]
+mod display_debug_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_consumer_debug() {
+        let consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("BoxReadonlyConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_box_consumer_display_without_name() {
+        let consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyConsumer");
+    }
+
+    #[test]
+    fn test_box_consumer_display_with_name() {
+        let mut consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "BoxReadonlyConsumer(test_consumer)");
+    }
+
+    #[test]
+    fn test_arc_consumer_debug() {
+        let consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("ArcReadonlyConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_arc_consumer_display_without_name() {
+        let consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyConsumer");
+    }
+
+    #[test]
+    fn test_arc_consumer_display_with_name() {
+        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "ArcReadonlyConsumer(test_consumer)");
+    }
+
+    #[test]
+    fn test_rc_consumer_debug() {
+        let consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let debug_str = format!("{:?}", consumer);
+        assert!(debug_str.contains("RcReadonlyConsumer"));
+        assert!(debug_str.contains("name"));
+        assert!(debug_str.contains("function"));
+    }
+
+    #[test]
+    fn test_rc_consumer_display_without_name() {
+        let consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyConsumer");
+    }
+
+    #[test]
+    fn test_rc_consumer_display_with_name() {
+        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
+        let display_str = format!("{}", consumer);
+        assert_eq!(display_str, "RcReadonlyConsumer(test_consumer)");
+    }
+}
