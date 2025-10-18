@@ -390,7 +390,6 @@ mod conversion_tests {
         let boxed = double.into_box();
         assert_eq!(boxed.transform(21), 42);
     }
-
 }
 
 // ============================================================================
