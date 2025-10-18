@@ -131,34 +131,16 @@ mod test_box_consumer {
         // No assertion needed, just ensure it doesn't panic
     }
 
-    #[test]
-    fn test_print() {
-        let mut print = BoxConsumer::<i32>::print();
-        let value = 42;
-        print.accept(&value);
-        // No assertion, just ensure it doesn't panic
-    }
-
-    #[test]
-    fn test_print_with() {
-        let mut print = BoxConsumer::<i32>::print_with("Value: ");
-        let value = 42;
-        print.accept(&value);
-        // No assertion, just ensure it doesn't panic
-    }
-
-    // println and println_with methods are not available for immutable Consumer
+    // print and print_with methods have been removed
 
     #[test]
     fn test_if_then() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut conditional = BoxConsumer::if_then(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x);
-            },
-        );
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|x: &i32| *x > 0);
 
         let positive = 5;
         conditional.accept(&positive);
@@ -174,15 +156,12 @@ mod test_box_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut conditional = BoxConsumer::if_then_else(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l1.lock().unwrap().push(*x);
-            },
-            move |x: &i32| {
-                l2.lock().unwrap().push(-*x);
-            },
-        );
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(-*x);
+        });
 
         let positive = 5;
         conditional.accept(&positive);
@@ -820,34 +799,18 @@ mod test_edge_cases {
         consumer.accept(&5); // Should do nothing
     }
 
-    #[test]
-    fn test_print_with_multiple_values() {
-        let mut consumer = BoxConsumer::print();
-        consumer.accept(&1);
-        consumer.accept(&2);
-        consumer.accept(&3);
-    }
-
-    #[test]
-    fn test_print_with_prefix_multiple_values() {
-        let mut consumer = BoxConsumer::print_with("Value: ");
-        consumer.accept(&1);
-        consumer.accept(&2);
-        consumer.accept(&3);
-    }
+    // print and print_with methods have been removed
 
     #[test]
     fn test_if_then_with_always_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::if_then(
-            |_: &i32| true,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x);
-            },
-        );
-        consumer.accept(&5);
-        consumer.accept(&10);
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|_: &i32| true);
+        conditional.accept(&5);
+        conditional.accept(&10);
         assert_eq!(*log.lock().unwrap(), vec![5, 10]);
     }
 
@@ -855,14 +818,12 @@ mod test_edge_cases {
     fn test_if_then_with_always_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::if_then(
-            |_: &i32| false,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x);
-            },
-        );
-        consumer.accept(&5);
-        consumer.accept(&10);
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|_: &i32| false);
+        conditional.accept(&5);
+        conditional.accept(&10);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -871,16 +832,13 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut consumer = BoxConsumer::if_then_else(
-            |_: &i32| true,
-            move |x: &i32| {
-                l1.lock().unwrap().push(*x);
-            },
-            move |x: &i32| {
-                l2.lock().unwrap().push(*x * 100);
-            },
-        );
-        consumer.accept(&5);
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|_: &i32| true).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 100);
+        });
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -889,16 +847,13 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut consumer = BoxConsumer::if_then_else(
-            |_: &i32| false,
-            move |x: &i32| {
-                l1.lock().unwrap().push(*x);
-            },
-            move |x: &i32| {
-                l2.lock().unwrap().push(*x * 100);
-            },
-        );
-        consumer.accept(&5);
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let mut conditional = consumer.when(|_: &i32| false).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 100);
+        });
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![500]);
     }
 

@@ -84,30 +84,16 @@ mod box_consumer_once_tests {
         // Should not panic
     }
 
-    #[test]
-    fn test_print() {
-        let print = BoxConsumerOnce::<i32>::print();
-        print.accept(&42);
-        // Should print "42"
-    }
-
-    #[test]
-    fn test_print_with() {
-        let print = BoxConsumerOnce::<i32>::print_with("Value: ");
-        print.accept(&42);
-        // Should print "Value: 42"
-    }
+    // print and print_with methods have been removed
 
     #[test]
     fn test_if_then_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxConsumerOnce::if_then(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x + 1);
-            },
-        );
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x + 1);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
         conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![6]);
     }
@@ -116,12 +102,10 @@ mod box_consumer_once_tests {
     fn test_if_then_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxConsumerOnce::if_then(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l.lock().unwrap().push(*x + 1);
-            },
-        );
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x + 1);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
         conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
@@ -131,15 +115,12 @@ mod box_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let conditional = BoxConsumerOnce::if_then_else(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l1.lock().unwrap().push(*x + 1);
-            },
-            move |x: &i32| {
-                l2.lock().unwrap().push(*x - 1);
-            },
-        );
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x + 1);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(*x - 1);
+        });
         conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![6]);
     }
@@ -149,15 +130,12 @@ mod box_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let conditional = BoxConsumerOnce::if_then_else(
-            |x: &i32| *x > 0,
-            move |x: &i32| {
-                l1.lock().unwrap().push(*x + 1);
-            },
-            move |x: &i32| {
-                l2.lock().unwrap().push(*x - 1);
-            },
-        );
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x + 1);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(*x - 1);
+        });
         conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), vec![-6]);
     }

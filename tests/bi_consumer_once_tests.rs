@@ -51,61 +51,45 @@ mod box_bi_consumer_once_tests {
     }
 
     #[test]
-    fn test_print() {
-        let print = BoxBiConsumerOnce::<i32, i32>::print();
-        print.accept(&42, &10); // Should print: (42, 10)
-    }
-
-    #[test]
-    fn test_print_with() {
-        let print = BoxBiConsumerOnce::<i32, i32>::print_with("Values: ");
-        print.accept(&42, &10); // Should print: Values: 42, 10
-    }
-
-    #[test]
-    fn test_if_then_true() {
+    fn test_when_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxBiConsumerOnce::if_then(
-            |x: &i32, y: &i32| *x > 0 && *y > 0,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 
     #[test]
-    fn test_if_then_false() {
+    fn test_when_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let conditional = BoxBiConsumerOnce::if_then(
-            |x: &i32, y: &i32| *x > 0 && *y > 0,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
         conditional.accept(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![]);
     }
 
     #[test]
-    fn test_if_then_else() {
+    fn test_when_or_else() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let conditional = BoxBiConsumerOnce::if_then_else(
-            |x: &i32, y: &i32| *x > *y,
-            move |x: &i32, _y: &i32| {
-                l1.lock().unwrap().push(*x);
-            },
-            move |_x: &i32, y: &i32| {
-                l2.lock().unwrap().push(*y);
-            },
-        );
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, _y: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let conditional =
+            consumer
+                .when(|x: &i32, y: &i32| *x > *y)
+                .or_else(move |_x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*y);
+                });
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -260,7 +244,7 @@ mod type_conversion_tests {
     }
 
     #[test]
-    fn test_if_then_else_conversion() {
+    fn test_when_or_else_conversion() {
         use std::sync::Arc;
         use std::sync::Mutex;
 
@@ -268,15 +252,13 @@ mod type_conversion_tests {
         let result_clone1 = result.clone();
         let result_clone2 = result.clone();
 
-        let consumer = BoxBiConsumerOnce::if_then_else(
-            |x: &i32, y: &i32| x > y,
-            move |x: &i32, _y: &i32| {
-                *result_clone1.lock().unwrap() = *x;
-            },
-            move |_x: &i32, y: &i32| {
-                *result_clone2.lock().unwrap() = *y;
-            },
-        );
+        let consumer = BoxBiConsumerOnce::new(move |x: &i32, _y: &i32| {
+            *result_clone1.lock().unwrap() = *x;
+        })
+        .when(|x: &i32, y: &i32| x > y)
+        .or_else(move |_x: &i32, y: &i32| {
+            *result_clone2.lock().unwrap() = *y;
+        });
         consumer.accept(&5, &3);
         assert_eq!(*result.lock().unwrap(), 5);
     }

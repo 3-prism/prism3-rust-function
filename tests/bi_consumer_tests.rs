@@ -53,61 +53,45 @@ mod box_bi_consumer_tests {
     }
 
     #[test]
-    fn test_print() {
-        let mut print = BoxBiConsumer::<i32, i32>::print();
-        print.accept(&42, &10); // Should print: (42, 10)
-    }
-
-    #[test]
-    fn test_print_with() {
-        let mut print = BoxBiConsumer::<i32, i32>::print_with("Values: ");
-        print.accept(&42, &10); // Should print: Values: 42, 10
-    }
-
-    #[test]
-    fn test_if_then_true() {
+    fn test_when_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut conditional = BoxBiConsumer::if_then(
-            |x: &i32, y: &i32| *x > 0 && *y > 0,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 
     #[test]
-    fn test_if_then_false() {
+    fn test_when_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut conditional = BoxBiConsumer::if_then(
-            |x: &i32, y: &i32| *x > 0 && *y > 0,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
         conditional.accept(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![]);
     }
 
     #[test]
-    fn test_if_then_else() {
+    fn test_when_or_else() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut conditional = BoxBiConsumer::if_then_else(
-            |x: &i32, y: &i32| *x > *y,
-            move |x: &i32, _y: &i32| {
-                l1.lock().unwrap().push(*x);
-            },
-            move |_x: &i32, y: &i32| {
-                l2.lock().unwrap().push(*y);
-            },
-        );
+        let consumer = BoxBiConsumer::new(move |x: &i32, _y: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+        let mut conditional =
+            consumer
+                .when(|x: &i32, y: &i32| *x > *y)
+                .or_else(move |_x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*y);
+                });
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -473,84 +457,64 @@ mod edge_cases_tests {
     }
 
     #[test]
-    fn test_print_with_multiple_values() {
-        let mut consumer = BoxBiConsumer::print();
-        consumer.accept(&1, &2);
-        consumer.accept(&3, &4);
-        consumer.accept(&5, &6);
-    }
-
-    #[test]
-    fn test_print_with_prefix_multiple_values() {
-        let mut consumer = BoxBiConsumer::print_with("Pair: ");
-        consumer.accept(&1, &2);
-        consumer.accept(&3, &4);
-        consumer.accept(&5, &6);
-    }
-
-    #[test]
-    fn test_if_then_with_always_true() {
+    fn test_when_with_always_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxBiConsumer::if_then(
-            |_: &i32, _: &i32| true,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
-        consumer.accept(&5, &3);
-        consumer.accept(&10, &20);
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|_: &i32, _: &i32| true);
+        conditional.accept(&5, &3);
+        conditional.accept(&10, &20);
         assert_eq!(*log.lock().unwrap(), vec![8, 30]);
     }
 
     #[test]
-    fn test_if_then_with_always_false() {
+    fn test_when_with_always_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxBiConsumer::if_then(
-            |_: &i32, _: &i32| false,
-            move |x: &i32, y: &i32| {
-                l.lock().unwrap().push(*x + *y);
-            },
-        );
-        consumer.accept(&5, &3);
-        consumer.accept(&10, &20);
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional = consumer.when(|_: &i32, _: &i32| false);
+        conditional.accept(&5, &3);
+        conditional.accept(&10, &20);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
     #[test]
-    fn test_if_then_else_all_true() {
+    fn test_when_or_else_all_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut consumer = BoxBiConsumer::if_then_else(
-            |_: &i32, _: &i32| true,
-            move |x: &i32, y: &i32| {
-                l1.lock().unwrap().push(*x + *y);
-            },
-            move |x: &i32, y: &i32| {
-                l2.lock().unwrap().push(*x * *y);
-            },
-        );
-        consumer.accept(&5, &3);
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional =
+            consumer
+                .when(|_: &i32, _: &i32| true)
+                .or_else(move |x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*x * *y);
+                });
+        conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 
     #[test]
-    fn test_if_then_else_all_false() {
+    fn test_when_or_else_all_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut consumer = BoxBiConsumer::if_then_else(
-            |_: &i32, _: &i32| false,
-            move |x: &i32, y: &i32| {
-                l1.lock().unwrap().push(*x + *y);
-            },
-            move |x: &i32, y: &i32| {
-                l2.lock().unwrap().push(*x * *y);
-            },
-        );
-        consumer.accept(&5, &3);
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+        let mut conditional =
+            consumer
+                .when(|_: &i32, _: &i32| false)
+                .or_else(move |x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*x * *y);
+                });
+        conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![15]);
     }
 
