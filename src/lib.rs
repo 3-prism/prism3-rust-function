@@ -10,7 +10,10 @@
 //!
 //! Provides functional programming abstractions for Rust, including:
 //!
-//! - **Function types**: Immutable, mutable, and consuming transformations
+//! - **Transformer types**: Transform values from type T to type R
+//! - **UnaryOperator types**: Transform values of type T to the same type T
+//! - **BiTransformer types**: Transform two values to produce a result
+//! - **BinaryOperator types**: Transform two values of type T to produce a T
 //! - **Consumer types**: Functions that consume values without returning
 //! - **BiConsumer types**: Functions that consume two values without returning
 //! - **Predicate types**: Functions that test values and return boolean
@@ -25,6 +28,8 @@
 pub mod bi_consumer;
 pub mod bi_consumer_once;
 pub mod bi_predicate;
+pub mod bi_transformer;
+pub mod bi_transformer_once;
 pub mod comparator;
 pub mod consumer;
 pub mod consumer_once;
@@ -42,6 +47,14 @@ pub use bi_consumer::{ArcBiConsumer, BiConsumer, BoxBiConsumer, FnBiConsumerOps,
 pub use bi_consumer_once::{BiConsumerOnce, BoxBiConsumerOnce, FnBiConsumerOnceOps};
 pub use bi_predicate::{
     ArcBiPredicate, BiPredicate, BoxBiPredicate, FnBiPredicateOps, RcBiPredicate,
+};
+pub use bi_transformer::{
+    ArcBiTransformer, ArcBinaryOperator, BiTransformer, BinaryOperator, BoxBiTransformer,
+    BoxBinaryOperator, FnBiTransformerOps, RcBiTransformer, RcBinaryOperator,
+};
+pub use bi_transformer_once::{
+    BiTransformerOnce, BinaryOperatorOnce, BoxBiTransformerOnce, BoxBinaryOperatorOnce,
+    FnBiTransformerOnceOps,
 };
 pub use comparator::{ArcComparator, BoxComparator, Comparator, FnComparatorOps, RcComparator};
 pub use consumer::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
@@ -62,5 +75,12 @@ pub use readonly_consumer::{
 };
 pub use supplier::{ArcSupplier, BoxSupplier, RcSupplier, Supplier};
 pub use supplier_once::{BoxSupplierOnce, SupplierOnce};
-pub use transformer::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
-pub use transformer_once::{BoxTransformerOnce, TransformerOnce};
+pub use transformer::{
+    ArcConditionalTransformer, ArcTransformer, ArcUnaryOperator, BoxConditionalTransformer,
+    BoxTransformer, BoxUnaryOperator, FnTransformerOps, RcConditionalTransformer, RcTransformer,
+    RcUnaryOperator, Transformer, UnaryOperator,
+};
+pub use transformer_once::{
+    BoxConditionalTransformerOnce, BoxTransformerOnce, BoxUnaryOperatorOnce, FnTransformerOnceOps,
+    TransformerOnce, UnaryOperatorOnce,
+};
