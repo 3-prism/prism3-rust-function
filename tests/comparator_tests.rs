@@ -6,7 +6,9 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use prism3_function::comparator::{ArcComparator, BoxComparator, Comparator, FnComparatorOps, RcComparator};
+use prism3_function::comparator::{
+    ArcComparator, BoxComparator, Comparator, FnComparatorOps, RcComparator,
+};
 use std::cmp::Ordering;
 
 #[cfg(test)]
@@ -53,6 +55,7 @@ mod box_comparator_tests {
     fn test_comparing() {
         #[derive(Debug)]
         struct Person {
+            #[allow(dead_code)]
             name: String,
             age: i32,
         }
@@ -144,6 +147,7 @@ mod arc_comparator_tests {
     fn test_comparing() {
         #[derive(Debug)]
         struct Person {
+            #[allow(dead_code)]
             name: String,
             age: i32,
         }
@@ -250,6 +254,7 @@ mod rc_comparator_tests {
     fn test_comparing() {
         #[derive(Debug)]
         struct Person {
+            #[allow(dead_code)]
             name: String,
             age: i32,
         }
