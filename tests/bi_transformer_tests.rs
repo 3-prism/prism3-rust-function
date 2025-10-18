@@ -590,3 +590,88 @@ mod type_conversion_tests {
         assert_eq!(boxed.transform(10, 20), 30);
     }
 }
+
+// ============================================================================
+// Closure BiTransformer Tests - Testing blanket implementation for closures
+// ============================================================================
+
+#[cfg(test)]
+mod closure_bi_transformer_tests {
+    use super::*;
+
+    #[test]
+    fn test_closure_transform() {
+        let add = |x: i32, y: i32| x + y;
+        assert_eq!(add.transform(10, 20), 30);
+    }
+
+    #[test]
+    fn test_closure_transform_with_string() {
+        let concat = |s1: String, s2: String| format!("{}{}", s1, s2);
+        assert_eq!(
+            concat.transform("Hello".to_string(), "World".to_string()),
+            "HelloWorld"
+        );
+    }
+
+    #[test]
+    fn test_closure_into_box() {
+        let add = |x: i32, y: i32| x + y;
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(10, 20), 30);
+    }
+
+    #[test]
+    fn test_closure_into_rc() {
+        let add = |x: i32, y: i32| x + y;
+        let rc = add.into_rc();
+        assert_eq!(rc.transform(10, 20), 30);
+    }
+
+    #[test]
+    fn test_closure_into_fn() {
+        let add = |x: i32, y: i32| x + y;
+        let func = add.into_fn();
+        assert_eq!(func(10, 20), 30);
+    }
+
+    #[test]
+    fn test_function_pointer_transform() {
+        fn multiply(x: i32, y: i32) -> i32 {
+            x * y
+        }
+        assert_eq!(multiply.transform(6, 7), 42);
+    }
+
+    #[test]
+    fn test_function_pointer_into_box() {
+        fn add(x: i32, y: i32) -> i32 {
+            x + y
+        }
+        let boxed = add.into_box();
+        assert_eq!(boxed.transform(10, 20), 30);
+    }
+
+    #[test]
+    fn test_function_pointer_into_fn() {
+        fn add(x: i32, y: i32) -> i32 {
+            x + y
+        }
+        let func = add.into_fn();
+        assert_eq!(func(10, 20), 30);
+    }
+
+    #[test]
+    fn test_closure_with_captured_variable() {
+        let multiplier = 3;
+        let multiply_by = move |x: i32, y: i32| (x + y) * multiplier;
+        assert_eq!(multiply_by.transform(5, 5), 30);
+    }
+
+    #[test]
+    fn test_closure_into_arc() {
+        let add = |x: i32, y: i32| x + y;
+        let arc = add.into_arc();
+        assert_eq!(arc.transform(10, 20), 30);
+    }
+}

@@ -40,6 +40,25 @@ mod test_supplier_once_trait {
         let boxed = closure.into_box_once();
         assert_eq!(boxed.get(), 42);
     }
+
+    #[test]
+    fn test_closure_get_direct() {
+        let closure = || 42;
+        assert_eq!(closure.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_get_with_move() {
+        let data = String::from("hello");
+        let closure = move || data;
+        assert_eq!(closure.get(), "hello");
+    }
+
+    #[test]
+    fn test_closure_get_with_complex_type() {
+        let closure = || vec![1, 2, 3];
+        assert_eq!(closure.get(), vec![1, 2, 3]);
+    }
 }
 
 // ==========================================================================
@@ -189,6 +208,47 @@ mod test_box_supplier_once {
             let closure = move || data;
             let boxed = closure.into_box_once();
             assert_eq!(boxed.get(), "hello");
+        }
+    }
+
+    mod test_edge_cases {
+        use super::*;
+
+        #[test]
+        fn test_with_unit_type() {
+            let once = BoxSupplierOnce::new(|| ());
+            once.get();
+            // Unit type always succeeds, no assertion needed
+        }
+
+        #[test]
+        fn test_with_tuple() {
+            let once = BoxSupplierOnce::new(|| (1, "hello", true));
+            assert_eq!(once.get(), (1, "hello", true));
+        }
+
+        #[test]
+        fn test_with_option_some() {
+            let once = BoxSupplierOnce::new(|| Some(42));
+            assert_eq!(once.get(), Some(42));
+        }
+
+        #[test]
+        fn test_with_option_none() {
+            let once = BoxSupplierOnce::new(|| None::<i32>);
+            assert_eq!(once.get(), None);
+        }
+
+        #[test]
+        fn test_with_result_ok() {
+            let once = BoxSupplierOnce::new(|| Ok::<i32, String>(42));
+            assert_eq!(once.get(), Ok(42));
+        }
+
+        #[test]
+        fn test_with_result_err() {
+            let once = BoxSupplierOnce::new(|| Err::<i32, String>(String::from("error")));
+            assert_eq!(once.get(), Err(String::from("error")));
         }
     }
 }
