@@ -146,7 +146,7 @@ mod box_bi_consumer_once_tests {
 
     #[test]
     fn test_moved_value() {
-        let data = vec![1, 2, 3];
+        let data = [1, 2, 3];
         let consumer = BoxBiConsumerOnce::new(move |_x: &i32, _y: &i32| {
             // data is moved into the closure
             println!("Data length: {}", data.len());

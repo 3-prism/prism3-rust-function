@@ -961,7 +961,7 @@ mod tests {
 
         #[test]
         fn test_closure_into_fn_with_filter() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let predicate = |x: &i32, y: &i32| x + y > 0;
 
             let result: Vec<_> = pairs
@@ -975,7 +975,7 @@ mod tests {
 
         #[test]
         fn test_box_bi_predicate_into_fn_with_filter() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let predicate = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
 
             let pred_fn = predicate.into_fn();
@@ -990,7 +990,7 @@ mod tests {
 
         #[test]
         fn test_arc_bi_predicate_into_fn_with_filter() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let predicate = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
 
             let pred_fn = predicate.into_fn();
@@ -1005,7 +1005,7 @@ mod tests {
 
         #[test]
         fn test_rc_bi_predicate_into_fn_with_filter() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let predicate = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
 
             let pred_fn = predicate.into_fn();
@@ -1024,7 +1024,7 @@ mod tests {
             let y_positive = ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
             let predicate = x_positive.and(y_positive);
 
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let pred_fn = predicate.into_fn();
             let result: Vec<_> = pairs
                 .iter()
@@ -1047,12 +1047,12 @@ mod tests {
 
         #[test]
         fn test_into_fn_with_partition() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
             let predicate = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
 
             let pred_fn = predicate.into_fn();
-            let (positive, negative): (Vec<&(i32, i32)>, Vec<&(i32, i32)>) =
-                pairs.iter().partition(|(x, y)| pred_fn(x, y));
+            let positive: Vec<_> = pairs.iter().filter(|(x, y)| pred_fn(x, y)).collect();
+            let negative: Vec<_> = pairs.iter().filter(|(x, y)| !pred_fn(x, y)).collect();
 
             assert_eq!(positive, vec![&(1, 2), &(-1, 3), &(3, 4)]);
             assert_eq!(negative, vec![&(5, -6)]);
@@ -1060,11 +1060,11 @@ mod tests {
 
         #[test]
         fn test_into_fn_with_string() {
-            let pairs = vec![
+            let pairs = Vec::from([
                 (String::from("hello"), 3),
                 (String::from("hi"), 5),
                 (String::from("world"), 4),
-            ];
+            ]);
 
             let predicate = BoxBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
             let pred_fn = predicate.into_fn();
@@ -1080,7 +1080,7 @@ mod tests {
 
         #[test]
         fn test_into_fn_with_references() {
-            let data = vec![(1, 2), (3, 4), (5, 6)];
+            let data = [(1, 2), (3, 4), (5, 6)];
             let predicate = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 5);
 
             let pred_fn = predicate.into_fn();
@@ -1158,7 +1158,7 @@ mod tests {
                 pairs.iter().filter(|(x, y)| pred.test(x, y)).count()
             }
 
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
 
             let box_pred = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
             assert_eq!(count_matching(&pairs, &box_pred), 3);
@@ -1176,8 +1176,8 @@ mod tests {
             let y_positive = ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
             let combined = x_positive.and(y_positive);
 
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
-            let result = filter_pairs(pairs, &combined);
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let result = filter_pairs(pairs.to_vec(), &combined);
             assert_eq!(result, vec![(1, 2), (3, 4)]);
         }
 
@@ -1256,7 +1256,7 @@ mod tests {
 
         #[test]
         fn test_mixed_bi_predicate_types_in_sequence() {
-            let pairs = vec![(1, 2), (-1, 3), (5, -6), (3, 4)];
+            let pairs = [(1, 2), (-1, 3), (5, -6), (3, 4)];
 
             // Use different types in sequence
             let box_pred = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);

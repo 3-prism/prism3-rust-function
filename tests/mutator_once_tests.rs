@@ -36,7 +36,7 @@ mod box_mutator_once_tests {
     fn test_new_with_string() {
         let suffix = String::from("world");
         let mutator = BoxMutatorOnce::new(move |x: &mut String| {
-            x.push_str(" ");
+            x.push(' ');
             x.push_str(&suffix);
         });
 
@@ -47,7 +47,7 @@ mod box_mutator_once_tests {
 
     #[test]
     fn test_new_with_complex_operation() {
-        let data = vec![10, 20, 30];
+        let data = [10, 20, 30];
         let multiplier = 2;
         let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
             x.extend(data.iter().map(|&n| n * multiplier));

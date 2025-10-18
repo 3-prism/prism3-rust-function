@@ -45,7 +45,7 @@ mod test_box_mutator {
         let mut bool_mutator = BoxMutator::new(|b: &mut bool| *b = !*b);
         let mut flag = true;
         bool_mutator.mutate(&mut flag);
-        assert_eq!(flag, false);
+        assert!(!flag);
     }
 
     #[test]
@@ -526,12 +526,7 @@ mod test_complex_scenarios {
     #[test]
     fn test_data_processing_pipeline() {
         let mut pipeline = BoxMutator::new(|x: &mut i32| {
-            if *x < 0 {
-                *x = 0;
-            }
-            if *x > 100 {
-                *x = 100;
-            }
+            *x = (*x).clamp(0, 100);
         })
         .and_then(|x: &mut i32| *x /= 10)
         .and_then(|x: &mut i32| *x = *x * *x);
@@ -579,7 +574,7 @@ mod test_complex_scenarios {
     fn test_mixed_operations() {
         let cond = BoxMutator::new(|x: &mut i32| *x -= 20).when(|x: &i32| *x > 50);
         let mut processor = BoxMutator::new(|x: &mut i32| *x += 10)
-            .and_then(|x: &mut i32| *x = *x * 2)
+            .and_then(|x: &mut i32| *x *= 2)
             .and_then(cond);
 
         let mut value1 = 5;

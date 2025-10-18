@@ -103,7 +103,7 @@ mod test_box_supplier {
         #[test]
         fn test_with_bool() {
             let mut supplier = BoxSupplier::new(|| true);
-            assert_eq!(supplier.get(), true);
+            assert!(supplier.get());
         }
     }
 
