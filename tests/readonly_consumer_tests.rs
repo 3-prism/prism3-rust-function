@@ -119,6 +119,16 @@ mod box_readonly_consumer_tests {
     }
 
     #[test]
+    fn test_box_consumer_into_box() {
+        // Test BoxReadonlyConsumer's own into_box() method
+        let consumer = BoxReadonlyConsumer::new(|x: &i32| {
+            println!("Value: {}", x);
+        });
+        let box_consumer = consumer.into_box();
+        box_consumer.accept(&5);
+    }
+
+    #[test]
     fn test_name() {
         let mut consumer = BoxReadonlyConsumer::<i32>::noop();
         assert_eq!(consumer.name(), None);

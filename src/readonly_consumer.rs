@@ -252,7 +252,15 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** If you need
+    ///   to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxReadonlyConsumer<T>`
+    ///   - An `RcReadonlyConsumer<T>`
+    ///   - An `ArcReadonlyConsumer<T>`
+    ///   - Any type implementing `ReadonlyConsumer<T>`
     ///
     /// # Returns
     ///
@@ -260,15 +268,42 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
     ///
-    /// let chained = BoxReadonlyConsumer::new(|x: &i32| {
+    /// let first = BoxReadonlyConsumer::new(|x: &i32| {
     ///     println!("First: {}", x);
-    /// }).and_then(|x: &i32| {
+    /// });
+    /// let second = BoxReadonlyConsumer::new(|x: &i32| {
     ///     println!("Second: {}", x);
     /// });
+    ///
+    /// // second is moved here
+    /// let chained = first.and_then(second);
     /// chained.accept(&5);
+    /// // second.accept(&3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer, RcReadonlyConsumer};
+    ///
+    /// let first = BoxReadonlyConsumer::new(|x: &i32| {
+    ///     println!("First: {}", x);
+    /// });
+    /// let second = RcReadonlyConsumer::new(|x: &i32| {
+    ///     println!("Second: {}", x);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let chained = first.and_then(second.clone());
+    /// chained.accept(&5);
+    ///
+    /// // Original still usable
+    /// second.accept(&3);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -480,7 +515,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by reference, so the original consumer remains
+    ///   usable.** Can be:
+    ///   - An `ArcReadonlyConsumer<T>` (passed by reference)
+    ///   - Any type implementing `ReadonlyConsumer<T> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -498,10 +537,13 @@ where
     ///     println!("Second: {}", x);
     /// });
     ///
+    /// // second is passed by reference, so it remains usable
     /// let chained = first.and_then(&second);
     ///
     /// // first and second remain usable after chaining
     /// chained.accept(&5);
+    /// first.accept(&3); // Still usable
+    /// second.accept(&7); // Still usable
     /// ```
     pub fn and_then(&self, next: &ArcReadonlyConsumer<T>) -> ArcReadonlyConsumer<T> {
         let first = Arc::clone(&self.function);
@@ -720,7 +762,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by reference, so the original consumer remains
+    ///   usable.** Can be:
+    ///   - An `RcReadonlyConsumer<T>` (passed by reference)
+    ///   - Any type implementing `ReadonlyConsumer<T>`
     ///
     /// # Returns
     ///
@@ -738,10 +784,13 @@ where
     ///     println!("Second: {}", x);
     /// });
     ///
+    /// // second is passed by reference, so it remains usable
     /// let chained = first.and_then(&second);
     ///
     /// // first and second remain usable after chaining
     /// chained.accept(&5);
+    /// first.accept(&3); // Still usable
+    /// second.accept(&7); // Still usable
     /// ```
     pub fn and_then(&self, next: &RcReadonlyConsumer<T>) -> RcReadonlyConsumer<T> {
         let first = Rc::clone(&self.function);

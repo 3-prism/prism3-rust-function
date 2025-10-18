@@ -257,7 +257,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxConsumerOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumerOnce<T>`
+    ///   - Any type implementing `ConsumerOnce<T>`
     ///
     /// # Returns
     ///
@@ -272,13 +278,19 @@ where
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l1 = log.clone();
     /// let l2 = log.clone();
-    /// let chained = BoxConsumerOnce::new(move |x: &i32| {
+    /// let first = BoxConsumerOnce::new(move |x: &i32| {
     ///     l1.lock().unwrap().push(*x * 2);
-    /// }).and_then(move |x: &i32| {
+    /// });
+    /// let second = BoxConsumerOnce::new(move |x: &i32| {
     ///     l2.lock().unwrap().push(*x + 10);
     /// });
+    ///
+    /// // Both first and second are moved and consumed
+    /// let chained = first.and_then(second);
     /// chained.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    /// // first.accept(&3); // Would not compile - moved
+    /// // second.accept(&3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -502,7 +514,12 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - The next consumer to execute
+    /// * `next` - The next consumer to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** Since `BoxConsumerOnce` cannot
+    ///   be cloned, the parameter will be consumed. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumerOnce<T>`
+    ///   - Any type implementing `ConsumerOnce<T>`
     ///
     /// # Returns
     ///
@@ -523,10 +540,13 @@ where
     /// let cond2 = BoxConsumerOnce::new(move |x: &i32| {
     ///     l2.lock().unwrap().push(*x + 100);
     /// }).when(|x: &i32| *x > 10);
-    /// let chained = cond1.and_then(cond2);
     ///
+    /// // Both cond1 and cond2 are moved and consumed
+    /// let chained = cond1.and_then(cond2);
     /// chained.accept(&6);
     /// assert_eq!(*log.lock().unwrap(), vec![12, 106]); // First *2 = 12, then +100 = 106
+    /// // cond1.accept(&3); // Would not compile - moved
+    /// // cond2.accept(&3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxConsumerOnce<T>
     where
@@ -547,9 +567,11 @@ where
     ///
     /// # Parameters
     ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T|`
-    ///   - `BoxConsumerOnce<T>`
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** Since `BoxConsumerOnce`
+    ///   cannot be cloned, the parameter will be consumed. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumerOnce<T>`
     ///   - Any type implementing `ConsumerOnce<T>`
     ///
     /// # Returns
@@ -674,7 +696,13 @@ pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** Since
+    ///   `BoxConsumerOnce` cannot be cloned, the parameter will be consumed.
+    ///   Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumerOnce<T>`
+    ///   - Any type implementing `ConsumerOnce<T>`
     ///
     /// # Returns
     ///

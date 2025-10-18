@@ -665,6 +665,19 @@ mod test_fn_consumer_ops {
         rc.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);
     }
+
+    #[test]
+    fn test_into_fn() {
+        // Test into_fn in impl<T, F> Consumer<T> for F
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        };
+        let mut func = closure.into_fn();
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10]);
+    }
 }
 
 // ============================================================================
