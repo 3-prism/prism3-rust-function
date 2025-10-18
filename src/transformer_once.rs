@@ -21,6 +21,8 @@
 //!
 //! Hu Haixing
 
+use crate::predicate::{BoxPredicate, Predicate};
+
 // ============================================================================
 // Core Trait
 // ============================================================================
@@ -222,6 +224,47 @@ where
             (self.function)(intermediate)
         })
     }
+
+    /// Creates a conditional transformer
+    ///
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// When the predicate returns false, the input value is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `BoxPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxConditionalTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure
+    ///
+    /// ```rust
+    /// use prism3_function::{TransformerOnce, BoxTransformerOnce};
+    ///
+    /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.transform(-5), -5); // Unchanged
+    /// ```
+    pub fn when<P>(self, predicate: P) -> BoxConditionalTransformerOnce<T, R>
+    where
+        P: Predicate<T> + 'static,
+        R: From<T>,
+    {
+        BoxConditionalTransformerOnce {
+            transformer: self,
+            predicate: predicate.into_box(),
+        }
+    }
 }
 
 impl<T, R> BoxTransformerOnce<T, R>
@@ -264,6 +307,150 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
         R: 'static,
     {
         move |t: T| self.transform(t)
+    }
+}
+
+// ============================================================================
+// BoxConditionalTransformerOnce - Box-based Conditional Transformer
+// ============================================================================
+
+/// BoxConditionalTransformerOnce struct
+///
+/// A conditional consuming transformer that only executes when a predicate is
+/// satisfied. Uses `BoxTransformerOnce` and `BoxPredicate` for single
+/// ownership semantics.
+///
+/// This type is typically created by calling `BoxTransformerOnce::when()` and
+/// is designed to work with the `or_else()` method to create if-then-else
+/// logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **One-time Use**: Can only be called once
+/// - **Conditional Execution**: Only transforms when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{TransformerOnce, BoxTransformerOnce};
+///
+/// let double = BoxTransformerOnce::new(|x: i32| x * 2);
+/// let conditional = double.when(|x: &i32| *x > 0);
+///
+/// assert_eq!(conditional.transform(5), 10); // Executed
+/// assert_eq!(conditional.transform(-5), -5); // Not executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{TransformerOnce, BoxTransformerOnce};
+///
+/// let double = BoxTransformerOnce::new(|x: i32| x * 2);
+/// let negate = BoxTransformerOnce::new(|x: i32| -x);
+/// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
+///
+/// assert_eq!(conditional.transform(5), 10); // when branch executed
+/// assert_eq!(conditional.transform(-5), 5); // or_else branch executed
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct BoxConditionalTransformerOnce<T, R> {
+    transformer: BoxTransformerOnce<T, R>,
+    predicate: BoxPredicate<T>,
+}
+
+impl<T, R> TransformerOnce<T, R> for BoxConditionalTransformerOnce<T, R>
+where
+    T: 'static,
+    R: From<T> + 'static,
+{
+    fn transform(self, input: T) -> R {
+        if self.predicate.test(&input) {
+            self.transformer.transform(input)
+        } else {
+            R::from(input)
+        }
+    }
+
+    fn into_box(self) -> BoxTransformerOnce<T, R> {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        BoxTransformerOnce::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl FnOnce(T) -> R {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        move |t: T| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        }
+    }
+}
+
+impl<T, R> BoxConditionalTransformerOnce<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    /// Adds an else branch
+    ///
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_transformer` - The transformer for the else branch, can be:
+    ///   - Closure: `|x: T| -> R`
+    ///   - `BoxTransformerOnce<T, R>`
+    ///   - Any type implementing `TransformerOnce<T, R>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{TransformerOnce, BoxTransformerOnce};
+    ///
+    /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10); // Condition satisfied, execute double
+    /// assert_eq!(conditional.transform(-5), 5); // Condition not satisfied, execute negate
+    /// ```
+    pub fn or_else<F>(self, else_transformer: F) -> BoxTransformerOnce<T, R>
+    where
+        F: TransformerOnce<T, R> + 'static,
+    {
+        let pred = self.predicate;
+        let then_trans = self.transformer;
+        BoxTransformerOnce::new(move |t| {
+            if pred.test(&t) {
+                then_trans.transform(t)
+            } else {
+                else_transformer.transform(t)
+            }
+        })
     }
 }
 

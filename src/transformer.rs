@@ -26,6 +26,8 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+
 // ============================================================================
 // Core Trait
 // ============================================================================
@@ -255,6 +257,47 @@ where
         let self_fn = self.function;
         BoxTransformer::new(move |x: S| self_fn(before.transform(x)))
     }
+
+    /// Creates a conditional transformer
+    ///
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// When the predicate returns false, the input value is returned unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxConditionalTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, BoxTransformer};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.transform(-5), -5); // Unchanged
+    /// ```
+    pub fn when<P>(self, predicate: P) -> BoxConditionalTransformer<T, R>
+    where
+        P: Predicate<T> + 'static,
+        R: From<T>,
+    {
+        BoxConditionalTransformer {
+            transformer: self,
+            predicate: predicate.into_box(),
+        }
+    }
 }
 
 impl<T, R> BoxTransformer<T, R>
@@ -323,6 +366,171 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
 }
 
 // ============================================================================
+// BoxConditionalTransformer - Box-based Conditional Transformer
+// ============================================================================
+
+/// BoxConditionalTransformer struct
+///
+/// A conditional transformer that only executes when a predicate is satisfied.
+/// Uses `BoxTransformer` and `BoxPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxTransformer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only transforms when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements Transformer**: Can be used anywhere a `Transformer` is expected
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{Transformer, BoxTransformer};
+///
+/// let double = BoxTransformer::new(|x: i32| x * 2);
+/// let conditional = double.when(|x: &i32| *x > 0);
+///
+/// assert_eq!(conditional.transform(5), 10); // Executed
+/// assert_eq!(conditional.transform(-5), -5); // Not executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{Transformer, BoxTransformer};
+///
+/// let double = BoxTransformer::new(|x: i32| x * 2);
+/// let negate = BoxTransformer::new(|x: i32| -x);
+/// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
+///
+/// assert_eq!(conditional.transform(5), 10); // when branch executed
+/// assert_eq!(conditional.transform(-5), 5); // or_else branch executed
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct BoxConditionalTransformer<T, R> {
+    transformer: BoxTransformer<T, R>,
+    predicate: BoxPredicate<T>,
+}
+
+impl<T, R> Transformer<T, R> for BoxConditionalTransformer<T, R>
+where
+    T: 'static,
+    R: From<T> + 'static,
+{
+    fn transform(&self, input: T) -> R {
+        if self.predicate.test(&input) {
+            self.transformer.transform(input)
+        } else {
+            R::from(input)
+        }
+    }
+
+    fn into_box(self) -> BoxTransformer<T, R> {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        BoxTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcTransformer<T, R> {
+        let pred = self.predicate.into_rc();
+        let transformer = self.transformer.into_rc();
+        RcTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        panic!(
+            "Cannot convert BoxConditionalTransformer to ArcTransformer: \
+             predicate and transformer may not be Send + Sync"
+        )
+    }
+
+    fn into_fn(self) -> impl Fn(T) -> R {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        move |t: T| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        }
+    }
+}
+
+impl<T, R> BoxConditionalTransformer<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    /// Adds an else branch
+    ///
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_transformer` - The transformer for the else branch, can be:
+    ///   - Closure: `|x: T| -> R`
+    ///   - `BoxTransformer<T, R>`, `RcTransformer<T, R>`, `ArcTransformer<T, R>`
+    ///   - Any type implementing `Transformer<T, R>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, BoxTransformer};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10); // Condition satisfied, execute double
+    /// assert_eq!(conditional.transform(-5), 5); // Condition not satisfied, execute negate
+    /// ```
+    pub fn or_else<F>(self, else_transformer: F) -> BoxTransformer<T, R>
+    where
+        F: Transformer<T, R> + 'static,
+    {
+        let pred = self.predicate;
+        let then_trans = self.transformer;
+        BoxTransformer::new(move |t| {
+            if pred.test(&t) {
+                then_trans.transform(t)
+            } else {
+                else_transformer.transform(t)
+            }
+        })
+    }
+}
+
+// ============================================================================
 // ArcTransformer - Arc<dyn Fn(T) -> R + Send + Sync>
 // ============================================================================
 
@@ -349,7 +557,7 @@ pub struct ArcTransformer<T, R> {
 
 impl<T, R> ArcTransformer<T, R>
 where
-    T: 'static,
+    T: Send + Sync + 'static,
     R: 'static,
 {
     /// Creates a new ArcTransformer
@@ -474,6 +682,46 @@ where
             function: Arc::new(move |x: S| self_clone(before.transform(x))),
         }
     }
+
+    /// Creates a conditional transformer (thread-safe version)
+    ///
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, must be `Send + Sync`, can be:
+    ///   - Closure: `|x: &T| -> bool` (requires `Send + Sync`)
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T> + Send + Sync`
+    ///
+    /// # Returns
+    ///
+    /// Returns `ArcConditionalTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, ArcTransformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0);
+    ///
+    /// let conditional_clone = conditional.clone();
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// ```
+    pub fn when<P>(self, predicate: P) -> ArcConditionalTransformer<T, R>
+    where
+        P: Predicate<T> + Send + Sync + 'static,
+        R: From<T> + Send + Sync,
+    {
+        ArcConditionalTransformer {
+            transformer: self,
+            predicate: predicate.into_arc(),
+        }
+    }
 }
 
 impl<T, R> ArcTransformer<T, R>
@@ -546,6 +794,178 @@ impl<T, R> Clone for ArcTransformer<T, R> {
     fn clone(&self) -> Self {
         ArcTransformer {
             function: Arc::clone(&self.function),
+        }
+    }
+}
+
+// ============================================================================
+// ArcConditionalTransformer - Arc-based Conditional Transformer
+// ============================================================================
+
+/// ArcConditionalTransformer struct
+///
+/// A thread-safe conditional transformer that only executes when a predicate is
+/// satisfied. Uses `ArcTransformer` and `ArcPredicate` for shared ownership
+/// across threads.
+///
+/// This type is typically created by calling `ArcTransformer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
+/// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
+/// - **Conditional Execution**: Only transforms when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{Transformer, ArcTransformer};
+///
+/// let conditional = ArcTransformer::new(|x: i32| x * 2)
+///     .when(|x: &i32| *x > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// assert_eq!(conditional.transform(5), 10);
+/// assert_eq!(conditional_clone.transform(-5), -5);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct ArcConditionalTransformer<T, R> {
+    transformer: ArcTransformer<T, R>,
+    predicate: ArcPredicate<T>,
+}
+
+impl<T, R> Transformer<T, R> for ArcConditionalTransformer<T, R>
+where
+    T: Send + 'static,
+    R: From<T> + 'static,
+{
+    fn transform(&self, input: T) -> R {
+        if self.predicate.test(&input) {
+            self.transformer.transform(input)
+        } else {
+            R::from(input)
+        }
+    }
+
+    fn into_box(self) -> BoxTransformer<T, R> {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        BoxTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcTransformer<T, R> {
+        let pred = self.predicate.to_rc();
+        let transformer = self.transformer.into_rc();
+        RcTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        ArcTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl Fn(T) -> R {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        move |t: T| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        }
+    }
+}
+
+impl<T, R> ArcConditionalTransformer<T, R>
+where
+    T: Send + 'static,
+    R: 'static,
+{
+    /// Adds an else branch (thread-safe version)
+    ///
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_transformer` - The transformer for the else branch, can be:
+    ///   - Closure: `|x: T| -> R` (must be `Send + Sync`)
+    ///   - `ArcTransformer<T, R>`, `BoxTransformer<T, R>`
+    ///   - Any type implementing `Transformer<T, R> + Send + Sync`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `ArcTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, ArcTransformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.transform(-5), 5);
+    /// ```
+    pub fn or_else<F>(self, else_transformer: F) -> ArcTransformer<T, R>
+    where
+        F: Transformer<T, R> + Send + Sync + 'static,
+        R: Send + Sync,
+    {
+        let pred = self.predicate;
+        let then_trans = self.transformer;
+        ArcTransformer::new(move |t| {
+            if pred.test(&t) {
+                then_trans.transform(t)
+            } else {
+                else_transformer.transform(t)
+            }
+        })
+    }
+}
+
+impl<T, R> Clone for ArcConditionalTransformer<T, R> {
+    /// Clones the conditional transformer
+    ///
+    /// Creates a new instance that shares the underlying transformer and
+    /// predicate with the original instance.
+    fn clone(&self) -> Self {
+        Self {
+            transformer: self.transformer.clone(),
+            predicate: self.predicate.clone(),
         }
     }
 }
@@ -702,6 +1122,46 @@ where
             function: Rc::new(move |x: S| self_clone(before.transform(x))),
         }
     }
+
+    /// Creates a conditional transformer (single-threaded shared version)
+    ///
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The condition to check, can be:
+    ///   - Closure: `|x: &T| -> bool`
+    ///   - Function pointer: `fn(&T) -> bool`
+    ///   - `RcPredicate<T>`, `BoxPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
+    ///
+    /// # Returns
+    ///
+    /// Returns `RcConditionalTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, RcTransformer};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0);
+    ///
+    /// let conditional_clone = conditional.clone();
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// ```
+    pub fn when<P>(self, predicate: P) -> RcConditionalTransformer<T, R>
+    where
+        P: Predicate<T> + 'static,
+        R: From<T>,
+    {
+        RcConditionalTransformer {
+            transformer: self,
+            predicate: predicate.into_rc(),
+        }
+    }
 }
 
 impl<T, R> RcTransformer<T, R>
@@ -773,6 +1233,169 @@ impl<T, R> Clone for RcTransformer<T, R> {
     fn clone(&self) -> Self {
         RcTransformer {
             function: Rc::clone(&self.function),
+        }
+    }
+}
+
+// ============================================================================
+// RcConditionalTransformer - Rc-based Conditional Transformer
+// ============================================================================
+
+/// RcConditionalTransformer struct
+///
+/// A single-threaded conditional transformer that only executes when a
+/// predicate is satisfied. Uses `RcTransformer` and `RcPredicate` for shared
+/// ownership within a single thread.
+///
+/// This type is typically created by calling `RcTransformer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
+/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
+/// - **Conditional Execution**: Only transforms when predicate returns `true`
+/// - **No Lock Overhead**: More efficient than `ArcConditionalTransformer`
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{Transformer, RcTransformer};
+///
+/// let conditional = RcTransformer::new(|x: i32| x * 2)
+///     .when(|x: &i32| *x > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// assert_eq!(conditional.transform(5), 10);
+/// assert_eq!(conditional_clone.transform(-5), -5);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct RcConditionalTransformer<T, R> {
+    transformer: RcTransformer<T, R>,
+    predicate: RcPredicate<T>,
+}
+
+impl<T, R> Transformer<T, R> for RcConditionalTransformer<T, R>
+where
+    T: 'static,
+    R: From<T> + 'static,
+{
+    fn transform(&self, input: T) -> R {
+        if self.predicate.test(&input) {
+            self.transformer.transform(input)
+        } else {
+            R::from(input)
+        }
+    }
+
+    fn into_box(self) -> BoxTransformer<T, R> {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        BoxTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcTransformer<T, R> {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        RcTransformer::new(move |t| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        panic!("Cannot convert RcConditionalTransformer to ArcTransformer: not Send + Sync")
+    }
+
+    fn into_fn(self) -> impl Fn(T) -> R {
+        let pred = self.predicate;
+        let transformer = self.transformer;
+        move |t: T| {
+            if pred.test(&t) {
+                transformer.transform(t)
+            } else {
+                R::from(t)
+            }
+        }
+    }
+}
+
+impl<T, R> RcConditionalTransformer<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    /// Adds an else branch (single-threaded shared version)
+    ///
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_transformer` - The transformer for the else branch, can be:
+    ///   - Closure: `|x: T| -> R`
+    ///   - `RcTransformer<T, R>`, `BoxTransformer<T, R>`
+    ///   - Any type implementing `Transformer<T, R>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `RcTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, RcTransformer};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.transform(-5), 5);
+    /// ```
+    pub fn or_else<F>(self, else_transformer: F) -> RcTransformer<T, R>
+    where
+        F: Transformer<T, R> + 'static,
+    {
+        let pred = self.predicate;
+        let then_trans = self.transformer;
+        RcTransformer::new(move |t| {
+            if pred.test(&t) {
+                then_trans.transform(t)
+            } else {
+                else_transformer.transform(t)
+            }
+        })
+    }
+}
+
+impl<T, R> Clone for RcConditionalTransformer<T, R> {
+    /// Clones the conditional transformer
+    ///
+    /// Creates a new instance that shares the underlying transformer and
+    /// predicate with the original instance.
+    fn clone(&self) -> Self {
+        Self {
+            transformer: self.transformer.clone(),
+            predicate: self.predicate.clone(),
         }
     }
 }
