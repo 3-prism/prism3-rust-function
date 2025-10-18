@@ -490,7 +490,10 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - Another `BoxPredicate<T>`
@@ -512,10 +515,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
+    /// // Note: is_positive is moved here, so it's no longer usable
     /// let combined = is_positive.and(is_even);
     /// assert!(combined.test(&4));   // positive and even
     /// assert!(!combined.test(&3));  // positive but odd
     /// assert!(!combined.test(&-2)); // even but negative
+    /// // is_positive.test(&5); // This would not compile - is_positive was moved
     /// ```
     ///
     /// ## Combining with function pointers
@@ -557,6 +562,23 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(pred.test(&42));  // positive, even, less than 100
     /// assert!(!pred.test(&101)); // does not satisfy less than 100
     /// ```
+    ///
+    /// ## Preserving original predicates with clone
+    ///
+    /// ```rust
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    ///
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+    ///
+    /// // Clone the predicates to preserve them for later use
+    /// let combined = is_positive.clone().and(is_even.clone());
+    /// assert!(combined.test(&4));
+    ///
+    /// // Original predicates are still usable
+    /// assert!(is_positive.test(&5));
+    /// assert!(is_even.test(&6));
+    /// ```
     pub fn and<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -574,7 +596,10 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - Another `BoxPredicate<T>`
@@ -596,10 +621,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_negative = BoxPredicate::new(|x: &i32| *x < 0);
     /// let is_large = |x: &i32| *x > 100;
     ///
+    /// // Note: is_negative is moved here, so it's no longer usable
     /// let combined = is_negative.or(is_large);
     /// assert!(combined.test(&-5));  // negative
     /// assert!(combined.test(&150)); // greater than 100
     /// assert!(!combined.test(&50)); // neither negative nor greater than 100
+    /// // is_negative.test(&-10); // This would not compile - is_negative was moved
     /// ```
     ///
     /// ## Combining with function pointers
@@ -627,6 +654,24 @@ impl<T: 'static> BoxPredicate<T> {
     /// let combined = is_negative.or(is_large);
     /// assert!(combined.test(&-5));
     /// assert!(combined.test(&150));
+    /// ```
+    ///
+    /// ## Preserving original predicates with clone
+    ///
+    /// ```rust
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    ///
+    /// let is_negative = BoxPredicate::new(|x: &i32| *x < 0);
+    /// let is_large = BoxPredicate::new(|x: &i32| *x > 100);
+    ///
+    /// // Clone the predicates to preserve them for later use
+    /// let combined = is_negative.clone().or(is_large.clone());
+    /// assert!(combined.test(&-5));
+    /// assert!(combined.test(&150));
+    ///
+    /// // Original predicates are still usable
+    /// assert!(is_negative.test(&-10));
+    /// assert!(is_large.test(&200));
     /// ```
     pub fn or<P>(self, other: P) -> BoxPredicate<T>
     where
@@ -664,7 +709,10 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - Another `BoxPredicate<T>`
@@ -686,10 +734,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
+    /// // Note: is_positive is moved here, so it's no longer usable
     /// let nand = is_positive.nand(is_even);
     /// assert!(nand.test(&3));   // positive but odd: !(true && false) = true
     /// assert!(nand.test(&-2));  // even but negative: !(false && true) = true
     /// assert!(!nand.test(&4));  // positive and even: !(true && true) = false
+    /// // is_positive.test(&5); // This would not compile - is_positive was moved
     /// ```
     ///
     /// ## Combining with function pointers
@@ -718,6 +768,24 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(nand.test(&3));   // returns true when only one condition is met
     /// assert!(!nand.test(&4));  // returns false when both conditions are met
     /// ```
+    ///
+    /// ## Preserving original predicates with clone
+    ///
+    /// ```rust
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    ///
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+    ///
+    /// // Clone the predicates to preserve them for later use
+    /// let nand = is_positive.clone().nand(is_even.clone());
+    /// assert!(nand.test(&3));   // returns true when only one condition is met
+    /// assert!(!nand.test(&4));  // returns false when both conditions are met
+    ///
+    /// // Original predicates are still usable
+    /// assert!(is_positive.test(&5));
+    /// assert!(is_even.test(&6));
+    /// ```
     pub fn nand<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -737,7 +805,10 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - Another `BoxPredicate<T>`
@@ -759,11 +830,13 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
+    /// // Note: is_positive is moved here, so it's no longer usable
     /// let xor = is_positive.xor(is_even);
     /// assert!(xor.test(&3));    // positive but odd: true ^ false = true
     /// assert!(xor.test(&-2));   // even but negative: false ^ true = true
     /// assert!(!xor.test(&4));   // positive and even: true ^ true = false
     /// assert!(!xor.test(&-1));  // negative and odd: false ^ false = false
+    /// // is_positive.test(&5); // This would not compile - is_positive was moved
     /// ```
     ///
     /// ## Combining with function pointers
@@ -793,6 +866,25 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!xor.test(&4));   // returns false when both conditions are met
     /// assert!(!xor.test(&-1));  // returns false when neither condition is met
     /// ```
+    ///
+    /// ## Preserving original predicates with clone
+    ///
+    /// ```rust
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    ///
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+    ///
+    /// // Clone the predicates to preserve them for later use
+    /// let xor = is_positive.clone().xor(is_even.clone());
+    /// assert!(xor.test(&3));    // returns true when only one condition is met
+    /// assert!(!xor.test(&4));   // returns false when both conditions are met
+    /// assert!(!xor.test(&-1));  // returns false when neither condition is met
+    ///
+    /// // Original predicates are still usable
+    /// assert!(is_positive.test(&5));
+    /// assert!(is_even.test(&6));
+    /// ```
     pub fn xor<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -813,7 +905,10 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - Another `BoxPredicate<T>`
@@ -835,6 +930,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
+    /// // Note: is_positive is moved here, so it's no longer usable
     /// let nor = is_positive.nor(is_even);
     /// assert!(nor.test(&-3));   // Neither positive nor even:
     ///                           // !(false || false) = true
@@ -844,6 +940,7 @@ impl<T: 'static> BoxPredicate<T> {
     ///                           // !(true || false) = false
     /// assert!(!nor.test(&-2));  // Even but not positive:
     ///                           // !(false || true) = false
+    /// // is_positive.test(&5); // This would not compile - is_positive was moved
     /// ```
     ///
     /// ## Combining with function pointers
@@ -871,6 +968,24 @@ impl<T: 'static> BoxPredicate<T> {
     /// let nor = is_positive.nor(is_even);
     /// assert!(nor.test(&-3));   // Returns true only when both are false
     /// assert!(!nor.test(&4));   // Returns false when at least one is true
+    /// ```
+    ///
+    /// ## Preserving original predicates with clone
+    ///
+    /// ```rust
+    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    ///
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+    ///
+    /// // Clone the predicates to preserve them for later use
+    /// let nor = is_positive.clone().nor(is_even.clone());
+    /// assert!(nor.test(&-3));   // Returns true only when both are false
+    /// assert!(!nor.test(&4));   // Returns false when at least one is true
+    ///
+    /// // Original predicates are still usable
+    /// assert!(is_positive.test(&5));
+    /// assert!(is_even.test(&6));
     /// ```
     pub fn nor<P>(self, other: P) -> BoxPredicate<T>
     where
@@ -1075,7 +1190,10 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T| -> bool`
     ///   - A function pointer: `fn(&T) -> bool`
     ///   - A `BoxPredicate<T>`
@@ -1097,11 +1215,12 @@ impl<T: 'static> RcPredicate<T> {
     /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
+    /// // Note: is_positive is borrowed (&self), so it remains usable
     /// let combined = is_positive.and(is_even);
     /// assert!(combined.test(&4));
     /// assert!(!combined.test(&3));
     ///
-    /// // original predicate remains usable
+    /// // original predicate remains usable because RcPredicate uses &self
     /// assert!(is_positive.test(&5));
     /// ```
     ///
@@ -1113,7 +1232,8 @@ impl<T: 'static> RcPredicate<T> {
     /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
     /// let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
     ///
-    /// // if you need to continue using is_even, you should clone
+    /// // Note: is_even parameter is passed by value and will be moved
+    /// // If you need to continue using is_even, you should clone it
     /// let combined = is_positive.and(is_even.clone());
     /// assert!(combined.test(&4));
     ///
@@ -1129,10 +1249,11 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
     ///
+    /// // Note: is_positive is borrowed (&self), so it can be reused
     /// let positive_and_even = is_positive.and(|x: &i32| x % 2 == 0);
     /// let positive_and_small = is_positive.and(|x: &i32| *x < 100);
     ///
-    /// // is_positive can be combined multiple times
+    /// // is_positive can be combined multiple times because RcPredicate uses &self
     /// assert!(positive_and_even.test(&4));
     /// assert!(positive_and_small.test(&5));
     /// assert!(is_positive.test(&10));
@@ -1153,8 +1274,16 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - Another `RcPredicate<T>` (will be moved)
+    ///   - An `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
@@ -1210,8 +1339,16 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - Another `RcPredicate<T>` (will be moved)
+    ///   - An `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
@@ -1250,8 +1387,16 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - Another `RcPredicate<T>` (will be moved)
+    ///   - An `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
@@ -1292,8 +1437,16 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - Another `RcPredicate<T>` (will be moved)
+    ///   - An `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
@@ -1627,8 +1780,16 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T> + Send + Sync` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - Another `ArcPredicate<T>` (will be moved)
+    ///   - Any type implementing `Predicate<T> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1670,8 +1831,16 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T> + Send + Sync` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - Another `ArcPredicate<T>` (will be moved)
+    ///   - Any type implementing `Predicate<T> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1728,8 +1897,11 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T> + Send + Sync` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Accepts closures, function pointers, or any
+    ///   `Predicate<T> + Send + Sync` implementation.
     ///
     /// # Returns
     ///
@@ -1766,7 +1938,10 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`).
     ///
     /// # Returns
     ///
@@ -1791,9 +1966,11 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T> + Send + Sync`
-    ///   implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Accepts closures, function pointers, or any
+    ///   `Predicate<T> + Send + Sync` implementation.
     ///
     /// # Returns
     ///
@@ -2081,7 +2258,10 @@ pub trait FnPredicateOps<T>: Fn(&T) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Can be:
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - Another closure
     ///   - A function pointer
     ///   - A `BoxPredicate<T>`, `RcPredicate<T>`, or `ArcPredicate<T>`
@@ -2115,8 +2295,14 @@ pub trait FnPredicateOps<T>: Fn(&T) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure
+    ///   - A function pointer
+    ///   - A `BoxPredicate<T>`, `RcPredicate<T>`, or `ArcPredicate<T>`
+    ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
     ///
@@ -2164,8 +2350,11 @@ pub trait FnPredicateOps<T>: Fn(&T) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Accepts closures, function pointers, or any
+    ///   `Predicate<T>` implementation.
     ///
     /// # Returns
     ///
@@ -2198,8 +2387,11 @@ pub trait FnPredicateOps<T>: Fn(&T) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Accepts closures, function pointers, or any
+    ///   `Predicate<T>` implementation.
     ///
     /// # Returns
     ///
@@ -2234,8 +2426,11 @@ pub trait FnPredicateOps<T>: Fn(&T) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other predicate to combine with. Accepts closures,
-    ///   function pointers, or any `Predicate<T>` implementation.
+    /// * `other` - The other predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original predicate, clone it first (if it implements
+    ///   `Clone`). Accepts closures, function pointers, or any
+    ///   `Predicate<T>` implementation.
     ///
     /// # Returns
     ///

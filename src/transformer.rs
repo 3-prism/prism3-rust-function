@@ -195,7 +195,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self
+    /// * `after` - The transformer to apply after self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: R| -> S`
+    ///   - A function pointer: `fn(R) -> S`
+    ///   - A `BoxTransformer<R, S>`
+    ///   - An `RcTransformer<R, S>`
+    ///   - An `ArcTransformer<R, S>`
+    ///   - Any type implementing `Transformer<R, S>`
     ///
     /// # Returns
     ///
@@ -203,13 +212,34 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{BoxTransformer, Transformer};
     ///
     /// let double = BoxTransformer::new(|x: i32| x * 2);
     /// let to_string = BoxTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // to_string is moved here
     /// let composed = double.and_then(to_string);
     /// assert_eq!(composed.transform(21), "42");
+    /// // to_string.transform(5); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{BoxTransformer, Transformer};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let to_string = BoxTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.and_then(to_string.clone());
+    /// assert_eq!(composed.transform(21), "42");
+    ///
+    /// // Original still usable
+    /// assert_eq!(to_string.transform(5), "5");
     /// ```
     pub fn and_then<S, F>(self, after: F) -> BoxTransformer<T, S>
     where
@@ -233,7 +263,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self
+    /// * `before` - The transformer to apply before self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: S| -> T`
+    ///   - A function pointer: `fn(S) -> T`
+    ///   - A `BoxTransformer<S, T>`
+    ///   - An `RcTransformer<S, T>`
+    ///   - An `ArcTransformer<S, T>`
+    ///   - Any type implementing `Transformer<S, T>`
     ///
     /// # Returns
     ///
@@ -241,13 +280,34 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{BoxTransformer, Transformer};
     ///
     /// let double = BoxTransformer::new(|x: i32| x * 2);
     /// let add_one = BoxTransformer::new(|x: i32| x + 1);
+    ///
+    /// // add_one is moved here
     /// let composed = double.compose(add_one);
     /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// // add_one.transform(3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{BoxTransformer, Transformer};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.compose(add_one.clone());
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    ///
+    /// // Original still usable
+    /// assert_eq!(add_one.transform(3), 4);
     /// ```
     pub fn compose<S, F>(self, before: F) -> BoxTransformer<S, R>
     where
@@ -266,10 +326,14 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -289,6 +353,24 @@ where
     ///
     /// assert_eq!(conditional.transform(5), 10);
     /// assert_eq!(conditional.transform(-5), -5); // identity
+    /// ```
+    ///
+    /// ## Preserving predicate with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, BoxTransformer, BoxPredicate};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    ///
+    /// // Clone to preserve original predicate
+    /// let conditional = double.when(is_positive.clone())
+    ///     .or_else(BoxTransformer::identity());
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    ///
+    /// // Original predicate still usable
+    /// assert!(is_positive.test(&3));
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalTransformer<T, R>
     where
@@ -539,7 +621,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self (consumed)
+    /// * `after` - The transformer to apply after self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: R| -> S`
+    ///   - A function pointer: `fn(R) -> S`
+    ///   - A `BoxTransformer<R, S>`
+    ///   - An `RcTransformer<R, S>`
+    ///   - An `ArcTransformer<R, S>` (will be moved)
+    ///   - Any type implementing `Transformer<R, S> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -547,16 +638,38 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{ArcTransformer, Transformer};
     ///
     /// let double = ArcTransformer::new(|x: i32| x * 2);
     /// let to_string = ArcTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // to_string is moved here
     /// let composed = double.and_then(to_string);
     ///
-    /// // Original double transformer still usable
+    /// // Original double transformer still usable (uses &self)
     /// assert_eq!(double.transform(21), 42);
     /// assert_eq!(composed.transform(21), "42");
+    /// // to_string.transform(5); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let to_string = ArcTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.and_then(to_string.clone());
+    /// assert_eq!(composed.transform(21), "42");
+    ///
+    /// // Both originals still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(to_string.transform(5), "5");
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> ArcTransformer<T, S>
     where
@@ -583,7 +696,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self (consumed)
+    /// * `before` - The transformer to apply before self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: S| -> T`
+    ///   - A function pointer: `fn(S) -> T`
+    ///   - A `BoxTransformer<S, T>`
+    ///   - An `RcTransformer<S, T>`
+    ///   - An `ArcTransformer<S, T>` (will be moved)
+    ///   - Any type implementing `Transformer<S, T> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -591,14 +713,35 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{ArcTransformer, Transformer};
     ///
     /// let double = ArcTransformer::new(|x: i32| x * 2);
     /// let add_one = ArcTransformer::new(|x: i32| x + 1);
-    /// let composed = double.compose(add_one);
     ///
+    /// // add_one is moved here
+    /// let composed = double.compose(add_one);
     /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// // add_one.transform(3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let add_one = ArcTransformer::new(|x: i32| x + 1);
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.compose(add_one.clone());
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    ///
+    /// // Both originals still usable
+    /// assert_eq!(double.transform(10), 20);
+    /// assert_eq!(add_one.transform(3), 4);
     /// ```
     pub fn compose<S, F>(&self, before: F) -> ArcTransformer<S, R>
     where
@@ -618,10 +761,13 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, must be `Send + Sync`, can be:
-    ///   - Closure: `|x: &T| -> bool` (requires `Send + Sync`)
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Must be
+    ///   `Send + Sync`, can be:
+    ///   - A closure: `|x: &T| -> bool` (requires `Send + Sync`)
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T> + Send + Sync`
     ///
     /// # Returns
@@ -629,6 +775,8 @@ where
     /// Returns `ArcConditionalTransformer<T, R>`
     ///
     /// # Examples
+    ///
+    /// ## Basic usage with or_else
     ///
     /// ```rust
     /// use prism3_function::{Transformer, ArcTransformer};
@@ -641,6 +789,24 @@ where
     ///
     /// assert_eq!(conditional.transform(5), 10);
     /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// ```
+    ///
+    /// ## Preserving predicate with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, ArcTransformer, ArcPredicate};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
+    ///
+    /// // Clone to preserve original predicate
+    /// let conditional = double.when(is_positive.clone())
+    ///     .or_else(ArcTransformer::identity());
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    ///
+    /// // Original predicate still usable
+    /// assert!(is_positive.test(&3));
     /// ```
     pub fn when<P>(self, predicate: P) -> ArcConditionalTransformer<T, R>
     where
@@ -915,7 +1081,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self (consumed)
+    /// * `after` - The transformer to apply after self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: R| -> S`
+    ///   - A function pointer: `fn(R) -> S`
+    ///   - A `BoxTransformer<R, S>`
+    ///   - An `RcTransformer<R, S>` (will be moved)
+    ///   - An `ArcTransformer<R, S>`
+    ///   - Any type implementing `Transformer<R, S>`
     ///
     /// # Returns
     ///
@@ -923,16 +1098,38 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{RcTransformer, Transformer};
     ///
     /// let double = RcTransformer::new(|x: i32| x * 2);
     /// let to_string = RcTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // to_string is moved here
     /// let composed = double.and_then(to_string);
     ///
-    /// // Original double transformer still usable
+    /// // Original double transformer still usable (uses &self)
     /// assert_eq!(double.transform(21), 42);
     /// assert_eq!(composed.transform(21), "42");
+    /// // to_string.transform(5); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, Transformer};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let to_string = RcTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.and_then(to_string.clone());
+    /// assert_eq!(composed.transform(21), "42");
+    ///
+    /// // Both originals still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(to_string.transform(5), "5");
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> RcTransformer<T, S>
     where
@@ -959,7 +1156,16 @@ where
     ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self (consumed)
+    /// * `before` - The transformer to apply before self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: S| -> T`
+    ///   - A function pointer: `fn(S) -> T`
+    ///   - A `BoxTransformer<S, T>`
+    ///   - An `RcTransformer<S, T>` (will be moved)
+    ///   - An `ArcTransformer<S, T>`
+    ///   - Any type implementing `Transformer<S, T>`
     ///
     /// # Returns
     ///
@@ -967,14 +1173,35 @@ where
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
     /// use prism3_function::{RcTransformer, Transformer};
     ///
     /// let double = RcTransformer::new(|x: i32| x * 2);
     /// let add_one = RcTransformer::new(|x: i32| x + 1);
-    /// let composed = double.compose(add_one);
     ///
+    /// // add_one is moved here
+    /// let composed = double.compose(add_one);
     /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// // add_one.transform(3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, Transformer};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let add_one = RcTransformer::new(|x: i32| x + 1);
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.compose(add_one.clone());
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    ///
+    /// // Both originals still usable
+    /// assert_eq!(double.transform(10), 20);
+    /// assert_eq!(add_one.transform(3), 4);
     /// ```
     pub fn compose<S, F>(&self, before: F) -> RcTransformer<S, R>
     where
@@ -994,10 +1221,14 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `RcPredicate<T>`, `BoxPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -1005,6 +1236,8 @@ where
     /// Returns `RcConditionalTransformer<T, R>`
     ///
     /// # Examples
+    ///
+    /// ## Basic usage with or_else
     ///
     /// ```rust
     /// use prism3_function::{Transformer, RcTransformer};
@@ -1017,6 +1250,24 @@ where
     ///
     /// assert_eq!(conditional.transform(5), 10);
     /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// ```
+    ///
+    /// ## Preserving predicate with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, RcTransformer, RcPredicate};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
+    ///
+    /// // Clone to preserve original predicate
+    /// let conditional = double.when(is_positive.clone())
+    ///     .or_else(RcTransformer::identity());
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    ///
+    /// // Original predicate still usable
+    /// assert!(is_positive.test(&3));
     /// ```
     pub fn when<P>(self, predicate: P) -> RcConditionalTransformer<T, R>
     where
@@ -1349,10 +1600,15 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self, can be:
-    ///   - Closure: `|x: R| -> S`
-    ///   - Function pointer: `fn(R) -> S`
-    ///   - `BoxTransformer<R, S>`, `RcTransformer<R, S>`, `ArcTransformer<R, S>`
+    /// * `after` - The transformer to apply after self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: R| -> S`
+    ///   - A function pointer: `fn(R) -> S`
+    ///   - A `BoxTransformer<R, S>`
+    ///   - An `RcTransformer<R, S>`
+    ///   - An `ArcTransformer<R, S>`
     ///   - Any type implementing `Transformer<R, S>`
     ///
     /// # Returns
@@ -1361,14 +1617,34 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
-    /// use prism3_function::{Transformer, FnTransformerOps};
+    /// use prism3_function::{Transformer, FnTransformerOps, BoxTransformer};
     ///
     /// let double = |x: i32| x * 2;
-    /// let to_string = |x: i32| x.to_string();
+    /// let to_string = BoxTransformer::new(|x: i32| x.to_string());
     ///
+    /// // to_string is moved here
     /// let composed = double.and_then(to_string);
     /// assert_eq!(composed.transform(21), "42");
+    /// // to_string.transform(5); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, FnTransformerOps, BoxTransformer};
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let to_string = BoxTransformer::new(|x: i32| x.to_string());
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.and_then(to_string.clone());
+    /// assert_eq!(composed.transform(21), "42");
+    ///
+    /// // Original still usable
+    /// assert_eq!(to_string.transform(5), "5");
     /// ```
     fn and_then<S, F>(self, after: F) -> BoxTransformer<T, S>
     where
@@ -1393,10 +1669,15 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self, can be:
-    ///   - Closure: `|x: S| -> T`
-    ///   - Function pointer: `fn(S) -> T`
-    ///   - `BoxTransformer<S, T>`, `RcTransformer<S, T>`, `ArcTransformer<S, T>`
+    /// * `before` - The transformer to apply before self. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original transformer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: S| -> T`
+    ///   - A function pointer: `fn(S) -> T`
+    ///   - A `BoxTransformer<S, T>`
+    ///   - An `RcTransformer<S, T>`
+    ///   - An `ArcTransformer<S, T>`
     ///   - Any type implementing `Transformer<S, T>`
     ///
     /// # Returns
@@ -1405,14 +1686,34 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
-    /// use prism3_function::{Transformer, FnTransformerOps};
+    /// use prism3_function::{Transformer, FnTransformerOps, BoxTransformer};
     ///
     /// let double = |x: i32| x * 2;
-    /// let add_one = |x: i32| x + 1;
+    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
     ///
+    /// // add_one is moved here
     /// let composed = double.compose(add_one);
     /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// // add_one.transform(3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, FnTransformerOps, BoxTransformer};
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
+    ///
+    /// // Clone to preserve original
+    /// let composed = double.compose(add_one.clone());
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    ///
+    /// // Original still usable
+    /// assert_eq!(add_one.transform(3), 4);
     /// ```
     fn compose<S, F>(self, before: F) -> BoxTransformer<S, R>
     where
@@ -1432,10 +1733,14 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Returns
@@ -1443,6 +1748,8 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     /// Returns `BoxConditionalTransformer<T, R>`
     ///
     /// # Examples
+    ///
+    /// ## Basic usage with or_else
     ///
     /// ```rust
     /// use prism3_function::{Transformer, FnTransformerOps};
@@ -1452,6 +1759,24 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// assert_eq!(conditional.transform(5), 10);
     /// assert_eq!(conditional.transform(-5), 5);
+    /// ```
+    ///
+    /// ## Preserving predicate with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Transformer, FnTransformerOps, BoxPredicate};
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
+    ///
+    /// // Clone to preserve original predicate
+    /// let conditional = double.when(is_positive.clone())
+    ///     .or_else(|x: i32| -x);
+    ///
+    /// assert_eq!(conditional.transform(5), 10);
+    ///
+    /// // Original predicate still usable
+    /// assert!(is_positive.test(&3));
     /// ```
     fn when<P>(self, predicate: P) -> BoxConditionalTransformer<T, R>
     where

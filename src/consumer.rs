@@ -391,13 +391,23 @@ where
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** If you need
+    ///   to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumer<T>`
+    ///   - An `RcConsumer<T>`
+    ///   - An `ArcConsumer<T>`
+    ///   - Any type implementing `Consumer<T>`
     ///
     /// # Return Value
     ///
     /// Returns a new combined `BoxConsumer<T>`
     ///
     /// # Examples
+    ///
+    /// ## Direct value passing (ownership transfer)
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -406,13 +416,44 @@ where
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l1 = log.clone();
     /// let l2 = log.clone();
-    /// let mut chained = BoxConsumer::new(move |x: &i32| {
+    /// let first = BoxConsumer::new(move |x: &i32| {
     ///     l1.lock().unwrap().push(*x * 2);
-    /// }).and_then(move |x: &i32| {
+    /// });
+    /// let second = BoxConsumer::new(move |x: &i32| {
     ///     l2.lock().unwrap().push(*x + 10);
     /// });
+    ///
+    /// // second is moved here
+    /// let mut chained = first.and_then(second);
     /// chained.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    /// // second.accept(&3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = BoxConsumer::new(move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// });
+    /// let second = BoxConsumer::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = first.and_then(second.clone());
+    /// chained.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    ///
+    /// // Original still usable
+    /// second.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15, 13]);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -432,10 +473,14 @@ where
     ///
     /// # Parameters
     ///
-    /// * `predicate` - The condition to check, can be:
-    ///   - Closure: `|x: &T| -> bool`
-    ///   - Function pointer: `fn(&T) -> bool`
-    ///   - `BoxPredicate<T>`, `RcPredicate<T>`, `ArcPredicate<T>`
+    /// * `predicate` - The condition to check. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original predicate, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T| -> bool`
+    ///   - A function pointer: `fn(&T) -> bool`
+    ///   - A `BoxPredicate<T>`
+    ///   - An `RcPredicate<T>`
+    ///   - An `ArcPredicate<T>`
     ///   - Any type implementing `Predicate<T>`
     ///
     /// # Return Value
@@ -464,23 +509,28 @@ where
     /// assert_eq!(*log.lock().unwrap(), vec![5]); // Unchanged
     /// ```
     ///
-    /// ## Using BoxPredicate
+    /// ## Preserving predicate with clone
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
+    /// use prism3_function::predicate::{Predicate, RcPredicate};
     /// use std::sync::{Arc, Mutex};
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l = log.clone();
-    /// let pred = BoxPredicate::new(|x: &i32| *x > 0);
+    /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
     /// let consumer = BoxConsumer::new(move |x: &i32| {
     ///     l.lock().unwrap().push(*x);
     /// });
-    /// let mut conditional = consumer.when(pred);
+    ///
+    /// // Clone to preserve original predicate
+    /// let mut conditional = consumer.when(is_positive.clone());
     ///
     /// conditional.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    ///
+    /// // Original predicate still usable
+    /// assert!(is_positive.test(&3));
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalConsumer<T>
     where
@@ -2018,7 +2068,15 @@ pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
     ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. **Note: This
+    ///   parameter is passed by value and will transfer ownership.** If you need
+    ///   to preserve the original consumer, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumer<T>`
+    ///   - An `RcConsumer<T>`
+    ///   - An `ArcConsumer<T>`
+    ///   - Any type implementing `Consumer<T>`
     ///
     /// # Return Value
     ///
@@ -2026,21 +2084,53 @@ pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
     ///
     /// # Examples
     ///
+    /// ## Direct value passing (ownership transfer)
+    ///
     /// ```rust
-    /// use prism3_function::{Consumer, FnConsumerOps};
+    /// use prism3_function::{Consumer, FnConsumerOps, BoxConsumer};
     /// use std::sync::{Arc, Mutex};
     ///
     /// let log = Arc::new(Mutex::new(Vec::new()));
     /// let l1 = log.clone();
     /// let l2 = log.clone();
+    /// let second = BoxConsumer::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// });
+    ///
+    /// // second is moved here
     /// let mut chained = (move |x: &i32| {
     ///     l1.lock().unwrap().push(*x * 2);
-    /// }).and_then(move |x: &i32| {
-    ///     l2.lock().unwrap().push(*x + 10);
-    /// }).and_then(|x: &i32| println!("Result: {}", x));
+    /// }).and_then(second);
     ///
-    /// chained.accept(&5); // Prints: Result: 5
+    /// chained.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    /// // second.accept(&3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, FnConsumerOps, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let second = BoxConsumer::new(move |x: &i32| {
+    ///     l2.lock().unwrap().push(*x + 10);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = (move |x: &i32| {
+    ///     l1.lock().unwrap().push(*x * 2);
+    /// }).and_then(second.clone());
+    ///
+    /// chained.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    ///
+    /// // Original still usable
+    /// second.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15, 13]);
     /// ```
     fn and_then<C>(self, next: C) -> BoxConsumer<T>
     where

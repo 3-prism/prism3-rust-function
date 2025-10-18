@@ -477,7 +477,10 @@ impl<T, U> BoxBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T, y: &U| -> bool`
     ///   - A function pointer: `fn(&T, &U) -> bool`
     ///   - Another `BoxBiPredicate<T, U>`
@@ -509,7 +512,10 @@ impl<T, U> BoxBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T, y: &U| -> bool`
     ///   - A function pointer: `fn(&T, &U) -> bool`
     ///   - Another `BoxBiPredicate<T, U>`
@@ -564,7 +570,10 @@ impl<T, U> BoxBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T, y: &U| -> bool`
     ///   - A function pointer: `fn(&T, &U) -> bool`
     ///   - Another `BoxBiPredicate<T, U>`
@@ -599,7 +608,10 @@ impl<T, U> BoxBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T, y: &U| -> bool`
     ///   - A function pointer: `fn(&T, &U) -> bool`
     ///   - Another `BoxBiPredicate<T, U>`
@@ -634,7 +646,10 @@ impl<T, U> BoxBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
     ///   - A closure: `|x: &T, y: &U| -> bool`
     ///   - A function pointer: `fn(&T, &U) -> bool`
     ///   - Another `BoxBiPredicate<T, U>`
@@ -858,9 +873,16 @@ impl<T, U> RcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - Another `RcBiPredicate<T, U>` (will be moved)
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -885,9 +907,16 @@ impl<T, U> RcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - Another `RcBiPredicate<T, U>` (will be moved)
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -934,9 +963,16 @@ impl<T, U> RcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - Another `RcBiPredicate<T, U>` (will be moved)
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -964,9 +1000,16 @@ impl<T, U> RcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - Another `RcBiPredicate<T, U>` (will be moved)
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -994,9 +1037,16 @@ impl<T, U> RcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - Another `RcBiPredicate<T, U>` (will be moved)
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -1274,9 +1324,16 @@ impl<T, U> ArcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any
-    ///   `BiPredicate<T, U> + Send + Sync` implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - Another `ArcBiPredicate<T, U>` (will be moved)
+    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1301,9 +1358,16 @@ impl<T, U> ArcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any
-    ///   `BiPredicate<T, U> + Send + Sync` implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - Another `ArcBiPredicate<T, U>` (will be moved)
+    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1351,9 +1415,16 @@ impl<T, U> ArcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any
-    ///   `BiPredicate<T, U> + Send + Sync` implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - Another `ArcBiPredicate<T, U>` (will be moved)
+    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1382,7 +1453,16 @@ impl<T, U> ArcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - Another `ArcBiPredicate<T, U>` (will be moved)
+    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1410,9 +1490,16 @@ impl<T, U> ArcBiPredicate<T, U> {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any
-    ///   `BiPredicate<T, U> + Send + Sync` implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - Another `ArcBiPredicate<T, U>` (will be moved)
+    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
     ///
     /// # Returns
     ///
@@ -1628,11 +1715,16 @@ pub trait FnBiPredicateOps<T, U>: Fn(&T, &U) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Can be:
-    ///   - Another closure
-    ///   - A function pointer
-    ///   - A `BoxBiPredicate<T, U>`, `RcBiPredicate<T, U>`, or
-    ///     `ArcBiPredicate<T, U>`
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -1651,9 +1743,16 @@ pub trait FnBiPredicateOps<T, U>: Fn(&T, &U) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -1689,9 +1788,16 @@ pub trait FnBiPredicateOps<T, U>: Fn(&T, &U) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -1715,9 +1821,16 @@ pub trait FnBiPredicateOps<T, U>: Fn(&T, &U) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
@@ -1739,9 +1852,16 @@ pub trait FnBiPredicateOps<T, U>: Fn(&T, &U) -> bool + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other bi-predicate to combine with. Accepts
-    ///   closures, function pointers, or any `BiPredicate<T, U>`
-    ///   implementation.
+    /// * `other` - The other bi-predicate to combine with. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to
+    ///   preserve the original bi-predicate, clone it first (if it implements
+    ///   `Clone`). Can be:
+    ///   - Another closure: `|x: &T, y: &U| -> bool`
+    ///   - A function pointer: `fn(&T, &U) -> bool`
+    ///   - A `BoxBiPredicate<T, U>`
+    ///   - An `RcBiPredicate<T, U>`
+    ///   - An `ArcBiPredicate<T, U>`
+    ///   - Any type implementing `BiPredicate<T, U>`
     ///
     /// # Returns
     ///
