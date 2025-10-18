@@ -40,12 +40,10 @@
 //!
 //! | Scenario | Recommended Type | Reason |
 //! |----------|------------------|--------|
-//! | One-time use | `BoxBiPredicate` | Single ownership, no
-//!   overhead |
+//! | One-time use | `BoxBiPredicate` | Single ownership, no overhead |
 //! | Multi-threaded | `ArcBiPredicate` | Thread-safe, clonable |
 //! | Single-threaded reuse | `RcBiPredicate` | Better performance |
-//! | Stateful predicate | Any type + `RefCell`/`Cell`/`Mutex` |
-//!   Interior mutability |
+//! | Stateful predicate | Any type + `RefCell`/`Cell`/`Mutex` | Interior mutability |
 //!
 //! ## Examples
 //!
@@ -145,6 +143,7 @@
 //!
 //! Haixing Hu
 
+use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -704,6 +703,24 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
     }
 }
 
+impl<T, U> Display for BoxBiPredicate<T, U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "BoxBiPredicate({})",
+            self.name.as_deref().unwrap_or("unnamed")
+        )
+    }
+}
+
+impl<T, U> Debug for BoxBiPredicate<T, U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("BoxBiPredicate")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// An Rc-based bi-predicate with single-threaded shared ownership.
 ///
 /// This type is suitable for scenarios where the bi-predicate needs
@@ -1096,25 +1113,7 @@ impl<T, U> Clone for RcBiPredicate<T, U> {
     }
 }
 
-impl<T, U> std::fmt::Display for BoxBiPredicate<T, U> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "BoxBiPredicate({})",
-            self.name.as_deref().unwrap_or("unnamed")
-        )
-    }
-}
-
-impl<T, U> std::fmt::Debug for BoxBiPredicate<T, U> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("BoxBiPredicate")
-            .field("name", &self.name)
-            .finish()
-    }
-}
-
-impl<T, U> std::fmt::Display for RcBiPredicate<T, U> {
+impl<T, U> Display for RcBiPredicate<T, U> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -1124,7 +1123,7 @@ impl<T, U> std::fmt::Display for RcBiPredicate<T, U> {
     }
 }
 
-impl<T, U> std::fmt::Debug for RcBiPredicate<T, U> {
+impl<T, U> Debug for RcBiPredicate<T, U> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("RcBiPredicate")
             .field("name", &self.name)
@@ -1551,7 +1550,7 @@ impl<T, U> Clone for ArcBiPredicate<T, U> {
     }
 }
 
-impl<T, U> std::fmt::Display for ArcBiPredicate<T, U> {
+impl<T, U> Display for ArcBiPredicate<T, U> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -1561,7 +1560,7 @@ impl<T, U> std::fmt::Display for ArcBiPredicate<T, U> {
     }
 }
 
-impl<T, U> std::fmt::Debug for ArcBiPredicate<T, U> {
+impl<T, U> Debug for ArcBiPredicate<T, U> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("ArcBiPredicate")
             .field("name", &self.name)

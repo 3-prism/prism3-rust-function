@@ -174,6 +174,16 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// ==========================================================================
+// Type Aliases
+// ==========================================================================
+
+/// Type alias for comparator function signature.
+type ComparatorFn<T> = dyn Fn(&T, &T) -> Ordering;
+
+/// Type alias for thread-safe comparator function signature.
+type ThreadSafeComparatorFn<T> = dyn Fn(&T, &T) -> Ordering + Send + Sync;
+
 /// A trait for comparison operations.
 ///
 /// This trait defines the core comparison operation and conversion methods.
@@ -243,7 +253,7 @@ pub trait Comparator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxComparator::new(self)
+        BoxComparator::new(move |a, b| self.compare(a, b))
     }
 
     /// Converts this comparator into an `ArcComparator`.
@@ -265,7 +275,7 @@ pub trait Comparator<T> {
         Self: Sized + Send + Sync + 'static,
         T: 'static,
     {
-        ArcComparator::new(self)
+        ArcComparator::new(move |a, b| self.compare(a, b))
     }
 
     /// Converts this comparator into an `RcComparator`.
@@ -287,7 +297,35 @@ pub trait Comparator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        RcComparator::new(self)
+        RcComparator::new(move |a, b| self.compare(a, b))
+    }
+
+    /// Converts this comparator into a closure that implements
+    /// `Fn(&T, &T) -> Ordering`.
+    ///
+    /// This method consumes the comparator and returns a closure that
+    /// can be used anywhere a function or closure is expected.
+    ///
+    /// # Returns
+    ///
+    /// An implementation that can be called as `Fn(&T, &T) -> Ordering`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::comparator::{Comparator, BoxComparator};
+    /// use std::cmp::Ordering;
+    ///
+    /// let cmp = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
+    /// let func = cmp.into_fn();
+    /// assert_eq!(func(&5, &3), Ordering::Greater);
+    /// ```
+    fn into_fn(self) -> impl Fn(&T, &T) -> Ordering
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        move |a: &T, b: &T| self.compare(a, b)
     }
 }
 
@@ -339,15 +377,15 @@ where
 ///
 /// Haixing Hu
 pub struct BoxComparator<T> {
-    inner: Box<dyn Comparator<T>>,
+    function: Box<ComparatorFn<T>>,
 }
 
 impl<T: 'static> BoxComparator<T> {
-    /// Creates a new `BoxComparator` from a comparator.
+    /// Creates a new `BoxComparator` from a closure.
     ///
     /// # Parameters
     ///
-    /// * `comparator` - The comparator to wrap
+    /// * `f` - The closure to wrap
     ///
     /// # Returns
     ///
@@ -360,12 +398,12 @@ impl<T: 'static> BoxComparator<T> {
     ///
     /// let cmp = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
     /// ```
-    pub fn new<C>(comparator: C) -> Self
+    pub fn new<F>(f: F) -> Self
     where
-        C: Comparator<T> + 'static,
+        F: Fn(&T, &T) -> Ordering + 'static,
     {
         Self {
-            inner: Box::new(comparator),
+            function: Box::new(f),
         }
     }
 
@@ -386,7 +424,9 @@ impl<T: 'static> BoxComparator<T> {
     /// assert_eq!(rev.compare(&5, &3), Ordering::Less);
     /// ```
     pub fn reversed(self) -> Self {
-        Self::new(ReverseComparator::new(self))
+        Self {
+            function: Box::new(move |a: &T, b: &T| (self.function)(b, a)),
+        }
     }
 
     /// Returns a comparator that uses this comparator first, then another
@@ -425,7 +465,12 @@ impl<T: 'static> BoxComparator<T> {
     /// assert_eq!(cmp.compare(&p1, &p2), Ordering::Greater);
     /// ```
     pub fn then_comparing(self, other: Self) -> Self {
-        Self::new(ChainedComparator::new(self, other))
+        Self {
+            function: Box::new(move |a: &T, b: &T| match (self.function)(a, b) {
+                Ordering::Equal => (other.function)(a, b),
+                ord => ord,
+            }),
+        }
     }
 
     /// Returns a comparator that compares values by a key extracted by the
@@ -463,11 +508,31 @@ impl<T: 'static> BoxComparator<T> {
     {
         Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
     }
+
+    /// Converts this comparator into a closure.
+    ///
+    /// # Returns
+    ///
+    /// A closure that implements `Fn(&T, &T) -> Ordering`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::comparator::{Comparator, BoxComparator};
+    /// use std::cmp::Ordering;
+    ///
+    /// let cmp = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
+    /// let func = cmp.into_fn();
+    /// assert_eq!(func(&5, &3), Ordering::Greater);
+    /// ```
+    pub fn into_fn(self) -> impl Fn(&T, &T) -> Ordering {
+        move |a: &T, b: &T| (self.function)(a, b)
+    }
 }
 
 impl<T> Comparator<T> for BoxComparator<T> {
     fn compare(&self, a: &T, b: &T) -> Ordering {
-        self.inner.compare(a, b)
+        (self.function)(a, b)
     }
 }
 
@@ -498,15 +563,15 @@ impl<T> Comparator<T> for BoxComparator<T> {
 /// Haixing Hu
 #[derive(Clone)]
 pub struct ArcComparator<T> {
-    inner: Arc<dyn Comparator<T> + Send + Sync>,
+    function: Arc<ThreadSafeComparatorFn<T>>,
 }
 
 impl<T: 'static> ArcComparator<T> {
-    /// Creates a new `ArcComparator` from a comparator.
+    /// Creates a new `ArcComparator` from a closure.
     ///
     /// # Parameters
     ///
-    /// * `comparator` - The comparator to wrap
+    /// * `f` - The closure to wrap
     ///
     /// # Returns
     ///
@@ -519,12 +584,12 @@ impl<T: 'static> ArcComparator<T> {
     ///
     /// let cmp = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
     /// ```
-    pub fn new<C>(comparator: C) -> Self
+    pub fn new<F>(f: F) -> Self
     where
-        C: Comparator<T> + Send + Sync + 'static,
+        F: Fn(&T, &T) -> Ordering + Send + Sync + 'static,
     {
         Self {
-            inner: Arc::new(comparator),
+            function: Arc::new(f),
         }
     }
 
@@ -546,9 +611,9 @@ impl<T: 'static> ArcComparator<T> {
     /// assert_eq!(cmp.compare(&5, &3), Ordering::Greater); // cmp still works
     /// ```
     pub fn reversed(&self) -> Self {
-        let inner = self.inner.clone();
+        let function = self.function.clone();
         Self {
-            inner: Arc::new(move |a: &T, b: &T| inner.compare(b, a)),
+            function: Arc::new(move |a: &T, b: &T| function(b, a)),
         }
     }
 
@@ -577,12 +642,12 @@ impl<T: 'static> ArcComparator<T> {
     /// assert_eq!(chained.compare(&4, &2), Ordering::Greater);
     /// ```
     pub fn then_comparing(&self, other: &Self) -> Self {
-        let first = self.inner.clone();
-        let second = other.inner.clone();
+        let first = self.function.clone();
+        let second = other.function.clone();
         Self {
-            inner: Arc::new(move |a: &T, b: &T| match first.compare(a, b) {
-                Ordering::Equal => second.compare(a, b),
-                other => other,
+            function: Arc::new(move |a: &T, b: &T| match first(a, b) {
+                Ordering::Equal => second(a, b),
+                ord => ord,
             }),
         }
     }
@@ -622,11 +687,31 @@ impl<T: 'static> ArcComparator<T> {
     {
         Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
     }
+
+    /// Converts this comparator into a closure.
+    ///
+    /// # Returns
+    ///
+    /// A closure that implements `Fn(&T, &T) -> Ordering`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::comparator::{Comparator, ArcComparator};
+    /// use std::cmp::Ordering;
+    ///
+    /// let cmp = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+    /// let func = cmp.into_fn();
+    /// assert_eq!(func(&5, &3), Ordering::Greater);
+    /// ```
+    pub fn into_fn(self) -> impl Fn(&T, &T) -> Ordering {
+        move |a: &T, b: &T| (self.function)(a, b)
+    }
 }
 
 impl<T> Comparator<T> for ArcComparator<T> {
     fn compare(&self, a: &T, b: &T) -> Ordering {
-        self.inner.compare(a, b)
+        (self.function)(a, b)
     }
 }
 
@@ -657,15 +742,15 @@ impl<T> Comparator<T> for ArcComparator<T> {
 /// Haixing Hu
 #[derive(Clone)]
 pub struct RcComparator<T> {
-    inner: Rc<dyn Comparator<T>>,
+    function: Rc<ComparatorFn<T>>,
 }
 
 impl<T: 'static> RcComparator<T> {
-    /// Creates a new `RcComparator` from a comparator.
+    /// Creates a new `RcComparator` from a closure.
     ///
     /// # Parameters
     ///
-    /// * `comparator` - The comparator to wrap
+    /// * `f` - The closure to wrap
     ///
     /// # Returns
     ///
@@ -678,12 +763,12 @@ impl<T: 'static> RcComparator<T> {
     ///
     /// let cmp = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
     /// ```
-    pub fn new<C>(comparator: C) -> Self
+    pub fn new<F>(f: F) -> Self
     where
-        C: Comparator<T> + 'static,
+        F: Fn(&T, &T) -> Ordering + 'static,
     {
         Self {
-            inner: Rc::new(comparator),
+            function: Rc::new(f),
         }
     }
 
@@ -705,9 +790,9 @@ impl<T: 'static> RcComparator<T> {
     /// assert_eq!(cmp.compare(&5, &3), Ordering::Greater); // cmp still works
     /// ```
     pub fn reversed(&self) -> Self {
-        let inner = self.inner.clone();
+        let function = self.function.clone();
         Self {
-            inner: Rc::new(move |a: &T, b: &T| inner.compare(b, a)),
+            function: Rc::new(move |a: &T, b: &T| function(b, a)),
         }
     }
 
@@ -736,12 +821,12 @@ impl<T: 'static> RcComparator<T> {
     /// assert_eq!(chained.compare(&4, &2), Ordering::Greater);
     /// ```
     pub fn then_comparing(&self, other: &Self) -> Self {
-        let first = self.inner.clone();
-        let second = other.inner.clone();
+        let first = self.function.clone();
+        let second = other.function.clone();
         Self {
-            inner: Rc::new(move |a: &T, b: &T| match first.compare(a, b) {
-                Ordering::Equal => second.compare(a, b),
-                other => other,
+            function: Rc::new(move |a: &T, b: &T| match first(a, b) {
+                Ordering::Equal => second(a, b),
+                ord => ord,
             }),
         }
     }
@@ -781,11 +866,31 @@ impl<T: 'static> RcComparator<T> {
     {
         Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
     }
+
+    /// Converts this comparator into a closure.
+    ///
+    /// # Returns
+    ///
+    /// A closure that implements `Fn(&T, &T) -> Ordering`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::comparator::{Comparator, RcComparator};
+    /// use std::cmp::Ordering;
+    ///
+    /// let cmp = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+    /// let func = cmp.into_fn();
+    /// assert_eq!(func(&5, &3), Ordering::Greater);
+    /// ```
+    pub fn into_fn(self) -> impl Fn(&T, &T) -> Ordering {
+        move |a: &T, b: &T| (self.function)(a, b)
+    }
 }
 
 impl<T> Comparator<T> for RcComparator<T> {
     fn compare(&self, a: &T, b: &T) -> Ordering {
-        self.inner.compare(a, b)
+        (self.function)(a, b)
     }
 }
 
@@ -868,127 +973,3 @@ pub trait FnComparatorOps<T>: Fn(&T, &T) -> Ordering + Sized {
 }
 
 impl<T, F> FnComparatorOps<T> for F where F: Fn(&T, &T) -> Ordering {}
-
-/// A comparator that reverses the ordering of another comparator.
-///
-/// This struct is used internally by the `reversed` method.
-struct ReverseComparator<T, C> {
-    inner: C,
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T, C> ReverseComparator<T, C>
-where
-    C: Comparator<T>,
-{
-    fn new(inner: C) -> Self {
-        Self {
-            inner,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<T, C> Comparator<T> for ReverseComparator<T, C>
-where
-    C: Comparator<T>,
-{
-    fn compare(&self, a: &T, b: &T) -> Ordering {
-        self.inner.compare(b, a)
-    }
-}
-
-/// A comparator that chains two comparators.
-///
-/// This struct is used internally by the `then_comparing` method. It first
-/// compares using the first comparator, and if the result is `Equal`, it
-/// uses the second comparator.
-struct ChainedComparator<T, A, B> {
-    first: A,
-    second: B,
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T, A, B> ChainedComparator<T, A, B>
-where
-    A: Comparator<T>,
-    B: Comparator<T>,
-{
-    fn new(first: A, second: B) -> Self {
-        Self {
-            first,
-            second,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<T, A, B> Comparator<T> for ChainedComparator<T, A, B>
-where
-    A: Comparator<T>,
-    B: Comparator<T>,
-{
-    fn compare(&self, a: &T, b: &T) -> Ordering {
-        match self.first.compare(a, b) {
-            Ordering::Equal => self.second.compare(a, b),
-            other => other,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_closure_as_comparator() {
-        let cmp = |a: &i32, b: &i32| a.cmp(b);
-        assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
-        assert_eq!(cmp.compare(&3, &5), Ordering::Less);
-        assert_eq!(cmp.compare(&5, &5), Ordering::Equal);
-    }
-
-    #[test]
-    fn test_box_comparator_basic() {
-        let cmp = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_box_comparator_reversed() {
-        let cmp = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let rev = cmp.reversed();
-        assert_eq!(rev.compare(&5, &3), Ordering::Less);
-    }
-
-    #[test]
-    fn test_arc_comparator_clone() {
-        let cmp = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let cloned = cmp.clone();
-        assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
-        assert_eq!(cloned.compare(&5, &3), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_arc_comparator_reversed() {
-        let cmp = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let rev = cmp.reversed();
-        assert_eq!(rev.compare(&5, &3), Ordering::Less);
-        assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_then_comparing() {
-        let cmp1 = BoxComparator::new(|a: &i32, b: &i32| (a % 2).cmp(&(b % 2)));
-        let cmp2 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let chained = cmp1.then_comparing(cmp2);
-        assert_eq!(chained.compare(&4, &2), Ordering::Greater);
-        assert_eq!(chained.compare(&3, &1), Ordering::Greater);
-    }
-
-    #[test]
-    fn test_fn_ops_reversed() {
-        let rev = (|a: &i32, b: &i32| a.cmp(b)).reversed();
-        assert_eq!(rev.compare(&5, &3), Ordering::Less);
-    }
-}

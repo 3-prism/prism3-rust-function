@@ -171,6 +171,7 @@
 //!
 //! Haixing Hu
 
+use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -914,6 +915,30 @@ impl<T: 'static> Predicate<T> for BoxPredicate<T> {
     }
 }
 
+impl<T> Display for BoxPredicate<T> {
+    /// Implements Display trait for BoxPredicate
+    ///
+    /// Shows the predicate name if available, or "unnamed" as default.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "BoxPredicate({})",
+            self.name.as_deref().unwrap_or("unnamed")
+        )
+    }
+}
+
+impl<T> Debug for BoxPredicate<T> {
+    /// Implements Debug trait for BoxPredicate
+    ///
+    /// Shows the predicate name in debug struct format.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BoxPredicate")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// An Rc-based predicate with single-threaded shared ownership.
 ///
 /// This type is suitable for scenarios where the predicate needs to be
@@ -1436,6 +1461,30 @@ impl<T> Clone for RcPredicate<T> {
     }
 }
 
+impl<T> Display for RcPredicate<T> {
+    /// Implements Display trait for RcPredicate
+    ///
+    /// Shows the predicate name if available, or "unnamed" as default.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "RcPredicate({})",
+            self.name.as_deref().unwrap_or("unnamed")
+        )
+    }
+}
+
+impl<T> Debug for RcPredicate<T> {
+    /// Implements Debug trait for RcPredicate
+    ///
+    /// Shows the predicate name in debug struct format.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RcPredicate")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// An Arc-based predicate with thread-safe shared ownership.
 ///
 /// This type is suitable for scenarios where the predicate needs to be
@@ -1946,6 +1995,30 @@ impl<T> Clone for ArcPredicate<T> {
             function: Arc::clone(&self.function),
             name: self.name.clone(),
         }
+    }
+}
+
+impl<T> Display for ArcPredicate<T> {
+    /// Implements Display trait for ArcPredicate
+    ///
+    /// Shows the predicate name if available, or "unnamed" as default.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ArcPredicate({})",
+            self.name.as_deref().unwrap_or("unnamed")
+        )
+    }
+}
+
+impl<T> Debug for ArcPredicate<T> {
+    /// Implements Debug trait for ArcPredicate
+    ///
+    /// Shows the predicate name in debug struct format.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArcPredicate")
+            .field("name", &self.name)
+            .finish()
     }
 }
 

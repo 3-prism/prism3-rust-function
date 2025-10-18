@@ -8,199 +8,61 @@
  ******************************************************************************/
 //! # BiConsumer Types
 //!
-//! Provides Java-like `BiConsumer` interface implementations for performing
-//! operations that accept two input parameters and return no result.
+//! Provides bi-consumer interface implementations for operations accepting
+//! two input parameters without returning a result.
 //!
 //! This module provides a unified `BiConsumer` trait and three concrete
 //! implementations based on different ownership models:
 //!
-//! - **`BoxBiConsumer<T, U>`**: Box-based single ownership implementation for
-//!   one-time use scenarios and builder patterns
-//! - **`ArcBiConsumer<T, U>`**: Arc<Mutex<>>-based thread-safe shared ownership
-//!   implementation for multi-threaded scenarios
+//! - **`BoxBiConsumer<T, U>`**: Box-based single ownership for one-time use
+//! - **`ArcBiConsumer<T, U>`**: Arc<Mutex<>>-based thread-safe shared
+//!   ownership
 //! - **`RcBiConsumer<T, U>`**: Rc<RefCell<>>-based single-threaded shared
-//!   ownership implementation with no lock overhead
+//!   ownership
 //!
 //! # Design Philosophy
 //!
-//! Unlike `BiPredicate` which uses `Fn(&T, &U) -> bool`, `BiConsumer` requires
-//! `FnMut(&mut T, &mut U)` for mutability. This introduces interior mutability
-//! challenges when sharing across contexts:
-//!
-//! - **Single Ownership**: `BoxBiConsumer` uses `Box<dyn FnMut>` with no
-//!   sharing overhead
-//! - **Thread-Safe Sharing**: `ArcBiConsumer` uses `Arc<Mutex<dyn FnMut>>`
-//!   for safe concurrent access
-//! - **Single-Threaded Sharing**: `RcBiConsumer` uses `Rc<RefCell<dyn FnMut>>`
-//!   for efficient single-threaded reuse
-//!
-//! # Comparison Table
-//!
-//! | Feature          | BoxBiConsumer | ArcBiConsumer | RcBiConsumer |
-//! |------------------|---------------|---------------|--------------|
-//! | Ownership        | Single        | Shared        | Shared       |
-//! | Cloneable        | ❌            | ✅            | ✅           |
-//! | Thread-Safe      | ❌            | ✅            | ❌           |
-//! | Interior Mut.    | N/A           | Mutex         | RefCell      |
-//! | `and_then` API   | `self`        | `&self`       | `&self`      |
-//! | Lock Overhead    | None          | Yes           | None         |
-//!
-//! # Use Cases
-//!
-//! ## BoxBiConsumer
-//!
-//! - One-time operations that don't require sharing
-//! - Builder patterns where ownership naturally flows
-//! - Simple scenarios with no reuse requirements
-//!
-//! ## ArcBiConsumer
-//!
-//! - Multi-threaded shared operations
-//! - Concurrent task processing (e.g., thread pools)
-//! - Situations requiring the same consumer across threads
-//!
-//! ## RcBiConsumer
-//!
-//! - Single-threaded operations with multiple uses
-//! - Event handling in single-threaded UI frameworks
-//! - Performance-critical single-threaded scenarios
-//!
-//! # Examples
-//!
-//! ## Basic Usage
-//!
-//! ```rust
-//! use prism3_function::{BoxBiConsumer, ArcBiConsumer, RcBiConsumer, BiConsumer};
-//!
-//! // BoxBiConsumer: Single ownership, consumes self
-//! let mut consumer = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| {
-//!     *x += *y;
-//!     *y = 0;
-//! });
-//! let mut a = 5;
-//! let mut b = 3;
-//! consumer.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);
-//! assert_eq!(b, 0);
-//!
-//! // ArcBiConsumer: Shared ownership, cloneable, thread-safe
-//! let shared = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-//! let clone = shared.clone();
-//! let mut a = 5;
-//! let mut b = 3;
-//! let mut c = shared;
-//! c.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);
-//!
-//! // RcBiConsumer: Shared ownership, cloneable, single-threaded
-//! let rc = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-//! let clone = rc.clone();
-//! let mut a = 5;
-//! let mut b = 3;
-//! let mut c = rc;
-//! c.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);
-//! ```
-//!
-//! ## Method Chaining
-//!
-//! ```rust
-//! use prism3_function::{BiConsumer, BoxBiConsumer, ArcBiConsumer};
-//!
-//! // BoxBiConsumer: Consumes self
-//! let mut chained = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y)
-//!     .and_then(|x: &mut i32, y: &mut i32| *y *= 2);
-//! let mut a = 5;
-//! let mut b = 3;
-//! chained.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);  // 5 + 3
-//! assert_eq!(b, 6);  // 3 * 2
-//!
-//! // ArcBiConsumer: Borrows &self, original still usable
-//! let first = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-//! let second = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *y *= 2);
-//! let combined = first.and_then(&second);
-//! // first and second are still usable here
-//! ```
-//!
-//! ## Working with Closures
-//!
-//! All closures automatically implement the `BiConsumer` trait:
-//!
-//! ```rust
-//! use prism3_function::{BiConsumer, FnBiConsumerOps};
-//!
-//! // Closures can use .accept() directly
-//! let mut closure = |x: &mut i32, y: &mut i32| *x += *y;
-//! let mut a = 5;
-//! let mut b = 3;
-//! closure.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);
-//!
-//! // Closures can be chained, returning BoxBiConsumer
-//! let mut chained = (|x: &mut i32, y: &mut i32| *x += *y)
-//!     .and_then(|x: &mut i32, y: &mut i32| *y *= 2);
-//! let mut a = 5;
-//! let mut b = 3;
-//! chained.accept(&mut a, &mut b);
-//! assert_eq!(a, 8);
-//! assert_eq!(b, 6);
-//! ```
-//!
-//! ## Type Conversions
-//!
-//! ```rust
-//! use prism3_function::BiConsumer;
-//!
-//! // Convert closure to concrete type
-//! let closure = |x: &mut i32, y: &mut i32| *x += *y;
-//! let mut box_consumer = closure.into_box();
-//!
-//! let closure = |x: &mut i32, y: &mut i32| *x += *y;
-//! let mut rc_consumer = closure.into_rc();
-//!
-//! let closure = |x: &mut i32, y: &mut i32| *x += *y;
-//! let mut arc_consumer = closure.into_arc();
-//! ```
+//! BiConsumer uses `FnMut(&T, &U)` semantics: can modify its own state but
+//! does NOT modify input values. Suitable for statistics, accumulation, and
+//! event processing scenarios involving two parameters.
 //!
 //! # Author
 //!
 //! Haixing Hu
 
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-// ============================================================================
-// 1. Type Aliases
-// ============================================================================
+/// Type alias for bi-consumer function to simplify complex types.
+///
+/// Represents a mutable function taking two references and returning
+/// nothing. Used to reduce type complexity in struct definitions.
+type BiConsumerFn<T, U> = dyn FnMut(&T, &U);
 
-/// Type alias for Arc-wrapped mutable bi-consumer function
-type ArcMutBiConsumerFn<T, U> = Arc<Mutex<dyn FnMut(&mut T, &mut U) + Send>>;
+/// Type alias for thread-safe bi-consumer function.
+///
+/// Represents a mutable function with Send bound for thread-safe usage.
+type SendBiConsumerFn<T, U> = dyn FnMut(&T, &U) + Send;
 
-/// Type alias for Rc-wrapped mutable bi-consumer function
-type RcMutBiConsumerFn<T, U> = Rc<RefCell<dyn FnMut(&mut T, &mut U)>>;
-
-// ============================================================================
-// 2. BiConsumer Trait - Unified BiConsumer Interface
-// ============================================================================
+// =======================================================================
+// 1. BiConsumer Trait - Unified BiConsumer Interface
+// =======================================================================
 
 /// BiConsumer trait - Unified bi-consumer interface
 ///
-/// Defines the core behavior of all bi-consumer types. Similar to Java's
-/// `BiConsumer<T, U>` interface, it performs operations that accept two values
-/// but return no result (side effects only).
+/// Defines core behavior for all bi-consumer types. Similar to Java's
+/// `BiConsumer<T, U>` interface, performs operations accepting two values
+/// but returning no result (side effects only).
 ///
-/// This trait is automatically implemented by:
-/// - All closures implementing `FnMut(&mut T, &mut U)`
-/// - `BoxBiConsumer<T, U>`, `ArcBiConsumer<T, U>`, and `RcBiConsumer<T, U>`
+/// BiConsumer can modify its own state (e.g., accumulate, count) but
+/// should NOT modify the consumed values themselves.
 ///
-/// # Design Rationale
+/// # Automatic Implementations
 ///
-/// The trait provides a unified abstraction over different ownership models,
-/// allowing generic code to work with any bi-consumer type. Type conversion
-/// methods (`into_box`, `into_arc`, `into_rc`) enable flexible ownership
-/// transitions based on usage requirements.
+/// - All closures implementing `FnMut(&T, &U)`
+/// - `BoxBiConsumer<T, U>`, `ArcBiConsumer<T, U>`, `RcBiConsumer<T, U>`
 ///
 /// # Features
 ///
@@ -209,49 +71,31 @@ type RcMutBiConsumerFn<T, U> = Rc<RefCell<dyn FnMut(&mut T, &mut U)>>;
 /// - **Automatic Implementation**: Closures automatically implement this
 ///   trait with zero overhead
 /// - **Type Conversions**: Easy conversion between ownership models
-/// - **Generic Programming**: Write functions that work with any bi-consumer
+/// - **Generic Programming**: Write functions accepting any bi-consumer
 ///   type
 ///
 /// # Examples
 ///
-/// ## Generic BiConsumer Function
-///
 /// ```rust
 /// use prism3_function::{BiConsumer, BoxBiConsumer, ArcBiConsumer};
+/// use std::sync::{Arc, Mutex};
 ///
 /// fn apply_bi_consumer<C: BiConsumer<i32, i32>>(
 ///     consumer: &mut C,
-///     a: i32,
-///     b: i32
-/// ) -> (i32, i32) {
-///     let mut x = a;
-///     let mut y = b;
-///     consumer.accept(&mut x, &mut y);
-///     (x, y)
+///     a: &i32,
+///     b: &i32
+/// ) {
+///     consumer.accept(a, b);
 /// }
 ///
 /// // Works with any bi-consumer type
-/// let mut box_con = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-/// assert_eq!(apply_bi_consumer(&mut box_con, 5, 3), (8, 3));
-///
-/// let mut arc_con = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-/// assert_eq!(apply_bi_consumer(&mut arc_con, 5, 3), (8, 3));
-///
-/// let mut closure = |x: &mut i32, y: &mut i32| *x += *y;
-/// assert_eq!(apply_bi_consumer(&mut closure, 5, 3), (8, 3));
-/// ```
-///
-/// ## Type Conversion
-///
-/// ```rust
-/// use prism3_function::BiConsumer;
-///
-/// let closure = |x: &mut i32, y: &mut i32| *x += *y;
-///
-/// // Convert to different ownership models
-/// let box_consumer = closure.into_box();
-/// // let rc_consumer = closure.into_rc();  // closure moved
-/// // let arc_consumer = closure.into_arc(); // closure moved
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut box_con = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
+/// });
+/// apply_bi_consumer(&mut box_con, &5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]);
 /// ```
 ///
 /// # Author
@@ -260,42 +104,47 @@ type RcMutBiConsumerFn<T, U> = Rc<RefCell<dyn FnMut(&mut T, &mut U)>>;
 pub trait BiConsumer<T, U> {
     /// Performs the consumption operation
     ///
-    /// Executes an operation on the given two mutable references. The operation
-    /// typically modifies the input values or produces side effects.
+    /// Executes an operation on the given two references. The operation
+    /// typically reads input values or produces side effects, but does not
+    /// modify the input values themselves. Can modify the consumer's own
+    /// state.
     ///
     /// # Parameters
     ///
-    /// * `first` - A mutable reference to the first value to be consumed
-    /// * `second` - A mutable reference to the second value to be consumed
+    /// * `first` - Reference to the first value to consume
+    /// * `second` - Reference to the second value to consume
     ///
     /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let mut consumer = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// consumer.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn accept(&mut self, first: &mut T, second: &mut U);
+    fn accept(&mut self, first: &T, second: &U);
 
     /// Converts to BoxBiConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
     ///
     /// Converts the current bi-consumer to `BoxBiConsumer<T, U>`.
     ///
     /// # Ownership
     ///
     /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
+    /// After calling, the original consumer is no longer available.
     ///
-    /// **Tip**: For cloneable consumers ([`ArcBiConsumer`], [`RcBiConsumer`]),
-    /// you can call `.clone()` first if you need to keep the original.
+    /// **Tip**: For cloneable consumers ([`ArcBiConsumer`],
+    /// [`RcBiConsumer`]), call `.clone()` first if you need to keep the
+    /// original.
     ///
     /// # Returns
     ///
@@ -305,13 +154,16 @@ pub trait BiConsumer<T, U> {
     ///
     /// ```rust
     /// use prism3_function::BiConsumer;
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let closure = |x: &mut i32, y: &mut i32| *x += *y;
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// };
     /// let mut box_consumer = closure.into_box();
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// box_consumer.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// box_consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
     fn into_box(self) -> BoxBiConsumer<T, U>
     where
@@ -321,33 +173,12 @@ pub trait BiConsumer<T, U> {
 
     /// Converts to RcBiConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
-    ///
-    /// Converts the current bi-consumer to `RcBiConsumer<T, U>`.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
     ///
     /// # Returns
     ///
     /// Returns the wrapped `RcBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BiConsumer;
-    ///
-    /// let closure = |x: &mut i32, y: &mut i32| *x += *y;
-    /// let mut rc_consumer = closure.into_rc();
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// rc_consumer.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
-    /// ```
     fn into_rc(self) -> RcBiConsumer<T, U>
     where
         Self: Sized + 'static,
@@ -356,87 +187,59 @@ pub trait BiConsumer<T, U> {
 
     /// Converts to ArcBiConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
-    ///
-    /// Converts the current bi-consumer to `ArcBiConsumer<T, U>`.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available.
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
     ///
     /// # Returns
     ///
     /// Returns the wrapped `ArcBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::BiConsumer;
-    ///
-    /// let closure = |x: &mut i32, y: &mut i32| *x += *y;
-    /// let mut arc_consumer = closure.into_arc();
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// arc_consumer.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
-    /// ```
     fn into_arc(self) -> ArcBiConsumer<T, U>
     where
         Self: Sized + Send + 'static,
         T: Send + 'static,
         U: Send + 'static;
 
-    /// Converts bi-consumer to a closure for use with iterator methods
+    /// Converts bi-consumer to a closure
     ///
-    /// **⚠️ Consumes `self`**: The original consumer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
     ///
-    /// This method consumes the bi-consumer and returns a closure that can be
-    /// directly used with methods like `zip().for_each()`. This provides
-    /// a more ergonomic API when working with paired iterators.
-    ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the consumer (takes ownership of `self`).
-    /// After calling this method, the original consumer is no longer
-    /// available. The returned closure captures the consumer by move.
+    /// Converts the bi-consumer to a closure usable with standard library
+    /// methods requiring `FnMut`.
     ///
     /// # Returns
     ///
-    /// Returns a closure that implements `FnMut((&mut T, &mut U))`
+    /// Returns a closure implementing `FnMut(&T, &U)`
     ///
     /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let consumer = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let mut values1 = vec![1, 2, 3];
-    /// let mut values2 = vec![10, 20, 30];
-    ///
-    /// values1.iter_mut()
-    ///     .zip(values2.iter_mut())
-    ///     .for_each(consumer.into_fn());
-    ///
-    /// assert_eq!(values1, vec![11, 22, 33]);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let mut func = consumer.into_fn();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn into_fn(self) -> impl FnMut((&mut T, &mut U))
+    fn into_fn(self) -> impl FnMut(&T, &U)
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static;
 }
 
-// ============================================================================
-// 3. BoxBiConsumer - Single Ownership Implementation
-// ============================================================================
+// =======================================================================
+// 2. BoxBiConsumer - Single Ownership Implementation
+// =======================================================================
 
 /// BoxBiConsumer struct
 ///
-/// A bi-consumer implementation based on `Box<dyn FnMut(&mut T, &mut U)>` for
+/// A bi-consumer implementation based on `Box<dyn FnMut(&T, &U)>` for
 /// single ownership scenarios. This is the simplest and most efficient
 /// bi-consumer type when sharing is not required.
 ///
@@ -446,19 +249,6 @@ pub trait BiConsumer<T, U> {
 /// - **Zero Overhead**: No reference counting or locking
 /// - **Mutable State**: Can modify captured environment via `FnMut`
 /// - **Builder Pattern**: Method chaining consumes `self` naturally
-/// - **Factory Methods**: Convenient constructors for common patterns
-///
-/// # Comparison with Other BiConsumers
-///
-/// | Feature             | BoxBiConsumer | ArcBiConsumer | RcBiConsumer |
-/// |---------------------|---------------|---------------|--------------|
-/// | Ownership Model     | Single        | Shared        | Shared       |
-/// | Cloneable           | No            | Yes           | Yes          |
-/// | Thread-Safe         | No            | Yes           | No           |
-/// | Reference Counting  | No            | Yes (Arc)     | Yes (Rc)     |
-/// | Interior Mutability | No            | Mutex         | RefCell      |
-/// | Lock Overhead       | None          | Yes           | None         |
-/// | `and_then` API      | `self`        | `&self`       | `&self`      |
 ///
 /// # Use Cases
 ///
@@ -466,45 +256,38 @@ pub trait BiConsumer<T, U> {
 /// - The bi-consumer is used only once or in a linear flow
 /// - Building pipelines where ownership naturally flows
 /// - No need to share the consumer across contexts
-/// - Performance is critical and no sharing overhead is acceptable
+/// - Performance is critical and sharing overhead is unacceptable
+///
+/// # Performance
+///
+/// `BoxBiConsumer` has the best performance among the three bi-consumer
+/// types:
+/// - No reference counting overhead
+/// - No lock acquisition or runtime borrow checking
+/// - Direct function call through vtable
+/// - Minimal memory footprint (single pointer)
 ///
 /// # Examples
 ///
-/// ## Basic Usage
-///
 /// ```rust
 /// use prism3_function::{BiConsumer, BoxBiConsumer};
+/// use std::sync::{Arc, Mutex};
 ///
-/// let mut consumer = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-/// let mut a = 5;
-/// let mut b = 3;
-/// consumer.accept(&mut a, &mut b);
-/// assert_eq!(a, 8);
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
+/// });
+/// consumer.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]);
 /// ```
 ///
-/// ## Method Chaining
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, BoxBiConsumer};
-///
-/// let mut chained = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y)
-///     .and_then(|x: &mut i32, y: &mut i32| *y *= 2)
-///     .and_then(|x: &mut i32, y: &mut i32| *x -= 1);
-/// let mut a = 5;
-/// let mut b = 3;
-/// chained.accept(&mut a, &mut b);
-/// assert_eq!(a, 7);  // (5 + 3) - 1
-/// assert_eq!(b, 6);  // 3 * 2
-/// ```
-///
-/// 双参数消费者函数类型别名
-type BiConsumerFn<T, U> = Box<dyn FnMut(&mut T, &mut U)>;
-
 /// # Author
 ///
 /// Haixing Hu
 pub struct BoxBiConsumer<T, U> {
-    func: BiConsumerFn<T, U>,
+    function: Box<BiConsumerFn<T, U>>,
+    name: Option<String>,
 }
 
 impl<T, U> BoxBiConsumer<T, U>
@@ -530,24 +313,48 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let mut consumer = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// consumer.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x * 2 + *y);
+    /// });
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![13]);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T, &mut U) + 'static,
+        F: FnMut(&T, &U) + 'static,
     {
-        BoxBiConsumer { func: Box::new(f) }
+        BoxBiConsumer {
+            function: Box::new(f),
+            name: None,
+        }
+    }
+
+    /// Gets the name of the consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns the consumer's name, or `None` if not set
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the name of the consumer
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name to set
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
     }
 
     /// Chains another consumer in sequence
     ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Consumes self.
+    /// Returns a new consumer executing the current operation first, then
+    /// the next operation. Consumes self.
     ///
     /// # Type Parameters
     ///
@@ -565,21 +372,24 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let mut chained = BoxBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y)
-    ///     .and_then(|x: &mut i32, y: &mut i32| *y *= 2);
-    ///
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// chained.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
-    /// assert_eq!(b, 6);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut chained = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).and_then(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
         C: BiConsumer<T, U> + 'static,
     {
-        let mut first = self.func;
+        let mut first = self.function;
         let mut second = next;
         BoxBiConsumer::new(move |t, u| {
             first(t, u);
@@ -601,11 +411,8 @@ where
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
     ///
     /// let mut noop = BoxBiConsumer::<i32, i32>::noop();
-    /// let mut a = 42;
-    /// let mut b = 10;
-    /// noop.accept(&mut a, &mut b);
-    /// assert_eq!(a, 42);
-    /// assert_eq!(b, 10);
+    /// noop.accept(&42, &10);
+    /// // Values unchanged
     /// ```
     pub fn noop() -> Self {
         BoxBiConsumer::new(|_, _| {})
@@ -625,9 +432,7 @@ where
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
     ///
     /// let mut print = BoxBiConsumer::<i32, i32>::print();
-    /// let mut a = 42;
-    /// let mut b = 10;
-    /// print.accept(&mut a, &mut b); // Prints: (42, 10)
+    /// print.accept(&42, &10); // Prints: (42, 10)
     /// ```
     pub fn print() -> Self
     where
@@ -657,9 +462,7 @@ where
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
     ///
     /// let mut print = BoxBiConsumer::<i32, i32>::print_with("Values: ");
-    /// let mut a = 42;
-    /// let mut b = 10;
-    /// print.accept(&mut a, &mut b); // Prints: Values: (42, 10)
+    /// print.accept(&42, &10); // Prints: Values: (42, 10)
     /// ```
     pub fn print_with(prefix: &str) -> Self
     where
@@ -674,8 +477,8 @@ where
 
     /// Creates a conditional bi-consumer
     ///
-    /// Returns a bi-consumer that only executes the operation when the
-    /// predicate is true.
+    /// Returns a bi-consumer that only executes when the predicate is
+    /// true.
     ///
     /// # Type Parameters
     ///
@@ -695,26 +498,27 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
     /// let mut conditional = BoxBiConsumer::if_then(
     ///     |x: &i32, y: &i32| *x > 0 && *y > 0,
-    ///     |x: &mut i32, y: &mut i32| *x += *y
+    ///     move |x: &i32, y: &i32| {
+    ///         l.lock().unwrap().push(*x + *y);
+    ///     },
     /// );
     ///
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// conditional.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// conditional.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
     ///
-    /// let mut c = -5;
-    /// let mut d = 3;
-    /// conditional.accept(&mut c, &mut d);
-    /// assert_eq!(c, -5); // Unchanged
+    /// conditional.accept(&-5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]); // Unchanged
     /// ```
     pub fn if_then<P, C>(predicate: P, consumer: C) -> Self
     where
         P: FnMut(&T, &U) -> bool + 'static,
-        C: FnMut(&mut T, &mut U) + 'static,
+        C: FnMut(&T, &U) + 'static,
     {
         let mut pred = predicate;
         let mut cons = consumer;
@@ -727,8 +531,8 @@ where
 
     /// Creates a conditional branch bi-consumer
     ///
-    /// Returns a bi-consumer that executes different operations based on the
-    /// predicate.
+    /// Returns a bi-consumer that executes different operations based on
+    /// the predicate.
     ///
     /// # Type Parameters
     ///
@@ -750,30 +554,32 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
     /// let mut conditional = BoxBiConsumer::if_then_else(
     ///     |x: &i32, y: &i32| *x > *y,
-    ///     |x: &mut i32, y: &mut i32| *x += 1,
-    ///     |x: &mut i32, y: &mut i32| *y += 1
+    ///     move |x: &i32, _y: &i32| {
+    ///         l1.lock().unwrap().push(*x);
+    ///     },
+    ///     move |_x: &i32, y: &i32| {
+    ///         l2.lock().unwrap().push(*y);
+    ///     },
     /// );
     ///
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// conditional.accept(&mut a, &mut b);
-    /// assert_eq!(a, 6);
-    /// assert_eq!(b, 3);
+    /// conditional.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
     ///
-    /// let mut c = 2;
-    /// let mut d = 5;
-    /// conditional.accept(&mut c, &mut d);
-    /// assert_eq!(c, 2);
-    /// assert_eq!(d, 6);
+    /// conditional.accept(&2, &5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]);
     /// ```
     pub fn if_then_else<P, C1, C2>(predicate: P, then_consumer: C1, else_consumer: C2) -> Self
     where
         P: FnMut(&T, &U) -> bool + 'static,
-        C1: FnMut(&mut T, &mut U) + 'static,
-        C2: FnMut(&mut T, &mut U) + 'static,
+        C1: FnMut(&T, &U) + 'static,
+        C2: FnMut(&T, &U) + 'static,
     {
         let mut pred = predicate;
         let mut then_cons = then_consumer;
@@ -789,8 +595,8 @@ where
 }
 
 impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
-    fn accept(&mut self, first: &mut T, second: &mut U) {
-        (self.func)(first, second)
+    fn accept(&mut self, first: &T, second: &U) {
+        (self.function)(first, second)
     }
 
     fn into_box(self) -> BoxBiConsumer<T, U>
@@ -806,7 +612,7 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let mut func = self.func;
+        let mut func = self.function;
         RcBiConsumer::new(move |t, u| func(t, u))
     }
 
@@ -815,28 +621,49 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
         T: Send + 'static,
         U: Send + 'static,
     {
-        panic!("Cannot convert BoxBiConsumer to ArcBiConsumer: BoxBiConsumer's inner function may not be Send")
+        panic!(
+            "Cannot convert BoxBiConsumer to ArcBiConsumer: inner \
+                function may not be Send"
+        )
     }
 
-    fn into_fn(mut self) -> impl FnMut((&mut T, &mut U))
+    fn into_fn(self) -> impl FnMut(&T, &U)
     where
-        Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        move |(t, u): (&mut T, &mut U)| (self.func)(t, u)
+        self.function
     }
 }
 
-// ============================================================================
-// 4. ArcBiConsumer - Thread-Safe Shared Ownership Implementation
-// ============================================================================
+impl<T, U> fmt::Debug for BoxBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BoxBiConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
+
+impl<T, U> fmt::Display for BoxBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "BoxBiConsumer({})", name),
+            None => write!(f, "BoxBiConsumer"),
+        }
+    }
+}
+
+// =======================================================================
+// 3. ArcBiConsumer - Thread-Safe Shared Ownership Implementation
+// =======================================================================
 
 /// ArcBiConsumer struct
 ///
-/// A bi-consumer implementation based on `Arc<Mutex<dyn FnMut(&mut T, &mut U) + Send>>`
-/// for thread-safe shared ownership scenarios. This consumer can be safely
-/// cloned and shared across multiple threads.
+/// A bi-consumer implementation based on
+/// `Arc<Mutex<dyn FnMut(&T, &U) + Send>>` for thread-safe shared
+/// ownership scenarios. This consumer can be safely cloned and shared
+/// across multiple threads.
 ///
 /// # Features
 ///
@@ -847,55 +674,48 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
 ///   usable
 /// - **Cross-Thread Sharing**: Can be sent to and used by other threads
 ///
+/// # Use Cases
+///
+/// Choose `ArcBiConsumer` when:
+/// - Need to share bi-consumer across multiple threads
+/// - Concurrent task processing (e.g., thread pools)
+/// - Using the same consumer in multiple places simultaneously
+/// - Thread safety (Send + Sync) is required
+///
+/// # Performance Considerations
+///
+/// `ArcBiConsumer` has some overhead compared to `BoxBiConsumer`:
+/// - **Reference Counting**: Atomic operations on clone/drop
+/// - **Mutex Locking**: Each `accept` call requires lock acquisition
+/// - **Lock Contention**: High concurrency may cause contention
+///
+/// These overheads are necessary for safe concurrent access. If thread
+/// safety is not needed, consider using `RcBiConsumer` for lower
+/// overhead in single-threaded sharing.
+///
 /// # Examples
 ///
-/// ## Basic Usage
-///
 /// ```rust
 /// use prism3_function::{BiConsumer, ArcBiConsumer};
+/// use std::sync::{Arc, Mutex};
 ///
-/// let consumer = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-/// let clone = consumer.clone();
-///
-/// let mut a = 5;
-/// let mut b = 3;
-/// let mut c = consumer;
-/// c.accept(&mut a, &mut b);
-/// assert_eq!(a, 8);
-/// ```
-///
-/// ## Multi-Threaded Usage
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, ArcBiConsumer};
-/// use std::thread;
-///
-/// let shared = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-///
-/// // Clone for another thread
-/// let shared_clone = shared.clone();
-/// let handle = thread::spawn(move || {
-///     let mut a = 5;
-///     let mut b = 3;
-///     let mut consumer = shared_clone;
-///     consumer.accept(&mut a, &mut b);
-///     (a, b)
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
 /// });
+/// let mut clone = consumer.clone();
 ///
-/// // Original consumer still usable
-/// let mut c = 10;
-/// let mut d = 2;
-/// let mut consumer = shared;
-/// consumer.accept(&mut c, &mut d);
-/// assert_eq!(c, 12);
-/// assert_eq!(handle.join().unwrap(), (8, 3));
+/// consumer.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]);
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
 pub struct ArcBiConsumer<T, U> {
-    func: ArcMutBiConsumerFn<T, U>,
+    function: Arc<Mutex<SendBiConsumerFn<T, U>>>,
+    name: Option<String>,
 }
 
 impl<T, U> ArcBiConsumer<T, U>
@@ -921,28 +741,84 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let consumer = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// let mut c = consumer;
-    /// c.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x * 2 + *y);
+    /// });
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![13]);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T, &mut U) + Send + 'static,
+        F: FnMut(&T, &U) + Send + 'static,
     {
         ArcBiConsumer {
-            func: Arc::new(Mutex::new(f)),
+            function: Arc::new(Mutex::new(f)),
+            name: None,
+        }
+    }
+
+    /// Gets the name of the consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns the consumer's name, or `None` if not set
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the name of the consumer
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name to set
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    /// Converts to a closure (without consuming self)
+    ///
+    /// Creates a new closure that calls the underlying function via Arc.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnMut(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let func = Arc::clone(&self.function);
+        move |t: &T, u: &U| {
+            func.lock().unwrap()(t, u);
         }
     }
 
     /// Chains another ArcBiConsumer in sequence
     ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Borrows &self, does not consume the
-    /// original consumer.
+    /// Returns a new consumer executing the current operation first, then
+    /// the next operation. Borrows &self, does not consume the original
+    /// consumer.
     ///
     /// # Parameters
     ///
@@ -956,35 +832,40 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let first = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let second = ArcBiConsumer::new(|x: &mut i32, y: &mut i32| *y *= 2);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// });
+    /// let second = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
     ///
-    /// let chained = first.and_then(&second);
+    /// let mut chained = first.and_then(&second);
     ///
-    /// // first and second are still usable
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// let mut c = chained;
-    /// c.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);  // 5 + 3
-    /// assert_eq!(b, 6);  // 3 * 2
+    /// // first and second still usable after chaining
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// ```
     pub fn and_then(&self, next: &ArcBiConsumer<T, U>) -> ArcBiConsumer<T, U> {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let first = Arc::clone(&self.function);
+        let second = Arc::clone(&next.function);
         ArcBiConsumer {
-            func: Arc::new(Mutex::new(move |t: &mut T, u: &mut U| {
+            function: Arc::new(Mutex::new(move |t: &T, u: &U| {
                 first.lock().unwrap()(t, u);
                 second.lock().unwrap()(t, u);
             })),
+            name: None,
         }
     }
 }
 
 impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
-    fn accept(&mut self, first: &mut T, second: &mut U) {
-        (self.func.lock().unwrap())(first, second)
+    fn accept(&mut self, first: &T, second: &U) {
+        (self.function.lock().unwrap())(first, second)
     }
 
     fn into_box(self) -> BoxBiConsumer<T, U>
@@ -992,7 +873,7 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.func;
+        let func = self.function;
         BoxBiConsumer::new(move |t, u| func.lock().unwrap()(t, u))
     }
 
@@ -1001,7 +882,7 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.func;
+        let func = self.function;
         RcBiConsumer::new(move |t, u| func.lock().unwrap()(t, u))
     }
 
@@ -1013,95 +894,122 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         self
     }
 
-    fn into_fn(self) -> impl FnMut((&mut T, &mut U))
+    fn into_fn(self) -> impl FnMut(&T, &U)
     where
-        Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        let func = self.func;
-        move |(t, u): (&mut T, &mut U)| func.lock().unwrap()(t, u)
+        let func = self.function;
+        move |t: &T, u: &U| {
+            func.lock().unwrap()(t, u);
+        }
     }
 }
 
 impl<T, U> Clone for ArcBiConsumer<T, U> {
     /// Clones the ArcBiConsumer
     ///
-    /// Creates a new ArcBiConsumer that shares the underlying function with the
-    /// original instance.
+    /// Creates a new ArcBiConsumer sharing the underlying function with
+    /// the original instance.
     fn clone(&self) -> Self {
         Self {
-            func: Arc::clone(&self.func),
+            function: Arc::clone(&self.function),
+            name: self.name.clone(),
         }
     }
 }
 
-// ============================================================================
-// 5. RcBiConsumer - Single-Threaded Shared Ownership Implementation
-// ============================================================================
+impl<T, U> fmt::Debug for ArcBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArcBiConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
+
+impl<T, U> fmt::Display for ArcBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "ArcBiConsumer({})", name),
+            None => write!(f, "ArcBiConsumer"),
+        }
+    }
+}
+
+// =======================================================================
+// 4. RcBiConsumer - Single-Threaded Shared Ownership Implementation
+// =======================================================================
 
 /// RcBiConsumer struct
 ///
-/// A bi-consumer implementation based on `Rc<RefCell<dyn FnMut(&mut T, &mut U)>>`
-/// for single-threaded shared ownership scenarios. This consumer provides the
-/// benefits of shared ownership without the overhead of thread safety.
+/// A bi-consumer implementation based on `Rc<RefCell<dyn FnMut(&T, &U)>>`
+/// for single-threaded shared ownership scenarios. This consumer provides
+/// the benefits of shared ownership without the overhead of thread
+/// safety.
 ///
 /// # Features
 ///
 /// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
-/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
+/// - **Single-Threaded**: Not thread-safe, cannot send across threads
 /// - **Interior Mutability**: Uses `RefCell` for runtime borrow checking
 /// - **No Lock Overhead**: More efficient than `ArcBiConsumer` for
 ///   single-threaded use
 /// - **Non-Consuming API**: `and_then` borrows `&self`, original remains
 ///   usable
 ///
+/// # Use Cases
+///
+/// Choose `RcBiConsumer` when:
+/// - Need to share bi-consumer within a single thread
+/// - Thread safety is not needed
+/// - Performance matters (avoiding lock overhead)
+/// - Single-threaded UI framework event handling
+/// - Building complex single-threaded state machines
+///
+/// # Performance Considerations
+///
+/// `RcBiConsumer` performs better than `ArcBiConsumer` in single-threaded
+/// scenarios:
+/// - **Non-Atomic Counting**: clone/drop cheaper than `Arc`
+/// - **No Lock Overhead**: `RefCell` uses runtime checking, no locks
+/// - **Better Cache Locality**: No atomic operations means better CPU
+///   cache behavior
+///
+/// But still has slight overhead compared to `BoxBiConsumer`:
+/// - **Reference Counting**: Though non-atomic, still exists
+/// - **Runtime Borrow Checking**: `RefCell` checks at runtime
+///
+/// # Safety
+///
+/// `RcBiConsumer` is not thread-safe and does not implement `Send` or
+/// `Sync`. Attempting to send it to another thread will result in a
+/// compile error. For thread-safe sharing, use `ArcBiConsumer` instead.
+///
 /// # Examples
 ///
-/// ## Basic Usage
-///
 /// ```rust
 /// use prism3_function::{BiConsumer, RcBiConsumer};
+/// use std::rc::Rc;
+/// use std::cell::RefCell;
 ///
-/// let consumer = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-/// let clone = consumer.clone();
+/// let log = Rc::new(RefCell::new(Vec::new()));
+/// let l = log.clone();
+/// let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.borrow_mut().push(*x + *y);
+/// });
+/// let mut clone = consumer.clone();
 ///
-/// let mut a = 5;
-/// let mut b = 3;
-/// let mut c = consumer;
-/// c.accept(&mut a, &mut b);
-/// assert_eq!(a, 8);
-/// ```
-///
-/// ## Sharing Within a Single Thread
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, RcBiConsumer};
-///
-/// let shared = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-///
-/// // Clone for use in multiple places
-/// let clone1 = shared.clone();
-/// let clone2 = shared.clone();
-///
-/// let mut a = 5;
-/// let mut b = 3;
-/// let mut c1 = clone1;
-/// c1.accept(&mut a, &mut b);
-/// assert_eq!(a, 8);
-///
-/// let mut c = 2;
-/// let mut d = 1;
-/// let mut c2 = clone2;
-/// c2.accept(&mut c, &mut d);
-/// assert_eq!(c, 3);
+/// consumer.accept(&5, &3);
+/// assert_eq!(*log.borrow(), vec![8]);
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
 pub struct RcBiConsumer<T, U> {
-    func: RcMutBiConsumerFn<T, U>,
+    function: Rc<RefCell<BiConsumerFn<T, U>>>,
+    name: Option<String>,
 }
 
 impl<T, U> RcBiConsumer<T, U>
@@ -1127,28 +1035,86 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
     ///
-    /// let consumer = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// let mut c = consumer;
-    /// c.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x * 2 + *y);
+    /// });
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![13]);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T, &mut U) + 'static,
+        F: FnMut(&T, &U) + 'static,
     {
         RcBiConsumer {
-            func: Rc::new(RefCell::new(f)),
+            function: Rc::new(RefCell::new(f)),
+            name: None,
+        }
+    }
+
+    /// Gets the name of the consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns the consumer's name, or `None` if not set
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the name of the consumer
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name to set
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+
+    /// Converts to a closure (without consuming self)
+    ///
+    /// Creates a new closure that calls the underlying function via Rc.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnMut(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x + *y);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let func = Rc::clone(&self.function);
+        move |t: &T, u: &U| {
+            func.borrow_mut()(t, u);
         }
     }
 
     /// Chains another RcBiConsumer in sequence
     ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Borrows &self, does not consume the
-    /// original consumer.
+    /// Returns a new consumer executing the current operation first, then
+    /// the next operation. Borrows &self, does not consume the original
+    /// consumer.
     ///
     /// # Parameters
     ///
@@ -1162,35 +1128,41 @@ where
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
     ///
-    /// let first = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *x += *y);
-    /// let second = RcBiConsumer::new(|x: &mut i32, y: &mut i32| *y *= 2);
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let first = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.borrow_mut().push(*x + *y);
+    /// });
+    /// let second = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.borrow_mut().push(*x * *y);
+    /// });
     ///
-    /// let chained = first.and_then(&second);
+    /// let mut chained = first.and_then(&second);
     ///
-    /// // first and second are still usable
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// let mut c = chained;
-    /// c.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);  // 5 + 3
-    /// assert_eq!(b, 6);  // 3 * 2
+    /// // first and second still usable after chaining
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8, 15]);
     /// ```
     pub fn and_then(&self, next: &RcBiConsumer<T, U>) -> RcBiConsumer<T, U> {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let first = Rc::clone(&self.function);
+        let second = Rc::clone(&next.function);
         RcBiConsumer {
-            func: Rc::new(RefCell::new(move |t: &mut T, u: &mut U| {
+            function: Rc::new(RefCell::new(move |t: &T, u: &U| {
                 first.borrow_mut()(t, u);
                 second.borrow_mut()(t, u);
             })),
+            name: None,
         }
     }
 }
 
 impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
-    fn accept(&mut self, first: &mut T, second: &mut U) {
-        (self.func.borrow_mut())(first, second)
+    fn accept(&mut self, first: &T, second: &U) {
+        (self.function.borrow_mut())(first, second)
     }
 
     fn into_box(self) -> BoxBiConsumer<T, U>
@@ -1198,7 +1170,7 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.func;
+        let func = self.function;
         BoxBiConsumer::new(move |t, u| func.borrow_mut()(t, u))
     }
 
@@ -1218,39 +1190,59 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
         panic!("Cannot convert RcBiConsumer to ArcBiConsumer (not Send)")
     }
 
-    fn into_fn(self) -> impl FnMut((&mut T, &mut U))
+    fn into_fn(self) -> impl FnMut(&T, &U)
     where
-        Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        let func = self.func;
-        move |(t, u): (&mut T, &mut U)| func.borrow_mut()(t, u)
+        let func = self.function;
+        move |t: &T, u: &U| {
+            func.borrow_mut()(t, u);
+        }
     }
 }
 
 impl<T, U> Clone for RcBiConsumer<T, U> {
     /// Clones the RcBiConsumer
     ///
-    /// Creates a new RcBiConsumer that shares the underlying function with the
+    /// Creates a new RcBiConsumer sharing the underlying function with the
     /// original instance.
     fn clone(&self) -> Self {
         Self {
-            func: Rc::clone(&self.func),
+            function: Rc::clone(&self.function),
+            name: self.name.clone(),
         }
     }
 }
 
-// ============================================================================
-// 6. Implement BiConsumer trait for closures
-// ============================================================================
+impl<T, U> fmt::Debug for RcBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RcBiConsumer")
+            .field("name", &self.name)
+            .field("function", &"<function>")
+            .finish()
+    }
+}
 
-/// Implements BiConsumer for all FnMut(&mut T, &mut U)
+impl<T, U> fmt::Display for RcBiConsumer<T, U> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "RcBiConsumer({})", name),
+            None => write!(f, "RcBiConsumer"),
+        }
+    }
+}
+
+// =======================================================================
+// 5. Implement BiConsumer trait for closures
+// =======================================================================
+
+/// Implements BiConsumer for all FnMut(&T, &U)
 impl<T, U, F> BiConsumer<T, U> for F
 where
-    F: FnMut(&mut T, &mut U),
+    F: FnMut(&T, &U),
 {
-    fn accept(&mut self, first: &mut T, second: &mut U) {
+    fn accept(&mut self, first: &T, second: &U) {
         self(first, second)
     }
 
@@ -1281,66 +1273,68 @@ where
         ArcBiConsumer::new(self)
     }
 
-    fn into_fn(self) -> impl FnMut((&mut T, &mut U))
+    fn into_fn(self) -> impl FnMut(&T, &U)
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        self.into_box().into_fn()
+        self
     }
 }
 
-// ============================================================================
-// 7. Provide extension methods for closures
-// ============================================================================
+// =======================================================================
+// 6. Provide extension methods for closures
+// =======================================================================
 
 /// Extension trait providing bi-consumer composition methods for closures
 ///
-/// Provides `and_then` and other composition methods for all closures that
-/// implement `FnMut(&mut T, &mut U)`, enabling direct method chaining on
+/// Provides `and_then` and other composition methods for all closures
+/// implementing `FnMut(&T, &U)`, enabling direct method chaining on
 /// closures without explicit wrapper types.
 ///
 /// # Design Rationale
 ///
-/// This trait allows closures to be composed naturally using method syntax,
-/// similar to iterator combinators. Composition methods consume the closure
-/// and return `BoxBiConsumer<T, U>`, which can be further chained.
+/// This trait allows closures to be composed naturally using method
+/// syntax, similar to iterator combinators. Composition methods consume
+/// the closure and return `BoxBiConsumer<T, U>`, which can be further
+/// chained.
 ///
 /// # Features
 ///
 /// - **Natural Syntax**: Chain operations directly on closures
-/// - **Returns BoxBiConsumer**: Composition results are `BoxBiConsumer<T, U>`
-///   for continued chaining
+/// - **Returns BoxBiConsumer**: Composition results are
+///   `BoxBiConsumer<T, U>` for continued chaining
 /// - **Zero Cost**: No overhead when composing closures
-/// - **Automatic Implementation**: All `FnMut(&mut T, &mut U)` closures get
+/// - **Automatic Implementation**: All `FnMut(&T, &U)` closures get
 ///   these methods automatically
 ///
 /// # Examples
 ///
-/// ## Basic Chaining
-///
 /// ```rust
 /// use prism3_function::{BiConsumer, FnBiConsumerOps};
+/// use std::sync::{Arc, Mutex};
 ///
-/// let chained = (|x: &mut i32, y: &mut i32| *x += *y)
-///     .and_then(|x: &mut i32, y: &mut i32| *y *= 2);
-/// let mut a = 5;
-/// let mut b = 3;
-/// let mut result = chained;
-/// result.accept(&mut a, &mut b);
-/// assert_eq!(a, 8);  // 5 + 3
-/// assert_eq!(b, 6);  // 3 * 2
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let mut chained = (move |x: &i32, y: &i32| {
+///     l1.lock().unwrap().push(*x + *y);
+/// }).and_then(move |x: &i32, y: &i32| {
+///     l2.lock().unwrap().push(*x * *y);
+/// });
+/// chained.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
-pub trait FnBiConsumerOps<T, U>: FnMut(&mut T, &mut U) + Sized {
+pub trait FnBiConsumerOps<T, U>: FnMut(&T, &U) + Sized {
     /// Chains another consumer in sequence
     ///
-    /// Returns a new consumer that first executes the current operation, then
-    /// executes the next operation. Consumes the current closure and returns
+    /// Returns a new consumer executing the current operation first, then
+    /// the next operation. Consumes the current closure and returns
     /// `BoxBiConsumer<T, U>`.
     ///
     /// # Type Parameters
@@ -1359,16 +1353,19 @@ pub trait FnBiConsumerOps<T, U>: FnMut(&mut T, &mut U) + Sized {
     ///
     /// ```rust
     /// use prism3_function::{BiConsumer, FnBiConsumerOps};
+    /// use std::sync::{Arc, Mutex};
     ///
-    /// let chained = (|x: &mut i32, y: &mut i32| *x += *y)
-    ///     .and_then(|x: &mut i32, y: &mut i32| *y *= 2);
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut chained = (move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).and_then(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// }).and_then(|x: &i32, y: &i32| println!("Result: {}, {}", x, y));
     ///
-    /// let mut a = 5;
-    /// let mut b = 3;
-    /// let mut result = chained;
-    /// result.accept(&mut a, &mut b);
-    /// assert_eq!(a, 8);
-    /// assert_eq!(b, 6);
+    /// chained.accept(&5, &3); // Prints: Result: 5, 3
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// ```
     fn and_then<C>(self, next: C) -> BoxBiConsumer<T, U>
     where
@@ -1387,4 +1384,4 @@ pub trait FnBiConsumerOps<T, U>: FnMut(&mut T, &mut U) + Sized {
 }
 
 /// Implements FnBiConsumerOps for all closure types
-impl<T, U, F> FnBiConsumerOps<T, U> for F where F: FnMut(&mut T, &mut U) {}
+impl<T, U, F> FnBiConsumerOps<T, U> for F where F: FnMut(&T, &U) {}

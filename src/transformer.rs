@@ -8,11 +8,12 @@
  ******************************************************************************/
 //! # Transformer Types
 //!
-//! Provides Rust implementations of immutable transformer traits that
-//! transform values from type T to the same type T. This is a specialization
-//! of `Function<T, T>` with additional convenience methods.
+//! Provides Rust implementations of transformer traits for type conversion
+//! and value transformation. Transformers consume input values (taking
+//! ownership) and produce output values.
 //!
-//! This module provides the `Transformer<T>` trait and three implementations:
+//! This module provides the `Transformer<T, R>` trait and three
+//! implementations:
 //!
 //! - [`BoxTransformer`]: Single ownership, not cloneable
 //! - [`ArcTransformer`]: Thread-safe shared ownership, cloneable
@@ -20,76 +21,127 @@
 //!
 //! # Author
 //!
-//! Haixing Hu
+//! Hu Haixing
 
 use std::rc::Rc;
 use std::sync::Arc;
-
-use crate::function::Function;
 
 // ============================================================================
 // Core Trait
 // ============================================================================
 
-/// Transformer trait - immutable self-transformation that borrows input
+/// Transformer trait - transforms values from type T to type R
 ///
-/// Defines the behavior of an immutable transformation: converting a borrowed
-/// value of type `&T` to a value of the same type `T`. This trait extends
-/// `Function<T, T>` with specialized transformation semantics.
-///
-/// The core method is `transform()`, which provides the transformation logic.
-/// Implementations should have `apply()` call `transform()` to maintain
-/// consistency.
+/// Defines the behavior of a transformation: converting a value of type `T`
+/// to a value of type `R` by consuming the input. This is analogous to
+/// `Fn(T) -> R` in Rust's standard library.
 ///
 /// # Type Parameters
 ///
-/// * `T` - The type of both input and output values
+/// * `T` - The type of the input value (consumed)
+/// * `R` - The type of the output value
 ///
 /// # Author
 ///
-/// Haixing Hu
-pub trait Transformer<T>: Function<T, T> {
-    /// Applies the transformation to the input value
-    ///
-    /// This is the core method that must be implemented.
+/// Hu Haixing
+pub trait Transformer<T, R> {
+    /// Transforms the input value to produce an output value
     ///
     /// # Parameters
     ///
-    /// * `input` - Borrowed reference to the input value
+    /// * `input` - The input value to transform (consumed)
     ///
     /// # Returns
     ///
     /// The transformed output value
-    fn transform(&self, input: &T) -> T;
+    fn transform(&self, input: T) -> R;
+
+    /// Converts to BoxTransformer
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformer<T, R>`
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
+
+    /// Converts to RcTransformer
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `RcTransformer<T, R>`
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
+
+    /// Converts to ArcTransformer
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `ArcTransformer<T, R>`
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        Self: Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static;
+
+    /// Converts transformer to a closure
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `Fn(T) -> R`
+    fn into_fn(self) -> impl Fn(T) -> R
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static;
 }
 
 // ============================================================================
-// BoxTransformer - Box<dyn Fn(&T) -> T>
+// BoxTransformer - Box<dyn Fn(T) -> R>
 // ============================================================================
 
-/// BoxTransformer - immutable transformer wrapper based on `Box<dyn Fn>`
+/// BoxTransformer - transformer wrapper based on `Box<dyn Fn>`
 ///
 /// A transformer wrapper that provides single ownership with reusable
-/// immutable transformation. The transformer borrows the input and can be
-/// called multiple times.
+/// transformation. The transformer consumes the input and can be called
+/// multiple times.
 ///
 /// # Features
 ///
-/// - **Based on**: `Box<dyn Fn(&T) -> T>`
+/// - **Based on**: `Box<dyn Fn(T) -> R>`
 /// - **Ownership**: Single ownership, cannot be cloned
-/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Reusability**: Can be called multiple times (each call consumes its
+///   input)
 /// - **Thread Safety**: Not thread-safe (no `Send + Sync` requirement)
 ///
 /// # Author
 ///
-/// Haixing Hu
-pub struct BoxTransformer<T> {
-    f: Box<dyn Fn(&T) -> T>,
+/// Hu Haixing
+pub struct BoxTransformer<T, R> {
+    function: Box<dyn Fn(T) -> R>,
 }
 
-impl<T> BoxTransformer<T>
+impl<T, R> BoxTransformer<T, R>
 where
     T: 'static,
+    R: 'static,
 {
     /// Creates a new BoxTransformer
     ///
@@ -100,16 +152,18 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::BoxTransformer;
+    /// use prism3_function::{BoxTransformer, Transformer};
     ///
-    /// let double = BoxTransformer::new(|x: &i32| x * 2);
-    /// assert_eq!(double.transform(&21), 42);
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// assert_eq!(double.transform(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(&T) -> T + 'static,
+        F: Fn(T) -> R + 'static,
     {
-        BoxTransformer { f: Box::new(f) }
+        BoxTransformer {
+            function: Box::new(f),
+        }
     }
 
     /// Creates an identity transformer
@@ -117,22 +171,25 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::BoxTransformer;
+    /// use prism3_function::{BoxTransformer, Transformer};
     ///
-    /// let identity = BoxTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(&42), 42);
+    /// let identity = BoxTransformer::<i32, i32>::identity();
+    /// assert_eq!(identity.transform(42), 42);
     /// ```
-    pub fn identity() -> BoxTransformer<T>
-    where
-        T: Clone,
-    {
-        BoxTransformer::new(|x: &T| x.clone())
+    pub fn identity() -> BoxTransformer<T, T> {
+        BoxTransformer::new(|x| x)
     }
 
     /// Chain composition - applies self first, then after
     ///
     /// Creates a new transformer that applies this transformer first, then
     /// applies the after transformer to the result. Consumes self.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement
+    ///   Transformer<R, S>)
     ///
     /// # Parameters
     ///
@@ -145,23 +202,32 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::BoxTransformer;
+    /// use prism3_function::{BoxTransformer, Transformer};
     ///
-    /// let double = BoxTransformer::new(|x: &i32| x * 2);
-    /// let add_one = BoxTransformer::new(|x: &i32| x + 1);
-    /// let composed = double.and_then(add_one);
-    /// assert_eq!(composed.transform(&5), 11); // 5 * 2 + 1
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let to_string = BoxTransformer::new(|x: i32| x.to_string());
+    /// let composed = double.and_then(to_string);
+    /// assert_eq!(composed.transform(21), "42");
     /// ```
-    pub fn and_then(self, after: BoxTransformer<T>) -> BoxTransformer<T> {
-        let self_f = self.f;
-        let after_f = after.f;
-        BoxTransformer::new(move |x: &T| after_f(&self_f(x)))
+    pub fn and_then<S, F>(self, after: F) -> BoxTransformer<T, S>
+    where
+        S: 'static,
+        F: Transformer<R, S> + 'static,
+    {
+        let self_fn = self.function;
+        BoxTransformer::new(move |x: T| after.transform(self_fn(x)))
     }
 
     /// Reverse composition - applies before first, then self
     ///
     /// Creates a new transformer that applies the before transformer first,
     /// then applies this transformer to the result. Consumes self.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement
+    ///   Transformer<S, T>)
     ///
     /// # Parameters
     ///
@@ -174,104 +240,117 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::BoxTransformer;
+    /// use prism3_function::{BoxTransformer, Transformer};
     ///
-    /// let double = BoxTransformer::new(|x: &i32| x * 2);
-    /// let add_one = BoxTransformer::new(|x: &i32| x + 1);
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let add_one = BoxTransformer::new(|x: i32| x + 1);
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose(self, before: BoxTransformer<T>) -> BoxTransformer<T> {
-        let self_f = self.f;
-        let before_f = before.f;
-        BoxTransformer::new(move |x: &T| self_f(&before_f(x)))
+    pub fn compose<S, F>(self, before: F) -> BoxTransformer<S, R>
+    where
+        S: 'static,
+        F: Transformer<S, T> + 'static,
+    {
+        let self_fn = self.function;
+        BoxTransformer::new(move |x: S| self_fn(before.transform(x)))
     }
 }
 
-impl<T> BoxTransformer<T>
+impl<T, R> BoxTransformer<T, R>
 where
-    T: Clone + 'static,
+    T: 'static,
+    R: Clone + 'static,
 {
     /// Creates a constant transformer
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::BoxTransformer;
+    /// use prism3_function::{BoxTransformer, Transformer};
     ///
-    /// let constant = BoxTransformer::constant(42);
-    /// assert_eq!(constant.transform(&123), 42);
+    /// let constant = BoxTransformer::constant("hello");
+    /// assert_eq!(constant.transform(123), "hello");
     /// ```
-    pub fn constant(value: T) -> BoxTransformer<T> {
+    pub fn constant(value: R) -> BoxTransformer<T, R> {
         BoxTransformer::new(move |_| value.clone())
     }
 }
 
-impl<T> Transformer<T> for BoxTransformer<T>
-where
-    T: 'static,
-{
-    fn transform(&self, input: &T) -> T {
-        (self.f)(input)
-    }
-}
-
-impl<T: 'static> Function<T, T> for BoxTransformer<T> {
-    fn apply(&self, input: &T) -> T {
-        self.transform(input)
+impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
+    fn transform(&self, input: T) -> R {
+        (self.function)(input)
     }
 
-    fn into_box(self) -> crate::function::BoxFunction<T, T> {
-        crate::function::BoxFunction::new(move |x| self.apply(x))
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself
+        self
     }
 
-    fn into_rc(self) -> crate::function::RcFunction<T, T> {
-        crate::function::RcFunction::new(move |x| self.apply(x))
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        RcTransformer {
+            function: Rc::from(self.function),
+        }
     }
 
-    fn into_arc(self) -> crate::function::ArcFunction<T, T>
+    fn into_arc(self) -> ArcTransformer<T, R>
     where
         Self: Send + Sync,
-        T: Send + Sync,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
     {
         unreachable!(
-            "BoxTransformer<T> does not implement Send + Sync, so this \
+            "BoxTransformer<T, R> does not implement Send + Sync, so this \
              method can never be called"
         )
     }
 
-    fn into_fn(self) -> impl FnMut(&T) -> T {
-        move |t: &T| self.apply(t)
+    fn into_fn(self) -> impl Fn(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: T| self.transform(t)
     }
 }
 
 // ============================================================================
-// ArcTransformer - Arc<dyn Fn(&T) -> T + Send + Sync>
+// ArcTransformer - Arc<dyn Fn(T) -> R + Send + Sync>
 // ============================================================================
 
-/// ArcTransformer - thread-safe immutable transformer wrapper
+/// ArcTransformer - thread-safe transformer wrapper
 ///
 /// A thread-safe, clonable transformer wrapper suitable for multi-threaded
 /// scenarios. Can be called multiple times and shared across threads.
 ///
 /// # Features
 ///
-/// - **Based on**: `Arc<dyn Fn(&T) -> T + Send + Sync>`
+/// - **Based on**: `Arc<dyn Fn(T) -> R + Send + Sync>`
 /// - **Ownership**: Shared ownership via reference counting
-/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Reusability**: Can be called multiple times (each call consumes its
+///   input)
 /// - **Thread Safety**: Thread-safe (`Send + Sync` required)
 /// - **Clonable**: Cheap cloning via `Arc::clone`
 ///
 /// # Author
 ///
-/// Haixing Hu
-pub struct ArcTransformer<T> {
-    f: Arc<dyn Fn(&T) -> T + Send + Sync>,
+/// Hu Haixing
+pub struct ArcTransformer<T, R> {
+    function: Arc<dyn Fn(T) -> R + Send + Sync>,
 }
 
-impl<T> ArcTransformer<T>
+impl<T, R> ArcTransformer<T, R>
 where
     T: 'static,
+    R: 'static,
 {
     /// Creates a new ArcTransformer
     ///
@@ -282,16 +361,18 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcTransformer;
+    /// use prism3_function::{ArcTransformer, Transformer};
     ///
-    /// let double = ArcTransformer::new(|x: &i32| x * 2);
-    /// assert_eq!(double.transform(&21), 42);
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// assert_eq!(double.transform(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(&T) -> T + Send + Sync + 'static,
+        F: Fn(T) -> R + Send + Sync + 'static,
     {
-        ArcTransformer { f: Arc::new(f) }
+        ArcTransformer {
+            function: Arc::new(f),
+        }
     }
 
     /// Creates an identity transformer
@@ -299,16 +380,13 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcTransformer;
+    /// use prism3_function::{ArcTransformer, Transformer};
     ///
-    /// let identity = ArcTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(&42), 42);
+    /// let identity = ArcTransformer::<i32, i32>::identity();
+    /// assert_eq!(identity.transform(42), 42);
     /// ```
-    pub fn identity() -> ArcTransformer<T>
-    where
-        T: Clone + Send + Sync,
-    {
-        ArcTransformer::new(|x: &T| x.clone())
+    pub fn identity() -> ArcTransformer<T, T> {
+        ArcTransformer::new(|x| x)
     }
 
     /// Chain composition - applies self first, then after
@@ -317,9 +395,15 @@ where
     /// applies the after transformer to the result. Uses &self, so original
     /// transformer remains usable.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement
+    ///   Transformer<R, S>)
+    ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self
+    /// * `after` - The transformer to apply after self (consumed)
     ///
     /// # Returns
     ///
@@ -328,24 +412,24 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcTransformer;
+    /// use prism3_function::{ArcTransformer, Transformer};
     ///
-    /// let double = ArcTransformer::new(|x: &i32| x * 2);
-    /// let add_one = ArcTransformer::new(|x: &i32| x + 1);
-    /// let composed = double.and_then(&add_one);
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let to_string = ArcTransformer::new(|x: i32| x.to_string());
+    /// let composed = double.and_then(to_string);
     ///
-    /// // Original transformers still usable
-    /// assert_eq!(double.transform(&21), 42);
-    /// assert_eq!(composed.transform(&5), 11);
+    /// // Original double transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(composed.transform(21), "42");
     /// ```
-    pub fn and_then(&self, after: &ArcTransformer<T>) -> ArcTransformer<T>
+    pub fn and_then<S, F>(&self, after: F) -> ArcTransformer<T, S>
     where
-        T: Send + Sync,
+        S: Send + Sync + 'static,
+        F: Transformer<R, S> + Send + Sync + 'static,
     {
-        let self_clone = Arc::clone(&self.f);
-        let after_clone = Arc::clone(&after.f);
+        let self_clone = Arc::clone(&self.function);
         ArcTransformer {
-            f: Arc::new(move |x: &T| after_clone(&self_clone(x))),
+            function: Arc::new(move |x: T| after.transform(self_clone(x))),
         }
     }
 
@@ -355,9 +439,15 @@ where
     /// then applies this transformer to the result. Uses &self, so original
     /// transformer remains usable.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement
+    ///   Transformer<S, T>)
+    ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self
+    /// * `before` - The transformer to apply before self (consumed)
     ///
     /// # Returns
     ///
@@ -366,120 +456,129 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcTransformer;
+    /// use prism3_function::{ArcTransformer, Transformer};
     ///
-    /// let double = ArcTransformer::new(|x: &i32| x * 2);
-    /// let add_one = ArcTransformer::new(|x: &i32| x + 1);
-    /// let composed = double.compose(&add_one);
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let add_one = ArcTransformer::new(|x: i32| x + 1);
+    /// let composed = double.compose(add_one);
     ///
-    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose(&self, before: &ArcTransformer<T>) -> ArcTransformer<T>
+    pub fn compose<S, F>(&self, before: F) -> ArcTransformer<S, R>
     where
-        T: Send + Sync,
+        S: Send + Sync + 'static,
+        F: Transformer<S, T> + Send + Sync + 'static,
     {
-        let self_clone = Arc::clone(&self.f);
-        let before_clone = Arc::clone(&before.f);
+        let self_clone = Arc::clone(&self.function);
         ArcTransformer {
-            f: Arc::new(move |x: &T| self_clone(&before_clone(x))),
+            function: Arc::new(move |x: S| self_clone(before.transform(x))),
         }
     }
 }
 
-impl<T> ArcTransformer<T>
+impl<T, R> ArcTransformer<T, R>
 where
-    T: Clone + 'static,
+    T: 'static,
+    R: Clone + 'static,
 {
     /// Creates a constant transformer
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::ArcTransformer;
+    /// use prism3_function::{ArcTransformer, Transformer};
     ///
-    /// let constant = ArcTransformer::constant(42);
-    /// assert_eq!(constant.transform(&123), 42);
+    /// let constant = ArcTransformer::constant("hello");
+    /// assert_eq!(constant.transform(123), "hello");
     /// ```
-    pub fn constant(value: T) -> ArcTransformer<T>
+    pub fn constant(value: R) -> ArcTransformer<T, R>
     where
-        T: Send + Sync,
+        R: Send + Sync,
     {
         ArcTransformer::new(move |_| value.clone())
     }
 }
 
-impl<T> Transformer<T> for ArcTransformer<T>
-where
-    T: 'static,
-{
-    fn transform(&self, input: &T) -> T {
-        (self.f)(input)
-    }
-}
-
-impl<T> Function<T, T> for ArcTransformer<T>
-where
-    T: 'static,
-{
-    fn apply(&self, input: &T) -> T {
-        self.transform(input)
+impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
+    fn transform(&self, input: T) -> R {
+        (self.function)(input)
     }
 
-    fn into_box(self) -> crate::function::BoxFunction<T, T> {
-        crate::function::BoxFunction::new(move |x| self.apply(x))
-    }
-
-    fn into_rc(self) -> crate::function::RcFunction<T, T> {
-        crate::function::RcFunction::new(move |x| self.apply(x))
-    }
-
-    fn into_arc(self) -> crate::function::ArcFunction<T, T>
+    fn into_box(self) -> BoxTransformer<T, R>
     where
-        T: Send + Sync,
+        T: 'static,
+        R: 'static,
     {
-        crate::function::ArcFunction::new(move |x| self.apply(x))
+        BoxTransformer {
+            function: Box::new(move |x| self.transform(x)),
+        }
     }
 
-    fn into_fn(self) -> impl FnMut(&T) -> T {
-        move |t: &T| self.apply(t)
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        RcTransformer {
+            function: Rc::new(move |x| self.transform(x)),
+        }
+    }
+
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        // Zero-cost: directly return itself
+        self
+    }
+
+    fn into_fn(self) -> impl Fn(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: T| self.transform(t)
     }
 }
 
-impl<T> Clone for ArcTransformer<T> {
+impl<T, R> Clone for ArcTransformer<T, R> {
     fn clone(&self) -> Self {
         ArcTransformer {
-            f: Arc::clone(&self.f),
+            function: Arc::clone(&self.function),
         }
     }
 }
 
 // ============================================================================
-// RcTransformer - Rc<dyn Fn(&T) -> T>
+// RcTransformer - Rc<dyn Fn(T) -> R>
 // ============================================================================
 
-/// RcTransformer - single-threaded immutable transformer wrapper
+/// RcTransformer - single-threaded transformer wrapper
 ///
 /// A single-threaded, clonable transformer wrapper optimized for scenarios
 /// that require sharing without thread-safety overhead.
 ///
 /// # Features
 ///
-/// - **Based on**: `Rc<dyn Fn(&T) -> T>`
+/// - **Based on**: `Rc<dyn Fn(T) -> R>`
 /// - **Ownership**: Shared ownership via reference counting (non-atomic)
-/// - **Reusability**: Can be called multiple times (borrows input)
+/// - **Reusability**: Can be called multiple times (each call consumes its
+///   input)
 /// - **Thread Safety**: Not thread-safe (no `Send + Sync`)
 /// - **Clonable**: Cheap cloning via `Rc::clone`
 ///
 /// # Author
 ///
-/// Haixing Hu
-pub struct RcTransformer<T> {
-    f: Rc<dyn Fn(&T) -> T>,
+/// Hu Haixing
+pub struct RcTransformer<T, R> {
+    function: Rc<dyn Fn(T) -> R>,
 }
 
-impl<T> RcTransformer<T>
+impl<T, R> RcTransformer<T, R>
 where
     T: 'static,
+    R: 'static,
 {
     /// Creates a new RcTransformer
     ///
@@ -490,16 +589,18 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcTransformer;
+    /// use prism3_function::{RcTransformer, Transformer};
     ///
-    /// let double = RcTransformer::new(|x: &i32| x * 2);
-    /// assert_eq!(double.transform(&21), 42);
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// assert_eq!(double.transform(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(&T) -> T + 'static,
+        F: Fn(T) -> R + 'static,
     {
-        RcTransformer { f: Rc::new(f) }
+        RcTransformer {
+            function: Rc::new(f),
+        }
     }
 
     /// Creates an identity transformer
@@ -507,16 +608,13 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcTransformer;
+    /// use prism3_function::{RcTransformer, Transformer};
     ///
-    /// let identity = RcTransformer::<i32>::identity();
-    /// assert_eq!(identity.transform(&42), 42);
+    /// let identity = RcTransformer::<i32, i32>::identity();
+    /// assert_eq!(identity.transform(42), 42);
     /// ```
-    pub fn identity() -> RcTransformer<T>
-    where
-        T: Clone,
-    {
-        RcTransformer::new(|x: &T| x.clone())
+    pub fn identity() -> RcTransformer<T, T> {
+        RcTransformer::new(|x| x)
     }
 
     /// Chain composition - applies self first, then after
@@ -525,9 +623,15 @@ where
     /// applies the after transformer to the result. Uses &self, so original
     /// transformer remains usable.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement
+    ///   Transformer<R, S>)
+    ///
     /// # Parameters
     ///
-    /// * `after` - The transformer to apply after self
+    /// * `after` - The transformer to apply after self (consumed)
     ///
     /// # Returns
     ///
@@ -536,21 +640,24 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcTransformer;
+    /// use prism3_function::{RcTransformer, Transformer};
     ///
-    /// let double = RcTransformer::new(|x: &i32| x * 2);
-    /// let add_one = RcTransformer::new(|x: &i32| x + 1);
-    /// let composed = double.and_then(&add_one);
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let to_string = RcTransformer::new(|x: i32| x.to_string());
+    /// let composed = double.and_then(to_string);
     ///
-    /// // Original transformers still usable
-    /// assert_eq!(double.transform(&21), 42);
-    /// assert_eq!(composed.transform(&5), 11);
+    /// // Original double transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(composed.transform(21), "42");
     /// ```
-    pub fn and_then(&self, after: &RcTransformer<T>) -> RcTransformer<T> {
-        let self_clone = Rc::clone(&self.f);
-        let after_clone = Rc::clone(&after.f);
+    pub fn and_then<S, F>(&self, after: F) -> RcTransformer<T, S>
+    where
+        S: 'static,
+        F: Transformer<R, S> + 'static,
+    {
+        let self_clone = Rc::clone(&self.function);
         RcTransformer {
-            f: Rc::new(move |x: &T| after_clone(&self_clone(x))),
+            function: Rc::new(move |x: T| after.transform(self_clone(x))),
         }
     }
 
@@ -560,9 +667,15 @@ where
     /// then applies this transformer to the result. Uses &self, so original
     /// transformer remains usable.
     ///
+    /// # Type Parameters
+    ///
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement
+    ///   Transformer<S, T>)
+    ///
     /// # Parameters
     ///
-    /// * `before` - The transformer to apply before self
+    /// * `before` - The transformer to apply before self (consumed)
     ///
     /// # Returns
     ///
@@ -571,87 +684,95 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcTransformer;
+    /// use prism3_function::{RcTransformer, Transformer};
     ///
-    /// let double = RcTransformer::new(|x: &i32| x * 2);
-    /// let add_one = RcTransformer::new(|x: &i32| x + 1);
-    /// let composed = double.compose(&add_one);
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let add_one = RcTransformer::new(|x: i32| x + 1);
+    /// let composed = double.compose(add_one);
     ///
-    /// assert_eq!(composed.transform(&5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
     /// ```
-    pub fn compose(&self, before: &RcTransformer<T>) -> RcTransformer<T> {
-        let self_clone = Rc::clone(&self.f);
-        let before_clone = Rc::clone(&before.f);
+    pub fn compose<S, F>(&self, before: F) -> RcTransformer<S, R>
+    where
+        S: 'static,
+        F: Transformer<S, T> + 'static,
+    {
+        let self_clone = Rc::clone(&self.function);
         RcTransformer {
-            f: Rc::new(move |x: &T| self_clone(&before_clone(x))),
+            function: Rc::new(move |x: S| self_clone(before.transform(x))),
         }
     }
 }
 
-impl<T> RcTransformer<T>
+impl<T, R> RcTransformer<T, R>
 where
-    T: Clone + 'static,
+    T: 'static,
+    R: Clone + 'static,
 {
     /// Creates a constant transformer
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use prism3_function::RcTransformer;
+    /// use prism3_function::{RcTransformer, Transformer};
     ///
-    /// let constant = RcTransformer::constant(42);
-    /// assert_eq!(constant.transform(&123), 42);
+    /// let constant = RcTransformer::constant("hello");
+    /// assert_eq!(constant.transform(123), "hello");
     /// ```
-    pub fn constant(value: T) -> RcTransformer<T> {
+    pub fn constant(value: R) -> RcTransformer<T, R> {
         RcTransformer::new(move |_| value.clone())
     }
 }
 
-impl<T> Transformer<T> for RcTransformer<T>
-where
-    T: 'static,
-{
-    fn transform(&self, input: &T) -> T {
-        (self.f)(input)
-    }
-}
-
-impl<T> Function<T, T> for RcTransformer<T>
-where
-    T: 'static,
-{
-    fn apply(&self, input: &T) -> T {
-        self.transform(input)
+impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
+    fn transform(&self, input: T) -> R {
+        (self.function)(input)
     }
 
-    fn into_box(self) -> crate::function::BoxFunction<T, T> {
-        crate::function::BoxFunction::new(move |x| self.apply(x))
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformer {
+            function: Box::new(move |x| self.transform(x)),
+        }
     }
 
-    fn into_rc(self) -> crate::function::RcFunction<T, T> {
-        crate::function::RcFunction::new(move |x| self.apply(x))
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself
+        self
     }
 
-    fn into_arc(self) -> crate::function::ArcFunction<T, T>
+    fn into_arc(self) -> ArcTransformer<T, R>
     where
         Self: Send + Sync,
-        T: Send + Sync,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
     {
         unreachable!(
-            "RcTransformer cannot be converted to ArcFunction because Rc is \
-             not Send + Sync"
+            "RcTransformer cannot be converted to ArcTransformer because Rc \
+             is not Send + Sync"
         )
     }
 
-    fn into_fn(self) -> impl FnMut(&T) -> T {
-        move |t: &T| self.apply(t)
+    fn into_fn(self) -> impl Fn(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t: T| self.transform(t)
     }
 }
 
-impl<T> Clone for RcTransformer<T> {
+impl<T, R> Clone for RcTransformer<T, R> {
     fn clone(&self) -> Self {
         RcTransformer {
-            f: Rc::clone(&self.f),
+            function: Rc::clone(&self.function),
         }
     }
 }
@@ -660,7 +781,7 @@ impl<T> Clone for RcTransformer<T> {
 // Blanket implementation for standard Fn trait
 // ============================================================================
 
-/// Implement Transformer<T> for any type that implements Fn(&T) -> T
+/// Implement Transformer<T, R> for any type that implements Fn(T) -> R
 ///
 /// This allows closures and function pointers to be used directly with our
 /// Transformer trait without wrapping.
@@ -670,23 +791,54 @@ impl<T> Clone for RcTransformer<T> {
 /// ```rust
 /// use prism3_function::Transformer;
 ///
-/// fn double(x: &i32) -> i32 { x * 2 }
+/// fn double(x: i32) -> i32 { x * 2 }
 ///
-/// assert_eq!(double.transform(&21), 42);
+/// assert_eq!(double.transform(21), 42);
 ///
-/// let triple = |x: &i32| x * 3;
-/// assert_eq!(triple.transform(&14), 42);
+/// let triple = |x: i32| x * 3;
+/// assert_eq!(triple.transform(14), 42);
 /// ```
 ///
 /// # Author
 ///
-/// Haixing Hu
-impl<F, T> Transformer<T> for F
+/// Hu Haixing
+impl<F, T, R> Transformer<T, R> for F
 where
-    F: Fn(&T) -> T,
+    F: Fn(T) -> R,
     T: 'static,
+    R: 'static,
 {
-    fn transform(&self, input: &T) -> T {
+    fn transform(&self, input: T) -> R {
         self(input)
+    }
+
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        Self: Sized + 'static,
+    {
+        BoxTransformer::new(self)
+    }
+
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        Self: Sized + 'static,
+    {
+        RcTransformer::new(self)
+    }
+
+    fn into_arc(self) -> ArcTransformer<T, R>
+    where
+        Self: Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        ArcTransformer::new(self)
+    }
+
+    fn into_fn(self) -> impl Fn(T) -> R
+    where
+        Self: Sized + 'static,
+    {
+        move |t: T| self(t)
     }
 }

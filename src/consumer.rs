@@ -300,6 +300,67 @@ where
         }
     }
 
+    /// 创建新的带名称的 BoxConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 消费者的名称
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `BoxConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = BoxConsumer::new_with_name("my_consumer", move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    where
+        F: FnMut(&T) + 'static,
+    {
+        BoxConsumer {
+            function: Box::new(f),
+            name: Some(name.into()),
+        }
+    }
+
+    /// 创建空操作消费者
+    ///
+    /// 返回不执行任何操作的消费者。
+    ///
+    /// # 返回值
+    ///
+    /// 返回空操作消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    ///
+    /// let mut noop = BoxConsumer::<i32>::noop();
+    /// noop.accept(&42);
+    /// // 值未改变
+    /// ```
+    pub fn noop() -> Self {
+        BoxConsumer::new(|_| {})
+    }
+
     /// 获取消费者的名称
     ///
     /// # 返回值
@@ -361,27 +422,6 @@ where
             first(t);
             second.accept(t);
         })
-    }
-
-    /// 创建空操作消费者
-    ///
-    /// 返回不执行任何操作的消费者。
-    ///
-    /// # 返回值
-    ///
-    /// 返回空操作消费者
-    ///
-    /// # 示例
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxConsumer};
-    ///
-    /// let mut noop = BoxConsumer::<i32>::noop();
-    /// noop.accept(&42);
-    /// // 值未改变
-    /// ```
-    pub fn noop() -> Self {
-        BoxConsumer::new(|_| {})
     }
 
     /// 创建打印消费者
@@ -713,6 +753,67 @@ where
         }
     }
 
+    /// 创建新的带名称的 ArcConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 消费者的名称
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `ArcConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = ArcConsumer::new_with_name("my_consumer", move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    where
+        F: FnMut(&T) + Send + 'static,
+    {
+        ArcConsumer {
+            function: Arc::new(Mutex::new(f)),
+            name: Some(name.into()),
+        }
+    }
+
+    /// 创建空操作消费者
+    ///
+    /// 返回不执行任何操作的消费者。
+    ///
+    /// # 返回值
+    ///
+    /// 返回空操作消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    ///
+    /// let mut noop = ArcConsumer::<i32>::noop();
+    /// noop.accept(&42);
+    /// // 值未改变
+    /// ```
+    pub fn noop() -> Self {
+        ArcConsumer::new(|_| {})
+    }
+
     /// 获取消费者的名称
     ///
     /// # 返回值
@@ -729,40 +830,6 @@ where
     /// * `name` - 要设置的名称
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
-    }
-
-    /// 转换为闭包（不消费自身）
-    ///
-    /// 创建一个新的闭包，通过 Arc 调用底层函数。
-    ///
-    /// # 返回值
-    ///
-    /// 返回实现了 `FnMut(&T)` 的闭包
-    ///
-    /// # 示例
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcConsumer::new(move |x: &i32| {
-    ///     l.lock().unwrap().push(*x);
-    /// });
-    ///
-    /// let mut func = consumer.to_fn();
-    /// func(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    /// ```
-    pub fn to_fn(&self) -> impl FnMut(&T)
-    where
-        T: 'static,
-    {
-        let func = Arc::clone(&self.function);
-        move |t: &T| {
-            func.lock().unwrap()(t);
-        }
     }
 
     /// 顺序链接另一个 ArcConsumer
@@ -809,6 +876,40 @@ where
                 second.lock().unwrap()(t);
             })),
             name: None,
+        }
+    }
+
+    /// 转换为闭包（不消费自身）
+    ///
+    /// 创建一个新的闭包，通过 Arc 调用底层函数。
+    ///
+    /// # 返回值
+    ///
+    /// 返回实现了 `FnMut(&T)` 的闭包
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = Arc::clone(&self.function);
+        move |t: &T| {
+            func.lock().unwrap()(t);
         }
     }
 }
@@ -994,6 +1095,68 @@ where
         }
     }
 
+    /// 创建新的带名称的 RcConsumer
+    ///
+    /// # 类型参数
+    ///
+    /// * `F` - 闭包类型
+    ///
+    /// # 参数
+    ///
+    /// * `name` - 消费者的名称
+    /// * `f` - 要包装的闭包
+    ///
+    /// # 返回值
+    ///
+    /// 返回新的 `RcConsumer<T>` 实例
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let mut consumer = RcConsumer::new_with_name("my_consumer", move |x: &i32| {
+    ///     l.borrow_mut().push(*x + 1);
+    /// });
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// consumer.accept(&5);
+    /// assert_eq!(*log.borrow(), vec![6]);
+    /// ```
+    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    where
+        F: FnMut(&T) + 'static,
+    {
+        RcConsumer {
+            function: Rc::new(RefCell::new(f)),
+            name: Some(name.into()),
+        }
+    }
+
+    /// 创建空操作消费者
+    ///
+    /// 返回不执行任何操作的消费者。
+    ///
+    /// # 返回值
+    ///
+    /// 返回空操作消费者
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    ///
+    /// let mut noop = RcConsumer::<i32>::noop();
+    /// noop.accept(&42);
+    /// // 值未改变
+    /// ```
+    pub fn noop() -> Self {
+        RcConsumer::new(|_| {})
+    }
+
     /// 获取消费者的名称
     ///
     /// # 返回值
@@ -1010,41 +1173,6 @@ where
     /// * `name` - 要设置的名称
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
-    }
-
-    /// 转换为闭包（不消费自身）
-    ///
-    /// 创建一个新的闭包，通过 Rc 调用底层函数。
-    ///
-    /// # 返回值
-    ///
-    /// 返回实现了 `FnMut(&T)` 的闭包
-    ///
-    /// # 示例
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcConsumer::new(move |x: &i32| {
-    ///     l.borrow_mut().push(*x);
-    /// });
-    ///
-    /// let mut func = consumer.to_fn();
-    /// func(&5);
-    /// assert_eq!(*log.borrow(), vec![5]);
-    /// ```
-    pub fn to_fn(&self) -> impl FnMut(&T)
-    where
-        T: 'static,
-    {
-        let func = Rc::clone(&self.function);
-        move |t: &T| {
-            func.borrow_mut()(t);
-        }
     }
 
     /// 顺序链接另一个 RcConsumer
@@ -1092,6 +1220,41 @@ where
                 second.borrow_mut()(t);
             })),
             name: None,
+        }
+    }
+
+    /// 转换为闭包（不消费自身）
+    ///
+    /// 创建一个新的闭包，通过 Rc 调用底层函数。
+    ///
+    /// # 返回值
+    ///
+    /// 返回实现了 `FnMut(&T)` 的闭包
+    ///
+    /// # 示例
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    ///
+    /// let mut func = consumer.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    pub fn to_fn(&self) -> impl FnMut(&T)
+    where
+        T: 'static,
+    {
+        let func = Rc::clone(&self.function);
+        move |t: &T| {
+            func.borrow_mut()(t);
         }
     }
 }
