@@ -335,6 +335,19 @@ mod tests {
             assert!(combined.test(&5, &3));
             assert!(!combined.test(&-5, &10));
         }
+
+        #[test]
+        fn test_set_name() {
+            let mut pred = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            assert_eq!(pred.name(), None);
+
+            pred.set_name("sum_positive");
+            assert_eq!(pred.name(), Some("sum_positive"));
+            assert!(pred.test(&5, &3));
+
+            pred.set_name("updated_name");
+            assert_eq!(pred.name(), Some("updated_name"));
+        }
     }
 
     // ========================================================================
@@ -539,6 +552,35 @@ mod tests {
             let str_len_greater = ArcBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
             assert!(str_len_greater.test(&String::from("hello"), &3));
             assert!(!str_len_greater.test(&String::from("hi"), &5));
+        }
+
+        #[test]
+        fn test_set_name() {
+            let mut pred = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            assert_eq!(pred.name(), None);
+
+            pred.set_name("sum_positive");
+            assert_eq!(pred.name(), Some("sum_positive"));
+            assert!(pred.test(&5, &3));
+
+            pred.set_name("updated_name");
+            assert_eq!(pred.name(), Some("updated_name"));
+        }
+
+        #[test]
+        fn test_to_box() {
+            let arc_pred = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let box_pred = arc_pred.to_box();
+            assert!(box_pred.test(&5, &3));
+            assert!(!box_pred.test(&-5, &-3));
+        }
+
+        #[test]
+        fn test_to_box_preserves_name() {
+            let arc_pred = ArcBiPredicate::new_with_name("test", |x: &i32, y: &i32| x + y > 0);
+            let box_pred = arc_pred.to_box();
+            assert_eq!(box_pred.name(), Some("test"));
+            assert!(box_pred.test(&5, &3));
         }
 
         #[test]
@@ -764,6 +806,35 @@ mod tests {
             let str_len_greater = RcBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
             assert!(str_len_greater.test(&String::from("hello"), &3));
             assert!(!str_len_greater.test(&String::from("hi"), &5));
+        }
+
+        #[test]
+        fn test_set_name() {
+            let mut pred = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            assert_eq!(pred.name(), None);
+
+            pred.set_name("sum_positive");
+            assert_eq!(pred.name(), Some("sum_positive"));
+            assert!(pred.test(&5, &3));
+
+            pred.set_name("updated_name");
+            assert_eq!(pred.name(), Some("updated_name"));
+        }
+
+        #[test]
+        fn test_to_box() {
+            let rc_pred = RcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let box_pred = rc_pred.to_box();
+            assert!(box_pred.test(&5, &3));
+            assert!(!box_pred.test(&-5, &-3));
+        }
+
+        #[test]
+        fn test_to_box_preserves_name() {
+            let rc_pred = RcBiPredicate::new_with_name("test", |x: &i32, y: &i32| x + y > 0);
+            let box_pred = rc_pred.to_box();
+            assert_eq!(box_pred.name(), Some("test"));
+            assert!(box_pred.test(&5, &3));
         }
     }
 

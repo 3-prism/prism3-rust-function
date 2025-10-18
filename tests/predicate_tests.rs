@@ -58,6 +58,16 @@ mod closure_predicate_tests {
         assert!(is_not_positive.test(&-3));
         assert!(is_not_positive.test(&0));
     }
+
+    #[test]
+    fn test_closure_into_fn() {
+        // Test into_fn in impl<T: 'static, F> Predicate<T> for F
+        let is_positive = |x: &i32| *x > 0;
+        let func = is_positive.into_fn();
+        assert!(func(&5));
+        assert!(!func(&-3));
+        assert!(!func(&0));
+    }
 }
 
 #[cfg(test)]
