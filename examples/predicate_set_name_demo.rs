@@ -7,94 +7,94 @@
  *
  ******************************************************************************/
 
-//! 演示 Predicate 的 set_name 和 new_with_name 方法
+//! Demonstrates the set_name and new_with_name methods of Predicate
 
 use prism3_function::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 
 fn main() {
-    println!("=== Predicate 命名功能演示 ===\n");
+    println!("=== Predicate Naming Functionality Demo ===\n");
 
     demo_box_predicate();
     demo_rc_predicate();
     demo_arc_predicate();
 }
 
-/// 演示 BoxPredicate 的命名功能
+/// Demonstrates the naming functionality of BoxPredicate
 fn demo_box_predicate() {
-    println!("1. BoxPredicate 命名功能");
+    println!("1. BoxPredicate Naming Functionality");
 
-    // 使用 new_with_name 创建带名称的谓词
+    // Create a predicate with name using new_with_name
     let pred1 = BoxPredicate::new_with_name("is_positive", |x: &i32| *x > 0);
-    println!("   使用 new_with_name 创建:");
-    println!("     名称: {:?}", pred1.name());
-    println!("     测试 5: {}", pred1.test(&5));
+    println!("   Created with new_with_name:");
+    println!("     Name: {:?}", pred1.name());
+    println!("     Test 5: {}", pred1.test(&5));
 
-    // 使用 set_name 为已存在的谓词设置名称
+    // Set name for an existing predicate using set_name
     let mut pred2 = BoxPredicate::new(|x: &i32| x % 2 == 0);
-    println!("\n   使用 new 创建后用 set_name:");
-    println!("     初始名称: {:?}", pred2.name());
+    println!("\n   Created with new then set_name:");
+    println!("     Initial name: {:?}", pred2.name());
     pred2.set_name("is_even");
-    println!("     设置后名称: {:?}", pred2.name());
-    println!("     测试 4: {}", pred2.test(&4));
+    println!("     Name after setting: {:?}", pred2.name());
+    println!("     Test 4: {}", pred2.test(&4));
 
-    // 组合谓词会自动生成新名称
+    // Combined predicates automatically generate new names
     let pred3 = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
     let pred4 = BoxPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
     let combined = pred3.and(pred4);
-    println!("\n   组合谓词的名称:");
-    println!("     自动生成的名称: {:?}", combined.name());
-    println!("     测试 4: {}\n", combined.test(&4));
+    println!("\n   Combined predicate name:");
+    println!("     Auto-generated name: {:?}", combined.name());
+    println!("     Test 4: {}\n", combined.test(&4));
 }
 
-/// 演示 RcPredicate 的命名功能
+/// Demonstrates the naming functionality of RcPredicate
 fn demo_rc_predicate() {
-    println!("2. RcPredicate 命名功能");
+    println!("2. RcPredicate Naming Functionality");
 
-    // 使用 new_with_name
+    // Using new_with_name
     let pred1 = RcPredicate::new_with_name("greater_than_10", |x: &i32| *x > 10);
-    println!("   使用 new_with_name:");
-    println!("     名称: {:?}", pred1.name());
-    println!("     测试 15: {}", pred1.test(&15));
+    println!("   Using new_with_name:");
+    println!("     Name: {:?}", pred1.name());
+    println!("     Test 15: {}", pred1.test(&15));
 
-    // 使用 set_name
+    // Using set_name
     let mut pred2 = RcPredicate::new(|x: &i32| *x < 100);
-    println!("\n   使用 set_name:");
-    println!("     初始名称: {:?}", pred2.name());
+    println!("\n   Using set_name:");
+    println!("     Initial name: {:?}", pred2.name());
     pred2.set_name("less_than_100");
-    println!("     设置后名称: {:?}", pred2.name());
-    println!("     测试 50: {}", pred2.test(&50));
+    println!("     Name after setting: {:?}", pred2.name());
+    println!("     Test 50: {}", pred2.test(&50));
 
-    // 克隆后名称也会被保留
+    // Name is preserved after cloning
     let pred3 = pred2.clone();
-    println!("\n   克隆后名称保留:");
-    println!("     克隆后的名称: {:?}", pred3.name());
-    println!("     测试 80: {}\n", pred3.test(&80));
+    println!("\n   Name preserved after cloning:");
+    println!("     Cloned name: {:?}", pred3.name());
+    println!("     Test 80: {}\n", pred3.test(&80));
 }
 
-/// 演示 ArcPredicate 的命名功能
+/// Demonstrates the naming functionality of ArcPredicate
 fn demo_arc_predicate() {
-    println!("3. ArcPredicate 命名功能（线程安全）");
+    println!("3. ArcPredicate Naming Functionality (Thread-Safe)");
 
-    // 使用 new_with_name
+    // Using new_with_name
     let pred1 = ArcPredicate::new_with_name("is_uppercase", |s: &String| {
         s.chars().all(|c| c.is_uppercase() || !c.is_alphabetic())
     });
-    println!("   使用 new_with_name:");
-    println!("     名称: {:?}", pred1.name());
-    println!("     测试 'HELLO': {}", pred1.test(&"HELLO".to_string()));
+    println!("   Using new_with_name:");
+    println!("     Name: {:?}", pred1.name());
+    println!("     Test 'HELLO': {}", pred1.test(&"HELLO".to_string()));
 
-    // 使用 set_name
+    // Using set_name
     let mut pred2 = ArcPredicate::new(|s: &String| s.len() > 5);
-    println!("\n   使用 set_name:");
-    println!("     初始名称: {:?}", pred2.name());
+    println!("\n   Using set_name:");
+    println!("     Initial name: {:?}", pred2.name());
     pred2.set_name("longer_than_5");
-    println!("     设置后名称: {:?}", pred2.name());
+    println!("     Name after setting: {:?}", pred2.name());
     println!(
-        "     测试 'Hello World': {}",
+        "     Test 'Hello World': {}",
         pred2.test(&"Hello World".to_string())
     );
 
-    // 在线程间共享时名称也保留
+    // Name is preserved when sharing between threads
     let pred3 = pred2.clone();
     let handle = std::thread::spawn(move || {
         let name = pred3.name().map(|s| s.to_string());
@@ -103,12 +103,12 @@ fn demo_arc_predicate() {
     });
 
     let (name, result) = handle.join().unwrap();
-    println!("\n   线程中访问:");
-    println!("     线程中的名称: {:?}", name);
-    println!("     线程中测试 'Threading': {}", result);
+    println!("\n   Accessing from thread:");
+    println!("     Name in thread: {:?}", name);
+    println!("     Test 'Threading' in thread: {}", result);
 
-    // 原始 predicate 仍然可用
-    println!("\n   原始 predicate 仍可用:");
-    println!("     原始名称: {:?}", pred2.name());
-    println!("     测试 'Rust': {}\n", pred2.test(&"Rust".to_string()));
+    // Original predicate is still available
+    println!("\n   Original predicate still available:");
+    println!("     Original name: {:?}", pred2.name());
+    println!("     Test 'Rust': {}\n", pred2.test(&"Rust".to_string()));
 }

@@ -128,7 +128,7 @@ mod test_box_mutator {
 
         let mut value = -5;
         mutator.mutate(&mut value);
-        assert_eq!(value, -5); // 未改变
+        assert_eq!(value, -5); // unchanged
     }
 
     #[test]

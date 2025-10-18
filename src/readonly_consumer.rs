@@ -6,53 +6,53 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # ReadonlyConsumer 类型
+//! # ReadonlyConsumer Types
 //!
-//! 提供只读消费者接口的实现，用于执行不修改自身状态且不修改输入值的操作。
+//! Provides implementations of readonly consumer interfaces for executing operations that neither modify their own state nor modify input values.
 //!
-//! 本模块提供统一的 `ReadonlyConsumer` trait 和三种基于不同所有权模型的具体实现:
+//! This module provides a unified `ReadonlyConsumer` trait and three concrete implementations based on different ownership models:
 //!
-//! - **`BoxReadonlyConsumer<T>`**: 基于 Box 的单一所有权实现
-//! - **`ArcReadonlyConsumer<T>`**: 基于 Arc 的线程安全共享所有权实现
-//! - **`RcReadonlyConsumer<T>`**: 基于 Rc 的单线程共享所有权实现
+//! - **`BoxReadonlyConsumer<T>`**: Box-based single ownership implementation
+//! - **`ArcReadonlyConsumer<T>`**: Arc-based thread-safe shared ownership implementation
+//! - **`RcReadonlyConsumer<T>`**: Rc-based single-threaded shared ownership implementation
 //!
-//! # 设计理念
+//! # Design Philosophy
 //!
-//! ReadonlyConsumer 使用 `Fn(&T)` 语义，既不修改自身状态也不修改输入值。
-//! 适用于纯观察、日志记录、通知等场景。与 Consumer 相比，ReadonlyConsumer
-//! 不需要内部可变性(Mutex/RefCell)，因此更高效且更易于共享。
+//! ReadonlyConsumer uses `Fn(&T)` semantics, neither modifying its own state nor modifying input values.
+//! Suitable for pure observation, logging, notification and other scenarios. Compared to Consumer, ReadonlyConsumer
+//! does not require interior mutability (Mutex/RefCell), making it more efficient and easier to share.
 //!
-//! # 作者
+//! # Author
 //!
-//! 胡海星
+//! Hu Haixing
 
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
 // ============================================================================
-// 1. ReadonlyConsumer Trait - 统一的 ReadonlyConsumer 接口
+// 1. ReadonlyConsumer Trait - Unified ReadonlyConsumer Interface
 // ============================================================================
 
-/// ReadonlyConsumer trait - 统一的只读消费者接口
+/// ReadonlyConsumer trait - Unified readonly consumer interface
 ///
-/// 定义所有只读消费者类型的核心行为。与 `Consumer` 不同，`ReadonlyConsumer`
-/// 既不修改自身状态也不修改输入值，是完全不可变的操作。
+/// Defines the core behavior of all readonly consumer types. Unlike `Consumer`, `ReadonlyConsumer`
+/// neither modifies its own state nor modifies input values, making it a completely immutable operation.
 ///
-/// # 自动实现
+/// # Auto-implementation
 ///
-/// - 所有实现 `Fn(&T)` 的闭包
+/// - All closures implementing `Fn(&T)`
 /// - `BoxReadonlyConsumer<T>`, `ArcReadonlyConsumer<T>`, `RcReadonlyConsumer<T>`
 ///
-/// # 特性
+/// # Features
 ///
-/// - **统一接口**: 所有只读消费者类型共享相同的 `accept` 方法签名
-/// - **自动实现**: 闭包自动实现此 trait，零开销
-/// - **类型转换**: 可以方便地在不同所有权模型间转换
-/// - **泛型编程**: 编写可用于任何只读消费者类型的函数
-/// - **无需内部可变性**: 不需要 Mutex 或 RefCell，更高效
+/// - **Unified Interface**: All readonly consumer types share the same `accept` method signature
+/// - **Auto-implementation**: Closures automatically implement this trait with zero overhead
+/// - **Type Conversion**: Easy conversion between different ownership models
+/// - **Generic Programming**: Write functions that work with any readonly consumer type
+/// - **No Interior Mutability**: No need for Mutex or RefCell, more efficient
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -67,20 +67,20 @@ use std::sync::Arc;
 /// apply_consumer(&box_con, &5);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait ReadonlyConsumer<T> {
-    /// 执行只读消费操作
+    /// Execute readonly consumption operation
     ///
-    /// 对给定的引用执行操作。操作通常读取输入值或产生副作用，
-    /// 但既不修改输入值也不修改消费者自身的状态。
+    /// Performs an operation on the given reference. The operation typically reads input values or produces side effects,
+    /// but neither modifies the input value nor the consumer's own state.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `value` - 要消费的值的引用
+    /// * `value` - Reference to the value to consume
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -90,53 +90,53 @@ pub trait ReadonlyConsumer<T> {
     /// ```
     fn accept(&self, value: &T);
 
-    /// 转换为 BoxReadonlyConsumer
+    /// Convert to BoxReadonlyConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回包装后的 `BoxReadonlyConsumer<T>`
+    /// Returns the wrapped `BoxReadonlyConsumer<T>`
     fn into_box(self) -> BoxReadonlyConsumer<T>
     where
         Self: Sized + 'static,
         T: 'static;
 
-    /// 转换为 RcReadonlyConsumer
+    /// Convert to RcReadonlyConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回包装后的 `RcReadonlyConsumer<T>`
+    /// Returns the wrapped `RcReadonlyConsumer<T>`
     fn into_rc(self) -> RcReadonlyConsumer<T>
     where
         Self: Sized + 'static,
         T: 'static;
 
-    /// 转换为 ArcReadonlyConsumer
+    /// Convert to ArcReadonlyConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回包装后的 `ArcReadonlyConsumer<T>`
+    /// Returns the wrapped `ArcReadonlyConsumer<T>`
     fn into_arc(self) -> ArcReadonlyConsumer<T>
     where
         Self: Sized + Send + Sync + 'static,
         T: Send + Sync + 'static;
 
-    /// 转换为闭包
+    /// Convert to closure
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// 将只读消费者转换为闭包，可以直接用于标准库中需要 `Fn` 的地方。
+    /// Converts a readonly consumer to a closure that can be used directly in places where the standard library requires `Fn`.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回实现了 `Fn(&T)` 的闭包
+    /// Returns a closure implementing `Fn(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -154,28 +154,28 @@ pub trait ReadonlyConsumer<T> {
 }
 
 // ============================================================================
-// 2. BoxReadonlyConsumer - 单一所有权实现
+// 2. BoxReadonlyConsumer - Single Ownership Implementation
 // ============================================================================
 
-/// BoxReadonlyConsumer 结构体
+/// BoxReadonlyConsumer struct
 ///
-/// 基于 `Box<dyn Fn(&T)>` 的只读消费者实现，用于单一所有权场景。
+/// Readonly consumer implementation based on `Box<dyn Fn(&T)>` for single ownership scenarios.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **单一所有权**: 不可克隆，使用时转移所有权
-/// - **零开销**: 无引用计数或锁开销
-/// - **完全不可变**: 既不修改自身也不修改输入
-/// - **无内部可变性**: 不需要 Mutex 或 RefCell
+/// - **Single Ownership**: Not cloneable, transfers ownership when used
+/// - **Zero Overhead**: No reference counting or lock overhead
+/// - **Completely Immutable**: Neither modifies itself nor input
+/// - **No Interior Mutability**: No need for Mutex or RefCell
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `BoxReadonlyConsumer` 当:
-/// - 只读消费者只使用一次或呈线性流
-/// - 不需要跨上下文共享消费者
-/// - 纯观察操作，如日志记录
+/// Choose `BoxReadonlyConsumer` when:
+/// - Readonly consumer is used once or in a linear flow
+/// - No need to share consumer across contexts
+/// - Pure observation operations, such as logging
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -186,9 +186,9 @@ pub trait ReadonlyConsumer<T> {
 /// consumer.accept(&5);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct BoxReadonlyConsumer<T> {
     function: Box<dyn Fn(&T)>,
     name: Option<String>,
@@ -198,21 +198,21 @@ impl<T> BoxReadonlyConsumer<T>
 where
     T: 'static,
 {
-    /// 创建新的 BoxReadonlyConsumer
+    /// Create a new BoxReadonlyConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的 `BoxReadonlyConsumer<T>` 实例
+    /// Returns a new `BoxReadonlyConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -232,33 +232,33 @@ where
         }
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 顺序链接另一个只读消费者
+    /// Sequentially chain another readonly consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。消耗 self。
+    /// Returns a new consumer that executes the current operation first, then the next operation. Consumes self.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的组合 `BoxReadonlyConsumer<T>`
+    /// Returns a new combined `BoxReadonlyConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer};
@@ -282,11 +282,11 @@ where
         })
     }
 
-    /// 创建空操作消费者
+    /// Create a no-op consumer
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回空操作消费者
+    /// Returns a no-op consumer
     pub fn noop() -> Self {
         BoxReadonlyConsumer::new(|_| {})
     }
@@ -346,34 +346,34 @@ impl<T> fmt::Display for BoxReadonlyConsumer<T> {
 }
 
 // ============================================================================
-// 3. ArcReadonlyConsumer - 线程安全的共享所有权实现
+// 3. ArcReadonlyConsumer - Thread-safe Shared Ownership Implementation
 // ============================================================================
 
-/// ArcReadonlyConsumer 结构体
+/// ArcReadonlyConsumer struct
 ///
-/// 基于 `Arc<dyn Fn(&T) + Send + Sync>` 的只读消费者实现，
-/// 用于线程安全的共享所有权场景。不需要 Mutex，因为操作是只读的。
+/// Readonly consumer implementation based on `Arc<dyn Fn(&T) + Send + Sync>`,
+/// for thread-safe shared ownership scenarios. No Mutex needed because operations are readonly.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **共享所有权**: 通过 `Arc` 可克隆，允许多个所有者
-/// - **线程安全**: 实现 `Send + Sync`，可安全地并发使用
-/// - **无锁**: 因为是只读的，不需要 Mutex 保护
-/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
+/// - **Shared Ownership**: Cloneable through `Arc`, allows multiple owners
+/// - **Thread Safe**: Implements `Send + Sync`, can be safely used concurrently
+/// - **Lock-free**: No Mutex protection needed because it's readonly
+/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains usable
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `ArcReadonlyConsumer` 当:
-/// - 需要在多个线程间共享只读消费者
-/// - 纯观察操作，如日志、监控、通知
-/// - 需要高并发读取，无锁开销
+/// Choose `ArcReadonlyConsumer` when:
+/// - Need to share readonly consumer across multiple threads
+/// - Pure observation operations, such as logging, monitoring, notifications
+/// - Need high-concurrency reads with no lock overhead
 ///
-/// # 性能优势
+/// # Performance Advantages
 ///
-/// 相比 `ArcConsumer`，`ArcReadonlyConsumer` 没有 Mutex 锁开销，
-/// 在高并发场景下性能更好。
+/// Compared to `ArcConsumer`, `ArcReadonlyConsumer` has no Mutex lock overhead,
+/// performing better in high-concurrency scenarios.
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ReadonlyConsumer, ArcReadonlyConsumer};
@@ -387,9 +387,9 @@ impl<T> fmt::Display for BoxReadonlyConsumer<T> {
 /// clone.accept(&10);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct ArcReadonlyConsumer<T> {
     function: Arc<dyn Fn(&T) + Send + Sync>,
     name: Option<String>,
@@ -399,21 +399,21 @@ impl<T> ArcReadonlyConsumer<T>
 where
     T: Send + Sync + 'static,
 {
-    /// 创建新的 ArcReadonlyConsumer
+    /// Create a new ArcReadonlyConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的 `ArcReadonlyConsumer<T>` 实例
+    /// Returns a new `ArcReadonlyConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, ArcReadonlyConsumer};
@@ -433,25 +433,25 @@ where
         }
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 转换为闭包（不消费自身）
+    /// Convert to closure (without consuming self)
     ///
-    /// 创建一个新的闭包，通过 Arc 调用底层函数。
+    /// Creates a new closure that calls the underlying function through Arc.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回实现了 `Fn(&T)` 的闭包
+    /// Returns a closure implementing `Fn(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, ArcReadonlyConsumer};
@@ -473,20 +473,20 @@ where
         }
     }
 
-    /// 顺序链接另一个 ArcReadonlyConsumer
+    /// Sequentially chain another ArcReadonlyConsumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 借用 &self，不消耗原始消费者。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Borrows &self, does not consume the original consumer.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的组合 `ArcReadonlyConsumer<T>`
+    /// Returns a new combined `ArcReadonlyConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, ArcReadonlyConsumer};
@@ -500,7 +500,7 @@ where
     ///
     /// let chained = first.and_then(&second);
     ///
-    /// // first 和 second 在链接后仍可使用
+    /// // first and second remain usable after chaining
     /// chained.accept(&5);
     /// ```
     pub fn and_then(&self, next: &ArcReadonlyConsumer<T>) -> ArcReadonlyConsumer<T> {
@@ -556,9 +556,9 @@ impl<T> ReadonlyConsumer<T> for ArcReadonlyConsumer<T> {
 }
 
 impl<T> Clone for ArcReadonlyConsumer<T> {
-    /// 克隆 ArcReadonlyConsumer
+    /// Clone ArcReadonlyConsumer
     ///
-    /// 创建与原始实例共享底层函数的新 ArcReadonlyConsumer。
+    /// Creates a new ArcReadonlyConsumer that shares the underlying function with the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Arc::clone(&self.function),
@@ -586,34 +586,34 @@ impl<T> fmt::Display for ArcReadonlyConsumer<T> {
 }
 
 // ============================================================================
-// 4. RcReadonlyConsumer - 单线程共享所有权实现
+// 4. RcReadonlyConsumer - Single-threaded Shared Ownership Implementation
 // ============================================================================
 
-/// RcReadonlyConsumer 结构体
+/// RcReadonlyConsumer struct
 ///
-/// 基于 `Rc<dyn Fn(&T)>` 的只读消费者实现，用于单线程共享所有权场景。
-/// 不需要 RefCell，因为操作是只读的。
+/// Readonly consumer implementation based on `Rc<dyn Fn(&T)>` for single-threaded shared ownership scenarios.
+/// No RefCell needed because operations are readonly.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **共享所有权**: 通过 `Rc` 可克隆，允许多个所有者
-/// - **单线程**: 非线程安全，不能跨线程发送
-/// - **无内部可变性开销**: 不需要 RefCell，因为是只读的
-/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
+/// - **Shared Ownership**: Cloneable through `Rc`, allows multiple owners
+/// - **Single-threaded**: Not thread-safe, cannot be sent across threads
+/// - **No Interior Mutability Overhead**: No RefCell needed because it's readonly
+/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains usable
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `RcReadonlyConsumer` 当:
-/// - 需要在单线程内共享只读消费者
-/// - 纯观察操作，性能关键
-/// - 单线程 UI 框架中的事件处理
+/// Choose `RcReadonlyConsumer` when:
+/// - Need to share readonly consumer within a single thread
+/// - Pure observation operations, performance critical
+/// - Event handling in single-threaded UI frameworks
 ///
-/// # 性能优势
+/// # Performance Advantages
 ///
-/// `RcReadonlyConsumer` 既没有 Arc 的原子操作开销，也没有 RefCell 的
-/// 运行时借用检查开销，是三种只读消费者中性能最好的。
+/// `RcReadonlyConsumer` has neither Arc's atomic operation overhead nor RefCell's
+/// runtime borrow checking overhead, making it the most performant of the three readonly consumers.
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ReadonlyConsumer, RcReadonlyConsumer};
@@ -627,9 +627,9 @@ impl<T> fmt::Display for ArcReadonlyConsumer<T> {
 /// clone.accept(&10);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct RcReadonlyConsumer<T> {
     function: Rc<dyn Fn(&T)>,
     name: Option<String>,
@@ -639,21 +639,21 @@ impl<T> RcReadonlyConsumer<T>
 where
     T: 'static,
 {
-    /// 创建新的 RcReadonlyConsumer
+    /// Create a new RcReadonlyConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的 `RcReadonlyConsumer<T>` 实例
+    /// Returns a new `RcReadonlyConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, RcReadonlyConsumer};
@@ -673,25 +673,25 @@ where
         }
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 转换为闭包（不消费自身）
+    /// Convert to closure (without consuming self)
     ///
-    /// 创建一个新的闭包，通过 Rc 调用底层函数。
+    /// Creates a new closure that calls the underlying function through Rc.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回实现了 `Fn(&T)` 的闭包
+    /// Returns a closure implementing `Fn(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, RcReadonlyConsumer};
@@ -713,20 +713,20 @@ where
         }
     }
 
-    /// 顺序链接另一个 RcReadonlyConsumer
+    /// Sequentially chain another RcReadonlyConsumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 借用 &self，不消耗原始消费者。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Borrows &self, does not consume the original consumer.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的组合 `RcReadonlyConsumer<T>`
+    /// Returns a new combined `RcReadonlyConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, RcReadonlyConsumer};
@@ -740,7 +740,7 @@ where
     ///
     /// let chained = first.and_then(&second);
     ///
-    /// // first 和 second 在链接后仍可使用
+    /// // first and second remain usable after chaining
     /// chained.accept(&5);
     /// ```
     pub fn and_then(&self, next: &RcReadonlyConsumer<T>) -> RcReadonlyConsumer<T> {
@@ -795,9 +795,9 @@ impl<T> ReadonlyConsumer<T> for RcReadonlyConsumer<T> {
 }
 
 impl<T> Clone for RcReadonlyConsumer<T> {
-    /// 克隆 RcReadonlyConsumer
+    /// Clone RcReadonlyConsumer
     ///
-    /// 创建与原始实例共享底层函数的新 RcReadonlyConsumer。
+    /// Creates a new RcReadonlyConsumer that shares the underlying function with the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Rc::clone(&self.function),
@@ -825,10 +825,10 @@ impl<T> fmt::Display for RcReadonlyConsumer<T> {
 }
 
 // ============================================================================
-// 5. 为闭包实现 ReadonlyConsumer trait
+// 5. Implement ReadonlyConsumer trait for closures
 // ============================================================================
 
-/// 为所有 Fn(&T) 实现 ReadonlyConsumer
+/// Implement ReadonlyConsumer for all Fn(&T)
 impl<T, F> ReadonlyConsumer<T> for F
 where
     F: Fn(&T),
@@ -871,22 +871,22 @@ where
 }
 
 // ============================================================================
-// 6. 为闭包提供扩展方法
+// 6. Provide extension methods for closures
 // ============================================================================
 
-/// 为闭包提供只读消费者组合方法的扩展 trait
+/// Extension trait providing readonly consumer composition methods for closures
 ///
-/// 为所有实现 `Fn(&T)` 的闭包提供 `and_then` 和其他组合方法，
-/// 使闭包无需显式包装类型即可直接进行方法链接。
+/// Provides `and_then` and other composition methods for all closures implementing `Fn(&T)`,
+/// allowing closures to directly chain methods without explicit wrapper types.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **自然语法**: 直接在闭包上链接操作
-/// - **返回 BoxReadonlyConsumer**: 组合结果可继续链接
-/// - **零成本**: 组合闭包时无开销
-/// - **自动实现**: 所有 `Fn(&T)` 闭包自动获得这些方法
+/// - **Natural Syntax**: Chain operations directly on closures
+/// - **Returns BoxReadonlyConsumer**: Combined results can continue chaining
+/// - **Zero Cost**: No overhead when composing closures
+/// - **Auto-implementation**: All `Fn(&T)` closures automatically get these methods
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ReadonlyConsumer, FnReadonlyConsumerOps};
@@ -899,28 +899,28 @@ where
 /// chained.accept(&5);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait FnReadonlyConsumerOps<T>: Fn(&T) + Sized {
-    /// 顺序链接另一个只读消费者
+    /// Sequentially chain another readonly consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 消耗当前闭包并返回 `BoxReadonlyConsumer<T>`。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Consumes the current closure and returns `BoxReadonlyConsumer<T>`.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回组合的 `BoxReadonlyConsumer<T>`
+    /// Returns a combined `BoxReadonlyConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ReadonlyConsumer, FnReadonlyConsumerOps};
@@ -948,5 +948,5 @@ pub trait FnReadonlyConsumerOps<T>: Fn(&T) + Sized {
     }
 }
 
-/// 为所有闭包类型实现 FnReadonlyConsumerOps
+/// Implement FnReadonlyConsumerOps for all closure types
 impl<T, F> FnReadonlyConsumerOps<T> for F where F: Fn(&T) {}

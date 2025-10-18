@@ -8,7 +8,7 @@
  ******************************************************************************/
 //! # MutatorOnce Tests
 //!
-//! 测试 MutatorOnce trait 及其实现的完整功能。
+//! Tests the complete functionality of MutatorOnce trait and its implementations.
 
 use prism3_function::{BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
 
@@ -280,7 +280,7 @@ mod fn_mutator_once_ops_tests {
 mod real_world_tests {
     use super::*;
 
-    // 模拟初始化器模式
+    // Simulate initializer pattern
     struct Initializer {
         on_complete: Option<BoxMutatorOnce<Vec<i32>>>,
     }
@@ -296,10 +296,10 @@ mod real_world_tests {
         }
 
         fn run(mut self, data: &mut Vec<i32>) {
-            // 执行初始化逻辑
+            // Execute initialization logic
             data.push(42);
 
-            // 调用回调
+            // Call callback
             if let Some(callback) = self.on_complete.take() {
                 callback.mutate(data);
             }
@@ -322,7 +322,7 @@ mod real_world_tests {
     fn test_resource_transfer() {
         let large_data = vec![1; 1000];
         let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
-            x.extend(large_data); // 移动大型数据而非克隆
+            x.extend(large_data); // Move large data instead of cloning
         });
 
         let mut target = Vec::new();
@@ -367,14 +367,14 @@ mod real_world_tests {
             x.extend(data);
         })
         .and_then(move |x: &mut Vec<i32>| {
-            counter += x.len() as i32; // 注意：这里 counter 被移动，但不会产生预期效果
-            x.push(counter); // 实际上 counter 在闭包内是独立的
+            counter += x.len() as i32; // Note: counter is moved here but won't have expected effect
+            x.push(counter); // Actually counter is independent within the closure
         });
 
         let mut target = vec![0];
         mutator.mutate(&mut target);
-        // counter 在闭包内递增，但外部 counter 不受影响
-        assert_eq!(target.len(), 5); // 0, 1, 2, 3, 加上闭包内的 counter
+        // counter increments within the closure, but external counter is not affected
+        assert_eq!(target.len(), 5); // 0, 1, 2, 3, plus counter within the closure
     }
 
     #[test]
@@ -449,7 +449,7 @@ mod edge_cases_tests {
 
         let mut value = 0;
         chained.mutate(&mut value);
-        assert_eq!(value, 11); // 初始 +1，然后 10 次 +1
+        assert_eq!(value, 11); // Initial +1, then 10 times +1
     }
 
     #[test]

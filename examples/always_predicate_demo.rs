@@ -9,7 +9,7 @@
 use prism3_function::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 
 fn main() {
-    println!("=== BoxPredicate always_true/always_false 演示 ===\n");
+    println!("=== BoxPredicate always_true/always_false Demo ===\n");
 
     // BoxPredicate::always_true
     let always_true: BoxPredicate<i32> = BoxPredicate::always_true();
@@ -27,7 +27,7 @@ fn main() {
     println!("  test(&0): {}", always_false.test(&0));
     println!("  name: {:?}", always_false.name());
 
-    println!("\n=== RcPredicate always_true/always_false 演示 ===\n");
+    println!("\n=== RcPredicate always_true/always_false Demo ===\n");
 
     // RcPredicate::always_true
     let rc_always_true: RcPredicate<String> = RcPredicate::always_true();
@@ -55,19 +55,19 @@ fn main() {
     );
     println!("  name: {:?}", rc_always_false.name());
 
-    // 可以克隆和重用
+    // Can be cloned and reused
     let rc_clone = rc_always_true.clone();
-    println!("\n克隆后仍可使用:");
+    println!("\nAfter cloning, still usable:");
     println!(
-        "  原始: test(&\"test\"): {}",
+        "  Original: test(&\"test\"): {}",
         rc_always_true.test(&"test".to_string())
     );
     println!(
-        "  克隆: test(&\"test\"): {}",
+        "  Clone: test(&\"test\"): {}",
         rc_clone.test(&"test".to_string())
     );
 
-    println!("\n=== ArcPredicate always_true/always_false 演示 ===\n");
+    println!("\n=== ArcPredicate always_true/always_false Demo ===\n");
 
     // ArcPredicate::always_true
     let arc_always_true: ArcPredicate<i32> = ArcPredicate::always_true();
@@ -83,57 +83,60 @@ fn main() {
     println!("  test(&-100): {}", arc_always_false.test(&-100));
     println!("  name: {:?}", arc_always_false.name());
 
-    println!("\n=== 与其他 predicate 组合使用 ===\n");
+    println!("\n=== Combining with other predicates ===\n");
 
-    // 与 always_true 组合（AND）
+    // Combining with always_true (AND)
     let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     let combined_and_true = is_positive.and(BoxPredicate::always_true());
     println!("is_positive AND always_true:");
     println!(
-        "  test(&5): {} (相当于 is_positive)",
+        "  test(&5): {} (equivalent to is_positive)",
         combined_and_true.test(&5)
     );
     println!(
-        "  test(&-3): {} (相当于 is_positive)",
+        "  test(&-3): {} (equivalent to is_positive)",
         combined_and_true.test(&-3)
     );
 
-    // 与 always_false 组合（AND）
+    // Combining with always_false (AND)
     let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     let combined_and_false = is_positive.and(BoxPredicate::always_false());
     println!("\nis_positive AND always_false:");
-    println!("  test(&5): {} (总是 false)", combined_and_false.test(&5));
-    println!("  test(&-3): {} (总是 false)", combined_and_false.test(&-3));
+    println!("  test(&5): {} (always false)", combined_and_false.test(&5));
+    println!(
+        "  test(&-3): {} (always false)",
+        combined_and_false.test(&-3)
+    );
 
-    // 与 always_true 组合（OR）
+    // Combining with always_true (OR)
     let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     let combined_or_true = is_positive.or(BoxPredicate::always_true());
     println!("\nis_positive OR always_true:");
-    println!("  test(&5): {} (总是 true)", combined_or_true.test(&5));
-    println!("  test(&-3): {} (总是 true)", combined_or_true.test(&-3));
+    println!("  test(&5): {} (always true)", combined_or_true.test(&5));
+    println!("  test(&-3): {} (always true)", combined_or_true.test(&-3));
 
-    // 与 always_false 组合（OR）
+    // Combining with always_false (OR)
     let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
     let combined_or_false = is_positive.or(BoxPredicate::always_false());
     println!("\nis_positive OR always_false:");
     println!(
-        "  test(&5): {} (相当于 is_positive)",
+        "  test(&5): {} (equivalent to is_positive)",
         combined_or_false.test(&5)
     );
     println!(
-        "  test(&-3): {} (相当于 is_positive)",
+        "  test(&-3): {} (equivalent to is_positive)",
         combined_or_false.test(&-3)
     );
 
-    println!("\n=== 实用场景：默认通过/拒绝过滤器 ===\n");
+    println!("\n=== Practical scenarios: Default pass/reject filters ===\n");
 
-    // 场景1：默认全部通过的过滤器
+    // Scenario 1: Default pass-all filter
     let numbers = vec![1, 2, 3, 4, 5];
     let pass_all = BoxPredicate::<i32>::always_true();
     let filtered: Vec<_> = numbers.iter().copied().filter(pass_all.into_fn()).collect();
-    println!("默认通过所有元素: {:?} -> {:?}", numbers, filtered);
+    println!("Default pass all elements: {:?} -> {:?}", numbers, filtered);
 
-    // 场景2：默认全部拒绝的过滤器
+    // Scenario 2: Default reject-all filter
     let numbers = vec![1, 2, 3, 4, 5];
     let reject_all = BoxPredicate::<i32>::always_false();
     let filtered: Vec<_> = numbers
@@ -141,9 +144,12 @@ fn main() {
         .copied()
         .filter(reject_all.into_fn())
         .collect();
-    println!("默认拒绝所有元素: {:?} -> {:?}", numbers, filtered);
+    println!(
+        "Default reject all elements: {:?} -> {:?}",
+        numbers, filtered
+    );
 
-    // 场景3：可配置的过滤器
+    // Scenario 3: Configurable filter
     fn configurable_filter(enable_filter: bool) -> BoxPredicate<i32> {
         if enable_filter {
             BoxPredicate::new(|x: &i32| *x > 3)
@@ -160,7 +166,7 @@ fn main() {
         .copied()
         .filter(filter_enabled.into_fn())
         .collect();
-    println!("\n过滤器启用: {:?} -> {:?}", numbers, filtered);
+    println!("\nFilter enabled: {:?} -> {:?}", numbers, filtered);
 
     let filter_disabled = configurable_filter(false);
     let filtered: Vec<_> = numbers
@@ -168,5 +174,5 @@ fn main() {
         .copied()
         .filter(filter_disabled.into_fn())
         .collect();
-    println!("过滤器禁用: {:?} -> {:?}", numbers, filtered);
+    println!("Filter disabled: {:?} -> {:?}", numbers, filtered);
 }

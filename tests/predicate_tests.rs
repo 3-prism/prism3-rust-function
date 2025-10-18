@@ -932,7 +932,7 @@ mod logical_operations_tests {
 mod parameter_types_tests {
     use super::*;
 
-    // 辅助函数
+    // Helper functions
     fn is_even(x: &i32) -> bool {
         x % 2 == 0
     }
@@ -942,7 +942,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // BoxPredicate::and 参数类型测试
+    // BoxPredicate::and parameter type tests
     // ============================================================================
 
     #[test]
@@ -987,7 +987,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // BoxPredicate::or 参数类型测试
+    // BoxPredicate::or parameter type tests
     // ============================================================================
 
     #[test]
@@ -1022,7 +1022,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // BoxPredicate::nand 参数类型测试
+    // BoxPredicate::nand parameter type tests
     // ============================================================================
 
     #[test]
@@ -1054,7 +1054,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // BoxPredicate::xor 参数类型测试
+    // BoxPredicate::xor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1089,7 +1089,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // BoxPredicate::nor 参数类型测试
+    // BoxPredicate::nor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1123,7 +1123,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // RcPredicate::and 参数类型测试
+    // RcPredicate::and parameter type tests
     // ============================================================================
 
     #[test]
@@ -1134,7 +1134,7 @@ mod parameter_types_tests {
         assert!(combined.test(&4));
         assert!(!combined.test(&3));
 
-        // 原 predicate 仍可用
+        // Original predicate is still usable
         assert!(pred.test(&5));
     }
 
@@ -1157,7 +1157,7 @@ mod parameter_types_tests {
         assert!(combined.test(&4));
         assert!(!combined.test(&3));
 
-        // 两个原 predicate 都可用
+        // Both original predicates are still usable
         assert!(pred1.test(&5));
         assert!(pred2.test(&6));
     }
@@ -1174,7 +1174,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // RcPredicate::or 参数类型测试
+    // RcPredicate::or parameter type tests
     // ============================================================================
 
     #[test]
@@ -1211,7 +1211,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // RcPredicate::nand 参数类型测试
+    // RcPredicate::nand parameter type tests
     // ============================================================================
 
     #[test]
@@ -1247,7 +1247,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // RcPredicate::xor 参数类型测试
+    // RcPredicate::xor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1284,7 +1284,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // RcPredicate::nor 参数类型测试
+    // RcPredicate::nor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1320,7 +1320,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // ArcPredicate::and 参数类型测试
+    // ArcPredicate::and parameter type tests
     // ============================================================================
 
     #[test]
@@ -1356,7 +1356,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // ArcPredicate::or 参数类型测试
+    // ArcPredicate::or parameter type tests
     // ============================================================================
 
     #[test]
@@ -1393,7 +1393,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // ArcPredicate::nand 参数类型测试
+    // ArcPredicate::nand parameter type tests
     // ============================================================================
 
     #[test]
@@ -1429,7 +1429,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // ArcPredicate::xor 参数类型测试
+    // ArcPredicate::xor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1466,7 +1466,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // ArcPredicate::nor 参数类型测试
+    // ArcPredicate::nor parameter type tests
     // ============================================================================
 
     #[test]
@@ -1503,7 +1503,7 @@ mod parameter_types_tests {
     }
 
     // ============================================================================
-    // FnPredicateOps (闭包) 参数类型测试
+    // FnPredicateOps (closure) parameter type tests
     // ============================================================================
 
     #[test]

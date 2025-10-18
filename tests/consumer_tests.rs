@@ -360,7 +360,7 @@ mod test_unified_interface {
 
     fn apply_consumer<C: Consumer<i32>>(consumer: &mut C, value: &i32) -> i32 {
         consumer.accept(value);
-        *value // 返回原值，因为 Consumer 不修改输入
+        *value // Return original value since Consumer doesn't modify input
     }
 
     #[test]

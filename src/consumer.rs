@@ -6,24 +6,24 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # Consumer 类型
+//! # Consumer Types
 //!
-//! 提供消费者接口的实现，用于执行接受单个输入参数但不返回结果的操作。
+//! Provides implementations of consumer interfaces for executing operations that accept a single input parameter but return no result.
 //!
-//! 本模块提供统一的 `Consumer` trait 和三种基于不同所有权模型的具体实现:
+//! This module provides a unified `Consumer` trait and three concrete implementations based on different ownership models:
 //!
-//! - **`BoxConsumer<T>`**: 基于 Box 的单一所有权实现，用于一次性使用场景
-//! - **`ArcConsumer<T>`**: 基于 Arc<Mutex<>> 的线程安全共享所有权实现
-//! - **`RcConsumer<T>`**: 基于 Rc<RefCell<>> 的单线程共享所有权实现
+//! - **`BoxConsumer<T>`**: Box-based single ownership implementation for one-time use scenarios
+//! - **`ArcConsumer<T>`**: Thread-safe shared ownership implementation based on Arc<Mutex<>>
+//! - **`RcConsumer<T>`**: Single-threaded shared ownership implementation based on Rc<RefCell<>>
 //!
-//! # 设计理念
+//! # Design Philosophy
 //!
-//! Consumer 使用 `FnMut(&T)` 语义，可以修改自身状态但不修改输入值。适用于
-//! 统计、累积、事件处理等场景。
+//! Consumer uses `FnMut(&T)` semantics, allowing modification of its own state but not the input value. Suitable for
+//! statistics, accumulation, event handling, and other scenarios.
 //!
-//! # 作者
+//! # Author
 //!
-//! 胡海星
+//! Hu Haixing
 
 use std::cell::RefCell;
 use std::fmt;
@@ -44,29 +44,29 @@ type ConsumerFn<T> = dyn FnMut(&T);
 type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 
 // ============================================================================
-// 1. Consumer Trait - 统一的 Consumer 接口
+// 1. Consumer Trait - Unified Consumer Interface
 // ============================================================================
 
-/// Consumer trait - 统一的消费者接口
+/// Consumer trait - Unified consumer interface
 ///
-/// 定义所有消费者类型的核心行为。类似于 Java 的 `Consumer<T>` 接口，
-/// 执行接受一个值但不返回结果的操作(仅产生副作用)。
+/// Defines the core behavior of all consumer types. Similar to Java's `Consumer<T>` interface,
+/// executes operations that accept a value but return no result (side effects only).
 ///
-/// Consumer 可以修改自身状态(如累积、计数)，但不应该修改被消费的值本身。
+/// Consumer can modify its own state (such as accumulation, counting), but should not modify the consumed value itself.
 ///
-/// # 自动实现
+/// # Automatic Implementation
 ///
-/// - 所有实现 `FnMut(&T)` 的闭包
+/// - All closures implementing `FnMut(&T)`
 /// - `BoxConsumer<T>`, `ArcConsumer<T>`, `RcConsumer<T>`
 ///
-/// # 特性
+/// # Features
 ///
-/// - **统一接口**: 所有消费者类型共享相同的 `accept` 方法签名
-/// - **自动实现**: 闭包自动实现此 trait，零开销
-/// - **类型转换**: 可以方便地在不同所有权模型间转换
-/// - **泛型编程**: 编写可用于任何消费者类型的函数
+/// - **Unified Interface**: All consumer types share the same `accept` method signature
+/// - **Automatic Implementation**: Closures automatically implement this trait with zero overhead
+/// - **Type Conversion**: Easy conversion between different ownership models
+/// - **Generic Programming**: Write functions that work with any consumer type
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{Consumer, BoxConsumer, ArcConsumer};
@@ -76,7 +76,7 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 ///     consumer.accept(value);
 /// }
 ///
-/// // 适用于任何消费者类型
+/// // Works with any consumer type
 /// let log = Arc::new(Mutex::new(Vec::new()));
 /// let l = log.clone();
 /// let mut box_con = BoxConsumer::new(move |x: &i32| {
@@ -86,20 +86,20 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 /// assert_eq!(*log.lock().unwrap(), vec![5]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait Consumer<T> {
-    /// 执行消费操作
+    /// Execute consumption operation
     ///
-    /// 对给定的引用执行操作。操作通常读取输入值或产生副作用，
-    /// 但不修改输入值本身。可以修改消费者自身的状态。
+    /// Performs an operation on the given reference. The operation typically reads the input value or produces side effects,
+    /// but does not modify the input value itself. Can modify the consumer's own state.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `value` - 要消费的值的引用
+    /// * `value` - Reference to the value to be consumed
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -110,25 +110,25 @@ pub trait Consumer<T> {
     /// ```
     fn accept(&mut self, value: &T);
 
-    /// 转换为 BoxConsumer
+    /// Convert to BoxConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// 将当前消费者转换为 `BoxConsumer<T>`。
+    /// Converts the current consumer to `BoxConsumer<T>`.
     ///
-    /// # 所有权
+    /// # Ownership
     ///
-    /// 此方法**消耗**消费者(获取 `self` 的所有权)。
-    /// 调用此方法后，原始消费者不再可用。
+    /// This method **consumes** the consumer (takes ownership of `self`).
+    /// After calling this method, the original consumer is no longer available.
     ///
-    /// **提示**: 对于可克隆的消费者([`ArcConsumer`], [`RcConsumer`])，
-    /// 如果需要保留原始对象，可以先调用 `.clone()`。
+    /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
+    /// if you need to preserve the original object, you can call `.clone()` first.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回包装后的 `BoxConsumer<T>`
+    /// Returns the wrapped `BoxConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::Consumer;
@@ -148,41 +148,41 @@ pub trait Consumer<T> {
         Self: Sized + 'static,
         T: 'static;
 
-    /// 转换为 RcConsumer
+    /// Convert to RcConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回包装后的 `RcConsumer<T>`
+    /// Returns the wrapped `RcConsumer<T>`
     fn into_rc(self) -> RcConsumer<T>
     where
         Self: Sized + 'static,
         T: 'static;
 
-    /// 转换为 ArcConsumer
+    /// Convert to ArcConsumer
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回包装后的 `ArcConsumer<T>`
+    /// Returns the wrapped `ArcConsumer<T>`
     fn into_arc(self) -> ArcConsumer<T>
     where
         Self: Sized + Send + 'static,
         T: Send + 'static;
 
-    /// 转换为闭包
+    /// Convert to closure
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// 将消费者转换为闭包，可以直接用于标准库中需要 `FnMut` 的地方。
+    /// Converts the consumer to a closure that can be used directly in standard library functions requiring `FnMut`.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回实现了 `FnMut(&T)` 的闭包
+    /// Returns a closure implementing `FnMut(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -204,38 +204,38 @@ pub trait Consumer<T> {
 }
 
 // ============================================================================
-// 2. BoxConsumer - 单一所有权实现
+// 2. BoxConsumer - Single Ownership Implementation
 // ============================================================================
 
-/// BoxConsumer 结构体
+/// BoxConsumer struct
 ///
-/// 基于 `Box<dyn FnMut(&T)>` 的消费者实现，用于单一所有权场景。
-/// 当不需要共享时，这是最简单、最高效的消费者类型。
+/// Consumer implementation based on `Box<dyn FnMut(&T)>` for single ownership scenarios.
+/// When sharing is not needed, this is the simplest and most efficient consumer type.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **单一所有权**: 不可克隆，使用时转移所有权
-/// - **零开销**: 无引用计数或锁开销
-/// - **可变状态**: 可通过 `FnMut` 修改捕获的环境
-/// - **构建器模式**: 方法链自然地消耗 `self`
+/// - **Single Ownership**: Not cloneable, transfers ownership when used
+/// - **Zero Overhead**: No reference counting or lock overhead
+/// - **Mutable State**: Can modify captured environment through `FnMut`
+/// - **Builder Pattern**: Method chaining naturally consumes `self`
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `BoxConsumer` 当:
-/// - 消费者只使用一次或呈线性流
-/// - 构建流水线，所有权自然流动
-/// - 不需要跨上下文共享消费者
-/// - 性能关键且无法接受共享开销
+/// Choose `BoxConsumer` when:
+/// - Consumer is used only once or in a linear flow
+/// - Building pipelines where ownership flows naturally
+/// - No need to share consumers across contexts
+/// - Performance critical and cannot accept sharing overhead
 ///
-/// # 性能
+/// # Performance
 ///
-/// `BoxConsumer` 在三种消费者类型中性能最好:
-/// - 无引用计数开销
-/// - 无锁获取或运行时借用检查
-/// - 通过 vtable 直接调用函数
-/// - 最小内存占用(单个指针)
+/// `BoxConsumer` has the best performance among the three consumer types:
+/// - No reference counting overhead
+/// - No lock acquisition or runtime borrowing checks
+/// - Direct function calls through vtable
+/// - Minimal memory footprint (single pointer)
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{Consumer, BoxConsumer};
@@ -250,9 +250,9 @@ pub trait Consumer<T> {
 /// assert_eq!(*log.lock().unwrap(), vec![5]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct BoxConsumer<T> {
     function: Box<dyn FnMut(&T)>,
     name: Option<String>,
@@ -262,21 +262,21 @@ impl<T> BoxConsumer<T>
 where
     T: 'static,
 {
-    /// 创建新的 BoxConsumer
+    /// Create a new BoxConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `BoxConsumer<T>` 实例
+    /// Returns a new `BoxConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -300,22 +300,22 @@ where
         }
     }
 
-    /// 创建新的带名称的 BoxConsumer
+    /// Create a new named BoxConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 消费者的名称
-    /// * `f` - 要包装的闭包
+    /// * `name` - Name of the consumer
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `BoxConsumer<T>` 实例
+    /// Returns a new `BoxConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -340,62 +340,62 @@ where
         }
     }
 
-    /// 创建空操作消费者
+    /// Create a no-op consumer
     ///
-    /// 返回不执行任何操作的消费者。
+    /// Returns a consumer that performs no operation.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回空操作消费者
+    /// Returns a no-op consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
     ///
     /// let mut noop = BoxConsumer::<i32>::noop();
     /// noop.accept(&42);
-    /// // 值未改变
+    /// // Value unchanged
     /// ```
     pub fn noop() -> Self {
         BoxConsumer::new(|_| {})
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回消费者的名称，如果未设置则返回 `None`
+    /// Returns the consumer's name, or `None` if not set
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 要设置的名称
+    /// * `name` - Name to set
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 顺序链接另一个消费者
+    /// Sequentially chain another consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。消耗 self。
+    /// Returns a new consumer that executes the current operation first, then the next operation. Consumes self.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的组合 `BoxConsumer<T>`
+    /// Returns a new combined `BoxConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -424,15 +424,15 @@ where
         })
     }
 
-    /// 创建打印消费者
+    /// Create a print consumer
     ///
-    /// 返回一个消费者，该消费者打印输入值。
+    /// Returns a consumer that prints the input value.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回打印消费者
+    /// Returns a print consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -449,19 +449,19 @@ where
         })
     }
 
-    /// 创建带前缀的打印消费者
+    /// Create a print consumer with prefix
     ///
-    /// 返回一个消费者，该消费者使用指定前缀打印输入值。
+    /// Returns a consumer that prints the input value with the specified prefix.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `prefix` - 前缀字符串
+    /// * `prefix` - Prefix string
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回打印消费者
+    /// Returns a print consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -479,25 +479,25 @@ where
         })
     }
 
-    /// 创建条件消费者
+    /// Create a conditional consumer
     ///
-    /// 返回一个消费者，仅在谓词为 true 时执行操作。
+    /// Returns a consumer that executes the operation only when the predicate is true.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `P` - 谓词类型
-    /// * `C` - 消费者类型
+    /// * `P` - Predicate type
+    /// * `C` - Consumer type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `predicate` - 谓词函数
-    /// * `consumer` - 要执行的消费者
+    /// * `predicate` - Predicate function
+    /// * `consumer` - Consumer to execute
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回条件消费者
+    /// Returns a conditional consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -532,27 +532,27 @@ where
         })
     }
 
-    /// 创建条件分支消费者
+    /// Create a conditional branch consumer
     ///
-    /// 返回一个消费者，根据谓词执行不同的操作。
+    /// Returns a consumer that executes different operations based on the predicate.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `P` - 谓词类型
-    /// * `C1` - then 消费者类型
-    /// * `C2` - else 消费者类型
+    /// * `P` - Predicate type
+    /// * `C1` - then consumer type
+    /// * `C2` - else consumer type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `predicate` - 谓词函数
-    /// * `then_consumer` - 谓词为 true 时执行的消费者
-    /// * `else_consumer` - 谓词为 false 时执行的消费者
+    /// * `predicate` - Predicate function
+    /// * `then_consumer` - Consumer to execute when predicate is true
+    /// * `else_consumer` - Consumer to execute when predicate is false
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回条件分支消费者
+    /// Returns a conditional branch consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, BoxConsumer};
@@ -620,8 +620,8 @@ impl<T> Consumer<T> for BoxConsumer<T> {
     where
         T: Send + 'static,
     {
-        // 注意：BoxConsumer 的 function 不一定是 Send，所以无法安全转换为 ArcConsumer
-        // 这里我们 panic，因为这个转换在类型系统上是不安全的
+        // Note: BoxConsumer's function is not necessarily Send, so it cannot be safely converted to ArcConsumer
+        // We panic here because this conversion is unsafe at the type system level
         panic!("Cannot convert BoxConsumer to ArcConsumer: BoxConsumer's inner function may not be Send")
     }
 
@@ -652,41 +652,41 @@ impl<T> fmt::Display for BoxConsumer<T> {
 }
 
 // ============================================================================
-// 3. ArcConsumer - 线程安全的共享所有权实现
+// 3. ArcConsumer - Thread-Safe Shared Ownership Implementation
 // ============================================================================
 
-/// ArcConsumer 结构体
+/// ArcConsumer struct
 ///
-/// 基于 `Arc<Mutex<dyn FnMut(&T) + Send>>` 的消费者实现，
-/// 用于线程安全的共享所有权场景。此消费者可以安全地克隆并在多个线程间共享。
+/// Consumer implementation based on `Arc<Mutex<dyn FnMut(&T) + Send>>` for thread-safe shared ownership scenarios.
+/// This consumer can be safely cloned and shared across multiple threads.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **共享所有权**: 通过 `Arc` 可克隆，允许多个所有者
-/// - **线程安全**: 实现 `Send + Sync`，可安全地并发使用
-/// - **内部可变性**: 使用 `Mutex` 实现安全的可变访问
-/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
-/// - **跨线程共享**: 可发送到其他线程并使用
+/// - **Shared Ownership**: Cloneable through `Arc`, allowing multiple owners
+/// - **Thread Safety**: Implements `Send + Sync`, safe for concurrent use
+/// - **Interior Mutability**: Uses `Mutex` for safe mutable access
+/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains usable
+/// - **Cross-Thread Sharing**: Can be sent to other threads and used
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `ArcConsumer` 当:
-/// - 需要在多个线程间共享消费者
-/// - 并发任务处理(如线程池)
-/// - 在多个地方同时使用相同的消费者
-/// - 需要线程安全(Send + Sync)
+/// Choose `ArcConsumer` when:
+/// - Need to share consumers across multiple threads
+/// - Concurrent task processing (e.g., thread pools)
+/// - Using the same consumer in multiple places simultaneously
+/// - Need thread safety (Send + Sync)
 ///
-/// # 性能考虑
+/// # Performance Considerations
 ///
-/// `ArcConsumer` 相比 `BoxConsumer` 有一些性能开销:
-/// - **引用计数**: clone/drop 时的原子操作
-/// - **Mutex 锁定**: 每次 `accept` 调用需要获取锁
-/// - **锁竞争**: 高并发可能导致竞争
+/// `ArcConsumer` has some performance overhead compared to `BoxConsumer`:
+/// - **Reference Counting**: Atomic operations on clone/drop
+/// - **Mutex Locking**: Each `accept` call requires lock acquisition
+/// - **Lock Contention**: High concurrency may cause contention
 ///
-/// 但这些开销对于安全的并发访问是必要的。如果不需要线程安全，
-/// 考虑使用 `RcConsumer` 以获得更少的单线程共享开销。
+/// These overheads are necessary for safe concurrent access. If thread safety is not needed,
+/// consider using `RcConsumer` for less single-threaded sharing overhead.
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{Consumer, ArcConsumer};
@@ -703,9 +703,9 @@ impl<T> fmt::Display for BoxConsumer<T> {
 /// assert_eq!(*log.lock().unwrap(), vec![10]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct ArcConsumer<T> {
     function: Arc<Mutex<SendConsumerFn<T>>>,
     name: Option<String>,
@@ -715,21 +715,21 @@ impl<T> ArcConsumer<T>
 where
     T: Send + 'static,
 {
-    /// 创建新的 ArcConsumer
+    /// Create a new ArcConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `ArcConsumer<T>` 实例
+    /// Returns a new `ArcConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, ArcConsumer};
@@ -753,22 +753,22 @@ where
         }
     }
 
-    /// 创建新的带名称的 ArcConsumer
+    /// Create a new named ArcConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 消费者的名称
-    /// * `f` - 要包装的闭包
+    /// * `name` - Name of the consumer
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `ArcConsumer<T>` 实例
+    /// Returns a new `ArcConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, ArcConsumer};
@@ -793,59 +793,59 @@ where
         }
     }
 
-    /// 创建空操作消费者
+    /// Create a no-op consumer
     ///
-    /// 返回不执行任何操作的消费者。
+    /// Returns a consumer that performs no operation.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回空操作消费者
+    /// Returns a no-op consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, ArcConsumer};
     ///
     /// let mut noop = ArcConsumer::<i32>::noop();
     /// noop.accept(&42);
-    /// // 值未改变
+    /// // Value unchanged
     /// ```
     pub fn noop() -> Self {
         ArcConsumer::new(|_| {})
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回消费者的名称，如果未设置则返回 `None`
+    /// Returns the consumer's name, or `None` if not set
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 要设置的名称
+    /// * `name` - Name to set
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 顺序链接另一个 ArcConsumer
+    /// Sequentially chain another ArcConsumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 借用 &self，不消耗原始消费者。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Borrows &self, does not consume the original consumer.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的组合 `ArcConsumer<T>`
+    /// Returns a new combined `ArcConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, ArcConsumer};
@@ -863,7 +863,7 @@ where
     ///
     /// let mut chained = first.and_then(&second);
     ///
-    /// // first 和 second 在链接后仍可使用
+    /// // first and second remain usable after chaining
     /// chained.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
     /// ```
@@ -879,15 +879,15 @@ where
         }
     }
 
-    /// 转换为闭包（不消费自身）
+    /// Convert to closure (without consuming self)
     ///
-    /// 创建一个新的闭包，通过 Arc 调用底层函数。
+    /// Creates a new closure that calls the underlying function through Arc.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回实现了 `FnMut(&T)` 的闭包
+    /// Returns a closure implementing `FnMut(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, ArcConsumer};
@@ -954,9 +954,9 @@ impl<T> Consumer<T> for ArcConsumer<T> {
 }
 
 impl<T> Clone for ArcConsumer<T> {
-    /// 克隆 ArcConsumer
+    /// Clone ArcConsumer
     ///
-    /// 创建与原始实例共享底层函数的新 ArcConsumer。
+    /// Creates a new ArcConsumer that shares the underlying function with the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Arc::clone(&self.function),
@@ -984,49 +984,49 @@ impl<T> fmt::Display for ArcConsumer<T> {
 }
 
 // ============================================================================
-// 4. RcConsumer - 单线程共享所有权实现
+// 4. RcConsumer - Single-Threaded Shared Ownership Implementation
 // ============================================================================
 
-/// RcConsumer 结构体
+/// RcConsumer struct
 ///
-/// 基于 `Rc<RefCell<dyn FnMut(&T)>>` 的消费者实现，用于单线程共享所有权场景。
-/// 此消费者提供共享所有权的好处，而无需线程安全的开销。
+/// Consumer implementation based on `Rc<RefCell<dyn FnMut(&T)>>` for single-threaded shared ownership scenarios.
+/// This consumer provides the benefits of shared ownership without the overhead of thread safety.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **共享所有权**: 通过 `Rc` 可克隆，允许多个所有者
-/// - **单线程**: 非线程安全，不能跨线程发送
-/// - **内部可变性**: 使用 `RefCell` 进行运行时借用检查
-/// - **无锁开销**: 比 `ArcConsumer` 在单线程使用时更高效
-/// - **非消耗 API**: `and_then` 借用 `&self`，原始对象仍可使用
+/// - **Shared Ownership**: Cloneable through `Rc`, allowing multiple owners
+/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
+/// - **Interior Mutability**: Uses `RefCell` for runtime borrowing checks
+/// - **No Lock Overhead**: More efficient than `ArcConsumer` for single-threaded use
+/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains usable
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `RcConsumer` 当:
-/// - 需要在单线程内共享消费者
-/// - 不需要线程安全
-/// - 性能重要(避免锁开销)
-/// - 单线程框架中的 UI 事件处理
-/// - 构建复杂的单线程状态机
+/// Choose `RcConsumer` when:
+/// - Need to share consumers within a single thread
+/// - Thread safety is not needed
+/// - Performance is important (avoid lock overhead)
+/// - UI event handling in single-threaded frameworks
+/// - Building complex single-threaded state machines
 ///
-/// # 性能考虑
+/// # Performance Considerations
 ///
-/// `RcConsumer` 在单线程场景下比 `ArcConsumer` 性能更好:
-/// - **非原子计数**: clone/drop 比 `Arc` 更便宜
-/// - **无锁开销**: `RefCell` 使用运行时检查，不用锁
-/// - **更好的缓存局部性**: 无原子操作意味着更好的 CPU 缓存行为
+/// `RcConsumer` performs better than `ArcConsumer` in single-threaded scenarios:
+/// - **Non-Atomic Counting**: clone/drop is cheaper than `Arc`
+/// - **No Lock Overhead**: `RefCell` uses runtime checks, no locks
+/// - **Better Cache Locality**: No atomic operations means better CPU cache behavior
 ///
-/// 但相比 `BoxConsumer` 仍有轻微开销:
-/// - **引用计数**: 虽非原子但仍存在
-/// - **运行时借用检查**: `RefCell` 在运行时检查
+/// But still has slight overhead compared to `BoxConsumer`:
+/// - **Reference Counting**: Non-atomic but still exists
+/// - **Runtime Borrowing Checks**: `RefCell` checks at runtime
 ///
-/// # 安全性
+/// # Safety
 ///
-/// `RcConsumer` 不是线程安全的，未实现 `Send` 或 `Sync`。
-/// 尝试将其发送到另一个线程将导致编译错误。
-/// 对于线程安全的共享，请改用 `ArcConsumer`。
+/// `RcConsumer` is not thread-safe and does not implement `Send` or `Sync`.
+/// Attempting to send it to another thread will result in a compilation error.
+/// For thread-safe sharing, use `ArcConsumer` instead.
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{Consumer, RcConsumer};
@@ -1044,9 +1044,9 @@ impl<T> fmt::Display for ArcConsumer<T> {
 /// assert_eq!(*log.borrow(), vec![10]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct RcConsumer<T> {
     function: Rc<RefCell<ConsumerFn<T>>>,
     name: Option<String>,
@@ -1056,21 +1056,21 @@ impl<T> RcConsumer<T>
 where
     T: 'static,
 {
-    /// 创建新的 RcConsumer
+    /// Create a new RcConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `RcConsumer<T>` 实例
+    /// Returns a new `RcConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, RcConsumer};
@@ -1095,22 +1095,22 @@ where
         }
     }
 
-    /// 创建新的带名称的 RcConsumer
+    /// Create a new named RcConsumer
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 消费者的名称
-    /// * `f` - 要包装的闭包
+    /// * `name` - Name of the consumer
+    /// * `f` - Closure to wrap
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的 `RcConsumer<T>` 实例
+    /// Returns a new `RcConsumer<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, RcConsumer};
@@ -1136,59 +1136,59 @@ where
         }
     }
 
-    /// 创建空操作消费者
+    /// Create a no-op consumer
     ///
-    /// 返回不执行任何操作的消费者。
+    /// Returns a consumer that performs no operation.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回空操作消费者
+    /// Returns a no-op consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, RcConsumer};
     ///
     /// let mut noop = RcConsumer::<i32>::noop();
     /// noop.accept(&42);
-    /// // 值未改变
+    /// // Value unchanged
     /// ```
     pub fn noop() -> Self {
         RcConsumer::new(|_| {})
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回消费者的名称，如果未设置则返回 `None`
+    /// Returns the consumer's name, or `None` if not set
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `name` - 要设置的名称
+    /// * `name` - Name to set
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 顺序链接另一个 RcConsumer
+    /// Sequentially chain another RcConsumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 借用 &self，不消耗原始消费者。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Borrows &self, does not consume the original consumer.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回新的组合 `RcConsumer<T>`
+    /// Returns a new combined `RcConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, RcConsumer};
@@ -1207,7 +1207,7 @@ where
     ///
     /// let mut chained = first.and_then(&second);
     ///
-    /// // first 和 second 在链接后仍可使用
+    /// // first and second remain usable after chaining
     /// chained.accept(&5);
     /// assert_eq!(*log.borrow(), vec![10, 15]); // (5 * 2), (5 + 10)
     /// ```
@@ -1223,15 +1223,15 @@ where
         }
     }
 
-    /// 转换为闭包（不消费自身）
+    /// Convert to closure (without consuming self)
     ///
-    /// 创建一个新的闭包，通过 Rc 调用底层函数。
+    /// Creates a new closure that calls the underlying function through Rc.
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回实现了 `FnMut(&T)` 的闭包
+    /// Returns a closure implementing `FnMut(&T)`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, RcConsumer};
@@ -1298,9 +1298,9 @@ impl<T> Consumer<T> for RcConsumer<T> {
 }
 
 impl<T> Clone for RcConsumer<T> {
-    /// 克隆 RcConsumer
+    /// Clone RcConsumer
     ///
-    /// 创建与原始实例共享底层函数的新 RcConsumer。
+    /// Creates a new RcConsumer that shares the underlying function with the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Rc::clone(&self.function),
@@ -1328,10 +1328,10 @@ impl<T> fmt::Display for RcConsumer<T> {
 }
 
 // ============================================================================
-// 5. 为闭包实现 Consumer trait
+// 5. Implement Consumer trait for closures
 // ============================================================================
 
-/// 为所有 FnMut(&T) 实现 Consumer
+/// Implement Consumer for all FnMut(&T)
 impl<T, F> Consumer<T> for F
 where
     F: FnMut(&T),
@@ -1374,27 +1374,27 @@ where
 }
 
 // ============================================================================
-// 6. 为闭包提供扩展方法
+// 6. Extension methods for closures
 // ============================================================================
 
-/// 为闭包提供消费者组合方法的扩展 trait
+/// Extension trait providing consumer composition methods for closures
 ///
-/// 为所有实现 `FnMut(&T)` 的闭包提供 `and_then` 和其他组合方法，
-/// 使闭包无需显式包装类型即可直接进行方法链接。
+/// Provides `and_then` and other composition methods for all closures implementing `FnMut(&T)`,
+/// allowing direct method chaining on closures without explicit wrapper types.
 ///
-/// # 设计理念
+/// # Design Philosophy
 ///
-/// 此 trait 允许闭包使用方法语法自然地组合，类似于迭代器组合器。
-/// 组合方法消耗闭包并返回 `BoxConsumer<T>`，可以继续链接。
+/// This trait allows closures to be naturally composed using method syntax, similar to iterator combinators.
+/// Composition methods consume the closure and return `BoxConsumer<T>`, which can continue chaining.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **自然语法**: 直接在闭包上链接操作
-/// - **返回 BoxConsumer**: 组合结果是 `BoxConsumer<T>`，可继续链接
-/// - **零成本**: 组合闭包时无开销
-/// - **自动实现**: 所有 `FnMut(&T)` 闭包自动获得这些方法
+/// - **Natural Syntax**: Direct method chaining on closures
+/// - **Returns BoxConsumer**: Composition results in `BoxConsumer<T>`, can continue chaining
+/// - **Zero Cost**: No overhead when composing closures
+/// - **Automatic Implementation**: All `FnMut(&T)` closures automatically get these methods
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{Consumer, FnConsumerOps};
@@ -1412,28 +1412,28 @@ where
 /// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
-    /// 顺序链接另一个消费者
+    /// Sequentially chain another consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 消耗当前闭包并返回 `BoxConsumer<T>`。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Consumes the current closure and returns `BoxConsumer<T>`.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Return Value
     ///
-    /// 返回组合的 `BoxConsumer<T>`
+    /// Returns a combined `BoxConsumer<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{Consumer, FnConsumerOps};
@@ -1466,5 +1466,5 @@ pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
     }
 }
 
-/// 为所有闭包类型实现 FnConsumerOps
+/// Implement FnConsumerOps for all closure types
 impl<T, F> FnConsumerOps<T> for F where F: FnMut(&T) {}

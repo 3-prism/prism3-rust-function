@@ -7,97 +7,103 @@
  *
  ******************************************************************************/
 
-//! Mutator 类型演示
+//! Mutator Type Demo
 //!
-//! 本示例演示了 Mutator 的三种实现（BoxMutator、ArcMutator、RcMutator）
-//! 以及它们的各种使用方式。
+//! This example demonstrates the three implementations of Mutator (BoxMutator, ArcMutator, RcMutator)
+//! and their various usage patterns.
 //!
-//! Mutator 用于修改值，与只读的 Consumer 不同。
+//! Mutator is used to modify values, unlike the read-only Consumer.
 
 use prism3_function::{ArcMutator, BoxMutator, FnMutatorOps, Mutator, RcMutator};
 use std::thread;
 
 fn main() {
-    println!("=== Mutator 示例 ===\n");
+    println!("=== Mutator Demo ===\n");
 
     // ========================================================================
-    // 示例 1: BoxMutator 基本使用
+    // Example 1: BoxMutator Basic Usage
     // ========================================================================
-    println!("示例 1: BoxMutator 基本使用");
+    println!("Example 1: BoxMutator Basic Usage");
     println!("{}", "-".repeat(50));
 
     let mut mutator = BoxMutator::new(|x: &mut i32| {
         *x *= 2;
     });
     let mut value = 5;
-    println!("初始值: {}", value);
+    println!("Initial value: {}", value);
     mutator.mutate(&mut value);
-    println!("执行 BoxMutator 后: {}\n", value);
+    println!("After BoxMutator execution: {}\n", value);
 
     // ========================================================================
-    // 示例 2: BoxMutator 方法链
+    // Example 2: BoxMutator Method Chaining
     // ========================================================================
-    println!("示例 2: BoxMutator 方法链");
+    println!("Example 2: BoxMutator Method Chaining");
     println!("{}", "-".repeat(50));
 
     let mut chained = BoxMutator::new(|x: &mut i32| {
-        *x *= 2; // 乘以2
+        *x *= 2; // multiply by 2
     })
     .and_then(|x: &mut i32| {
-        *x += 10; // 加10
+        *x += 10; // add 10
     })
     .and_then(|x: &mut i32| {
-        *x = *x * *x; // 平方
+        *x = *x * *x; // square
     });
 
     let mut value = 5;
-    println!("初始值: {}", value);
+    println!("Initial value: {}", value);
     chained.mutate(&mut value);
-    println!("结果: {} (5 * 2 + 10 = 20, 20 * 20 = 400)\n", value);
+    println!("Result: {} (5 * 2 + 10 = 20, 20 * 20 = 400)\n", value);
 
     // ========================================================================
-    // 示例 3: 闭包扩展方法
+    // Example 3: Closure Extension Methods
     // ========================================================================
-    println!("示例 3: 闭包直接使用扩展方法");
+    println!("Example 3: Direct Use of Closure Extension Methods");
     println!("{}", "-".repeat(50));
 
     let mut closure_chain = (|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
     let mut value = 5;
-    println!("初始值: {}", value);
+    println!("Initial value: {}", value);
     closure_chain.mutate(&mut value);
-    println!("结果: {} (5 * 2 + 10 = 20)\n", value);
+    println!("Result: {} (5 * 2 + 10 = 20)\n", value);
 
     // ========================================================================
-    // 示例 4: BoxMutator 工厂方法
+    // Example 4: BoxMutator Factory Methods
     // ========================================================================
-    println!("示例 4: BoxMutator 工厂方法");
+    println!("Example 4: BoxMutator Factory Methods");
     println!("{}", "-".repeat(50));
 
     // noop
     let mut noop = BoxMutator::<i32>::noop();
     let mut value = 42;
-    println!("noop 前: {}", value);
+    println!("Before noop: {}", value);
     noop.mutate(&mut value);
-    println!("noop 后: {} (未改变)\n", value);
+    println!("After noop: {} (unchanged)\n", value);
 
     // ========================================================================
-    // 示例 5: 条件 Mutator
+    // Example 5: Conditional Mutator
     // ========================================================================
-    println!("示例 5: 条件 Mutator");
+    println!("Example 5: Conditional Mutator");
     println!("{}", "-".repeat(50));
 
-    // when (条件执行)
+    // when (conditional execution)
     let mut increment_if_positive = BoxMutator::new(|x: &mut i32| *x += 1).when(|x: &i32| *x > 0);
 
     let mut positive = 5;
     let mut negative = -5;
-    println!("when 前 - positive: {}, negative: {}", positive, negative);
+    println!(
+        "Before when - positive: {}, negative: {}",
+        positive, negative
+    );
     increment_if_positive.mutate(&mut positive);
     increment_if_positive.mutate(&mut negative);
-    println!("when 后 - positive: {}, negative: {}\n", positive, negative);
+    println!(
+        "After when - positive: {}, negative: {}\n",
+        positive, negative
+    );
 
-    // when().or_else() (条件分支)
+    // when().or_else() (conditional branching)
     let mut adjust = BoxMutator::new(|x: &mut i32| *x *= 2)
         .when(|x: &i32| *x > 0)
         .or_else(|x: &mut i32| *x = -*x);
@@ -105,53 +111,53 @@ fn main() {
     let mut positive = 10;
     let mut negative = -10;
     println!(
-        "when().or_else() 前 - positive: {}, negative: {}",
+        "Before when().or_else() - positive: {}, negative: {}",
         positive, negative
     );
     adjust.mutate(&mut positive);
     adjust.mutate(&mut negative);
     println!(
-        "when().or_else() 后 - positive: {}, negative: {}\n",
+        "After when().or_else() - positive: {}, negative: {}\n",
         positive, negative
     );
 
     // ========================================================================
-    // 示例 6: ArcMutator - 多线程共享
+    // Example 6: ArcMutator - Multi-threaded Sharing
     // ========================================================================
-    println!("示例 6: ArcMutator - 多线程共享");
+    println!("Example 6: ArcMutator - Multi-threaded Sharing");
     println!("{}", "-".repeat(50));
 
     let shared = ArcMutator::new(|x: &mut i32| *x *= 2);
 
-    // 克隆用于另一个线程
+    // Clone for another thread
     let shared_clone = shared.clone();
     let handle = thread::spawn(move || {
         let mut value = 5;
         let mut mutator = shared_clone;
         mutator.mutate(&mut value);
-        println!("线程中: 5 * 2 = {}", value);
+        println!("In thread: 5 * 2 = {}", value);
         value
     });
 
-    // 主线程使用
+    // Use in main thread
     let mut value = 3;
     let mut mutator = shared;
     mutator.mutate(&mut value);
-    println!("主线程: 3 * 2 = {}", value);
+    println!("Main thread: 3 * 2 = {}", value);
 
     let thread_result = handle.join().unwrap();
-    println!("线程结果: {}\n", thread_result);
+    println!("Thread result: {}\n", thread_result);
 
     // ========================================================================
-    // 示例 7: ArcMutator 组合（不消耗原始 mutator）
+    // Example 7: ArcMutator Composition (without consuming original mutator)
     // ========================================================================
-    println!("示例 7: ArcMutator 组合（借用 &self）");
+    println!("Example 7: ArcMutator Composition (borrowing &self)");
     println!("{}", "-".repeat(50));
 
     let double = ArcMutator::new(|x: &mut i32| *x *= 2);
     let add_ten = ArcMutator::new(|x: &mut i32| *x += 10);
 
-    // 组合不消耗原始 mutator
+    // Composition doesn't consume the original mutator
     let pipeline1 = double.and_then(&add_ten);
     let pipeline2 = add_ten.and_then(&double);
 
@@ -165,21 +171,21 @@ fn main() {
     p2.mutate(&mut value2);
     println!("pipeline2 (add then double): 5 -> {}", value2);
 
-    // double 和 add_ten 仍然可用
+    // double and add_ten are still available
     let mut value3 = 10;
     let mut d = double;
     d.mutate(&mut value3);
-    println!("原始 double 仍可用: 10 -> {}\n", value3);
+    println!("Original double still available: 10 -> {}\n", value3);
 
     // ========================================================================
-    // 示例 8: RcMutator - 单线程共享
+    // Example 8: RcMutator - Single-threaded Sharing
     // ========================================================================
-    println!("示例 8: RcMutator - 单线程共享");
+    println!("Example 8: RcMutator - Single-threaded Sharing");
     println!("{}", "-".repeat(50));
 
     let rc_mutator = RcMutator::new(|x: &mut i32| *x *= 2);
 
-    // 克隆多个副本
+    // Clone multiple copies
     let clone1 = rc_mutator.clone();
     let clone2 = rc_mutator.clone();
 
@@ -196,12 +202,12 @@ fn main() {
     let mut value3 = 7;
     let mut c3 = rc_mutator;
     c3.mutate(&mut value3);
-    println!("原始: 7 -> {}\n", value3);
+    println!("Original: 7 -> {}\n", value3);
 
     // ========================================================================
-    // 示例 9: RcMutator 组合（借用 &self）
+    // Example 9: RcMutator Composition (borrowing &self)
     // ========================================================================
-    println!("示例 9: RcMutator 组合（借用 &self）");
+    println!("Example 9: RcMutator Composition (borrowing &self)");
     println!("{}", "-".repeat(50));
 
     let double = RcMutator::new(|x: &mut i32| *x *= 2);
@@ -221,9 +227,9 @@ fn main() {
     println!("pipeline2 (add then double): 5 -> {}\n", value2);
 
     // ========================================================================
-    // 示例 10: 统一的 Mutator trait
+    // Example 10: Unified Mutator trait
     // ========================================================================
-    println!("示例 10: 统一的 Mutator trait");
+    println!("Example 10: Unified Mutator trait");
     println!("{}", "-".repeat(50));
 
     fn apply_to_all<M: Mutator<i32>>(mutator: &mut M, values: &mut [i32]) {
@@ -234,44 +240,44 @@ fn main() {
 
     let mut values1 = vec![1, 2, 3, 4, 5];
     let mut box_mut = BoxMutator::new(|x: &mut i32| *x *= 2);
-    println!("使用 BoxMutator: {:?}", values1);
+    println!("Using BoxMutator: {:?}", values1);
     apply_to_all(&mut box_mut, &mut values1);
-    println!("结果: {:?}", values1);
+    println!("Result: {:?}", values1);
 
     let mut values2 = vec![1, 2, 3, 4, 5];
     let mut arc_mut = ArcMutator::new(|x: &mut i32| *x *= 2);
-    println!("使用 ArcMutator: {:?}", values2);
+    println!("Using ArcMutator: {:?}", values2);
     apply_to_all(&mut arc_mut, &mut values2);
-    println!("结果: {:?}", values2);
+    println!("Result: {:?}", values2);
 
     let mut values3 = vec![1, 2, 3, 4, 5];
     let mut rc_mut = RcMutator::new(|x: &mut i32| *x *= 2);
-    println!("使用 RcMutator: {:?}", values3);
+    println!("Using RcMutator: {:?}", values3);
     apply_to_all(&mut rc_mut, &mut values3);
-    println!("结果: {:?}", values3);
+    println!("Result: {:?}", values3);
 
     let mut values4 = vec![1, 2, 3, 4, 5];
     let mut closure = |x: &mut i32| *x *= 2;
-    println!("使用闭包: {:?}", values4);
+    println!("Using closure: {:?}", values4);
     apply_to_all(&mut closure, &mut values4);
-    println!("结果: {:?}\n", values4);
+    println!("Result: {:?}\n", values4);
 
     // ========================================================================
-    // 示例 11: 复杂数据处理管道
+    // Example 11: Complex Data Processing Pipeline
     // ========================================================================
-    println!("示例 11: 复杂数据处理管道");
+    println!("Example 11: Complex Data Processing Pipeline");
     println!("{}", "-".repeat(50));
 
     let mut pipeline = BoxMutator::new(|x: &mut i32| {
-        // 验证：限制到 0-100
+        // Validation: clamp to 0-100
         *x = (*x).clamp(0, 100);
     })
     .and_then(|x: &mut i32| {
-        // 归一化：缩放到 0-10
+        // Normalization: scale to 0-10
         *x /= 10;
     })
     .and_then(|x: &mut i32| {
-        // 转换：平方
+        // Transformation: square
         *x = *x * *x;
     });
 
@@ -288,9 +294,9 @@ fn main() {
     println!("30 -> {}\n", value3);
 
     // ========================================================================
-    // 示例 12: 字符串处理
+    // Example 12: String Processing
     // ========================================================================
-    println!("示例 12: 字符串处理");
+    println!("Example 12: String Processing");
     println!("{}", "-".repeat(50));
 
     let mut string_processor = BoxMutator::new(|s: &mut String| s.retain(|c| !c.is_whitespace()))
@@ -298,36 +304,36 @@ fn main() {
         .and_then(|s: &mut String| s.push_str("!!!"));
 
     let mut text = String::from("Hello World");
-    println!("原始: {}", text);
+    println!("Original: {}", text);
     string_processor.mutate(&mut text);
-    println!("处理后: {}\n", text);
+    println!("After processing: {}\n", text);
 
     // ========================================================================
-    // 示例 13: 类型转换
+    // Example 13: Type Conversion
     // ========================================================================
-    println!("示例 13: 类型转换");
+    println!("Example 13: Type Conversion");
     println!("{}", "-".repeat(50));
 
-    // 闭包 -> BoxMutator
+    // Closure -> BoxMutator
     let closure = |x: &mut i32| *x *= 2;
     let mut box_mut = closure.into_box();
     let mut value = 5;
     box_mut.mutate(&mut value);
-    println!("闭包 -> BoxMutator: 5 -> {}", value);
+    println!("Closure -> BoxMutator: 5 -> {}", value);
 
-    // 闭包 -> RcMutator
+    // Closure -> RcMutator
     let closure = |x: &mut i32| *x *= 2;
     let mut rc_mut = closure.into_rc();
     let mut value = 5;
     rc_mut.mutate(&mut value);
-    println!("闭包 -> RcMutator: 5 -> {}", value);
+    println!("Closure -> RcMutator: 5 -> {}", value);
 
-    // 闭包 -> ArcMutator
+    // Closure -> ArcMutator
     let closure = |x: &mut i32| *x *= 2;
     let mut arc_mut = closure.into_arc();
     let mut value = 5;
     arc_mut.mutate(&mut value);
-    println!("闭包 -> ArcMutator: 5 -> {}", value);
+    println!("Closure -> ArcMutator: 5 -> {}", value);
 
     // BoxMutator -> RcMutator
     let box_mut = BoxMutator::new(|x: &mut i32| *x *= 2);
@@ -344,9 +350,9 @@ fn main() {
     println!("RcMutator -> BoxMutator: 5 -> {}\n", value);
 
     // ========================================================================
-    // 示例 14: 自定义类型
+    // Example 14: Custom Types
     // ========================================================================
-    println!("示例 14: 自定义类型");
+    println!("Example 14: Custom Types");
     println!("{}", "-".repeat(50));
 
     #[derive(Debug, Clone)]
@@ -360,9 +366,9 @@ fn main() {
         .and_then(|p: &mut Point| p.x += p.y);
 
     let mut point = Point { x: 3, y: 4 };
-    println!("原始点: {:?}", point);
+    println!("Original point: {:?}", point);
     processor.mutate(&mut point);
-    println!("处理后: {:?}\n", point);
+    println!("After processing: {:?}\n", point);
 
-    println!("=== 所有示例完成 ===");
+    println!("=== All Examples Completed ===");
 }

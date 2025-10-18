@@ -504,7 +504,7 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Examples
     ///
-    /// ## 与闭包组合
+    /// ## Combining with closures
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -513,12 +513,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
     /// let combined = is_positive.and(is_even);
-    /// assert!(combined.test(&4));   // 正数且偶数
-    /// assert!(!combined.test(&3));  // 正数但奇数
-    /// assert!(!combined.test(&-2)); // 偶数但负数
+    /// assert!(combined.test(&4));   // positive and even
+    /// assert!(!combined.test(&3));  // positive but odd
+    /// assert!(!combined.test(&-2)); // even but negative
     /// ```
     ///
-    /// ## 与函数指针组合
+    /// ## Combining with function pointers
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -532,7 +532,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!combined.test(&3));
     /// ```
     ///
-    /// ## 与其他 BoxPredicate 组合
+    /// ## Combining with other BoxPredicate
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -545,7 +545,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!combined.test(&3));
     /// ```
     ///
-    /// ## 链式组合
+    /// ## Chained composition
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -554,8 +554,8 @@ impl<T: 'static> BoxPredicate<T> {
     ///     .and(|x: &i32| x % 2 == 0)
     ///     .and(|x: &i32| *x < 100);
     ///
-    /// assert!(pred.test(&42));  // 正数、偶数、小于100
-    /// assert!(!pred.test(&101)); // 不满足小于100
+    /// assert!(pred.test(&42));  // positive, even, less than 100
+    /// assert!(!pred.test(&101)); // does not satisfy less than 100
     /// ```
     pub fn and<P>(self, other: P) -> BoxPredicate<T>
     where
@@ -588,7 +588,7 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Examples
     ///
-    /// ## 与闭包组合
+    /// ## Combining with closures
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -597,12 +597,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_large = |x: &i32| *x > 100;
     ///
     /// let combined = is_negative.or(is_large);
-    /// assert!(combined.test(&-5));  // 负数
-    /// assert!(combined.test(&150)); // 大于100
-    /// assert!(!combined.test(&50)); // 既不是负数也不大于100
+    /// assert!(combined.test(&-5));  // negative
+    /// assert!(combined.test(&150)); // greater than 100
+    /// assert!(!combined.test(&50)); // neither negative nor greater than 100
     /// ```
     ///
-    /// ## 与函数指针组合
+    /// ## Combining with function pointers
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -616,7 +616,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(combined.test(&150));
     /// ```
     ///
-    /// ## 与其他 BoxPredicate 组合
+    /// ## Combining with other BoxPredicate
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -678,7 +678,7 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Examples
     ///
-    /// ## 与闭包组合
+    /// ## Combining with closures
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -687,12 +687,12 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
     /// let nand = is_positive.nand(is_even);
-    /// assert!(nand.test(&3));   // 正数但奇数: !(true && false) = true
-    /// assert!(nand.test(&-2));  // 偶数但负数: !(false && true) = true
-    /// assert!(!nand.test(&4));  // 正数且偶数: !(true && true) = false
+    /// assert!(nand.test(&3));   // positive but odd: !(true && false) = true
+    /// assert!(nand.test(&-2));  // even but negative: !(false && true) = true
+    /// assert!(!nand.test(&4));  // positive and even: !(true && true) = false
     /// ```
     ///
-    /// ## 与函数指针组合
+    /// ## Combining with function pointers
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -706,7 +706,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!nand.test(&4));
     /// ```
     ///
-    /// ## 与其他 BoxPredicate 组合
+    /// ## Combining with other BoxPredicate
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -715,8 +715,8 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
     ///
     /// let nand = is_positive.nand(is_even);
-    /// assert!(nand.test(&3));   // 只满足一个条件时返回 true
-    /// assert!(!nand.test(&4));  // 两个都满足时返回 false
+    /// assert!(nand.test(&3));   // returns true when only one condition is met
+    /// assert!(!nand.test(&4));  // returns false when both conditions are met
     /// ```
     pub fn nand<P>(self, other: P) -> BoxPredicate<T>
     where
@@ -751,7 +751,7 @@ impl<T: 'static> BoxPredicate<T> {
     ///
     /// # Examples
     ///
-    /// ## 与闭包组合
+    /// ## Combining with closures
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -760,13 +760,13 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_even = |x: &i32| x % 2 == 0;
     ///
     /// let xor = is_positive.xor(is_even);
-    /// assert!(xor.test(&3));    // 正数但奇数: true ^ false = true
-    /// assert!(xor.test(&-2));   // 偶数但负数: false ^ true = true
-    /// assert!(!xor.test(&4));   // 正数且偶数: true ^ true = false
-    /// assert!(!xor.test(&-1));  // 负数且奇数: false ^ false = false
+    /// assert!(xor.test(&3));    // positive but odd: true ^ false = true
+    /// assert!(xor.test(&-2));   // even but negative: false ^ true = true
+    /// assert!(!xor.test(&4));   // positive and even: true ^ true = false
+    /// assert!(!xor.test(&-1));  // negative and odd: false ^ false = false
     /// ```
     ///
-    /// ## 与函数指针组合
+    /// ## Combining with function pointers
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -780,7 +780,7 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!xor.test(&4));
     /// ```
     ///
-    /// ## 与其他 BoxPredicate 组合
+    /// ## Combining with other BoxPredicate
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, BoxPredicate};
@@ -789,9 +789,9 @@ impl<T: 'static> BoxPredicate<T> {
     /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
     ///
     /// let xor = is_positive.xor(is_even);
-    /// assert!(xor.test(&3));    // 只满足一个条件时返回 true
-    /// assert!(!xor.test(&4));   // 两个都满足时返回 false
-    /// assert!(!xor.test(&-1));  // 两个都不满足时返回 false
+    /// assert!(xor.test(&3));    // returns true when only one condition is met
+    /// assert!(!xor.test(&4));   // returns false when both conditions are met
+    /// assert!(!xor.test(&-1));  // returns false when neither condition is met
     /// ```
     pub fn xor<P>(self, other: P) -> BoxPredicate<T>
     where
@@ -1089,7 +1089,7 @@ impl<T: 'static> RcPredicate<T> {
     ///
     /// # Examples
     ///
-    /// ## 与闭包组合（原 predicate 可继续使用）
+    /// ## Combining with closures (original predicate remains usable)
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, RcPredicate};
@@ -1101,11 +1101,11 @@ impl<T: 'static> RcPredicate<T> {
     /// assert!(combined.test(&4));
     /// assert!(!combined.test(&3));
     ///
-    /// // 原 predicate 仍然可用
+    /// // original predicate remains usable
     /// assert!(is_positive.test(&5));
     /// ```
     ///
-    /// ## 与其他 RcPredicate 组合（需要 clone）
+    /// ## Combining with other RcPredicate (requires clone)
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, RcPredicate};
@@ -1113,16 +1113,16 @@ impl<T: 'static> RcPredicate<T> {
     /// let is_positive = RcPredicate::new(|x: &i32| *x > 0);
     /// let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
     ///
-    /// // 如果需要继续使用 is_even，应该 clone
+    /// // if you need to continue using is_even, you should clone
     /// let combined = is_positive.and(is_even.clone());
     /// assert!(combined.test(&4));
     ///
-    /// // 两个原 predicate 都可继续使用
+    /// // both original predicates remain usable
     /// assert!(is_positive.test(&5));
     /// assert!(is_even.test(&6));
     /// ```
     ///
-    /// ## 多次重用同一个 predicate
+    /// ## Reusing the same predicate multiple times
     ///
     /// ```rust
     /// use prism3_function::predicate::{Predicate, RcPredicate};
@@ -1132,7 +1132,7 @@ impl<T: 'static> RcPredicate<T> {
     /// let positive_and_even = is_positive.and(|x: &i32| x % 2 == 0);
     /// let positive_and_small = is_positive.and(|x: &i32| *x < 100);
     ///
-    /// // is_positive 可以被多次组合
+    /// // is_positive can be combined multiple times
     /// assert!(positive_and_even.test(&4));
     /// assert!(positive_and_small.test(&5));
     /// assert!(is_positive.test(&10));
@@ -1173,7 +1173,7 @@ impl<T: 'static> RcPredicate<T> {
     /// assert!(combined.test(&150));
     /// assert!(!combined.test(&50));
     ///
-    /// // 原 predicate 仍然可用
+    /// // original predicate remains usable
     /// assert!(is_negative.test(&-10));
     /// ```
     pub fn or<P>(&self, other: P) -> RcPredicate<T>
@@ -1229,7 +1229,7 @@ impl<T: 'static> RcPredicate<T> {
     /// assert!(nand.test(&3));   // !(true && false) = true
     /// assert!(!nand.test(&4));  // !(true && true) = false
     ///
-    /// // 原 predicate 仍然可用
+    /// // original predicate remains usable
     /// assert!(is_positive.test(&5));
     /// ```
     pub fn nand<P>(&self, other: P) -> RcPredicate<T>
@@ -1270,7 +1270,7 @@ impl<T: 'static> RcPredicate<T> {
     /// assert!(!xor.test(&4));   // true ^ true = false
     /// assert!(!xor.test(&-1));  // false ^ false = false
     ///
-    /// // 原 predicate 仍然可用
+    /// // original predicate remains usable
     /// assert!(is_positive.test(&5));
     /// ```
     pub fn xor<P>(&self, other: P) -> RcPredicate<T>
@@ -1645,13 +1645,13 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// let combined = is_positive.and(is_even);
     ///
-    /// // 可以跨线程使用
+    /// // can be used across threads
     /// let handle = thread::spawn(move || {
     ///     combined.test(&4)
     /// });
     ///
     /// assert!(handle.join().unwrap());
-    /// assert!(is_positive.test(&5)); // 原 predicate 仍可用
+    /// assert!(is_positive.test(&5)); // original predicate still usable
     /// ```
     pub fn and<P>(&self, other: P) -> ArcPredicate<T>
     where
@@ -1688,7 +1688,7 @@ impl<T: 'static> ArcPredicate<T> {
     /// let combined = is_negative.or(is_large);
     /// assert!(combined.test(&-5));
     /// assert!(combined.test(&150));
-    /// assert!(is_negative.test(&-10)); // 原 predicate 仍可用
+    /// assert!(is_negative.test(&-10)); // original predicate still usable
     /// ```
     pub fn or<P>(&self, other: P) -> ArcPredicate<T>
     where

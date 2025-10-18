@@ -6,54 +6,56 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # ConsumerOnce 类型
+//! # ConsumerOnce Types
 //!
-//! 提供一次性消费者接口的实现，用于执行接受单个输入参数但不返回结果的一次性操作。
+//! Provides implementations of one-time consumer interfaces for executing one-time operations
+//! that accept a single input parameter but return no result.
 //!
-//! 本模块提供统一的 `ConsumerOnce` trait 和一种具体实现:
+//! This module provides a unified `ConsumerOnce` trait and one concrete implementation:
 //!
-//! - **`BoxConsumerOnce<T>`**: 基于 Box 的单一所有权实现
+//! - **`BoxConsumerOnce<T>`**: Box-based single ownership implementation
 //!
-//! # 为什么没有 Arc/Rc 变体？
+//! # Why No Arc/Rc Variants?
 //!
-//! 与 `Consumer` 和 `ReadonlyConsumer` 不同，本模块**不**提供 `ArcConsumerOnce`
-//! 或 `RcConsumerOnce` 实现。这是基于 `FnOnce` 语义与共享所有权根本不兼容的
-//! 设计决策。详见设计文档。
+//! Unlike `Consumer` and `ReadonlyConsumer`, this module does **not** provide `ArcConsumerOnce`
+//! or `RcConsumerOnce` implementations. This is a design decision based on the fact that
+//! `FnOnce` semantics are fundamentally incompatible with shared ownership. See design docs for details.
 //!
-//! # 设计理念
+//! # Design Philosophy
 //!
-//! ConsumerOnce 使用 `FnOnce(&T)` 语义，用于真正的一次性消费操作。
-//! 与 Consumer 不同，ConsumerOnce 在首次调用时消耗自身。适用于初始化回调、
-//! 清理回调等场景。
+//! ConsumerOnce uses `FnOnce(&T)` semantics for truly one-time consumption operations.
+//! Unlike Consumer, ConsumerOnce consumes itself on first call. Suitable for initialization
+//! callbacks, cleanup callbacks, and similar scenarios.
 //!
-//! # 作者
+//! # Author
 //!
-//! 胡海星
+//! Hu Haixing
 
 use std::fmt;
 
 // ============================================================================
-// 1. ConsumerOnce Trait - 统一的 ConsumerOnce 接口
+// 1. ConsumerOnce Trait - Unified ConsumerOnce Interface
 // ============================================================================
 
-/// ConsumerOnce trait - 统一的一次性消费者接口
+/// ConsumerOnce trait - Unified one-time consumer interface
 ///
-/// 定义所有一次性消费者类型的核心行为。类似于实现 `FnOnce(&T)` 的消费者，
-/// 执行接受一个值引用但不返回结果的操作(仅产生副作用)，并在过程中消耗自身。
+/// Defines the core behavior of all one-time consumer types. Similar to consumers
+/// implementing `FnOnce(&T)`, executes operations that accept a value reference but
+/// return no result (only side effects), consuming itself in the process.
 ///
-/// # 自动实现
+/// # Automatic Implementation
 ///
-/// - 所有实现 `FnOnce(&T)` 的闭包
+/// - All closures implementing `FnOnce(&T)`
 /// - `BoxConsumerOnce<T>`
 ///
-/// # 特性
+/// # Features
 ///
-/// - **统一接口**: 所有消费者类型共享相同的 `accept` 方法签名
-/// - **自动实现**: 闭包自动实现此 trait，零开销
-/// - **类型转换**: 可以转换为 BoxConsumerOnce
-/// - **泛型编程**: 编写可用于任何一次性消费者类型的函数
+/// - **Unified Interface**: All consumer types share the same `accept` method signature
+/// - **Automatic Implementation**: Closures automatically implement this trait with zero overhead
+/// - **Type Conversion**: Can be converted to BoxConsumerOnce
+/// - **Generic Programming**: Write functions that work with any one-time consumer type
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -72,20 +74,21 @@ use std::fmt;
 /// assert_eq!(*log.lock().unwrap(), vec![5]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait ConsumerOnce<T> {
-    /// 执行一次性消费操作
+    /// Execute one-time consumption operation
     ///
-    /// 对给定的引用执行操作。操作通常读取输入值或产生副作用，
-    /// 但不修改输入值本身。消耗 self。
+    /// Executes an operation on the given reference. The operation typically reads
+    /// the input value or produces side effects, but does not modify the input
+    /// value itself. Consumes self.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `value` - 要消费的值的引用
+    /// * `value` - Reference to the value to be consumed
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -95,15 +98,15 @@ pub trait ConsumerOnce<T> {
     /// ```
     fn accept(self, value: &T);
 
-    /// 转换为 BoxConsumerOnce
+    /// Convert to BoxConsumerOnce
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回包装后的 `BoxConsumerOnce<T>`
+    /// Returns the wrapped `BoxConsumerOnce<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::ConsumerOnce;
@@ -123,15 +126,16 @@ pub trait ConsumerOnce<T> {
         Self: Sized + 'static,
         T: 'static;
 
-    /// 转换为闭包
+    /// Convert to closure
     ///
-    /// **⚠️ 消耗 `self`**: 调用此方法后原始消费者将不可用。
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
-    /// 将一次性消费者转换为闭包，可以直接用于标准库中需要 `FnOnce` 的地方。
+    /// Converts a one-time consumer to a closure that can be used directly in places
+    /// where the standard library requires `FnOnce`.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回实现了 `FnOnce(&T)` 的闭包
+    /// Returns a closure implementing `FnOnce(&T)`
     fn into_fn(self) -> impl FnOnce(&T)
     where
         Self: Sized + 'static,
@@ -139,38 +143,38 @@ pub trait ConsumerOnce<T> {
 }
 
 // ============================================================================
-// 2. BoxConsumerOnce - 单一所有权实现
+// 2. BoxConsumerOnce - Single Ownership Implementation
 // ============================================================================
 
-/// BoxConsumerOnce 结构体
+/// BoxConsumerOnce struct
 ///
-/// 基于 `Box<dyn FnOnce(&T)>` 的一次性消费者实现，用于单一所有权场景。
-/// 这是真正一次性使用的最简单消费者类型。
+/// One-time consumer implementation based on `Box<dyn FnOnce(&T)>` for single ownership scenarios.
+/// This is the simplest consumer type for truly one-time use.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **单一所有权**: 不可克隆，使用时转移所有权
-/// - **零开销**: 无引用计数或锁开销
-/// - **一次性使用**: 首次调用时消耗 self
-/// - **构建器模式**: 方法链自然地消耗 `self`
+/// - **Single Ownership**: Not cloneable, transfers ownership on use
+/// - **Zero Overhead**: No reference counting or lock overhead
+/// - **One-time Use**: Consumes self on first call
+/// - **Builder Pattern**: Method chaining naturally consumes `self`
 ///
-/// # 使用场景
+/// # Use Cases
 ///
-/// 选择 `BoxConsumerOnce` 当:
-/// - 消费者真正只使用一次
-/// - 构建流水线，所有权自然流动
-/// - 消费者捕获应该被消耗的值
-/// - 性能关键且无法接受共享开销
+/// Choose `BoxConsumerOnce` when:
+/// - Consumer is truly used only once
+/// - Building pipelines where ownership flows naturally
+/// - Consumer captures values that should be consumed
+/// - Performance critical and cannot accept shared overhead
 ///
-/// # 性能
+/// # Performance
 ///
-/// `BoxConsumerOnce` 性能最好:
-/// - 无引用计数开销
-/// - 无锁获取或运行时借用检查
-/// - 通过 vtable 直接调用函数
-/// - 最小内存占用(单个指针)
+/// `BoxConsumerOnce` has the best performance:
+/// - No reference counting overhead
+/// - No lock acquisition or runtime borrow checking
+/// - Direct function call through vtable
+/// - Minimal memory footprint (single pointer)
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -181,9 +185,9 @@ pub trait ConsumerOnce<T> {
 /// consumer.accept(&5);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub struct BoxConsumerOnce<T> {
     function: Box<dyn FnOnce(&T)>,
     name: Option<String>,
@@ -193,21 +197,21 @@ impl<T> BoxConsumerOnce<T>
 where
     T: 'static,
 {
-    /// 创建新的 BoxConsumerOnce
+    /// Create a new BoxConsumerOnce
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `F` - 闭包类型
+    /// * `F` - Closure type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `f` - 要包装的闭包
+    /// * `f` - Closure to be wrapped
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的 `BoxConsumerOnce<T>` 实例
+    /// Returns a new `BoxConsumerOnce<T>` instance
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -231,33 +235,33 @@ where
         }
     }
 
-    /// 获取消费者的名称
+    /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
-    /// 设置消费者的名称
+    /// Set the consumer's name
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
 
-    /// 顺序链接另一个一次性消费者
+    /// Sequentially chain another one-time consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。消耗 self。
+    /// Returns a new consumer that executes the current operation first, then the next operation. Consumes self.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回新的组合 `BoxConsumerOnce<T>`
+    /// Returns a new combined `BoxConsumerOnce<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -286,34 +290,34 @@ where
         })
     }
 
-    /// 创建空操作消费者
+    /// Create a no-op consumer
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回空操作消费者
+    /// Returns a no-op consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
     ///
     /// let noop = BoxConsumerOnce::<i32>::noop();
     /// noop.accept(&42);
-    /// // 值未改变
+    /// // Value unchanged
     /// ```
     pub fn noop() -> Self {
         BoxConsumerOnce::new(|_| {})
     }
 
-    /// 创建打印消费者
+    /// Create a print consumer
     ///
-    /// 返回一个消费者，该消费者打印输入值。
+    /// Returns a consumer that prints the input value.
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回打印消费者
+    /// Returns a print consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -330,19 +334,19 @@ where
         })
     }
 
-    /// 创建带前缀的打印消费者
+    /// Create a print consumer with prefix
     ///
-    /// 返回一个消费者，该消费者使用指定前缀打印输入值。
+    /// Returns a consumer that prints the input value with the specified prefix.
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `prefix` - 前缀字符串
+    /// * `prefix` - Prefix string
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回打印消费者
+    /// Returns a print consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -360,25 +364,25 @@ where
         })
     }
 
-    /// 创建条件消费者
+    /// Create a conditional consumer
     ///
-    /// 返回一个消费者，仅在谓词为 true 时执行操作。
+    /// Returns a consumer that executes the operation only when the predicate is true.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `P` - 谓词类型
-    /// * `C` - 消费者类型
+    /// * `P` - Predicate type
+    /// * `C` - Consumer type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `predicate` - 谓词函数
-    /// * `consumer` - 要执行的消费者
+    /// * `predicate` - Predicate function
+    /// * `consumer` - Consumer to execute
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回条件消费者
+    /// Returns a conditional consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -408,27 +412,27 @@ where
         })
     }
 
-    /// 创建条件分支消费者
+    /// Create a conditional branch consumer
     ///
-    /// 返回一个消费者，根据谓词执行不同的操作。
+    /// Returns a consumer that executes different operations based on the predicate.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `P` - 谓词类型
-    /// * `C1` - then 消费者类型
-    /// * `C2` - else 消费者类型
+    /// * `P` - Predicate type
+    /// * `C1` - Then consumer type
+    /// * `C2` - Else consumer type
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `predicate` - 谓词函数
-    /// * `then_consumer` - 谓词为 true 时执行的消费者
-    /// * `else_consumer` - 谓词为 false 时执行的消费者
+    /// * `predicate` - Predicate function
+    /// * `then_consumer` - Consumer to execute when predicate is true
+    /// * `else_consumer` - Consumer to execute when predicate is false
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回条件分支消费者
+    /// Returns a conditional branch consumer
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
@@ -505,10 +509,10 @@ impl<T> fmt::Display for BoxConsumerOnce<T> {
 }
 
 // ============================================================================
-// 3. 为闭包实现 ConsumerOnce trait
+// 3. Implement ConsumerOnce trait for closures
 // ============================================================================
 
-/// 为所有 FnOnce(&T) 实现 ConsumerOnce
+/// Implement ConsumerOnce for all FnOnce(&T)
 impl<T, F> ConsumerOnce<T> for F
 where
     F: FnOnce(&T),
@@ -535,22 +539,22 @@ where
 }
 
 // ============================================================================
-// 4. 为闭包提供扩展方法
+// 4. Extension methods for closures
 // ============================================================================
 
-/// 为闭包提供一次性消费者组合方法的扩展 trait
+/// Extension trait providing one-time consumer composition methods for closures
 ///
-/// 为所有实现 `FnOnce(&T)` 的闭包提供 `and_then` 和其他组合方法，
-/// 使闭包无需显式包装类型即可直接进行方法链接。
+/// Provides `and_then` and other composition methods for all closures implementing `FnOnce(&T)`,
+/// allowing closures to chain methods directly without explicit wrapper types.
 ///
-/// # 特性
+/// # Features
 ///
-/// - **自然语法**: 直接在闭包上链接操作
-/// - **返回 BoxConsumerOnce**: 组合结果可继续链接
-/// - **零成本**: 组合闭包时无开销
-/// - **自动实现**: 所有 `FnOnce(&T)` 闭包自动获得这些方法
+/// - **Natural Syntax**: Chain operations directly on closures
+/// - **Returns BoxConsumerOnce**: Composed results can continue chaining
+/// - **Zero Cost**: No overhead when composing closures
+/// - **Automatic Implementation**: All `FnOnce(&T)` closures automatically get these methods
 ///
-/// # 示例
+/// # Examples
 ///
 /// ```rust
 /// use prism3_function::{ConsumerOnce, FnConsumerOnceOps};
@@ -568,28 +572,28 @@ where
 /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
 /// ```
 ///
-/// # 作者
+/// # Author
 ///
-/// 胡海星
+/// Hu Haixing
 pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
-    /// 顺序链接另一个一次性消费者
+    /// Sequentially chain another one-time consumer
     ///
-    /// 返回一个新的消费者，先执行当前操作，然后执行下一个操作。
-    /// 消耗当前闭包并返回 `BoxConsumerOnce<T>`。
+    /// Returns a new consumer that executes the current operation first, then the next operation.
+    /// Consumes the current closure and returns `BoxConsumerOnce<T>`.
     ///
-    /// # 类型参数
+    /// # Type Parameters
     ///
-    /// * `C` - 下一个消费者的类型
+    /// * `C` - Type of the next consumer
     ///
-    /// # 参数
+    /// # Parameters
     ///
-    /// * `next` - 当前操作之后要执行的消费者
+    /// * `next` - Consumer to execute after the current operation
     ///
-    /// # 返回值
+    /// # Returns
     ///
-    /// 返回组合的 `BoxConsumerOnce<T>`
+    /// Returns a combined `BoxConsumerOnce<T>`
     ///
-    /// # 示例
+    /// # Examples
     ///
     /// ```rust
     /// use prism3_function::{ConsumerOnce, FnConsumerOnceOps};
@@ -622,5 +626,5 @@ pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
     }
 }
 
-/// 为所有闭包类型实现 FnConsumerOnceOps
+/// Implement FnConsumerOnceOps for all closure types
 impl<T, F> FnConsumerOnceOps<T> for F where F: FnOnce(&T) {}
