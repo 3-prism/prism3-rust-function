@@ -86,7 +86,7 @@ mod fn_transformer_once_ops_tests {
 
     #[test]
     fn test_complex_composition() {
-        // 复杂的组合：先解析字符串，然后如果大于5就乘2，否则乘3，最后转字符串
+        // Complex composition: parse string, then if > 5 multiply by 2, otherwise multiply by 3, finally convert to string
         let parse = |s: String| s.parse::<i32>().unwrap_or(0);
         let double = |x: i32| x * 2;
         let triple = |x: i32| x * 3;
@@ -151,7 +151,7 @@ mod fn_transformer_once_ops_tests {
         let abs = |x: i32| x.abs();
         let double = |x: i32| x * 2;
 
-        // 如果是负数，取绝对值；否则加倍
+        // If negative, take absolute value; otherwise double
         let transformer = abs.when(|x: &i32| *x < 0).or_else(double);
 
         assert_eq!(transformer.transform(-5), 5);

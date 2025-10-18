@@ -53,6 +53,22 @@ mod trait_tests {
         let f = add.into_fn();
         assert_eq!(f(20, 22), 42);
     }
+
+    #[test]
+    fn test_blanket_impl_into_fn() {
+        // Test into_fn in impl<F, T, U, R> BiTransformerOnce<T, U, R> for F
+        let add = |x: i32, y: i32| x + y;
+        let f = add.into_fn();
+        assert_eq!(f(20, 22), 42);
+    }
+
+    #[test]
+    fn test_blanket_impl_into_fn_with_string() {
+        // Test closure's into_fn method
+        let concat = |x: String, y: String| format!("{}-{}", x, y);
+        let f = concat.into_fn();
+        assert_eq!(f("hello".to_string(), "world".to_string()), "hello-world");
+    }
 }
 
 // ============================================================================

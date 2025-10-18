@@ -6,13 +6,13 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # BiTransformer and_then 方法测试
+//! # BiTransformer and_then method tests
 //!
-//! 测试 BoxBiTransformer、ArcBiTransformer 和 RcBiTransformer 的 and_then 方法
+//! Tests the and_then method for BoxBiTransformer, ArcBiTransformer and RcBiTransformer
 //!
-//! # 作者
+//! # Author
 //!
-//! 胡海星
+//! Hu Haixing
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +22,7 @@ mod tests {
     };
 
     // ========================================================================
-    // BoxBiTransformer::and_then 测试
+    // BoxBiTransformer::and_then tests
     // ========================================================================
 
     #[test]
@@ -64,7 +64,7 @@ mod tests {
     }
 
     // ========================================================================
-    // ArcBiTransformer::and_then 测试
+    // ArcBiTransformer::and_then tests
     // ========================================================================
 
     #[test]
@@ -73,7 +73,7 @@ mod tests {
         let double = |x: i32| x * 2;
         let composed = add.and_then(double);
 
-        // 原始 bi-transformer 仍然可用
+        // Original bi-transformer still usable
         assert_eq!(add.transform(20, 22), 42);
         assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
     }
@@ -133,7 +133,7 @@ mod tests {
     }
 
     // ========================================================================
-    // RcBiTransformer::and_then 测试
+    // RcBiTransformer::and_then tests
     // ========================================================================
 
     #[test]
@@ -142,7 +142,7 @@ mod tests {
         let double = |x: i32| x * 2;
         let composed = add.and_then(double);
 
-        // 原始 bi-transformer 仍然可用
+        // Original bi-transformer still usable
         assert_eq!(add.transform(20, 22), 42);
         assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
     }
@@ -181,7 +181,7 @@ mod tests {
     }
 
     // ========================================================================
-    // 混合类型测试
+    // Mixed type tests
     // ========================================================================
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
     }
 
     // ========================================================================
-    // 复杂场景测试
+    // Complex scenario tests
     // ========================================================================
 
     #[test]

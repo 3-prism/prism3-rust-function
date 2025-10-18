@@ -6,17 +6,17 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! BoxBiTransformerOnce and_then 方法示例
+//! BoxBiTransformerOnce and_then method example
 //!
-//! 演示如何使用 BoxBiTransformerOnce 的 and_then 方法进行链式组合。
+//! Demonstrates how to use BoxBiTransformerOnce's and_then method for chained composition.
 
 use prism3_function::{BiTransformerOnce, BoxBiTransformerOnce};
 
 fn main() {
-    println!("=== BoxBiTransformerOnce and_then 方法示例 ===\n");
+    println!("=== BoxBiTransformerOnce and_then Method Example ===\n");
 
-    // 示例 1: 基本的 and_then 使用
-    println!("示例 1: 基本的 and_then 使用");
+    // Example 1: Basic and_then usage
+    println!("Example 1: Basic and_then usage");
     let add = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let double = |x: i32| x * 2;
     let composed = add.and_then(double);
@@ -25,8 +25,8 @@ fn main() {
     assert_eq!(result, 16);
     println!();
 
-    // 示例 2: 类型转换
-    println!("示例 2: 类型转换");
+    // Example 2: Type conversion
+    println!("Example 2: Type conversion");
     let add2 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let to_string = |x: i32| x.to_string();
     let composed2 = add2.and_then(to_string);
@@ -35,8 +35,8 @@ fn main() {
     assert_eq!(result2, "42");
     println!();
 
-    // 示例 3: 多级链式组合
-    println!("示例 3: 多级链式组合");
+    // Example 3: Multi-level chained composition
+    println!("Example 3: Multi-level chained composition");
     let add3 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let double3 = |x: i32| x * 2;
     let to_string3 = |x: i32| format!("Result: {}", x);
@@ -46,8 +46,8 @@ fn main() {
     assert_eq!(result3, "Result: 16");
     println!();
 
-    // 示例 4: 字符串操作
-    println!("示例 4: 字符串操作");
+    // Example 4: String operations
+    println!("Example 4: String operations");
     let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
     let uppercase = |s: String| s.to_uppercase();
     let composed4 = concat.and_then(uppercase);
@@ -56,8 +56,8 @@ fn main() {
     assert_eq!(result4, "HELLO WORLD");
     println!();
 
-    // 示例 5: 数学计算链
-    println!("示例 5: 数学计算链");
+    // Example 5: Mathematical calculation chain
+    println!("Example 5: Mathematical calculation chain");
     let multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y);
     let to_float = |x: i32| x as f64 / 2.0;
     let composed5 = multiply.and_then(to_float);
@@ -66,13 +66,13 @@ fn main() {
     assert!((result5 - 21.0).abs() < 1e-10);
     println!();
 
-    // 示例 6: 复杂的业务逻辑
-    println!("示例 6: 复杂的业务逻辑");
+    // Example 6: Complex business logic
+    println!("Example 6: Complex business logic");
     let calculate_total =
         BoxBiTransformerOnce::new(|price: f64, quantity: i32| price * quantity as f64);
     let apply_discount = |total: f64| {
         if total > 100.0 {
-            total * 0.9 // 10% 折扣
+            total * 0.9 // 10% discount
         } else {
             total
         }
@@ -82,10 +82,10 @@ fn main() {
         .and_then(apply_discount)
         .and_then(format_price);
     let result6 = composed6.transform(15.5, 8);
-    println!("  价格: $15.5, 数量: 8");
-    println!("  总价(含折扣): {}", result6);
+    println!("  Price: $15.5, Quantity: 8");
+    println!("  Total price (with discount): {}", result6);
     assert_eq!(result6, "$111.60");
     println!();
 
-    println!("=== 所有示例执行成功! ===");
+    println!("=== All examples executed successfully! ===");
 }

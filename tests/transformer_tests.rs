@@ -420,6 +420,14 @@ mod conversion_tests {
         let boxed = double.into_box();
         assert_eq!(boxed.transform(21), 42);
     }
+
+    #[test]
+    fn test_closure_into_fn() {
+        // Test into_fn in impl<F, T, R> Transformer<T, R> for F
+        let double = |x: i32| x * 2;
+        let func = double.into_fn();
+        assert_eq!(func(21), 42);
+    }
 }
 
 // ============================================================================

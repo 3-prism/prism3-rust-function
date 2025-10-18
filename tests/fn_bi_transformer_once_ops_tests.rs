@@ -15,7 +15,7 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_closure_and_then() {
-        // 测试闭包的 and_then 方法
+        // Test closure's and_then method
         let add = |x: i32, y: i32| x + y;
         let double = |x: i32| x * 2;
 
@@ -25,7 +25,7 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_closure_and_then_with_type_conversion() {
-        // 测试类型转换的 and_then
+        // Test and_then with type conversion
         let add = |x: i32, y: i32| x + y;
         let to_string = |x: i32| x.to_string();
 
@@ -35,42 +35,42 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_closure_when_with_or_else() {
-        // 测试闭包的 when 方法
+        // Test closure's when method
         let add = |x: i32, y: i32| x + y;
         let multiply = |x: i32, y: i32| x * y;
 
         let conditional = add
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(multiply);
-        assert_eq!(conditional.transform(5, 3), 8); // 条件满足，执行加法
+        assert_eq!(conditional.transform(5, 3), 8); // Condition met, execute addition
 
-        // 需要重新创建，因为是 FnOnce
+        // Need to recreate because it's FnOnce
         let add2 = |x: i32, y: i32| x + y;
         let multiply2 = |x: i32, y: i32| x * y;
         let conditional2 = add2
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(multiply2);
-        assert_eq!(conditional2.transform(-5, 3), -15); // 条件不满足，执行乘法
+        assert_eq!(conditional2.transform(-5, 3), -15); // Condition not met, execute multiplication
     }
 
     #[test]
     fn test_closure_when_with_single_condition() {
-        // 测试单个条件的 when
+        // Test when with single condition
         let add = |x: i32, y: i32| x + y;
         let subtract = |x: i32, y: i32| x - y;
 
         let conditional = add.when(|x: &i32, _y: &i32| *x > 0).or_else(subtract);
-        assert_eq!(conditional.transform(10, 3), 13); // x > 0，执行加法
+        assert_eq!(conditional.transform(10, 3), 13); // x > 0, execute addition
 
         let add2 = |x: i32, y: i32| x + y;
         let subtract2 = |x: i32, y: i32| x - y;
         let conditional2 = add2.when(|x: &i32, _y: &i32| *x > 0).or_else(subtract2);
-        assert_eq!(conditional2.transform(-10, 3), -13); // x <= 0，执行减法
+        assert_eq!(conditional2.transform(-10, 3), -13); // x <= 0, execute subtraction
     }
 
     #[test]
     fn test_function_pointer_and_then() {
-        // 测试函数指针的 and_then
+        // Test function pointer's and_then
         fn add(x: i32, y: i32) -> i32 {
             x + y
         }
@@ -84,7 +84,7 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_function_pointer_when() {
-        // 测试函数指针的 when
+        // Test function pointer's when
         fn add(x: i32, y: i32) -> i32 {
             x + y
         }
@@ -104,8 +104,8 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_chained_and_then() {
-        // 测试链式 and_then - 注意：第一次 and_then 返回 BoxBiTransformerOnce，
-        // 它没有 and_then 方法，所以需要分步进行
+        // Test chained and_then - Note: the first and_then returns BoxBiTransformerOnce,
+        // which doesn't have an and_then method, so we need to do it step by step
         let add = |x: i32, y: i32| x + y;
         let double = |x: i32| x * 2;
 
@@ -116,7 +116,7 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_and_then_with_consuming_closure() {
-        // 测试消费闭包的 and_then
+        // Test and_then with consuming closure
         let owned_value = String::from("prefix-");
         let concat = move |x: String, y: String| format!("{}{}{}", owned_value, x, y);
         let uppercase = |s: String| s.to_uppercase();
@@ -130,27 +130,27 @@ mod fn_bi_transformer_once_ops_tests {
 
     #[test]
     fn test_when_with_complex_predicate() {
-        // 测试复杂谓词
+        // Test complex predicate
         let add = |x: i32, y: i32| x + y;
         let multiply = |x: i32, y: i32| x * y;
 
         let conditional = add
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0 && (*x + *y) < 20)
             .or_else(multiply);
-        assert_eq!(conditional.transform(5, 3), 8); // 满足条件
+        assert_eq!(conditional.transform(5, 3), 8); // Condition met
 
         let add2 = |x: i32, y: i32| x + y;
         let multiply2 = |x: i32, y: i32| x * y;
         let conditional2 = add2
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0 && (*x + *y) < 20)
             .or_else(multiply2);
-        assert_eq!(conditional2.transform(15, 10), 150); // 不满足条件（和 >= 20）
+        assert_eq!(conditional2.transform(15, 10), 150); // Condition not met (sum >= 20)
 
         let add3 = |x: i32, y: i32| x + y;
         let multiply3 = |x: i32, y: i32| x * y;
         let conditional3 = add3
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0 && (*x + *y) < 20)
             .or_else(multiply3);
-        assert_eq!(conditional3.transform(-5, 3), -15); // 不满足条件（x <= 0）
+        assert_eq!(conditional3.transform(-5, 3), -15); // Condition not met (x <= 0)
     }
 }

@@ -6,18 +6,18 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! 演示 FnTransformerOnceOps 扩展 trait 的使用
+//! Demonstrates the usage of FnTransformerOnceOps extension trait
 //!
-//! 这个示例展示了如何直接对 FnOnce 闭包使用 and_then、compose 和 when 方法，
-//! 而无需显式地将它们包装在 BoxTransformerOnce 中。
+//! This example shows how to directly use and_then, compose, and when methods on FnOnce closures,
+//! without explicitly wrapping them in BoxTransformerOnce.
 
 use prism3_function::{FnTransformerOnceOps, TransformerOnce};
 
 fn main() {
-    println!("=== FnTransformerOnceOps 示例 ===\n");
+    println!("=== FnTransformerOnceOps Example ===\n");
 
-    // 1. 基本的 and_then 组合
-    println!("1. 基本的 and_then 组合:");
+    // 1. Basic and_then composition
+    println!("1. Basic and_then composition:");
     let parse = |s: String| s.parse::<i32>().unwrap_or(0);
     let double = |x: i32| x * 2;
     let composed = parse.and_then(double);
@@ -27,8 +27,8 @@ fn main() {
     );
     println!();
 
-    // 2. 链式 and_then 组合
-    println!("2. 链式 and_then 组合:");
+    // 2. Chained and_then composition
+    println!("2. Chained and_then composition:");
     let parse = |s: String| s.parse::<i32>().unwrap_or(0);
     let add_one = |x: i32| x + 1;
     let double = |x: i32| x * 2;
@@ -39,8 +39,8 @@ fn main() {
     ); // (5 + 1) * 2 = 12
     println!();
 
-    // 3. compose 反向组合
-    println!("3. compose 反向组合:");
+    // 3. compose reverse composition
+    println!("3. compose reverse composition:");
     let double = |x: i32| x * 2;
     let to_string = |x: i32| x.to_string();
     let composed = to_string.compose(double);
@@ -50,8 +50,8 @@ fn main() {
     ); // (21 * 2).to_string() = "42"
     println!();
 
-    // 4. 条件转换 when
-    println!("4. 条件转换 when:");
+    // 4. Conditional transformation when
+    println!("4. Conditional transformation when:");
     let double = |x: i32| x * 2;
     let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     println!("   double.when(x > 0).or_else(negate):");
@@ -62,8 +62,8 @@ fn main() {
     println!("     transform(-5) = {}", conditional2.transform(-5)); // 5
     println!();
 
-    // 5. 复杂的组合
-    println!("5. 复杂的组合:");
+    // 5. Complex composition
+    println!("5. Complex composition:");
     let parse = |s: String| s.parse::<i32>().unwrap_or(0);
     let double = |x: i32| x * 2;
     let triple = |x: i32| x * 3;
@@ -92,8 +92,8 @@ fn main() {
     ); // 10 > 5, so 10 * 2 = 20
     println!();
 
-    // 6. 类型转换
-    println!("6. 类型转换:");
+    // 6. Type conversion
+    println!("6. Type conversion:");
     let to_string = |x: i32| x.to_string();
     let get_length = |s: String| s.len();
     let length_transformer = to_string.and_then(get_length);
@@ -103,8 +103,8 @@ fn main() {
     ); // 5
     println!();
 
-    // 7. 捕获环境的闭包
-    println!("7. 捕获环境的闭包:");
+    // 7. Closures that capture environment
+    println!("7. Closures that capture environment:");
     let multiplier = 3;
     let multiply = move |x: i32| x * multiplier;
     let add_ten = |x: i32| x + 10;
@@ -115,8 +115,8 @@ fn main() {
     ); // 5 * 3 + 10 = 25
     println!();
 
-    // 8. 函数指针
-    println!("8. 函数指针:");
+    // 8. Function pointers
+    println!("8. Function pointers:");
     fn parse_fn(s: String) -> i32 {
         s.parse().unwrap_or(0)
     }
@@ -130,8 +130,8 @@ fn main() {
     ); // 42
     println!();
 
-    // 9. 消费所有权的字符串操作
-    println!("9. 消费所有权的字符串操作:");
+    // 9. String operations that consume ownership
+    println!("9. String operations that consume ownership:");
     let owned = String::from("hello");
     let append = move |s: String| format!("{} {}", s, owned);
     let uppercase = |s: String| s.to_uppercase();
@@ -142,8 +142,8 @@ fn main() {
     ); // "WORLD HELLO"
     println!();
 
-    // 10. 解析和验证
-    println!("10. 解析和验证:");
+    // 10. Parsing and validation
+    println!("10. Parsing and validation:");
     let parse = |s: String| s.parse::<i32>().unwrap_or(0);
     let validate = |x: i32| if x > 0 { x } else { 1 };
     let composed = parse.and_then(validate);
@@ -161,5 +161,5 @@ fn main() {
     ); // 1
     println!();
 
-    println!("=== 示例结束 ===");
+    println!("=== Example completed ===");
 }
