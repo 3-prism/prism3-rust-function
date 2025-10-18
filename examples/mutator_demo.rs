@@ -87,39 +87,31 @@ fn main() {
     println!("示例 5: 条件 Mutator");
     println!("{}", "-".repeat(50));
 
-    // if_then
-    let mut increment_if_positive = BoxMutator::if_then(|x: &i32| *x > 0, |x: &mut i32| *x += 1);
+    // when (条件执行)
+    let mut increment_if_positive = BoxMutator::new(|x: &mut i32| *x += 1).when(|x: &i32| *x > 0);
 
     let mut positive = 5;
     let mut negative = -5;
-    println!(
-        "if_then 前 - positive: {}, negative: {}",
-        positive, negative
-    );
+    println!("when 前 - positive: {}, negative: {}", positive, negative);
     increment_if_positive.mutate(&mut positive);
     increment_if_positive.mutate(&mut negative);
-    println!(
-        "if_then 后 - positive: {}, negative: {}\n",
-        positive, negative
-    );
+    println!("when 后 - positive: {}, negative: {}\n", positive, negative);
 
-    // if_then_else
-    let mut adjust = BoxMutator::if_then_else(
-        |x: &i32| *x > 0,
-        |x: &mut i32| *x *= 2,
-        |x: &mut i32| *x = -*x,
-    );
+    // when().or_else() (条件分支)
+    let mut adjust = BoxMutator::new(|x: &mut i32| *x *= 2)
+        .when(|x: &i32| *x > 0)
+        .or_else(|x: &mut i32| *x = -*x);
 
     let mut positive = 10;
     let mut negative = -10;
     println!(
-        "if_then_else 前 - positive: {}, negative: {}",
+        "when().or_else() 前 - positive: {}, negative: {}",
         positive, negative
     );
     adjust.mutate(&mut positive);
     adjust.mutate(&mut negative);
     println!(
-        "if_then_else 后 - positive: {}, negative: {}\n",
+        "when().or_else() 后 - positive: {}, negative: {}\n",
         positive, negative
     );
 

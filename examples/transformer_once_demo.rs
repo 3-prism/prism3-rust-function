@@ -6,217 +6,79 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! TransformerOnce demonstration
-//!
-//! This example demonstrates the usage of TransformerOnce types, including:
-//! - BoxTransformerOnce: Single ownership, one-time use
-//! - ArcTransformerOnce: Thread-safe shared ownership, reusable (cloneable)
-//! - RcTransformerOnce: Single-threaded shared ownership, reusable
-//!   (cloneable)
 
-use prism3_function::{ArcTransformerOnce, BoxTransformerOnce, RcTransformerOnce, TransformerOnce};
+use prism3_function::{BoxTransformerOnce, TransformerOnce};
 
 fn main() {
-    println!("=== TransformerOnce Demo ===\n");
+    println!("=== TransformerOnce Demo - One-Time Transformation ===\n");
 
-    box_transformer_once_demo();
-    arc_transformer_once_demo();
-    rc_transformer_once_demo();
-    composition_demo();
-    blanket_impl_demo();
-}
-
-// ============================================================================
-// BoxTransformerOnce Demonstration
-// ============================================================================
-
-fn box_transformer_once_demo() {
-    println!("--- BoxTransformerOnce Demo ---");
-
-    // Basic usage - consumes input
-    let to_upper = BoxTransformerOnce::new(|s: String| s.to_uppercase());
-    let input = String::from("hello world");
+    // ====================================================================
+    // Part 1: BoxTransformerOnce - One-time use
+    // ====================================================================
+    println!("--- BoxTransformerOnce ---");
+    let parse = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
     println!(
-        "to_upper.transform(\"hello world\") = {}",
-        to_upper.transform(input)
+        "parse.transform(\"42\".to_string()) = {}",
+        parse.transform("42".to_string())
     );
-    // Note: input has been consumed and cannot be used anymore
+    // parse is consumed and cannot be used again
 
-    // Identity transformer
-    let identity = BoxTransformerOnce::<i32>::identity();
-    println!("identity.transform(42) = {}", identity.transform(42));
-
-    // Constant transformer
-    let constant = BoxTransformerOnce::constant(100);
-    println!("constant.transform(42) = {}", constant.transform(42));
-
-    // Capturing values by move
-    let prefix = String::from("Hello, ");
-    let add_prefix = BoxTransformerOnce::new(move |name: String| format!("{}{}", prefix, name));
-    println!(
-        "add_prefix.transform(\"Alice\") = {}",
-        add_prefix.transform("Alice".to_string())
-    );
-
-    println!();
-}
-
-// ============================================================================
-// ArcTransformerOnce Demonstration
-// ============================================================================
-
-fn arc_transformer_once_demo() {
-    println!("--- ArcTransformerOnce Demo ---");
-
-    // Basic usage
-    let to_upper = ArcTransformerOnce::new(|s: String| s.to_uppercase());
-    println!(
-        "to_upper.transform(\"hello\") = {}",
-        to_upper.transform("hello".to_string())
-    );
-
-    // Cloneable - can be reused
-    let double = ArcTransformerOnce::new(|x: i32| x * 2);
-    let cloned = double.clone();
-
-    println!("double.transform(21) = {}", double.transform(21));
-    println!("cloned.transform(10) = {}", cloned.transform(10));
-
-    // Identity transformer
-    let identity = ArcTransformerOnce::<i32>::identity();
-    println!("identity.transform(42) = {}", identity.transform(42));
-
-    // Constant transformer
-    let constant = ArcTransformerOnce::constant(100);
-    println!("constant.transform(42) = {}", constant.transform(42));
-
-    // Composition with references (original remains usable)
-    let add_one = ArcTransformerOnce::new(|x: i32| x + 1);
-    let triple = ArcTransformerOnce::new(|x: i32| x * 3);
-    let composed = add_one.and_then(&triple);
-
-    println!("add_one.transform(5) = {}", add_one.transform(5));
-    println!(
-        "composed (add_one then triple).transform(5) = {}",
-        composed.transform(5)
-    ); // (5 + 1) * 3 = 18
-
-    println!();
-}
-
-// ============================================================================
-// RcTransformerOnce Demonstration
-// ============================================================================
-
-fn rc_transformer_once_demo() {
-    println!("--- RcTransformerOnce Demo ---");
-
-    // Basic usage
-    let to_upper = RcTransformerOnce::new(|s: String| s.to_uppercase());
-    println!(
-        "to_upper.transform(\"hello\") = {}",
-        to_upper.transform("hello".to_string())
-    );
-
-    // Cloneable - can be reused
-    let double = RcTransformerOnce::new(|x: i32| x * 2);
-    let cloned = double.clone();
-
-    println!("double.transform(21) = {}", double.transform(21));
-    println!("cloned.transform(10) = {}", cloned.transform(10));
-
-    // Identity transformer
-    let identity = RcTransformerOnce::<i32>::identity();
-    println!("identity.transform(42) = {}", identity.transform(42));
-
-    // Constant transformer
-    let constant = RcTransformerOnce::constant(100);
-    println!("constant.transform(42) = {}", constant.transform(42));
-
-    // Composition with references (original remains usable)
-    let add_one = RcTransformerOnce::new(|x: i32| x + 1);
-    let triple = RcTransformerOnce::new(|x: i32| x * 3);
-    let composed = add_one.and_then(&triple);
-
-    println!("add_one.transform(5) = {}", add_one.transform(5));
-    println!(
-        "composed (add_one then triple).transform(5) = {}",
-        composed.transform(5)
-    ); // (5 + 1) * 3 = 18
-
-    println!();
-}
-
-// ============================================================================
-// Composition Demonstration
-// ============================================================================
-
-fn composition_demo() {
-    println!("--- Composition Demo ---");
-
-    // and_then: self -> after
+    // Composition
     let add_one = BoxTransformerOnce::new(|x: i32| x + 1);
-    let triple = |x: i32| x * 3;
-    let composed1 = add_one.and_then(triple);
-    println!(
-        "and_then (add_one then triple): 5 -> {}",
-        composed1.transform(5)
-    ); // (5 + 1) * 3 = 18
-
-    // compose: before -> self
     let double = BoxTransformerOnce::new(|x: i32| x * 2);
-    let add_one = |x: i32| x + 1;
-    let composed2 = double.compose(add_one);
-    println!(
-        "compose (add_one then double): 5 -> {}",
-        composed2.transform(5)
-    ); // (5 + 1) * 2 = 12
-
-    // Chain composition with ArcTransformerOnce
-    let t1 = ArcTransformerOnce::new(|x: i32| x + 1);
-    let t2 = ArcTransformerOnce::new(|x: i32| x * 2);
-    let t3 = ArcTransformerOnce::new(|x: i32| x - 3);
-    let chained = t1.and_then(&t2).and_then(&t3);
-
-    println!("Original t1.transform(5) = {}", t1.transform(5));
-    println!("chain (add 1, mul 2, sub 3): 5 -> {}", chained.transform(5)); // ((5 + 1) * 2) - 3 = 9
-
+    let to_string = BoxTransformerOnce::new(|x: i32| x.to_string());
+    let pipeline = add_one.and_then(double).and_then(to_string);
+    println!("pipeline(5) = {} (expected: \"12\")", pipeline.transform(5));
     println!();
-}
 
-// ============================================================================
-// Blanket Implementation Demonstration
-// ============================================================================
+    // ====================================================================
+    // Part 2: Practical Examples
+    // ====================================================================
+    println!("=== Practical Examples ===\n");
 
-fn blanket_impl_demo() {
-    println!("--- Blanket Implementation Demo ---");
-
-    // Closure can be used as TransformerOnce directly
-    let double = |x: i32| x * 2;
+    // Example 1: String transformation pipeline
+    println!("--- String Transformation Pipeline ---");
+    let to_upper = BoxTransformerOnce::new(|s: String| s.to_uppercase());
     println!(
-        "Closure as TransformerOnce: double.transform(21) = {}",
-        double.transform(21)
+        "to_upper(\"hello\") = {}",
+        to_upper.transform("hello".to_string())
     );
+    println!();
 
-    // Function pointer can be used as TransformerOnce directly
-    fn triple(x: i32) -> i32 {
-        x * 3
+    // Example 2: Type conversion with ownership transfer
+    println!("--- Type Conversion ---");
+    let into_bytes = BoxTransformerOnce::new(|s: String| s.into_bytes());
+    let bytes = into_bytes.transform("hello".to_string());
+    println!("into_bytes(\"hello\") = {:?}", bytes);
+    println!();
+
+    // Example 3: Complex pipeline
+    println!("--- Complex Pipeline ---");
+    let parser = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
+    let doubler = BoxTransformerOnce::new(|x: i32| x * 2);
+    let formatter = BoxTransformerOnce::new(|x: i32| format!("Result: {}", x));
+    let parse_and_process = parser.and_then(doubler).and_then(formatter);
+
+    println!(
+        "parse_and_process(\"21\") = {}",
+        parse_and_process.transform("21".to_string())
+    );
+    println!();
+
+    // ====================================================================
+    // Part 3: Trait Usage
+    // ====================================================================
+    println!("=== Trait Usage ===\n");
+
+    fn apply_transformer_once<F: TransformerOnce<String, usize>>(f: F, x: String) -> usize {
+        f.transform(x)
     }
+
+    let length = BoxTransformerOnce::new(|s: String| s.len());
     println!(
-        "Function as TransformerOnce: triple.transform(14) = {}",
-        triple.transform(14)
+        "Via trait once: {}",
+        apply_transformer_once(length, "hello".to_string())
     );
 
-    // Using with iterator methods
-    let values = vec![1, 2, 3, 4, 5];
-    let transformer = ArcTransformerOnce::new(|x: i32| x * 2);
-
-    println!("\nUsing with iterator:");
-    let results: Vec<i32> = values
-        .into_iter()
-        .map(|x| transformer.clone().transform(x))
-        .collect();
-    println!("Results: {:?}", results);
-
-    println!();
+    println!("\n=== Demo Complete ===");
 }

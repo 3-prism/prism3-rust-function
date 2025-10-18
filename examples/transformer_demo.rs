@@ -6,200 +6,137 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Transformer demonstration
-//!
-//! This example demonstrates the usage of Transformer types, including:
-//! - BoxTransformer: Single ownership, reusable
-//! - ArcTransformer: Thread-safe shared ownership, reusable
-//! - RcTransformer: Single-threaded shared ownership, reusable
 
 use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+use std::collections::HashMap;
+use std::thread;
 
 fn main() {
-    println!("=== Transformer Demo ===\n");
+    println!("=== Transformer Demo - Type Transformation (consumes T) ===\n");
 
-    box_transformer_demo();
-    arc_transformer_demo();
-    rc_transformer_demo();
-    composition_demo();
-    blanket_impl_demo();
-}
+    // ====================================================================
+    // Part 1: BoxTransformer - Single ownership, reusable
+    // ====================================================================
+    println!("--- BoxTransformer ---");
+    let double = BoxTransformer::new(|x: i32| x * 2);
+    println!("double.transform(21) = {}", double.transform(21));
+    println!("double.transform(42) = {}", double.transform(42));
 
-// ============================================================================
-// BoxTransformer Demonstration
-// ============================================================================
+    // Identity and constant
+    let identity = BoxTransformer::<i32, i32>::identity();
+    println!("identity.transform(42) = {}", identity.transform(42));
 
-fn box_transformer_demo() {
-    println!("--- BoxTransformer Demo ---");
-
-    // Basic usage
-    let double = BoxTransformer::new(|x: &i32| x * 2);
-    println!("double.transform(&21) = {}", double.transform(&21));
-    println!("double.transform(&10) = {}", double.transform(&10));
-
-    // Identity transformer
-    let identity = BoxTransformer::<i32>::identity();
-    println!("identity.transform(&42) = {}", identity.transform(&42));
-
-    // Constant transformer
-    let constant = BoxTransformer::constant(100);
-    println!("constant.transform(&1) = {}", constant.transform(&1));
-    println!("constant.transform(&99) = {}", constant.transform(&99));
-
-    // Composition
-    let add_one = BoxTransformer::new(|x: &i32| x + 1);
-    let triple = BoxTransformer::new(|x: &i32| x * 3);
-    let composed = add_one.and_then(triple);
-    println!(
-        "composed (add_one then triple).transform(&5) = {}",
-        composed.transform(&5)
-    ); // (5 + 1) * 3 = 18
-
+    let constant = BoxTransformer::constant("hello");
+    println!("constant.transform(123) = {}", constant.transform(123));
     println!();
-}
 
-// ============================================================================
-// ArcTransformer Demonstration
-// ============================================================================
+    // ====================================================================
+    // Part 2: ArcTransformer - Thread-safe, cloneable
+    // ====================================================================
+    println!("--- ArcTransformer ---");
+    let arc_double = ArcTransformer::new(|x: i32| x * 2);
+    let arc_cloned = arc_double.clone();
 
-fn arc_transformer_demo() {
-    println!("--- ArcTransformer Demo ---");
+    println!("arc_double.transform(21) = {}", arc_double.transform(21));
+    println!("arc_cloned.transform(42) = {}", arc_cloned.transform(42));
 
-    // Basic usage
-    let double = ArcTransformer::new(|x: &i32| x * 2);
-    println!("double.transform(&21) = {}", double.transform(&21));
-
-    // Cloneable
-    let cloned = double.clone();
-    println!("cloned.transform(&10) = {}", cloned.transform(&10));
+    // Multi-threaded usage
+    let for_thread = arc_double.clone();
+    let handle = thread::spawn(move || for_thread.transform(100));
     println!(
-        "original still usable: double.transform(&5) = {}",
-        double.transform(&5)
+        "In main thread: arc_double.transform(50) = {}",
+        arc_double.transform(50)
+    );
+    println!("In child thread: result = {}", handle.join().unwrap());
+    println!();
+
+    // ====================================================================
+    // Part 3: RcTransformer - Single-threaded, cloneable
+    // ====================================================================
+    println!("--- RcTransformer ---");
+    let rc_double = RcTransformer::new(|x: i32| x * 2);
+    let rc_cloned = rc_double.clone();
+
+    println!("rc_double.transform(21) = {}", rc_double.transform(21));
+    println!("rc_cloned.transform(42) = {}", rc_cloned.transform(42));
+    println!();
+
+    // ====================================================================
+    // Part 4: Practical Examples
+    // ====================================================================
+    println!("=== Practical Examples ===\n");
+
+    // Example 1: String transformation
+    println!("--- String Transformation ---");
+    let to_upper = BoxTransformer::new(|s: String| s.to_uppercase());
+    println!(
+        "to_upper.transform('hello') = {}",
+        to_upper.transform("hello".to_string())
+    );
+    println!(
+        "to_upper.transform('world') = {}",
+        to_upper.transform("world".to_string())
+    );
+    println!();
+
+    // Example 2: Type conversion pipeline
+    println!("--- Type Conversion Pipeline ---");
+    let parse_int = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
+    let double_int = BoxTransformer::new(|x: i32| x * 2);
+    let to_string = BoxTransformer::new(|x: i32| x.to_string());
+
+    let pipeline = parse_int.and_then(double_int).and_then(to_string);
+    println!(
+        "pipeline.transform('21') = {}",
+        pipeline.transform("21".to_string())
+    );
+    println!();
+
+    // Example 3: Shared transformation logic
+    println!("--- Shared Transformation Logic ---");
+    let square = ArcTransformer::new(|x: i32| x * x);
+
+    // Can be shared across different parts of the program
+    let transformer1 = square.clone();
+    let transformer2 = square.clone();
+
+    println!("transformer1.transform(5) = {}", transformer1.transform(5));
+    println!("transformer2.transform(7) = {}", transformer2.transform(7));
+    println!("square.transform(3) = {}", square.transform(3));
+    println!();
+
+    // Example 4: Transformer registry
+    println!("--- Transformer Registry ---");
+    let mut transformers: HashMap<String, RcTransformer<i32, String>> = HashMap::new();
+
+    transformers.insert(
+        "double".to_string(),
+        RcTransformer::new(|x: i32| format!("Doubled: {}", x * 2)),
+    );
+    transformers.insert(
+        "square".to_string(),
+        RcTransformer::new(|x: i32| format!("Squared: {}", x * x)),
     );
 
-    // Identity transformer
-    let identity = ArcTransformer::<i32>::identity();
-    println!("identity.transform(&42) = {}", identity.transform(&42));
-
-    // Constant transformer
-    let constant = ArcTransformer::constant(100);
-    println!("constant.transform(&1) = {}", constant.transform(&1));
-
-    // Composition with references (original remains usable)
-    let add_one = ArcTransformer::new(|x: &i32| x + 1);
-    let triple = ArcTransformer::new(|x: &i32| x * 3);
-    let composed = add_one.and_then(&triple);
-
-    println!("add_one.transform(&5) = {}", add_one.transform(&5));
-    println!("composed.transform(&5) = {}", composed.transform(&5));
-
-    println!();
-}
-
-// ============================================================================
-// RcTransformer Demonstration
-// ============================================================================
-
-fn rc_transformer_demo() {
-    println!("--- RcTransformer Demo ---");
-
-    // Basic usage
-    let double = RcTransformer::new(|x: &i32| x * 2);
-    println!("double.transform(&21) = {}", double.transform(&21));
-
-    // Cloneable
-    let cloned = double.clone();
-    println!("cloned.transform(&10) = {}", cloned.transform(&10));
-    println!(
-        "original still usable: double.transform(&5) = {}",
-        double.transform(&5)
-    );
-
-    // Identity transformer
-    let identity = RcTransformer::<i32>::identity();
-    println!("identity.transform(&42) = {}", identity.transform(&42));
-
-    // Constant transformer
-    let constant = RcTransformer::constant(100);
-    println!("constant.transform(&1) = {}", constant.transform(&1));
-
-    // Composition with references (original remains usable)
-    let add_one = RcTransformer::new(|x: &i32| x + 1);
-    let triple = RcTransformer::new(|x: &i32| x * 3);
-    let composed = add_one.and_then(&triple);
-
-    println!("add_one.transform(&5) = {}", add_one.transform(&5));
-    println!("composed.transform(&5) = {}", composed.transform(&5));
-
-    println!();
-}
-
-// ============================================================================
-// Composition Demonstration
-// ============================================================================
-
-fn composition_demo() {
-    println!("--- Composition Demo ---");
-
-    // and_then: self -> after
-    let double = BoxTransformer::new(|x: &i32| x * 2);
-    let add_one = BoxTransformer::new(|x: &i32| x + 1);
-    let composed1 = double.and_then(add_one);
-    println!(
-        "and_then (double then add_one): 5 -> {}",
-        composed1.transform(&5)
-    ); // 5 * 2 + 1 = 11
-
-    // compose: before -> self
-    let double = BoxTransformer::new(|x: &i32| x * 2);
-    let add_one = BoxTransformer::new(|x: &i32| x + 1);
-    let composed2 = double.compose(add_one);
-    println!(
-        "compose (add_one then double): 5 -> {}",
-        composed2.transform(&5)
-    ); // (5 + 1) * 2 = 12
-
-    // Chain composition
-    let t1 = ArcTransformer::new(|x: &i32| x + 1);
-    let t2 = ArcTransformer::new(|x: &i32| x * 2);
-    let t3 = ArcTransformer::new(|x: &i32| x - 3);
-    let chained = t1.and_then(&t2).and_then(&t3);
-    println!(
-        "chain (add 1, mul 2, sub 3): 5 -> {}",
-        chained.transform(&5)
-    ); // ((5 + 1) * 2) - 3 = 9
-
-    println!();
-}
-
-// ============================================================================
-// Blanket Implementation Demonstration
-// ============================================================================
-
-fn blanket_impl_demo() {
-    println!("--- Blanket Implementation Demo ---");
-
-    // Closure can be used as Transformer directly
-    let double = |x: &i32| x * 2;
-    println!(
-        "Closure as Transformer: double.transform(&21) = {}",
-        double.transform(&21)
-    );
-
-    // Function pointer can be used as Transformer directly
-    fn triple(x: &i32) -> i32 {
-        x * 3
+    if let Some(transformer) = transformers.get("double") {
+        println!("Transformer 'double': {}", transformer.transform(7));
     }
-    println!(
-        "Function as Transformer: triple.transform(&14) = {}",
-        triple.transform(&14)
-    );
-
-    // Using with iterator methods
-    let values = vec![1, 2, 3, 4, 5];
-    let transformer = BoxTransformer::new(|x: &i32| x * 2);
-    let results: Vec<i32> = values.iter().map(|x| transformer.transform(x)).collect();
-    println!("Map with transformer: {:?} -> {:?}", values, results);
-
+    if let Some(transformer) = transformers.get("square") {
+        println!("Transformer 'square': {}", transformer.transform(7));
+    }
     println!();
+
+    // ====================================================================
+    // Part 5: Trait Usage
+    // ====================================================================
+    println!("=== Trait Usage ===\n");
+
+    fn apply_transformer<F: Transformer<i32, String>>(f: &F, x: i32) -> String {
+        f.transform(x)
+    }
+
+    let to_string = BoxTransformer::new(|x: i32| format!("Value: {}", x));
+    println!("Via trait: {}", apply_transformer(&to_string, 42));
+
+    println!("\n=== Demo Complete ===");
 }

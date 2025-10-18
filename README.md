@@ -22,7 +22,7 @@ This crate provides comprehensive functional programming abstractions for Rust, 
 
 ### Key Features
 
-- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, Function, and Transformer
+- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, and Function
 - **Multiple Ownership Models**: Box-based single ownership, Arc-based thread-safe sharing, and Rc-based single-threaded sharing
 - **Flexible API Design**: Trait-based unified interface with concrete implementations optimized for different scenarios
 - **Method Chaining**: All types support fluent API and functional composition
@@ -88,20 +88,6 @@ Transforms values from type `T` to type `R`. Similar to Java's `Function<T, R>`.
 - Both one-time and reusable variants
 - Support for consuming transformations
 
-#### Transformer<T>
-
-Specialization of `Function<T, T>` for same-type transformations.
-
-**Implementations:**
-- `BoxTransformer<T>`: Single ownership, one-time use
-- `BoxFnTransformer<T>`: Reusable, single ownership
-- `ArcFnTransformer<T>`: Thread-safe, cloneable
-- `RcFnTransformer<T>`: Single-threaded, cloneable
-
-**Features:**
-- Optimized for same-type transformations
-- Convenient `into_fn()` for iterator integration
-- Method chaining: `and_then`, `compose`
 
 ### Installation
 
@@ -181,22 +167,6 @@ let parse_and_double = BoxOnceFunction::new(|s: String| s.parse::<i32>().ok())
 assert_eq!(parse_and_double.apply("21".to_string()), 42);
 ```
 
-#### Using Transformer
-
-```rust
-use prism3_function::{BoxFnTransformer, Transformer};
-
-// Create a reusable transformer
-let double = BoxFnTransformer::new(|x: i32| x * 2);
-
-// Use with iterators
-let values = vec![1, 2, 3, 4, 5];
-let result: Vec<i32> = values.into_iter()
-    .map(double.into_fn())
-    .collect();
-
-assert_eq!(result, vec![2, 4, 6, 8, 10]);
-```
 
 ### Design Philosophy
 
@@ -216,7 +186,6 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 | Consumer | BoxConsumer | ArcConsumer | RcConsumer |
 | Supplier | BoxSupplier | ArcSupplier | RcSupplier |
 | Function | BoxOnceFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
-| Transformer | BoxTransformer<br>BoxFnTransformer | ArcFnTransformer | RcFnTransformer |
 
 **Legend:**
 - **Box**: Single ownership, cannot be cloned, consumes self
@@ -245,7 +214,7 @@ Hu Haixing <starfish.hu@gmail.com>
 
 ### 核心特性
 
-- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Function（函数）和 Transformer（转换器）
+- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Function（函数）
 - **多种所有权模型**：基于 Box 的单一所有权、基于 Arc 的线程安全共享、基于 Rc 的单线程共享
 - **灵活的 API 设计**：基于 trait 的统一接口，针对不同场景优化的具体实现
 - **方法链式调用**：所有类型都支持流式 API 和函数组合
@@ -311,20 +280,6 @@ Hu Haixing <starfish.hu@gmail.com>
 - 同时提供一次性和可重复使用的变体
 - 支持消耗型转换
 
-#### Transformer<T>（转换器）
-
-`Function<T, T>` 的特化版本，用于相同类型的转换。
-
-**实现类型：**
-- `BoxTransformer<T>`：单一所有权，一次性使用
-- `BoxFnTransformer<T>`：可重复使用，单一所有权
-- `ArcFnTransformer<T>`：线程安全，可克隆
-- `RcFnTransformer<T>`：单线程，可克隆
-
-**特性：**
-- 针对相同类型转换进行优化
-- 提供 `into_fn()` 方便集成迭代器
-- 方法链式调用：`and_then`、`compose`
 
 ### 安装
 
@@ -404,22 +359,6 @@ let parse_and_double = BoxOnceFunction::new(|s: String| s.parse::<i32>().ok())
 assert_eq!(parse_and_double.apply("21".to_string()), 42);
 ```
 
-#### 使用 Transformer（转换器）
-
-```rust
-use prism3_function::{BoxFnTransformer, Transformer};
-
-// 创建可重复使用的转换器
-let double = BoxFnTransformer::new(|x: i32| x * 2);
-
-// 与迭代器一起使用
-let values = vec![1, 2, 3, 4, 5];
-let result: Vec<i32> = values.into_iter()
-    .map(double.into_fn())
-    .collect();
-
-assert_eq!(result, vec![2, 4, 6, 8, 10]);
-```
 
 ### 设计理念
 
@@ -439,7 +378,6 @@ assert_eq!(result, vec![2, 4, 6, 8, 10]);
 | Consumer | BoxConsumer | ArcConsumer | RcConsumer |
 | Supplier | BoxSupplier | ArcSupplier | RcSupplier |
 | Function | BoxOnceFunction<br>BoxFnFunction | ArcFnFunction | RcFnFunction |
-| Transformer | BoxTransformer<br>BoxFnTransformer | ArcFnTransformer | RcFnTransformer |
 
 **图例：**
 - **Box**：单一所有权，不可克隆，消耗 self
