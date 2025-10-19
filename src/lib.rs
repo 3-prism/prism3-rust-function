@@ -19,6 +19,7 @@
 //! - **Predicate types**: Functions that test values and return boolean
 //! - **BiPredicate types**: Functions that test two values and return boolean
 //! - **Supplier types**: Functions that produce values without input
+//! - **Tester types**: Functions that test conditions without input
 //! - **Comparator types**: Functions that compare values and return ordering
 //!
 //! # Author
@@ -40,6 +41,7 @@ pub mod readonly_bi_consumer;
 pub mod readonly_consumer;
 pub mod supplier;
 pub mod supplier_once;
+pub mod tester;
 pub mod transformer;
 pub mod transformer_once;
 
@@ -75,6 +77,7 @@ pub use readonly_consumer::{
 };
 pub use supplier::{ArcSupplier, BoxSupplier, RcSupplier, Supplier};
 pub use supplier_once::{BoxSupplierOnce, SupplierOnce};
+pub use tester::{ArcTester, BoxTester, FnTesterOps, RcTester, Tester};
 pub use transformer::{
     ArcConditionalTransformer, ArcTransformer, ArcUnaryOperator, BoxConditionalTransformer,
     BoxTransformer, BoxUnaryOperator, FnTransformerOps, RcConditionalTransformer, RcTransformer,
