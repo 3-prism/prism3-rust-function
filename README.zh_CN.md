@@ -15,7 +15,7 @@
 
 ## 核心特性
 
-- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Transformer（转换器）、Mutator（变异器）、BiConsumer（双参数消费者）、BiPredicate（双参数谓词）、BiTransformer（双参数转换器）、Comparator（比较器）
+- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Transformer（转换器）、Mutator（变异器）、BiConsumer（双参数消费者）、BiPredicate（双参数谓词）、BiTransformer（双参数转换器）、Comparator（比较器）、Tester（测试器）
 - **多种所有权模型**：基于 Box 的单一所有权、基于 Arc 的线程安全共享、基于 Rc 的单线程共享
 - **灵活的 API 设计**：基于 trait 的统一接口，针对不同场景优化的具体实现
 - **方法链式调用**：所有类型都支持流式 API 和函数组合
@@ -28,16 +28,16 @@
 
 测试值是否满足条件，返回 `bool`。类似于 Java 的 `Predicate<T>` 接口。
 
-**核心函数：**
+#### 核心函数
 - `test(&self, value: &T) -> bool` - 测试值是否满足谓词条件
 - 对应于 `Fn(&T) -> bool` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxPredicate<T>`：单一所有权，不可克隆
 - `ArcPredicate<T>`：线程安全的共享所有权，可克隆
 - `RcPredicate<T>`：单线程共享所有权，可克隆
 
-**便利方法：**
+#### 便利方法
 - 逻辑组合：`and`、`or`、`not`、`xor`、`nand`、`nor`
 - 类型保持的方法链式调用（每个方法返回相同的具体类型）
 - 扩展 trait `FnPredicateOps` 用于闭包 - 提供返回 `BoxPredicate` 的组合方法
@@ -76,7 +76,7 @@ let combined_box = box_pred.and(|x: &i32| x % 2 == 0);
 // box_pred 在这里已不可用
 ```
 
-**示例：**
+#### 示例
 
 ```rust
 use prism3_function::{ArcPredicate, Predicate, FnPredicateOps};
@@ -105,23 +105,23 @@ let result: Vec<i32> = numbers
 
 接受单个输入参数并执行操作，不返回结果。类似于 Java 的 `Consumer<T>`。
 
-**核心函数：**
+#### 核心函数
 - `accept(&mut self, value: &T)` - 对值引用执行操作
 - 对应于 `FnMut(&T)` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxConsumer<T>`：单一所有权，使用 `FnMut(&T)`
 - `ArcConsumer<T>`：使用 `Arc<Mutex<>>` 的线程安全实现，可克隆
 - `RcConsumer<T>`：使用 `Rc<RefCell<>>` 的单线程实现，可克隆
 - `BoxConsumerOnce<T>`：一次性使用，使用 `FnOnce(&T)`
 
-**便利方法：**
+#### 便利方法
 - `and_then` - 顺序链接消费者
 - `when` - 使用谓词进行条件执行
 - 类型转换：`into_box`、`into_arc`、`into_rc`
 - 扩展 trait `FnConsumerOps` 用于闭包
 
-**相关类型：**
+#### 相关类型
 - `ReadonlyConsumer` - 用于纯观察，不修改消费者状态
 
 **⚠️ 重要：组合方法中的所有权转移**
@@ -132,9 +132,9 @@ let result: Vec<i32> = numbers
 - **如需保留原始对象**：必须先显式 `clone()`（仅适用于 `ArcConsumer` 和 `RcConsumer`）
 - **BoxConsumer 不可克隆**：一旦用于组合，就会被消耗且不再可用
 
-**示例：**
+#### 示例
 
-### 基本用法
+##### 基本用法
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -149,7 +149,7 @@ consumer.accept(&value);
 // value 保持不变
 ```
 
-### 使用 `and_then` 链式调用
+##### 使用 `and_then` 链式调用
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -171,7 +171,7 @@ consumer.accept(&42);
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
-### 使用 `when` 条件执行
+##### 使用 `when` 条件执行
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -191,7 +191,7 @@ consumer.accept(&-5);   // 不被记录
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
-### 使用 `or_else` 实现条件分支
+##### 使用 `or_else` 实现条件分支
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -219,28 +219,28 @@ assert_eq!(log.lock().unwrap().len(), 2);
 
 通过接受可变引用就地修改值。类似于 Java 的 `UnaryOperator<T>`，但采用就地修改。
 
-**核心函数：**
+#### 核心函数
 - `mutate(&mut self, value: &mut T)` - 就地修改值
 - 对应于 `FnMut(&mut T)` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxMutator<T>`：单一所有权，使用 `FnMut(&mut T)`
 - `ArcMutator<T>`：使用 `Arc<Mutex<>>` 的线程安全实现，可克隆
 - `RcMutator<T>`：使用 `Rc<RefCell<>>` 的单线程实现，可克隆
 - `BoxMutatorOnce<T>`：一次性使用，使用 `FnOnce(&mut T)`
 
-**便利方法：**
+#### 便利方法
 - `and_then` - 顺序链接变异器
 - `when` - 创建条件变异器（if-then 模式）
 - `or_else` - 为条件变异器添加 else 分支（if-then-else 模式）
 - 类型转换：`into_box`、`into_arc`、`into_rc`
 - 扩展 trait `FnMutatorOps` 用于闭包
 
-**与 Consumer 的主要区别：**
+#### 与 Consumer 的主要区别
 - **Consumer**：接受 `&T`（读取值，不修改输入）
 - **Mutator**：接受 `&mut T`（就地修改值）
 
-**示例：**
+#### 示例
 
 ```rust
 use prism3_function::{BoxMutator, Mutator};
@@ -271,24 +271,24 @@ assert_eq!(negative, -6); // -5 - 1
 
 无需输入参数即可惰性生成值。类似于 Java 的 `Supplier<T>`。
 
-**核心函数：**
+#### 核心函数
 - `get(&mut self) -> T` - 生成并返回一个值
 - 对应于 `FnMut() -> T` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxSupplier<T>`：单一所有权，使用 `FnMut() -> T`
 - `ArcSupplier<T>`：使用 `Arc<Mutex<>>` 的线程安全实现，可克隆
 - `RcSupplier<T>`：使用 `Rc<RefCell<>>` 的单线程实现，可克隆
 - `BoxSupplierOnce<T>`：一次性使用，使用 `FnOnce() -> T`
 
-**便利方法：**
+#### 便利方法
 - `map` - 转换供应者输出
 - `filter` - 使用谓词过滤供应者输出
 - `flat_map` - 链接供应者
 - 工厂方法：`constant`、`counter`
 - 类型转换：`into_box`、`into_arc`、`into_rc`
 
-**示例：**
+#### 示例
 
 ```rust
 use prism3_function::{BoxSupplier, Supplier};
@@ -318,17 +318,17 @@ assert_eq!(pipeline.get(), 25);
 
 通过消耗输入将类型 `T` 的值转换为类型 `R`。类似于 Java 的 `Function<T, R>`。
 
-**核心函数：**
+#### 核心函数
 - `transform(&self, input: T) -> R` - 将输入值转换为输出值（消耗输入）
 - 对应于 `Fn(T) -> R` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxTransformer<T, R>`：可重复使用，单一所有权（Fn）
 - `ArcTransformer<T, R>`：线程安全，可克隆（Arc<Fn>）
 - `RcTransformer<T, R>`：单线程，可克隆（Rc<Fn>）
 - `BoxTransformerOnce<T, R>`：一次性使用（FnOnce）
 
-**便利方法：**
+#### 便利方法
 - `and_then` - 顺序组合转换器（f.and_then(g) = g(f(x))）
 - `compose` - 逆序组合转换器（f.compose(g) = f(g(x))）
 - `when` - 使用谓词创建条件转换器
@@ -336,7 +336,7 @@ assert_eq!(pipeline.get(), 25);
 - 类型转换：`into_box`、`into_arc`、`into_rc`、`into_fn`
 - 扩展 trait `FnTransformerOps` 用于闭包
 
-**相关类型：**
+#### 相关类型
 - `UnaryOperator<T>` - `Transformer<T, T>` 的类型别名
 
 **⚠️ 重要：组合方法中的所有权转移**
@@ -347,9 +347,9 @@ assert_eq!(pipeline.get(), 25);
 - **如需保留原始对象**：必须先显式 `clone()`（仅适用于 `ArcTransformer` 和 `RcTransformer`）
 - **BoxTransformer 不可克隆**：一旦用于组合，就会被消耗且不再可用
 
-**示例：**
+#### 示例
 
-### 基本用法和 `and_then` 链式调用
+##### 基本用法和 `and_then` 链式调用
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -363,7 +363,7 @@ assert_eq!(parse_and_double.transform("21".to_string()), 42);
 assert_eq!(parse_and_double.transform("invalid".to_string()), 0);
 ```
 
-### 使用 `when` 条件转换
+##### 使用 `when` 条件转换
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -376,7 +376,7 @@ assert_eq!(double_if_positive.transform(5), Some(10));
 assert_eq!(double_if_positive.transform(-5), None);
 ```
 
-### 使用 `or_else` 实现条件分支
+##### 使用 `or_else` 实现条件分支
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -394,23 +394,23 @@ assert_eq!(transform.transform(-5), "非正数: -6");
 
 接受两个输入参数并执行操作，不返回结果。类似于 Java 的 `BiConsumer<T, U>`。
 
-**核心函数：**
+#### 核心函数
 - `accept(&mut self, first: &T, second: &U)` - 对两个值引用执行操作
 - 对应于 `FnMut(&T, &U)` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxBiConsumer<T, U>`：单一所有权
 - `ArcBiConsumer<T, U>`：线程安全，可克隆
 - `RcBiConsumer<T, U>`：单线程，可克隆
 - `BoxBiConsumerOnce<T, U>`：一次性使用
 
-**便利方法：**
+#### 便利方法
 - `and_then` - 顺序链接双参数消费者
 - `when` - 使用双参数谓词进行条件执行
 - 类型转换：`into_box`、`into_arc`、`into_rc`
 - 扩展 trait `FnBiConsumerOps` 用于闭包
 
-**相关类型：**
+#### 相关类型
 - `ReadonlyBiConsumer` - 用于纯观察，不修改消费者状态
 
 **⚠️ 重要：组合方法中的所有权转移**
@@ -421,9 +421,9 @@ assert_eq!(transform.transform(-5), "非正数: -6");
 - **如需保留原始对象**：必须先显式 `clone()`（仅适用于 `ArcBiConsumer` 和 `RcBiConsumer`）
 - **BoxBiConsumer 不可克隆**：一旦用于组合，就会被消耗且不再可用
 
-**示例：**
+#### 示例
 
-### 基本用法
+##### 基本用法
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -436,7 +436,7 @@ let mut bi_consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
 bi_consumer.accept(&10, &20);
 ```
 
-### 使用 `and_then` 链式调用
+##### 使用 `and_then` 链式调用
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -459,7 +459,7 @@ assert_eq!(log.lock().unwrap().len(), 2);
 // log 包含: ["和: 7", "积: 12"]
 ```
 
-### 使用 `when` 条件执行
+##### 使用 `when` 条件执行
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -479,7 +479,7 @@ bi_consumer.accept(&-1, &4);  // 不被记录
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
-### 使用 `or_else` 实现条件分支
+##### 使用 `or_else` 实现条件分支
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -507,16 +507,16 @@ assert_eq!(log.lock().unwrap().len(), 2);
 
 测试两个值是否满足条件，返回 `bool`。类似于 Java 的 `BiPredicate<T, U>`。
 
-**核心函数：**
+#### 核心函数
 - `test(&self, first: &T, second: &U) -> bool` - 测试两个值是否满足谓词条件
 - 对应于 `Fn(&T, &U) -> bool` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxBiPredicate<T, U>`：单一所有权，不可克隆
 - `ArcBiPredicate<T, U>`：线程安全，可克隆
 - `RcBiPredicate<T, U>`：单线程，可克隆
 
-**便利方法：**
+#### 便利方法
 - 逻辑组合：`and`、`or`、`not`、`xor`、`nand`、`nor`
 - 类型保持的方法链式调用
 - 类型转换：`into_box`、`into_arc`、`into_rc`
@@ -548,7 +548,7 @@ let combined_box = box_pred.and(|x: &i32, y: &i32| x > y);
 // box_pred 在这里已不可用
 ```
 
-**示例：**
+#### 示例
 
 ```rust
 use prism3_function::{ArcBiPredicate, BiPredicate};
@@ -570,23 +570,23 @@ assert!(first_larger.test(&10, &5));
 
 转换两个输入值以产生结果值。类似于 Java 的 `BiFunction<T, U, R>`。
 
-**核心函数：**
+#### 核心函数
 - `transform(&self, first: T, second: U) -> R` - 将两个输入值转换为输出值（消耗输入）
 - 对应于 `Fn(T, U) -> R` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxBiTransformer<T, U, R>`：可重复使用，单一所有权（Fn）
 - `ArcBiTransformer<T, U, R>`：线程安全，可克隆（Arc<Fn>）
 - `RcBiTransformer<T, U, R>`：单线程，可克隆（Rc<Fn>）
 - `BoxBiTransformerOnce<T, U, R>`：一次性使用（FnOnce）
 
-**便利方法：**
+#### 便利方法
 - `and_then` - 将双参数转换器与转换器组合
 - `when` - 使用双参数谓词创建条件双参数转换器
 - 类型转换：`into_box`、`into_arc`、`into_rc`、`into_fn`
 - 扩展 trait `FnBiTransformerOps` 用于闭包
 
-**相关类型：**
+#### 相关类型
 - `BinaryOperator<T>` - `BiTransformer<T, T, T>` 的类型别名
 
 **⚠️ 重要：组合方法中的所有权转移**
@@ -597,9 +597,9 @@ assert!(first_larger.test(&10, &5));
 - **如需保留原始对象**：必须先显式 `clone()`（仅适用于 `ArcBiTransformer` 和 `RcBiTransformer`）
 - **BoxBiTransformer 不可克隆**：一旦用于组合，就会被消耗且不再可用
 
-**示例：**
+#### 示例
 
-### 基本用法和 `and_then` 链式调用
+##### 基本用法和 `and_then` 链式调用
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -621,7 +621,7 @@ let complex = BoxBiTransformer::new(|x: i32, y: i32| x + y)
 assert_eq!(complex.transform(10, 20), "结果: 60");
 ```
 
-### 使用 `when` 条件转换
+##### 使用 `when` 条件转换
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -635,7 +635,7 @@ assert_eq!(add_if_positive.transform(-1, 4), None);
 assert_eq!(add_if_positive.transform(3, -4), None);
 ```
 
-### 使用 `or_else` 实现条件分支
+##### 使用 `or_else` 实现条件分支
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -654,22 +654,22 @@ assert_eq!(transform.transform(3, -4), "积: -12");
 
 比较两个值并返回 `Ordering`。类似于 Java 的 `Comparator<T>`。
 
-**核心函数：**
+#### 核心函数
 - `compare(&self, a: &T, b: &T) -> Ordering` - 比较两个值并返回排序
 - 对应于 `Fn(&T, &T) -> Ordering` 闭包
 
-**实现类型：**
+#### 实现类型
 - `BoxComparator<T>`：单一所有权
 - `ArcComparator<T>`：线程安全，可克隆
 - `RcComparator<T>`：单线程，可克隆
 
-**便利方法：**
+#### 便利方法
 - `reversed` - 反转比较顺序
 - `then_comparing` - 链接比较器（次要排序键）
 - 类型转换：`into_box`、`into_arc`、`into_rc`
 - 扩展 trait `FnComparatorOps` 用于闭包
 
-**示例：**
+#### 示例
 
 ```rust
 use prism3_function::{ArcComparator, Comparator};
@@ -683,6 +683,213 @@ assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
 // 反转顺序
 let reversed = cmp.reversed();
 assert_eq!(reversed.compare(&5, &3), Ordering::Less);
+```
+
+### Tester（测试器）
+
+测试状态或条件是否成立，不接受输入参数。类似于 Java 的 `BooleanSupplier`，但具有 Rust 的所有权语义。
+
+#### 核心函数
+- `test(&self) -> bool` - 测试状态或条件是否成立
+- 对应于 `Fn() -> bool` 闭包
+
+#### 实现类型
+- `BoxTester`：单一所有权，不可克隆
+- `ArcTester`：线程安全的共享所有权，可克隆
+- `RcTester`：单线程共享所有权，可克隆
+
+#### 便利方法
+- 逻辑组合：`and`、`or`、`not`
+- 类型转换：`into_box`、`into_arc`、`into_rc`
+- 扩展 trait `FnTesterOps` 用于闭包
+
+#### 核心设计理念
+- **使用 `&self`**：Tester 只负责"判断"，不负责"状态管理"
+- **状态管理是调用方的职责**：Tester 只读取状态，不修改状态
+- **可重复调用**：同一个 Tester 可以多次调用 `test()`
+- **无 TesterOnce**：使用场景极少，直接使用闭包更好
+
+**⚠️ 重要：逻辑操作中的所有权转移**
+
+所有逻辑组合方法（`and`、`or`、`not`）都是**按值传递** `other` 参数，这意味着：
+
+- **所有权被转移**：`other` 测试器被消耗，操作后将不可再使用
+- **保留原始测试器**：必须显式调用 `clone()` 克隆它（仅适用于 `ArcTester` 和 `RcTester`）
+- **`BoxTester` 不可克隆**：一旦用于组合操作，就会被消耗
+
+```rust
+use prism3_function::{ArcTester, RcTester, BoxTester, Tester};
+
+// ArcTester 和 RcTester 可以被克隆
+let is_ready = ArcTester::new(|| system_ready());
+let is_healthy = ArcTester::new(|| health_check());
+
+// 克隆以保留原始测试器
+let combined = is_ready.and(is_healthy.clone());
+// is_healthy 仍然可用，因为我们克隆了它
+assert!(is_healthy.test());
+
+// BoxTester：不可克隆，会被消耗
+let box_tester = BoxTester::new(|| check_condition());
+let combined_box = box_tester.and(|| another_check());
+// box_tester 在这里已不可用
+```
+
+#### 示例
+
+##### 基本状态检查
+
+```rust
+use prism3_function::{BoxTester, Tester};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+// 状态由外部管理
+let count = Arc::new(AtomicUsize::new(0));
+let count_clone = Arc::clone(&count);
+
+let tester = BoxTester::new(move || {
+    count_clone.load(Ordering::Relaxed) <= 3
+});
+
+assert!(tester.test());  // true (0)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (1)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (2)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (3)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(!tester.test()); // false (4)
+```
+
+##### 逻辑组合
+
+```rust
+use prism3_function::{BoxTester, Tester};
+
+let combined = BoxTester::new(|| true)
+    .and(|| true)
+    .or(|| false);
+
+assert!(combined.test());
+```
+
+##### 线程安全共享
+
+```rust
+use prism3_function::{ArcTester, Tester};
+use std::thread;
+
+let shared = ArcTester::new(|| true);
+let clone = shared.clone();
+
+let handle = thread::spawn(move || {
+    clone.test()
+});
+
+assert!(handle.join().unwrap());
+```
+
+##### 条件等待
+
+```rust
+use prism3_function::{ArcTester, Tester};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::time::{Duration, Instant};
+
+fn wait_until(tester: &dyn Tester, timeout: Duration) -> bool {
+    let start = Instant::now();
+    while !tester.test() {
+        if start.elapsed() > timeout {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    true
+}
+
+// 使用
+let ready = Arc::new(AtomicBool::new(false));
+let ready_clone = Arc::clone(&ready);
+let tester = ArcTester::new(move || {
+    ready_clone.load(Ordering::Acquire)
+});
+
+// 另一个线程设置标志
+let ready_clone2 = Arc::clone(&ready);
+thread::spawn(move || {
+    thread::sleep(Duration::from_secs(2));
+    ready_clone2.store(true, Ordering::Release);
+});
+
+// 等待条件
+if wait_until(&tester, Duration::from_secs(5)) {
+    println!("条件满足！");
+} else {
+    println!("超时！");
+}
+```
+
+##### 健康检查
+
+```rust
+use prism3_function::{BoxTester, Tester};
+
+struct HealthChecker {
+    database: Arc<Database>,
+    cache: Arc<Cache>,
+}
+
+impl HealthChecker {
+    fn create_health_tester(&self) -> BoxTester {
+        let db = Arc::clone(&self.database);
+        let cache = Arc::clone(&self.cache);
+
+        BoxTester::new(move || {
+            db.is_alive() && cache.is_connected()
+        })
+    }
+}
+
+// 使用
+let checker = HealthChecker::new();
+let health_test = checker.create_health_tester();
+
+if health_test.test() {
+    println!("系统健康");
+} else {
+    println!("系统不健康");
+}
+```
+
+##### 重试限制
+
+```rust
+use prism3_function::{BoxTester, Tester};
+
+fn retry_with_limit<F>(task: F, max_attempts: usize) -> Result<(), Error>
+where
+    F: Fn() -> Result<(), Error>,
+{
+    let mut attempts = 0;
+    let should_retry = BoxTester::new(move || attempts < max_attempts);
+
+    loop {
+        match task() {
+            Ok(_) => return Ok(()),
+            Err(e) if should_retry.test() => {
+                attempts += 1;
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+// 使用
+retry_with_limit(|| {
+    send_request()
+}, 3)?;
 ```
 
 ## 安装
@@ -717,8 +924,9 @@ prism3-function = "0.1.0"
 | BiPredicate | BoxBiPredicate | ArcBiPredicate | RcBiPredicate |
 | BiTransformer | BoxBiTransformer | ArcBiTransformer | RcBiTransformer |
 | Comparator | BoxComparator | ArcComparator | RcComparator |
+| Tester | BoxTester | ArcTester | RcTester |
 
-**图例：**
+#### 图例
 - **Box**：单一所有权，不可克隆，消耗 self
 - **Arc**：共享所有权，线程安全，可克隆
 - **Rc**：共享所有权，单线程，可克隆
@@ -730,6 +938,7 @@ prism3-function = "0.1.0"
 - [Mutator 设计](doc/mutator_design.zh_CN.md) | [English](doc/mutator_design.md)
 - [Supplier 设计](doc/supplier_design.zh_CN.md) | [English](doc/supplier_design.md)
 - [Transformer 设计](doc/transformer_design.zh_CN.md) | [English](doc/transformer_design.md)
+- [Tester 设计](doc/tester_design.zh_CN.md)
 
 ## 示例
 

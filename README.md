@@ -15,7 +15,7 @@ This crate provides a complete set of functional programming abstractions inspir
 
 ## Key Features
 
-- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, Transformer, Mutator, BiConsumer, BiPredicate, BiTransformer, and Comparator
+- **Complete Functional Interface Suite**: Predicate, Consumer, Supplier, Transformer, Mutator, BiConsumer, BiPredicate, BiTransformer, Comparator, and Tester
 - **Multiple Ownership Models**: Box-based single ownership, Arc-based thread-safe sharing, and Rc-based single-threaded sharing
 - **Flexible API Design**: Trait-based unified interface with concrete implementations optimized for different scenarios
 - **Method Chaining**: All types support fluent API and functional composition
@@ -28,16 +28,16 @@ This crate provides a complete set of functional programming abstractions inspir
 
 Tests whether a value satisfies a condition, returning `bool`. Similar to Java's `Predicate<T>` interface.
 
-**Core Function:**
+#### Core Function
 - `test(&self, value: &T) -> bool` - Tests if the value satisfies the predicate condition
 - Corresponds to `Fn(&T) -> bool` closure
 
-**Implementations:**
+#### Implementations
 - `BoxPredicate<T>`: Single ownership, non-cloneable
 - `ArcPredicate<T>`: Thread-safe shared ownership, cloneable
 - `RcPredicate<T>`: Single-threaded shared ownership, cloneable
 
-**Convenience Methods:**
+#### Convenience Methods
 - Logical composition: `and`, `or`, `not`, `xor`, `nand`, `nor`
 - Type-preserving method chaining (each returns the same concrete type)
 - Extension trait `FnPredicateOps` for closures - provides composition methods that return `BoxPredicate`
@@ -76,7 +76,7 @@ let combined_box = box_pred.and(|x: &i32| x % 2 == 0);
 // box_pred is no longer available here
 ```
 
-**Example:**
+#### Example
 
 ```rust
 use prism3_function::{ArcPredicate, Predicate, FnPredicateOps};
@@ -105,23 +105,23 @@ let result: Vec<i32> = numbers
 
 Accepts a single input parameter and performs operations without returning a result. Similar to Java's `Consumer<T>`.
 
-**Core Function:**
+#### Core Function
 - `accept(&mut self, value: &T)` - Performs an operation on the value reference
 - Corresponds to `FnMut(&T)` closure
 
-**Implementations:**
+#### Implementations
 - `BoxConsumer<T>`: Single ownership, uses `FnMut(&T)`
 - `ArcConsumer<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
 - `RcConsumer<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
 - `BoxConsumerOnce<T>`: One-time use with `FnOnce(&T)`
 
-**Convenience Methods:**
+#### Convenience Methods
 - `and_then` - Chains consumers sequentially
 - `when` - Conditional execution with predicate
 - Type conversions: `into_box`, `into_arc`, `into_rc`
 - Extension trait `FnConsumerOps` for closures
 
-**Related Types:**
+#### Related Types
 - `ReadonlyConsumer` - For pure observation without modifying consumer state
 
 **⚠️ Important: Ownership Transfer in Composition Methods**
@@ -132,9 +132,9 @@ All composition methods (`and_then`, `when`, `or_else`) accept their parameters 
 - **To preserve the original**: You must explicitly `clone()` it first (only works for `ArcConsumer` and `RcConsumer`)
 - **BoxConsumer cannot be cloned**: Once used in a composition, it's consumed and no longer available
 
-**Examples:**
+#### Examples
 
-### Basic Usage
+##### Basic Usage
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -149,7 +149,7 @@ consumer.accept(&value);
 // value is unchanged
 ```
 
-### Chaining with `and_then`
+##### Chaining with `and_then`
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -171,7 +171,7 @@ consumer.accept(&42);
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
-### Conditional Execution with `when`
+##### Conditional Execution with `when`
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -191,7 +191,7 @@ consumer.accept(&-5);   // Not logged
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
-### If-Then-Else with `or_else`
+##### If-Then-Else with `or_else`
 
 ```rust
 use prism3_function::{BoxConsumer, Consumer};
@@ -219,28 +219,28 @@ assert_eq!(log.lock().unwrap().len(), 2);
 
 Modifies values in-place by accepting mutable references. Similar to Java's `UnaryOperator<T>` but with in-place modification.
 
-**Core Function:**
+#### Core Function
 - `mutate(&mut self, value: &mut T)` - Modifies the value in-place
 - Corresponds to `FnMut(&mut T)` closure
 
-**Implementations:**
+#### Implementations
 - `BoxMutator<T>`: Single ownership, uses `FnMut(&mut T)`
 - `ArcMutator<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
 - `RcMutator<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
 - `BoxMutatorOnce<T>`: One-time use with `FnOnce(&mut T)`
 
-**Convenience Methods:**
+#### Convenience Methods
 - `and_then` - Chains mutators sequentially
 - `when` - Creates conditional mutator (if-then pattern)
 - `or_else` - Adds else branch to conditional mutator (if-then-else pattern)
 - Type conversions: `into_box`, `into_arc`, `into_rc`
 - Extension trait `FnMutatorOps` for closures
 
-**Key Difference from Consumer:**
+#### Key Difference from Consumer
 - **Consumer**: Accepts `&T` (reads values, doesn't modify input)
 - **Mutator**: Accepts `&mut T` (modifies values in-place)
 
-**Example:**
+#### Example
 
 ```rust
 use prism3_function::{BoxMutator, Mutator};
@@ -271,24 +271,24 @@ assert_eq!(negative, -6); // -5 - 1
 
 Generates values lazily without input parameters. Similar to Java's `Supplier<T>`.
 
-**Core Function:**
+#### Core Function
 - `get(&mut self) -> T` - Generates and returns a value
 - Corresponds to `FnMut() -> T` closure
 
-**Implementations:**
+#### Implementations
 - `BoxSupplier<T>`: Single ownership, uses `FnMut() -> T`
 - `ArcSupplier<T>`: Thread-safe with `Arc<Mutex<>>`, cloneable
 - `RcSupplier<T>`: Single-threaded with `Rc<RefCell<>>`, cloneable
 - `BoxSupplierOnce<T>`: One-time use with `FnOnce() -> T`
 
-**Convenience Methods:**
+#### Convenience Methods
 - `map` - Transforms supplier output
 - `filter` - Filters supplier output with predicate
 - `flat_map` - Chains suppliers
 - Factory methods: `constant`, `counter`
 - Type conversions: `into_box`, `into_arc`, `into_rc`
 
-**Example:**
+#### Example
 
 ```rust
 use prism3_function::{BoxSupplier, Supplier};
@@ -318,17 +318,17 @@ assert_eq!(pipeline.get(), 25);
 
 Transforms values from type `T` to type `R` by consuming input. Similar to Java's `Function<T, R>`.
 
-**Core Function:**
+#### Core Function
 - `transform(&self, input: T) -> R` - Transforms input value to output value (consumes input)
 - Corresponds to `Fn(T) -> R` closure
 
-**Implementations:**
+#### Implementations
 - `BoxTransformer<T, R>`: Reusable, single ownership (Fn)
 - `ArcTransformer<T, R>`: Thread-safe, cloneable (Arc<Fn>)
 - `RcTransformer<T, R>`: Single-threaded, cloneable (Rc<Fn>)
 - `BoxTransformerOnce<T, R>`: One-time use (FnOnce)
 
-**Convenience Methods:**
+#### Convenience Methods
 - `and_then` - Composes transformers sequentially (f.and_then(g) = g(f(x)))
 - `compose` - Composes transformers in reverse order (f.compose(g) = f(g(x)))
 - `when` - Creates conditional transformer with predicate
@@ -336,7 +336,7 @@ Transforms values from type `T` to type `R` by consuming input. Similar to Java'
 - Type conversions: `into_box`, `into_arc`, `into_rc`, `into_fn`
 - Extension trait `FnTransformerOps` for closures
 
-**Related Types:**
+#### Related Types
 - `UnaryOperator<T>` - Type alias for `Transformer<T, T>`
 
 **⚠️ Important: Ownership Transfer in Composition Methods**
@@ -347,9 +347,9 @@ All composition methods (`and_then`, `compose`, `when`, `or_else`) accept their 
 - **To preserve the original**: You must explicitly `clone()` it first (only works for `ArcTransformer` and `RcTransformer`)
 - **BoxTransformer cannot be cloned**: Once used in a composition, it's consumed and no longer available
 
-**Examples:**
+#### Examples
 
-### Basic Usage and `and_then` Chaining
+##### Basic Usage and `and_then` Chaining
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -363,7 +363,7 @@ assert_eq!(parse_and_double.transform("21".to_string()), 42);
 assert_eq!(parse_and_double.transform("invalid".to_string()), 0);
 ```
 
-### Conditional Transformation with `when`
+##### Conditional Transformation with `when`
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -376,7 +376,7 @@ assert_eq!(double_if_positive.transform(5), Some(10));
 assert_eq!(double_if_positive.transform(-5), None);
 ```
 
-### If-Then-Else with `or_else`
+##### If-Then-Else with `or_else`
 
 ```rust
 use prism3_function::{BoxTransformer, Transformer};
@@ -394,23 +394,23 @@ assert_eq!(transform.transform(-5), "Non-positive: -6");
 
 Accepts two input parameters and performs operations without returning a result. Similar to Java's `BiConsumer<T, U>`.
 
-**Core Function:**
+#### Core Function
 - `accept(&mut self, first: &T, second: &U)` - Performs an operation on two value references
 - Corresponds to `FnMut(&T, &U)` closure
 
-**Implementations:**
+#### Implementations
 - `BoxBiConsumer<T, U>`: Single ownership
 - `ArcBiConsumer<T, U>`: Thread-safe, cloneable
 - `RcBiConsumer<T, U>`: Single-threaded, cloneable
 - `BoxBiConsumerOnce<T, U>`: One-time use
 
-**Convenience Methods:**
+#### Convenience Methods
 - `and_then` - Chains bi-consumers sequentially
 - `when` - Conditional execution with bi-predicate
 - Type conversions: `into_box`, `into_arc`, `into_rc`
 - Extension trait `FnBiConsumerOps` for closures
 
-**Related Types:**
+#### Related Types
 - `ReadonlyBiConsumer` - For pure observation without modifying consumer state
 
 **⚠️ Important: Ownership Transfer in Composition Methods**
@@ -421,9 +421,9 @@ All composition methods (`and_then`, `when`, `or_else`) accept their parameters 
 - **To preserve the original**: You must explicitly `clone()` it first (only works for `ArcBiConsumer` and `RcBiConsumer`)
 - **BoxBiConsumer cannot be cloned**: Once used in a composition, it's consumed and no longer available
 
-**Examples:**
+#### Examples
 
-### Basic Usage
+##### Basic Usage
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -436,7 +436,7 @@ let mut bi_consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
 bi_consumer.accept(&10, &20);
 ```
 
-### Chaining with `and_then`
+##### Chaining with `and_then`
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -459,7 +459,7 @@ assert_eq!(log.lock().unwrap().len(), 2);
 // log contains: ["Sum: 7", "Product: 12"]
 ```
 
-### Conditional Execution with `when`
+##### Conditional Execution with `when`
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -479,7 +479,7 @@ bi_consumer.accept(&-1, &4);  // Not logged
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
-### If-Then-Else with `or_else`
+##### If-Then-Else with `or_else`
 
 ```rust
 use prism3_function::{BoxBiConsumer, BiConsumer};
@@ -507,16 +507,16 @@ assert_eq!(log.lock().unwrap().len(), 2);
 
 Tests whether two values satisfy a condition, returning `bool`. Similar to Java's `BiPredicate<T, U>`.
 
-**Core Function:**
+#### Core Function
 - `test(&self, first: &T, second: &U) -> bool` - Tests if two values satisfy the predicate condition
 - Corresponds to `Fn(&T, &U) -> bool` closure
 
-**Implementations:**
+#### Implementations
 - `BoxBiPredicate<T, U>`: Single ownership, non-cloneable
 - `ArcBiPredicate<T, U>`: Thread-safe, cloneable
 - `RcBiPredicate<T, U>`: Single-threaded, cloneable
 
-**Convenience Methods:**
+#### Convenience Methods
 - Logical composition: `and`, `or`, `not`, `xor`, `nand`, `nor`
 - Type-preserving method chaining
 - Type conversions: `into_box`, `into_arc`, `into_rc`
@@ -548,7 +548,7 @@ let combined_box = box_pred.and(|x: &i32, y: &i32| x > y);
 // box_pred is no longer available here
 ```
 
-**Example:**
+#### Example
 
 ```rust
 use prism3_function::{ArcBiPredicate, BiPredicate};
@@ -570,23 +570,23 @@ assert!(first_larger.test(&10, &5));
 
 Transforms two input values to produce a result value. Similar to Java's `BiFunction<T, U, R>`.
 
-**Core Function:**
+#### Core Function
 - `transform(&self, first: T, second: U) -> R` - Transforms two input values to output value (consumes inputs)
 - Corresponds to `Fn(T, U) -> R` closure
 
-**Implementations:**
+#### Implementations
 - `BoxBiTransformer<T, U, R>`: Reusable, single ownership (Fn)
 - `ArcBiTransformer<T, U, R>`: Thread-safe, cloneable (Arc<Fn>)
 - `RcBiTransformer<T, U, R>`: Single-threaded, cloneable (Rc<Fn>)
 - `BoxBiTransformerOnce<T, U, R>`: One-time use (FnOnce)
 
-**Convenience Methods:**
+#### Convenience Methods
 - `and_then` - Composes bi-transformer with transformer
 - `when` - Creates conditional bi-transformer with bi-predicate
 - Type conversions: `into_box`, `into_arc`, `into_rc`, `into_fn`
 - Extension trait `FnBiTransformerOps` for closures
 
-**Related Types:**
+#### Related Types
 - `BinaryOperator<T>` - Type alias for `BiTransformer<T, T, T>`
 
 **⚠️ Important: Ownership Transfer in Composition Methods**
@@ -597,9 +597,9 @@ All composition methods (`and_then`, `when`, `or_else`) accept their parameters 
 - **To preserve the original**: You must explicitly `clone()` it first (only works for `ArcBiTransformer` and `RcBiTransformer`)
 - **BoxBiTransformer cannot be cloned**: Once used in a composition, it's consumed and no longer available
 
-**Examples:**
+#### Examples
 
-### Basic Usage and `and_then` Chaining
+##### Basic Usage and `and_then` Chaining
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -621,7 +621,7 @@ let complex = BoxBiTransformer::new(|x: i32, y: i32| x + y)
 assert_eq!(complex.transform(10, 20), "Result: 60");
 ```
 
-### Conditional Transformation with `when`
+##### Conditional Transformation with `when`
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -635,7 +635,7 @@ assert_eq!(add_if_positive.transform(-1, 4), None);
 assert_eq!(add_if_positive.transform(3, -4), None);
 ```
 
-### If-Then-Else with `or_else`
+##### If-Then-Else with `or_else`
 
 ```rust
 use prism3_function::{BoxBiTransformer, BiTransformer};
@@ -654,22 +654,22 @@ assert_eq!(transform.transform(3, -4), "Product: -12");
 
 Compares two values and returns an `Ordering`. Similar to Java's `Comparator<T>`.
 
-**Core Function:**
+#### Core Function
 - `compare(&self, a: &T, b: &T) -> Ordering` - Compares two values and returns ordering
 - Corresponds to `Fn(&T, &T) -> Ordering` closure
 
-**Implementations:**
+#### Implementations
 - `BoxComparator<T>`: Single ownership
 - `ArcComparator<T>`: Thread-safe, cloneable
 - `RcComparator<T>`: Single-threaded, cloneable
 
-**Convenience Methods:**
+#### Convenience Methods
 - `reversed` - Reverses the comparison order
 - `then_comparing` - Chains comparators (secondary sort key)
 - Type conversions: `into_box`, `into_arc`, `into_rc`
 - Extension trait `FnComparatorOps` for closures
 
-**Example:**
+#### Example
 
 ```rust
 use prism3_function::{ArcComparator, Comparator};
@@ -683,6 +683,151 @@ assert_eq!(cmp.compare(&5, &3), Ordering::Greater);
 // Reverse the order
 let reversed = cmp.reversed();
 assert_eq!(reversed.compare(&5, &3), Ordering::Less);
+```
+
+### Tester
+
+Tests whether a state or condition holds without accepting input parameters. Similar to Java's `BooleanSupplier` but with Rust's ownership semantics.
+
+#### Core Function
+- `test(&self) -> bool` - Tests if a state or condition holds
+- Corresponds to `Fn() -> bool` closure
+
+#### Implementations
+- `BoxTester`: Single ownership, non-cloneable
+- `ArcTester`: Thread-safe shared ownership, cloneable
+- `RcTester`: Single-threaded shared ownership, cloneable
+
+#### Convenience Methods
+- Logical composition: `and`, `or`, `not`
+- Type conversions: `into_box`, `into_arc`, `into_rc`
+- Extension trait `FnTesterOps` for closures
+
+#### Key Design Philosophy
+- **Uses `&self`**: Tester is only responsible for "judgment", not "state management"
+- **State management is caller's responsibility**: Tester only reads state, does not modify state
+- **Repeatable calls**: The same Tester can call `test()` multiple times
+- **No TesterOnce**: Very limited use cases, directly using closures is better
+
+**⚠️ Important: Ownership Transfer in Logical Operations**
+
+All logical composition methods (`and`, `or`, `not`) accept the `other` parameter **by value**, which means:
+
+- **Ownership is transferred**: The `other` tester is consumed and becomes unavailable after the operation
+- **To preserve the original**: You must explicitly `clone()` it first (only works for `ArcTester` and `RcTester`)
+- **`BoxTester` cannot be cloned**: Once used in a composition, it's consumed
+
+```rust
+use prism3_function::{ArcTester, RcTester, BoxTester, Tester};
+
+// ArcTester and RcTester can be cloned
+let is_ready = ArcTester::new(|| system_ready());
+let is_healthy = ArcTester::new(|| health_check());
+
+// Clone to preserve the original
+let combined = is_ready.and(is_healthy.clone());
+// is_healthy is still usable because we cloned it
+assert!(is_healthy.test());
+
+// BoxTester: Cannot be cloned, will be consumed
+let box_tester = BoxTester::new(|| check_condition());
+let combined_box = box_tester.and(|| another_check());
+// box_tester is no longer available here
+```
+
+#### Examples
+
+##### Basic State Checking
+
+```rust
+use prism3_function::{BoxTester, Tester};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+// State managed externally
+let count = Arc::new(AtomicUsize::new(0));
+let count_clone = Arc::clone(&count);
+
+let tester = BoxTester::new(move || {
+    count_clone.load(Ordering::Relaxed) <= 3
+});
+
+assert!(tester.test());  // true (0)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (1)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (2)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(tester.test());  // true (3)
+count.fetch_add(1, Ordering::Relaxed);
+assert!(!tester.test()); // false (4)
+```
+
+##### Logical Combination
+
+```rust
+use prism3_function::{BoxTester, Tester};
+
+let combined = BoxTester::new(|| true)
+    .and(|| true)
+    .or(|| false);
+
+assert!(combined.test());
+```
+
+##### Thread-Safe Sharing
+
+```rust
+use prism3_function::{ArcTester, Tester};
+use std::thread;
+
+let shared = ArcTester::new(|| true);
+let clone = shared.clone();
+
+let handle = thread::spawn(move || {
+    clone.test()
+});
+
+assert!(handle.join().unwrap());
+```
+
+##### Condition Waiting
+
+```rust
+use prism3_function::{ArcTester, Tester};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::time::{Duration, Instant};
+
+fn wait_until(tester: &dyn Tester, timeout: Duration) -> bool {
+    let start = Instant::now();
+    while !tester.test() {
+        if start.elapsed() > timeout {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    true
+}
+
+// Usage
+let ready = Arc::new(AtomicBool::new(false));
+let ready_clone = Arc::clone(&ready);
+let tester = ArcTester::new(move || {
+    ready_clone.load(Ordering::Acquire)
+});
+
+// Another thread sets the flag
+let ready_clone2 = Arc::clone(&ready);
+thread::spawn(move || {
+    thread::sleep(Duration::from_secs(2));
+    ready_clone2.store(true, Ordering::Release);
+});
+
+// Wait for condition
+if wait_until(&tester, Duration::from_secs(5)) {
+    println!("Condition met!");
+} else {
+    println!("Timeout!");
+}
 ```
 
 ## Installation
@@ -717,8 +862,9 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 | BiPredicate | BoxBiPredicate | ArcBiPredicate | RcBiPredicate |
 | BiTransformer | BoxBiTransformer | ArcBiTransformer | RcBiTransformer |
 | Comparator | BoxComparator | ArcComparator | RcComparator |
+| Tester | BoxTester | ArcTester | RcTester |
 
-**Legend:**
+#### Legend
 - **Box**: Single ownership, cannot be cloned, consumes self
 - **Arc**: Shared ownership, thread-safe, cloneable
 - **Rc**: Shared ownership, single-threaded, cloneable
@@ -730,6 +876,7 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 - [Mutator Design](doc/mutator_design.md) | [中文](doc/mutator_design.zh_CN.md)
 - [Supplier Design](doc/supplier_design.md) | [中文](doc/supplier_design.zh_CN.md)
 - [Transformer Design](doc/transformer_design.md) | [中文](doc/transformer_design.zh_CN.md)
+- [Tester Design](doc/tester_design.zh_CN.md)
 
 ## Examples
 
