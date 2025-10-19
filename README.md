@@ -951,7 +951,7 @@ This crate adopts the **Trait + Multiple Implementations** pattern, providing:
 - [Mutator Design](doc/mutator_design.md) | [中文](doc/mutator_design.zh_CN.md)
 - [Supplier Design](doc/supplier_design.md) | [中文](doc/supplier_design.zh_CN.md)
 - [Transformer Design](doc/transformer_design.md) | [中文](doc/transformer_design.zh_CN.md)
-- [Tester Design](doc/tester_design.zh_CN.md)
+- [Tester Design](doc/tester_design.md) | - [中文](doc/tester_design.zh_CN.md)
 
 ## Examples
 

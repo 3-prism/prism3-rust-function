@@ -1013,7 +1013,7 @@ prism3-function = "0.1.0"
 - [Mutator 设计](doc/mutator_design.zh_CN.md) | [English](doc/mutator_design.md)
 - [Supplier 设计](doc/supplier_design.zh_CN.md) | [English](doc/supplier_design.md)
 - [Transformer 设计](doc/transformer_design.zh_CN.md) | [English](doc/transformer_design.md)
-- [Tester 设计](doc/tester_design.zh_CN.md)
+- [Tester 设计](doc/tester_design.zh_CN.md) | [English](doc/tester_design.md)
 
 ## 示例
 
