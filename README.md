@@ -766,12 +766,87 @@ assert!(!tester.test()); // false (4)
 
 ```rust
 use prism3_function::{BoxTester, Tester};
+use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
 
-let combined = BoxTester::new(|| true)
-    .and(|| true)
-    .or(|| false);
+// 模拟系统状态 - 使用原子类型
+let cpu_usage = Arc::new(AtomicUsize::new(45)); // 45%
+let memory_usage = Arc::new(AtomicUsize::new(60)); // 60%
+let disk_space = Arc::new(AtomicUsize::new(25)); // 25% free
+let network_connected = Arc::new(AtomicBool::new(true));
+let service_running = Arc::new(AtomicBool::new(true));
 
-assert!(combined.test());
+// 创建各种条件检查器
+let cpu_ok = BoxTester::new({
+    let cpu = Arc::clone(&cpu_usage);
+    move || cpu.load(Ordering::Relaxed) < 80
+});
+
+let memory_ok = BoxTester::new({
+    let memory = Arc::clone(&memory_usage);
+    move || memory.load(Ordering::Relaxed) < 90
+});
+
+let disk_ok = BoxTester::new({
+    let disk = Arc::clone(&disk_space);
+    move || disk.load(Ordering::Relaxed) > 10
+});
+
+let network_ok = BoxTester::new({
+    let net = Arc::clone(&network_connected);
+    move || net.load(Ordering::Relaxed)
+});
+
+let service_ok = BoxTester::new({
+    let svc = Arc::clone(&service_running);
+    move || svc.load(Ordering::Relaxed)
+});
+
+// 组合条件：系统健康检查
+let system_healthy = cpu_ok
+    .and(memory_ok)
+    .and(disk_ok)
+    .and(network_ok)
+    .and(service_ok);
+
+// 组合条件：紧急状态检查（CPU或内存过高）
+let emergency_state = BoxTester::new({
+    let cpu = Arc::clone(&cpu_usage);
+    move || cpu.load(Ordering::Relaxed) > 95
+}).or(BoxTester::new({
+    let memory = Arc::clone(&memory_usage);
+    move || memory.load(Ordering::Relaxed) > 95
+}));
+
+// 组合条件：服务可用性检查（网络和服务都正常）
+let service_available = network_ok.and(service_ok);
+
+// 组合条件：资源充足检查（CPU、内存、磁盘都正常）
+let resources_adequate = cpu_ok.and(memory_ok).and(disk_ok);
+
+// 使用组合条件
+assert!(system_healthy.test());
+assert!(!emergency_state.test());
+assert!(service_available.test());
+assert!(resources_adequate.test());
+
+// 复杂的逻辑组合：系统可以处理新请求的条件
+let can_handle_requests = service_available
+    .and(resources_adequate)
+    .and(BoxTester::new({
+        let cpu = Arc::clone(&cpu_usage);
+        let memory = Arc::clone(&memory_usage);
+        move || cpu.load(Ordering::Relaxed) <= 95 && memory.load(Ordering::Relaxed) <= 95
+    }));
+
+assert!(can_handle_requests.test());
+
+// 测试状态变化
+cpu_usage.store(50, Ordering::Relaxed);
+assert!(can_handle_requests.test());
+
+// 模拟CPU使用率过高
+cpu_usage.store(98, Ordering::Relaxed);
+assert!(!can_handle_requests.test());
 ```
 
 ##### Thread-Safe Sharing
