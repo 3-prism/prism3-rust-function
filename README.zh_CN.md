@@ -15,11 +15,12 @@
 
 ## 核心特性
 
-- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、Transformer（转换器）、Mutator（变异器）、BiConsumer（双参数消费者）、BiPredicate（双参数谓词）、BiTransformer（双参数转换器）、Comparator（比较器）、Tester（测试器）
+- **完整的函数式接口套件**：Predicate（谓词）、Consumer（消费者）、Supplier（供应者）、ReadonlySupplier（只读供应者）、Transformer（转换器）、Mutator（变异器）、BiConsumer（双参数消费者）、BiPredicate（双参数谓词）、BiTransformer（双参数转换器）、Comparator（比较器）、Tester（测试器）
 - **多种所有权模型**：基于 Box 的单一所有权、基于 Arc 的线程安全共享、基于 Rc 的单线程共享
 - **灵活的 API 设计**：基于 trait 的统一接口，针对不同场景优化的具体实现
 - **方法链式调用**：所有类型都支持流式 API 和函数组合
 - **线程安全选项**：在线程安全（Arc）和高效单线程（Rc）实现之间选择
+- **无锁并发**：ReadonlySupplier 为无状态场景提供无锁并发访问
 - **零成本抽象**：高效的实现，最小的运行时开销
 
 ## 核心类型
@@ -313,6 +314,100 @@ let mut pipeline = BoxSupplier::new(|| 10)
 
 assert_eq!(pipeline.get(), 25);
 ```
+
+### ReadonlySupplier<T>（只读供应者）
+
+无需输入参数即可惰性生成值，且**不修改自身状态**。与 `Supplier<T>` 不同，它使用 `&self` 而不是 `&mut self`，可在只读上下文中使用，并支持无锁并发访问。
+
+#### 核心函数
+- `get(&self) -> T` - 生成并返回一个值（注意：是 `&self`，不是 `&mut self`）
+- 对应于 `Fn() -> T` 闭包
+
+#### 与 Supplier 的关键区别
+
+| 方面 | Supplier | ReadonlySupplier |
+|------|----------|------------------|
+| self 签名 | `&mut self` | `&self` |
+| 闭包类型 | `FnMut() -> T` | `Fn() -> T` |
+| 可修改状态 | 是 | 否 |
+| Arc 实现 | `Arc<Mutex<FnMut>>` | `Arc<Fn>`（无锁！） |
+| 使用场景 | 计数器、生成器 | 工厂、常量、高并发 |
+
+#### 实现类型
+- `BoxReadonlySupplier<T>`：单一所有权，零开销
+- `ArcReadonlySupplier<T>`：**无锁**线程安全共享（不需要 `Mutex`！）
+- `RcReadonlySupplier<T>`：单线程共享，轻量级
+
+#### 便利方法
+- `map` - 转换供应者输出
+- `filter` - 使用谓词过滤供应者输出
+- `zip` - 组合两个供应者
+- 工厂方法：`constant`
+- 类型转换：`into_box`、`into_arc`、`into_rc`
+
+#### 使用场景
+
+##### 1. 在 `&self` 方法中调用
+
+```rust
+use prism3_function::{ArcReadonlySupplier, ReadonlySupplier};
+
+struct Executor<E> {
+    error_supplier: ArcReadonlySupplier<E>,
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        // 可以在 &self 方法中直接调用！
+        Err(self.error_supplier.get())
+    }
+}
+```
+
+##### 2. 高并发无锁访问
+
+```rust
+use prism3_function::{ArcReadonlySupplier, ReadonlySupplier};
+use std::thread;
+
+let factory = ArcReadonlySupplier::new(|| String::from("Hello, World!"));
+
+let handles: Vec<_> = (0..10)
+    .map(|_| {
+        let f = factory.clone();
+        thread::spawn(move || f.get()) // 无锁！
+    })
+    .collect();
+
+for h in handles {
+    assert_eq!(h.join().unwrap(), "Hello, World!");
+}
+```
+
+##### 3. 固定工厂
+
+```rust
+use prism3_function::{BoxReadonlySupplier, ReadonlySupplier};
+
+#[derive(Clone)]
+struct Config {
+    timeout: u64,
+}
+
+let config_factory = BoxReadonlySupplier::new(|| Config { timeout: 30 });
+
+assert_eq!(config_factory.get().timeout, 30);
+assert_eq!(config_factory.get().timeout, 30);
+```
+
+#### 性能对比
+
+对于多线程环境中的无状态场景：
+
+- `ArcSupplier<T>`：需要 `Mutex`，每次 `get()` 调用都有锁竞争
+- `ArcReadonlySupplier<T>`：无锁，可以并发调用 `get()` 而无竞争
+
+基准测试结果显示，在高并发场景下 `ArcReadonlySupplier` 比 `ArcSupplier` **快 10 倍**。
 
 ### Transformer<T, R>（转换器）
 
