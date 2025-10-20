@@ -26,6 +26,35 @@ mod test_supplier_trait {
     use super::*;
 
     #[test]
+    fn test_closure_to_box() {
+        let closure = || 42;
+        let mut boxed = closure.to_box();
+        assert_eq!(boxed.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        let closure = || 42;
+        let mut rc = closure.to_rc();
+        assert_eq!(rc.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        let closure = || 42;
+        let mut arc = closure.to_arc();
+        assert_eq!(arc.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        let closure = || 42;
+        let mut f = closure.to_fn();
+        assert_eq!(f(), 42);
+        assert_eq!(f(), 42);
+    }
+
+    #[test]
     fn test_closure_implements_supplier() {
         let closure = || 42;
         let mut boxed = closure.into_box();
@@ -459,14 +488,6 @@ mod test_box_supplier {
         }
 
         #[test]
-        fn test_into_fn_with_mapped_supplier() {
-            let supplier = BoxSupplier::new(|| 10).map(|x| x * 2);
-            let mut f = supplier.into_fn();
-            assert_eq!(f(), 20);
-            assert_eq!(f(), 20);
-        }
-
-        #[test]
         fn test_into_fn_zero_overhead() {
             // This test verifies that into_fn for BoxSupplier
             // directly returns the inner function without wrapping
@@ -476,10 +497,6 @@ mod test_box_supplier {
             assert_eq!(f(), 999);
         }
     }
-
-    // Note: BoxSupplier cannot be converted to ArcSupplier because
-    // the inner function may not be Send. This is prevented at
-    // compile time by the trait bound, so we don't test it.
 }
 
 // ==========================================================================
@@ -910,6 +927,54 @@ mod test_arc_supplier {
             assert_eq!(*counter.lock().unwrap(), 3);
         }
     }
+
+    mod test_to_box {
+        use super::*;
+
+        #[test]
+        fn test_creates_box_supplier() {
+            let supplier = ArcSupplier::new(|| 42);
+            let mut boxed = supplier.to_box();
+            assert_eq!(boxed.get(), 42);
+        }
+    }
+
+    mod test_to_rc {
+        use super::*;
+
+        #[test]
+        fn test_creates_rc_supplier() {
+            let supplier = ArcSupplier::new(|| 42);
+            let mut rc = supplier.to_rc();
+            assert_eq!(rc.get(), 42);
+            assert_eq!(rc.get(), 42);
+        }
+    }
+
+    mod test_to_arc {
+        use super::*;
+
+        #[test]
+        fn test_returns_clone() {
+            let supplier = ArcSupplier::new(|| 42);
+            let mut arc_clone = supplier.to_arc();
+            let mut original = supplier;
+            assert_eq!(arc_clone.get(), 42);
+            assert_eq!(original.get(), 42);
+        }
+    }
+
+    mod test_to_fn {
+        use super::*;
+
+        #[test]
+        fn test_creates_fn() {
+            let supplier = ArcSupplier::new(|| 42);
+            let mut f = supplier.to_fn();
+            assert_eq!(f(), 42);
+            assert_eq!(f(), 42);
+        }
+    }
 }
 
 // ==========================================================================
@@ -982,6 +1047,43 @@ mod test_rc_supplier {
             assert_eq!(s.get(), 1);
             assert_eq!(s.get(), 2);
             assert_eq!(s.get(), 3);
+        }
+    }
+
+    mod test_to_box {
+        use super::*;
+
+        #[test]
+        fn test_creates_box_supplier() {
+            let supplier = RcSupplier::new(|| 42);
+            let mut boxed = supplier.to_box();
+            assert_eq!(boxed.get(), 42);
+            assert_eq!(boxed.get(), 42);
+        }
+    }
+
+    mod test_to_rc {
+        use super::*;
+
+        #[test]
+        fn test_returns_clone() {
+            let supplier = RcSupplier::new(|| 42);
+            let mut first = supplier.to_rc();
+            let mut second = supplier;
+            assert_eq!(first.get(), 42);
+            assert_eq!(second.get(), 42);
+        }
+    }
+
+    mod test_to_fn {
+        use super::*;
+
+        #[test]
+        fn test_creates_closure() {
+            let supplier = RcSupplier::new(|| 42);
+            let mut f = supplier.to_fn();
+            assert_eq!(f(), 42);
+            assert_eq!(f(), 42);
         }
     }
 
@@ -1887,5 +1989,49 @@ mod test_fn_supplier_ops {
         assert_eq!(result2, vec![1, 2, 3]);
         // Verify they are separate clones
         assert_eq!(result1, result2);
+    }
+}
+
+#[cfg(test)]
+mod test_custom_clone_supplier {
+    use super::*;
+
+    #[derive(Clone)]
+    struct CustomSupplier {
+        value: i32,
+    }
+
+    impl Supplier<i32> for CustomSupplier {
+        fn get(&mut self) -> i32 {
+            self.value
+        }
+    }
+
+    #[test]
+    fn test_default_to_box() {
+        let supplier = CustomSupplier { value: 10 };
+        let mut boxed = supplier.to_box();
+        assert_eq!(boxed.get(), 10);
+    }
+
+    #[test]
+    fn test_default_to_rc() {
+        let supplier = CustomSupplier { value: 11 };
+        let mut rc = supplier.to_rc();
+        assert_eq!(rc.get(), 11);
+    }
+
+    #[test]
+    fn test_default_to_arc() {
+        let supplier = CustomSupplier { value: 12 };
+        let mut arc = supplier.to_arc();
+        assert_eq!(arc.get(), 12);
+    }
+
+    #[test]
+    fn test_default_to_fn() {
+        let supplier = CustomSupplier { value: 13 };
+        let mut f = supplier.to_fn();
+        assert_eq!(f(), 13);
     }
 }

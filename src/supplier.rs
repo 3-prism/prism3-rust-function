@@ -326,6 +326,56 @@ pub trait Supplier<T> {
     {
         move || self.get()
     }
+
+    /// Creates a `BoxSupplier` from a cloned supplier.
+    ///
+    /// Uses `Clone` to obtain an owned copy and converts it into a
+    /// `BoxSupplier`. Implementations can override this for a more
+    /// efficient conversion.
+    fn to_box(&self) -> BoxSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Creates an `RcSupplier` from a cloned supplier.
+    ///
+    /// Uses `Clone` to obtain an owned copy and converts it into an
+    /// `RcSupplier`. Implementations can override it for better
+    /// performance.
+    fn to_rc(&self) -> RcSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Creates an `ArcSupplier` from a cloned supplier.
+    ///
+    /// Requires the supplier and produced values to be `Send` so the
+    /// resulting supplier can be shared across threads.
+    fn to_arc(&self) -> ArcSupplier<T>
+    where
+        Self: Clone + Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Creates a closure from a cloned supplier.
+    ///
+    /// The default implementation clones `self` and consumes the clone
+    /// to produce a closure. Concrete suppliers can override it to
+    /// avoid the additional clone.
+    fn to_fn(&self) -> impl FnMut() -> T
+    where
+        Self: Clone + Sized,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // ==========================================================================
@@ -635,6 +685,11 @@ impl<T> Supplier<T> for BoxSupplier<T> {
     fn into_fn(self) -> impl FnMut() -> T {
         self.function
     }
+
+    // NOTE: `BoxSupplier` is not `Clone`, so it cannot offer optimized
+    // `to_box`, `to_rc`, `to_arc`, or `to_fn` implementations. Invoking
+    // the default trait methods will not compile because the required
+    // `Clone` bound is not satisfied.
 }
 
 // ==========================================================================
@@ -998,6 +1053,40 @@ impl<T> Supplier<T> for ArcSupplier<T> {
 
     fn into_fn(self) -> impl FnMut() -> T {
         let function = self.function;
+        move || function.lock().unwrap()()
+    }
+
+    fn to_box(&self) -> BoxSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        let function = Arc::clone(&self.function);
+        BoxSupplier::new(move || function.lock().unwrap()())
+    }
+
+    fn to_rc(&self) -> RcSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        let function = Arc::clone(&self.function);
+        RcSupplier::new(move || function.lock().unwrap()())
+    }
+
+    fn to_arc(&self) -> ArcSupplier<T>
+    where
+        Self: Clone + Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl FnMut() -> T
+    where
+        Self: Clone + Sized,
+    {
+        let function = Arc::clone(&self.function);
         move || function.lock().unwrap()()
     }
 }
@@ -1370,6 +1459,35 @@ impl<T> Supplier<T> for RcSupplier<T> {
         let function = self.function;
         move || function.borrow_mut()()
     }
+
+    fn to_box(&self) -> BoxSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        let function = Rc::clone(&self.function);
+        BoxSupplier::new(move || function.borrow_mut()())
+    }
+
+    fn to_rc(&self) -> RcSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone()
+    }
+
+    // NOTE: `RcSupplier` cannot be converted to `ArcSupplier` because it
+    // is not `Send`. Calling the default `to_arc` would fail compilation
+    // due to the missing `Send` bound.
+
+    fn to_fn(&self) -> impl FnMut() -> T
+    where
+        Self: Clone + Sized,
+    {
+        let function = Rc::clone(&self.function);
+        move || function.borrow_mut()()
+    }
 }
 
 impl<T> Clone for RcSupplier<T> {
@@ -1425,6 +1543,37 @@ where
         Self: Sized,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcSupplier<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcSupplier<T>
+    where
+        Self: Clone + Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl FnMut() -> T
+    where
+        Self: Clone + Sized,
+    {
+        self.clone()
     }
 }
 
