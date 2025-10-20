@@ -9,7 +9,9 @@
 
 //! Unit tests for Supplier types
 
-use prism3_function::{ArcSupplier, BoxSupplier, RcSupplier, Supplier};
+use prism3_function::{
+    ArcMapper, ArcSupplier, BoxMapper, BoxSupplier, RcMapper, RcSupplier, Supplier,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -189,7 +191,7 @@ mod test_box_supplier {
 
         #[test]
         fn test_type_conversion() {
-            let mut converted = BoxSupplier::new(|| 42).map(|x| x.to_string());
+            let mut converted = BoxSupplier::new(|| 42).map(|x: i32| x.to_string());
             assert_eq!(converted.get(), "42");
         }
 
@@ -205,6 +207,54 @@ mod test_box_supplier {
             assert_eq!(mapped.get(), 10);
             assert_eq!(mapped.get(), 20);
             assert_eq!(mapped.get(), 30);
+        }
+
+        // Test with function pointer
+        #[test]
+        fn test_with_function_pointer() {
+            fn double(x: i32) -> i32 {
+                x * 2
+            }
+            let mut mapped = BoxSupplier::new(|| 10).map(double);
+            assert_eq!(mapped.get(), 20);
+        }
+
+        // Test with BoxMapper
+        #[test]
+        fn test_with_box_mapper() {
+            let mapper = BoxMapper::new(|x: i32| x * 3);
+            let mut supplier = BoxSupplier::new(|| 10).map(mapper);
+            assert_eq!(supplier.get(), 30);
+        }
+
+        // Test with stateful BoxMapper
+        #[test]
+        fn test_with_stateful_box_mapper() {
+            let mut counter = 0;
+            let mapper = BoxMapper::new(move |x: i32| {
+                counter += 1;
+                x + counter
+            });
+            let mut supplier = BoxSupplier::new(|| 10).map(mapper);
+            assert_eq!(supplier.get(), 11); // 10 + 1
+            assert_eq!(supplier.get(), 12); // 10 + 2
+            assert_eq!(supplier.get(), 13); // 10 + 3
+        }
+
+        // Test with RcMapper
+        #[test]
+        fn test_with_rc_mapper() {
+            let mapper = RcMapper::new(|x: i32| x * 4);
+            let mut supplier = BoxSupplier::new(|| 10).map(mapper);
+            assert_eq!(supplier.get(), 40);
+        }
+
+        // Test chaining with different mapper types
+        #[test]
+        fn test_chain_with_mapper_and_closure() {
+            let mapper = BoxMapper::new(|x: i32| x * 2);
+            let mut chained = BoxSupplier::new(|| 5).map(mapper).map(|x| x + 10);
+            assert_eq!(chained.get(), 20); // (5 * 2) + 10
         }
     }
 
@@ -462,6 +512,90 @@ mod test_arc_supplier {
             let mut t = tripled;
             assert_eq!(d.get(), 20);
             assert_eq!(t.get(), 30);
+        }
+
+        // Test with function pointer
+        #[test]
+        fn test_with_function_pointer() {
+            fn triple(x: i32) -> i32 {
+                x * 3
+            }
+            let source = ArcSupplier::new(|| 10);
+            let mapped = source.map(triple);
+            let mut s = mapped;
+            assert_eq!(s.get(), 30);
+        }
+
+        // Test with ArcMapper
+        #[test]
+        fn test_with_arc_mapper() {
+            let mapper = ArcMapper::new(|x: i32| x * 4);
+            let source = ArcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 40);
+        }
+
+        // Test with stateful ArcMapper
+        #[test]
+        fn test_with_stateful_arc_mapper() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let mapper = ArcMapper::new(move |x: i32| {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                x + *c
+            });
+            let source = ArcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 11); // 10 + 1
+            assert_eq!(supplier.get(), 12); // 10 + 2
+            assert_eq!(supplier.get(), 13); // 10 + 3
+        }
+
+        // Test with another ArcMapper
+        #[test]
+        fn test_with_multiple_arc_mappers() {
+            let mapper = ArcMapper::new(|x: i32| x * 5);
+            let source = ArcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 50);
+        }
+
+        // Test chaining with different mapper types
+        #[test]
+        fn test_chain_with_mapper_and_closure() {
+            let mapper = ArcMapper::new(|x: i32| x * 2);
+            let source = ArcSupplier::new(|| 5);
+            let chained = source.map(mapper);
+            let mut final_supplier = chained.map(|x| x + 10);
+            assert_eq!(final_supplier.get(), 20); // (5 * 2) + 10
+        }
+
+        // Test thread safety with mapper
+        #[test]
+        fn test_thread_safety_with_mapper() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let source = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+
+            let mapped = source.map(|x| x * 10);
+            let mut s1 = mapped.clone();
+            let mut s2 = mapped.clone();
+
+            let h1 = thread::spawn(move || s1.get());
+            let h2 = thread::spawn(move || s2.get());
+
+            let v1 = h1.join().unwrap();
+            let v2 = h2.join().unwrap();
+
+            // Both should get different values (10 and 20)
+            assert!(v1 == 10 || v1 == 20);
+            assert!(v2 == 10 || v2 == 20);
+            assert_ne!(v1, v2);
         }
     }
 
@@ -730,6 +864,83 @@ mod test_rc_supplier {
             let mut t = tripled;
             assert_eq!(d.get(), 20);
             assert_eq!(t.get(), 30);
+        }
+
+        // Test with function pointer
+        #[test]
+        fn test_with_function_pointer() {
+            fn quadruple(x: i32) -> i32 {
+                x * 4
+            }
+            let source = RcSupplier::new(|| 10);
+            let mapped = source.map(quadruple);
+            let mut s = mapped;
+            assert_eq!(s.get(), 40);
+        }
+
+        // Test with RcMapper
+        #[test]
+        fn test_with_rc_mapper() {
+            let mapper = RcMapper::new(|x: i32| x * 5);
+            let source = RcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 50);
+        }
+
+        // Test with stateful RcMapper
+        #[test]
+        fn test_with_stateful_rc_mapper() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let mapper = RcMapper::new(move |x: i32| {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                x + *c
+            });
+            let source = RcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 11); // 10 + 1
+            assert_eq!(supplier.get(), 12); // 10 + 2
+            assert_eq!(supplier.get(), 13); // 10 + 3
+        }
+
+        // Test with BoxMapper
+        #[test]
+        fn test_with_box_mapper() {
+            let mapper = BoxMapper::new(|x: i32| x * 6);
+            let source = RcSupplier::new(|| 10);
+            let mut supplier = source.map(mapper);
+            assert_eq!(supplier.get(), 60);
+        }
+
+        // Test chaining with different mapper types
+        #[test]
+        fn test_chain_with_mapper_and_closure() {
+            let mapper = RcMapper::new(|x: i32| x * 2);
+            let source = RcSupplier::new(|| 5);
+            let chained = source.map(mapper);
+            let mut final_supplier = chained.map(|x| x + 10);
+            assert_eq!(final_supplier.get(), 20); // (5 * 2) + 10
+        }
+
+        // Test shared state with cloned suppliers
+        #[test]
+        fn test_shared_state_with_mapper() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let source = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+
+            let mapped = source.map(|x| x * 10);
+            let mut s1 = mapped.clone();
+            let mut s2 = mapped.clone();
+
+            assert_eq!(s1.get(), 10); // counter = 1, 1 * 10
+            assert_eq!(s2.get(), 20); // counter = 2, 2 * 10
+            assert_eq!(s1.get(), 30); // counter = 3, 3 * 10
         }
     }
 

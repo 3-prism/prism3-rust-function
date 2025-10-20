@@ -2075,6 +2075,188 @@ mod additional_type_conversion_tests {
 }
 
 // ============================================================================
+// Custom Predicate Type Tests (Default Implementation)
+// ============================================================================
+
+#[cfg(test)]
+mod custom_predicate_tests {
+    use super::*;
+
+    // Custom predicate struct that only implements the test method,
+    // relying on default implementations for into_xxx methods.
+    struct ThresholdPredicate {
+        threshold: i32,
+    }
+
+    impl Predicate<i32> for ThresholdPredicate {
+        fn test(&self, value: &i32) -> bool {
+            *value > self.threshold
+        }
+        // All into_xxx methods use default implementations
+    }
+
+    #[test]
+    fn test_custom_predicate_test() {
+        let pred = ThresholdPredicate { threshold: 10 };
+
+        assert!(pred.test(&15));
+        assert!(pred.test(&100));
+        assert!(!pred.test(&10));
+        assert!(!pred.test(&5));
+        assert!(!pred.test(&-5));
+    }
+
+    #[test]
+    fn test_custom_predicate_into_box() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let boxed = pred.into_box();
+
+        assert!(boxed.test(&5));
+        assert!(boxed.test(&100));
+        assert!(!boxed.test(&0));
+        assert!(!boxed.test(&-5));
+    }
+
+    #[test]
+    fn test_custom_predicate_into_rc() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let rc = pred.into_rc();
+
+        assert!(rc.test(&5));
+        assert!(rc.test(&100));
+        assert!(!rc.test(&0));
+        assert!(!rc.test(&-5));
+    }
+
+    #[test]
+    fn test_custom_predicate_into_arc() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let arc = pred.into_arc();
+
+        assert!(arc.test(&5));
+        assert!(arc.test(&100));
+        assert!(!arc.test(&0));
+        assert!(!arc.test(&-5));
+    }
+
+    #[test]
+    fn test_custom_predicate_into_fn() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let func = pred.into_fn();
+
+        assert!(func(&5));
+        assert!(func(&100));
+        assert!(!func(&0));
+        assert!(!func(&-5));
+    }
+
+    #[test]
+    fn test_custom_predicate_composition_with_box() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let boxed = pred.into_box();
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = boxed.and(is_even);
+
+        assert!(combined.test(&4)); // positive and even
+        assert!(combined.test(&100)); // positive and even
+        assert!(!combined.test(&3)); // positive but odd
+        assert!(!combined.test(&-2)); // even but not positive
+    }
+
+    #[test]
+    fn test_custom_predicate_with_rc_composition() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let rc = pred.into_rc();
+        let is_small = RcPredicate::new(|x: &i32| x.abs() < 100);
+
+        let combined = rc.and(is_small);
+
+        assert!(combined.test(&50)); // positive and small
+        assert!(!combined.test(&-50)); // small but not positive
+        assert!(!combined.test(&200)); // positive but not small
+    }
+
+    #[test]
+    fn test_custom_predicate_with_arc_thread_safe() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let arc = pred.into_arc();
+        let arc_clone = arc.clone();
+
+        let handle = std::thread::spawn(move || arc_clone.test(&10) && !arc_clone.test(&-10));
+
+        assert!(handle.join().unwrap());
+        assert!(arc.test(&5));
+    }
+
+    #[test]
+    fn test_custom_predicate_into_fn_with_iterator() {
+        let pred = ThresholdPredicate { threshold: 0 };
+        let func = pred.into_fn();
+
+        let numbers = [-5, -2, 0, 3, 7, -1];
+        let positives: Vec<_> = numbers.iter().copied().filter(func).collect();
+
+        assert_eq!(positives, vec![3, 7]);
+    }
+
+    // Custom predicate with generic type parameter
+    struct LengthPredicate {
+        min_length: usize,
+    }
+
+    impl Predicate<String> for LengthPredicate {
+        fn test(&self, value: &String) -> bool {
+            value.len() >= self.min_length
+        }
+    }
+
+    #[test]
+    fn test_generic_custom_predicate() {
+        let pred = LengthPredicate { min_length: 5 };
+
+        assert!(pred.test(&"hello".to_string()));
+        assert!(pred.test(&"world!".to_string()));
+        assert!(!pred.test(&"hi".to_string()));
+        assert!(!pred.test(&"".to_string()));
+    }
+
+    #[test]
+    fn test_generic_custom_predicate_into_box() {
+        let pred = LengthPredicate { min_length: 3 };
+        let boxed = pred.into_box();
+
+        assert!(boxed.test(&"abc".to_string()));
+        assert!(boxed.test(&"test".to_string()));
+        assert!(!boxed.test(&"ab".to_string()));
+    }
+
+    #[test]
+    fn test_generic_custom_predicate_into_rc() {
+        let pred = LengthPredicate { min_length: 3 };
+        let rc = pred.into_rc();
+
+        assert!(rc.test(&"abc".to_string()));
+        assert!(rc.test(&"test".to_string()));
+        assert!(!rc.test(&"ab".to_string()));
+    }
+
+    #[test]
+    fn test_generic_custom_predicate_composition() {
+        let pred = LengthPredicate { min_length: 3 };
+        let boxed = pred.into_box();
+        let has_a = BoxPredicate::new(|s: &String| s.contains('a'));
+
+        let combined = boxed.and(has_a);
+
+        assert!(combined.test(&"abc".to_string())); // long and has 'a'
+        assert!(combined.test(&"banana".to_string())); // long and has 'a'
+        assert!(!combined.test(&"xyz".to_string())); // long but no 'a'
+        assert!(!combined.test(&"a".to_string())); // has 'a' but short
+    }
+}
+
+// ============================================================================
 // Display and Debug Tests
 // ============================================================================
 

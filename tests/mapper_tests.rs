@@ -254,6 +254,19 @@ fn test_arc_mapper_into_arc() {
     assert_eq!(arc_mapper.map(10), 12);
 }
 
+#[test]
+fn test_arc_mapper_into_rc() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+
+    let mut rc_mapper = mapper.into_rc();
+    assert_eq!(rc_mapper.map(10), 11);
+    assert_eq!(rc_mapper.map(10), 12);
+}
+
 // ============================================================================
 // RcMapper Tests
 // ============================================================================
@@ -501,26 +514,36 @@ fn test_box_conditional_mapper_with_predicate() {
 
 #[test]
 fn test_arc_conditional_mapper_clone() {
-    let mut mapper = ArcMapper::new(|x: i32| x * 2)
-        .when(|x: &i32| *x > 0)
-        .or_else(|x: i32| -x);
+    let conditional = ArcMapper::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
 
-    let mut mapper_clone = mapper.clone();
+    // Clone the ArcConditionalMapper before calling or_else
+    let conditional_clone = conditional.clone();
 
-    assert_eq!(mapper.map(5), 10);
-    assert_eq!(mapper_clone.map(-5), 5);
+    let mut mapper1 = conditional.or_else(|x: i32| -x);
+    let mut mapper2 = conditional_clone.or_else(|x: i32| x + 100);
+
+    // Both cloned conditional mappers work correctly
+    assert_eq!(mapper1.map(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper1.map(-5), 5); // Condition not satisfied: -(-5)
+    assert_eq!(mapper2.map(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper2.map(-5), 95); // Condition not satisfied: -5 + 100
 }
 
 #[test]
 fn test_rc_conditional_mapper_clone() {
-    let mut mapper = RcMapper::new(|x: i32| x * 2)
-        .when(|x: &i32| *x > 0)
-        .or_else(|x: i32| -x);
+    let conditional = RcMapper::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
 
-    let mut mapper_clone = mapper.clone();
+    // Clone the RcConditionalMapper before calling or_else
+    let conditional_clone = conditional.clone();
 
-    assert_eq!(mapper.map(5), 10);
-    assert_eq!(mapper_clone.map(-5), 5);
+    let mut mapper1 = conditional.or_else(|x: i32| -x);
+    let mut mapper2 = conditional_clone.or_else(|x: i32| x + 100);
+
+    // Both cloned conditional mappers work correctly
+    assert_eq!(mapper1.map(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper1.map(-5), 5); // Condition not satisfied: -(-5)
+    assert_eq!(mapper2.map(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper2.map(-5), 95); // Condition not satisfied: -5 + 100
 }
 
 // ============================================================================

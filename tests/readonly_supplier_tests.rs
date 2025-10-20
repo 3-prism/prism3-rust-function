@@ -10,7 +10,8 @@
 //! Unit tests for ReadonlySupplier types
 
 use prism3_function::{
-    ArcReadonlySupplier, BoxReadonlySupplier, RcReadonlySupplier, ReadonlySupplier,
+    ArcReadonlySupplier, ArcTransformer, BoxReadonlySupplier, BoxTransformer, RcReadonlySupplier,
+    RcTransformer, ReadonlySupplier,
 };
 use std::sync::Arc;
 use std::thread;
@@ -172,7 +173,7 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_map_type_conversion() {
             // Test map with type conversion
-            let mapped = BoxReadonlySupplier::new(|| 42).map(|x| x.to_string());
+            let mapped = BoxReadonlySupplier::new(|| 42).map(|x: i32| x.to_string());
             assert_eq!(mapped.get(), "42");
         }
     }
@@ -743,7 +744,7 @@ mod test_integration {
         let pipeline = BoxReadonlySupplier::new(|| 10)
             .map(|x| x * 2)
             .filter(|x| *x > 15)
-            .map(|opt| opt.map(|x| x.to_string()));
+            .map(|opt: Option<i32>| opt.map(|x| x.to_string()));
 
         assert_eq!(pipeline.get(), Some(String::from("20")));
     }
@@ -755,5 +756,399 @@ mod test_integration {
         let boxed = closure.into_box();
         let rc = boxed.into_rc();
         assert_eq!(rc.get(), 42);
+    }
+}
+
+// ======================================================================
+// Map with Transformer Tests - BoxReadonlySupplier
+// ======================================================================
+
+#[cfg(test)]
+mod test_box_readonly_supplier_map_with_transformer {
+    use super::*;
+
+    // 辅助函数指针
+    fn double(x: i32) -> i32 {
+        x * 2
+    }
+
+    fn to_string(x: i32) -> String {
+        x.to_string()
+    }
+
+    #[test]
+    fn test_map_with_closure() {
+        // 测试 map 接受闭包
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(|x| x * 2);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_function_pointer() {
+        // 测试 map 接受函数指针
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(double);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_box_transformer() {
+        // 测试 map 接受 BoxTransformer 对象
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let transformer = BoxTransformer::new(|x| x * 3);
+        let mapped = supplier.map(transformer);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_chain_with_different_types() {
+        // 测试链式调用，每个 map 使用不同类型的 transformer
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let step1 = supplier.map(|x| x * 2); // 闭包
+        let step2 = step1.map(double); // 函数指针
+        let step3 = step2.map(BoxTransformer::new(|x| x + 5)); // BoxTransformer
+        assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
+    }
+
+    #[test]
+    fn test_map_with_closure_capturing_variables() {
+        // 测试 map 使用捕获变量的闭包
+        let multiplier = 3;
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(move |x| x * multiplier);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_with_type_conversion() {
+        // 测试 map 进行类型转换
+        let supplier = BoxReadonlySupplier::new(|| 42);
+
+        // 使用闭包转换类型
+        let mapped1 = supplier.map(|x: i32| x.to_string());
+        assert_eq!(mapped1.get(), "42");
+
+        // 使用 BoxTransformer 转换类型
+        let supplier2 = BoxReadonlySupplier::new(|| 42);
+        let transformer = BoxTransformer::new(to_string);
+        let mapped2 = supplier2.map(transformer);
+        assert_eq!(mapped2.get(), "42");
+    }
+
+    #[test]
+    fn test_map_with_complex_transformer() {
+        // 测试 map 使用复杂的 Transformer
+        #[derive(Debug, PartialEq)]
+        struct Data {
+            value: i32,
+        }
+
+        let supplier = BoxReadonlySupplier::new(|| 10);
+        let transformer = BoxTransformer::new(|x| Data { value: x * 2 });
+        let mapped = supplier.map(transformer);
+        assert_eq!(mapped.get(), Data { value: 20 });
+    }
+}
+
+// ======================================================================
+// Map with Transformer Tests - ArcReadonlySupplier
+// ======================================================================
+
+#[cfg(test)]
+mod test_arc_readonly_supplier_map_with_transformer {
+    use super::*;
+
+    // 辅助函数指针
+    fn double(x: i32) -> i32 {
+        x * 2
+    }
+
+    fn to_string(x: i32) -> String {
+        x.to_string()
+    }
+
+    #[test]
+    fn test_map_with_closure() {
+        // 测试 map 接受闭包
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(|x| x * 2);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_function_pointer() {
+        // 测试 map 接受函数指针
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(double);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_arc_transformer() {
+        // 测试 map 接受 ArcTransformer 对象
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let transformer = ArcTransformer::new(|x| x * 3);
+        let mapped = supplier.map(transformer);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_chain_with_different_types() {
+        // 测试链式调用，每个 map 使用不同类型的 transformer
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let step1 = supplier.map(|x| x * 2); // 闭包
+        let step2 = step1.map(double); // 函数指针
+        let step3 = step2.map(ArcTransformer::new(|x| x + 5)); // ArcTransformer
+        assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
+    }
+
+    #[test]
+    fn test_map_with_closure_capturing_variables() {
+        // 测试 map 使用捕获变量的闭包
+        let multiplier = 3;
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(move |x| x * multiplier);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_preserves_original_with_transformer() {
+        // 测试使用 transformer 后原 supplier 仍可用
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let transformer = ArcTransformer::new(|x| x * 2);
+        let mapped = supplier.map(transformer);
+
+        // 原 supplier 仍然可用
+        assert_eq!(supplier.get(), 10);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_thread_safety_with_transformer() {
+        // 测试带 transformer 的 map 在多线程环境下的表现
+        let supplier = ArcReadonlySupplier::new(|| 10);
+        let transformer = ArcTransformer::new(|x| x * 2);
+        let mapped = supplier.map(transformer);
+
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let m = mapped.clone();
+                thread::spawn(move || m.get())
+            })
+            .collect();
+
+        for h in handles {
+            assert_eq!(h.join().unwrap(), 20);
+        }
+    }
+
+    #[test]
+    fn test_map_with_type_conversion() {
+        // 测试 map 进行类型转换
+        let supplier = ArcReadonlySupplier::new(|| 42);
+
+        // 使用闭包转换类型
+        let mapped1 = supplier.map(|x: i32| x.to_string());
+        assert_eq!(mapped1.get(), "42");
+
+        // 使用 ArcTransformer 转换类型
+        let transformer = ArcTransformer::new(to_string);
+        let mapped2 = supplier.map(transformer);
+        assert_eq!(mapped2.get(), "42");
+    }
+
+    #[test]
+    fn test_map_with_shared_transformer() {
+        // 测试多个 supplier 共享同一个 transformer
+        let supplier1 = ArcReadonlySupplier::new(|| 10);
+        let supplier2 = ArcReadonlySupplier::new(|| 20);
+
+        let transformer = ArcTransformer::new(|x| x * 2);
+        let mapped1 = supplier1.map(transformer.clone());
+        let mapped2 = supplier2.map(transformer);
+
+        assert_eq!(mapped1.get(), 20);
+        assert_eq!(mapped2.get(), 40);
+    }
+}
+
+// ======================================================================
+// Map with Transformer Tests - RcReadonlySupplier
+// ======================================================================
+
+#[cfg(test)]
+mod test_rc_readonly_supplier_map_with_transformer {
+    use super::*;
+
+    // 辅助函数指针
+    fn double(x: i32) -> i32 {
+        x * 2
+    }
+
+    fn to_string(x: i32) -> String {
+        x.to_string()
+    }
+
+    #[test]
+    fn test_map_with_closure() {
+        // 测试 map 接受闭包
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(|x| x * 2);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_function_pointer() {
+        // 测试 map 接受函数指针
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(double);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_rc_transformer() {
+        // 测试 map 接受 RcTransformer 对象
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let transformer = RcTransformer::new(|x| x * 3);
+        let mapped = supplier.map(transformer);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_chain_with_different_types() {
+        // 测试链式调用，每个 map 使用不同类型的 transformer
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let step1 = supplier.map(|x| x * 2); // 闭包
+        let step2 = step1.map(double); // 函数指针
+        let step3 = step2.map(RcTransformer::new(|x| x + 5)); // RcTransformer
+        assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
+    }
+
+    #[test]
+    fn test_map_with_closure_capturing_variables() {
+        // 测试 map 使用捕获变量的闭包
+        let multiplier = 3;
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let mapped = supplier.map(move |x| x * multiplier);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_map_preserves_original_with_transformer() {
+        // 测试使用 transformer 后原 supplier 仍可用
+        let supplier = RcReadonlySupplier::new(|| 10);
+        let transformer = RcTransformer::new(|x| x * 2);
+        let mapped = supplier.map(transformer);
+
+        // 原 supplier 仍然可用
+        assert_eq!(supplier.get(), 10);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_map_with_type_conversion() {
+        // 测试 map 进行类型转换
+        let supplier = RcReadonlySupplier::new(|| 42);
+
+        // 使用闭包转换类型
+        let mapped1 = supplier.map(|x: i32| x.to_string());
+        assert_eq!(mapped1.get(), "42");
+
+        // 使用 RcTransformer 转换类型
+        let transformer = RcTransformer::new(to_string);
+        let mapped2 = supplier.map(transformer);
+        assert_eq!(mapped2.get(), "42");
+    }
+
+    #[test]
+    fn test_map_with_shared_transformer() {
+        // 测试多个 supplier 共享同一个 transformer
+        let supplier1 = RcReadonlySupplier::new(|| 10);
+        let supplier2 = RcReadonlySupplier::new(|| 20);
+
+        let transformer = RcTransformer::new(|x| x * 2);
+        let mapped1 = supplier1.map(transformer.clone());
+        let mapped2 = supplier2.map(transformer);
+
+        assert_eq!(mapped1.get(), 20);
+        assert_eq!(mapped2.get(), 40);
+    }
+}
+
+// ======================================================================
+// Integration Tests for Map with Transformer
+// ======================================================================
+
+#[cfg(test)]
+mod test_map_transformer_integration {
+    use super::*;
+
+    #[test]
+    fn test_mixed_transformer_types_in_pipeline() {
+        // 测试在管道中混合使用不同类型的 transformer
+        let supplier = BoxReadonlySupplier::new(|| 5);
+
+        let pipeline = supplier
+            .map(|x| x * 2) // 闭包
+            .map(|x: i32| -> i32 { x + 3 }) // 显式类型标注的闭包
+            .map(|x: i32| x.to_string()); // 类型转换闭包
+
+        assert_eq!(pipeline.get(), "13");
+    }
+
+    #[test]
+    fn test_transformer_with_complex_logic() {
+        // 测试包含复杂逻辑的 transformer
+        #[derive(Debug, PartialEq)]
+        struct Result {
+            doubled: i32,
+            squared: i32,
+        }
+
+        let supplier = ArcReadonlySupplier::new(|| 5);
+        let transformer = ArcTransformer::new(|x| Result {
+            doubled: x * 2,
+            squared: x * x,
+        });
+
+        let mapped = supplier.map(transformer);
+        assert_eq!(
+            mapped.get(),
+            Result {
+                doubled: 10,
+                squared: 25
+            }
+        );
+    }
+
+    #[test]
+    fn test_function_pointer_with_generic_supplier() {
+        // 测试函数指针与泛型 supplier 的配合
+        fn process(x: i32) -> String {
+            format!("Value: {}", x * 2)
+        }
+
+        let supplier = ArcReadonlySupplier::new(|| 21);
+        let mapped = supplier.map(process);
+        assert_eq!(mapped.get(), "Value: 42");
+    }
+
+    #[test]
+    fn test_transformer_reusability() {
+        // 测试 Transformer 的可重用性
+        let transformer = ArcTransformer::new(|x: i32| x * 10);
+
+        let supplier1 = ArcReadonlySupplier::new(|| 1);
+        let supplier2 = ArcReadonlySupplier::new(|| 2);
+        let supplier3 = ArcReadonlySupplier::new(|| 3);
+
+        let mapped1 = supplier1.map(transformer.clone());
+        let mapped2 = supplier2.map(transformer.clone());
+        let mapped3 = supplier3.map(transformer);
+
+        assert_eq!(mapped1.get(), 10);
+        assert_eq!(mapped2.get(), 20);
+        assert_eq!(mapped3.get(), 30);
     }
 }

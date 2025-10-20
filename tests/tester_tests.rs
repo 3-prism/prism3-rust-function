@@ -868,4 +868,126 @@ mod tests {
     // Note: BoxTester::into_arc() and RcTester::into_arc() cannot be tested
     // because they require Send + Sync bounds which BoxTester and RcTester
     // don't satisfy at compile time. The panic code is unreachable in practice.
+
+    // ========================================================================
+    // Custom Tester implementation tests
+    // ========================================================================
+
+    /// Custom tester type that only implements the core test() method
+    /// to verify that default implementations of into_xxx() methods
+    /// work correctly.
+    struct AlwaysTrueTester;
+
+    impl Tester for AlwaysTrueTester {
+        fn test(&self) -> bool {
+            true
+        }
+    }
+
+    /// Custom tester type that only implements the core test() method
+    /// for thread-safe scenarios to test into_arc() default impl.
+    #[derive(Clone)]
+    struct ThreadSafeTester {
+        value: Arc<AtomicBool>,
+    }
+
+    impl ThreadSafeTester {
+        fn new(value: bool) -> Self {
+            Self {
+                value: Arc::new(AtomicBool::new(value)),
+            }
+        }
+    }
+
+    impl Tester for ThreadSafeTester {
+        fn test(&self) -> bool {
+            self.value.load(Ordering::Relaxed)
+        }
+    }
+
+    #[test]
+    fn test_custom_tester_into_box_uses_default_impl() {
+        // Test that custom tester can be converted to BoxTester using
+        // the default implementation provided by the Tester trait
+        let custom = AlwaysTrueTester;
+        let boxed = custom.into_box();
+        assert!(boxed.test());
+    }
+
+    #[test]
+    fn test_custom_tester_into_rc_uses_default_impl() {
+        // Test that custom tester can be converted to RcTester using
+        // the default implementation provided by the Tester trait
+        let custom = AlwaysTrueTester;
+        let rc = custom.into_rc();
+        assert!(rc.test());
+
+        // Verify that RcTester can be cloned
+        let rc_clone = rc.clone();
+        assert!(rc_clone.test());
+    }
+
+    #[test]
+    fn test_custom_tester_into_arc_uses_default_impl() {
+        // Test that custom tester can be converted to ArcTester using
+        // the default implementation provided by the Tester trait
+        let custom = ThreadSafeTester::new(true);
+        let arc = custom.into_arc();
+        assert!(arc.test());
+
+        // Verify that ArcTester can be cloned and sent across threads
+        let arc_clone = arc.clone();
+        let handle = std::thread::spawn(move || arc_clone.test());
+        assert!(handle.join().unwrap());
+    }
+
+    #[test]
+    fn test_custom_tester_chaining_conversions() {
+        // Test that custom tester can be converted through different
+        // wrapper types using the default implementations
+        let custom1 = AlwaysTrueTester;
+        let boxed = custom1.into_box();
+        let rc = boxed.into_rc();
+        assert!(rc.test());
+
+        let custom2 = ThreadSafeTester::new(true);
+        let arc1 = custom2.into_arc();
+        let boxed2 = arc1.into_box();
+        assert!(boxed2.test());
+    }
+
+    #[test]
+    fn test_custom_tester_with_state() {
+        // Test custom tester with internal state to verify that state
+        // is properly captured in the default implementations
+        struct CounterTester {
+            counter: Arc<AtomicUsize>,
+            threshold: usize,
+        }
+
+        impl Tester for CounterTester {
+            fn test(&self) -> bool {
+                self.counter.load(Ordering::Relaxed) < self.threshold
+            }
+        }
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let tester = CounterTester {
+            counter: Arc::clone(&counter),
+            threshold: 3,
+        };
+
+        // Convert to BoxTester using default implementation
+        let boxed = tester.into_box();
+        assert!(boxed.test());
+
+        counter.fetch_add(1, Ordering::Relaxed);
+        assert!(boxed.test());
+
+        counter.fetch_add(1, Ordering::Relaxed);
+        assert!(boxed.test());
+
+        counter.fetch_add(1, Ordering::Relaxed);
+        assert!(!boxed.test());
+    }
 }
