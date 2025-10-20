@@ -19,6 +19,7 @@
 //! - **Predicate types**: Functions that test values and return boolean
 //! - **BiPredicate types**: Functions that test two values and return boolean
 //! - **Supplier types**: Functions that produce values without input
+//! - **Mapper types**: Stateful transformations from type T to type R
 //! - **Tester types**: Functions that test conditions without input
 //! - **Comparator types**: Functions that compare values and return ordering
 //!
@@ -34,6 +35,7 @@ pub mod bi_transformer_once;
 pub mod comparator;
 pub mod consumer;
 pub mod consumer_once;
+pub mod mapper;
 pub mod mutator;
 pub mod mutator_once;
 pub mod predicate;
@@ -62,6 +64,10 @@ pub use bi_transformer_once::{
 pub use comparator::{ArcComparator, BoxComparator, Comparator, FnComparatorOps, RcComparator};
 pub use consumer::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
 pub use consumer_once::{BoxConsumerOnce, ConsumerOnce, FnConsumerOnceOps};
+pub use mapper::{
+    ArcConditionalMapper, ArcMapper, BoxConditionalMapper, BoxMapper, FnMapperOps, Mapper,
+    RcConditionalMapper, RcMapper,
+};
 pub use mutator::{
     ArcConditionalMutator, ArcMutator, BoxConditionalMutator, BoxMutator, FnMutatorOps, Mutator,
     RcConditionalMutator, RcMutator,
