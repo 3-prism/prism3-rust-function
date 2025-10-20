@@ -278,43 +278,6 @@ pub trait ReadonlySupplier<T> {
 }
 
 // ======================================================================
-// Implement ReadonlySupplier for Closures
-// ======================================================================
-
-impl<T, F> ReadonlySupplier<T> for F
-where
-    F: Fn() -> T,
-{
-    fn get(&self) -> T {
-        self()
-    }
-
-    fn into_box(self) -> BoxReadonlySupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        BoxReadonlySupplier::new(self)
-    }
-
-    fn into_rc(self) -> RcReadonlySupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        RcReadonlySupplier::new(self)
-    }
-
-    fn into_arc(self) -> ArcReadonlySupplier<T>
-    where
-        Self: Sized + Send + Sync + 'static,
-        T: Send + 'static,
-    {
-        ArcReadonlySupplier::new(self)
-    }
-}
-
-// ======================================================================
 // BoxReadonlySupplier - Single Ownership Implementation
 // ======================================================================
 
@@ -1123,5 +1086,42 @@ impl<T> Clone for RcReadonlySupplier<T> {
         Self {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+// ======================================================================
+// Implement ReadonlySupplier for Closures
+// ======================================================================
+
+impl<T, F> ReadonlySupplier<T> for F
+where
+    F: Fn() -> T,
+{
+    fn get(&self) -> T {
+        self()
+    }
+
+    fn into_box(self) -> BoxReadonlySupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxReadonlySupplier::new(self)
+    }
+
+    fn into_rc(self) -> RcReadonlySupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        RcReadonlySupplier::new(self)
+    }
+
+    fn into_arc(self) -> ArcReadonlySupplier<T>
+    where
+        Self: Sized + Send + Sync + 'static,
+        T: Send + 'static,
+    {
+        ArcReadonlySupplier::new(self)
     }
 }

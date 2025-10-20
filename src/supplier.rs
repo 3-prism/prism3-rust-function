@@ -265,43 +265,6 @@ pub trait Supplier<T> {
 }
 
 // ==========================================================================
-// Implement Supplier for Closures
-// ==========================================================================
-
-impl<T, F> Supplier<T> for F
-where
-    F: FnMut() -> T,
-{
-    fn get(&mut self) -> T {
-        self()
-    }
-
-    fn into_box(self) -> BoxSupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        BoxSupplier::new(self)
-    }
-
-    fn into_rc(self) -> RcSupplier<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        RcSupplier::new(self)
-    }
-
-    fn into_arc(self) -> ArcSupplier<T>
-    where
-        Self: Sized + Send + 'static,
-        T: Send + 'static,
-    {
-        ArcSupplier::new(self)
-    }
-}
-
-// ==========================================================================
 // BoxSupplier - Single Ownership Implementation
 // ==========================================================================
 
@@ -1299,5 +1262,42 @@ impl<T> Clone for RcSupplier<T> {
         Self {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+// ==========================================================================
+// Implement Supplier for Closures
+// ==========================================================================
+
+impl<T, F> Supplier<T> for F
+where
+    F: FnMut() -> T,
+{
+    fn get(&mut self) -> T {
+        self()
+    }
+
+    fn into_box(self) -> BoxSupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxSupplier::new(self)
+    }
+
+    fn into_rc(self) -> RcSupplier<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        RcSupplier::new(self)
+    }
+
+    fn into_arc(self) -> ArcSupplier<T>
+    where
+        Self: Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        ArcSupplier::new(self)
     }
 }
