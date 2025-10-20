@@ -220,6 +220,10 @@ pub trait ReadonlySupplier<T> {
 
     /// Converts to `BoxReadonlySupplier`.
     ///
+    /// This method has a default implementation that wraps the
+    /// supplier in a `BoxReadonlySupplier`. Custom implementations
+    /// can override this method for optimization purposes.
+    ///
     /// # Returns
     ///
     /// A new `BoxReadonlySupplier<T>` instance
@@ -236,9 +240,16 @@ pub trait ReadonlySupplier<T> {
     fn into_box(self) -> BoxReadonlySupplier<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxReadonlySupplier::new(move || self.get())
+    }
 
     /// Converts to `RcReadonlySupplier`.
+    ///
+    /// This method has a default implementation that wraps the
+    /// supplier in an `RcReadonlySupplier`. Custom implementations
+    /// can override this method for optimization purposes.
     ///
     /// # Returns
     ///
@@ -256,9 +267,16 @@ pub trait ReadonlySupplier<T> {
     fn into_rc(self) -> RcReadonlySupplier<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        RcReadonlySupplier::new(move || self.get())
+    }
 
     /// Converts to `ArcReadonlySupplier`.
+    ///
+    /// This method has a default implementation that wraps the
+    /// supplier in an `ArcReadonlySupplier`. Custom implementations
+    /// can override this method for optimization purposes.
     ///
     /// # Returns
     ///
@@ -276,7 +294,37 @@ pub trait ReadonlySupplier<T> {
     fn into_arc(self) -> ArcReadonlySupplier<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + 'static;
+        T: Send + 'static,
+    {
+        ArcReadonlySupplier::new(move || self.get())
+    }
+
+    /// Converts to a closure implementing `FnMut() -> T`.
+    ///
+    /// This method has a default implementation that wraps the
+    /// supplier in a closure. Custom implementations can override
+    /// this method for optimization purposes.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnMut() -> T`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ReadonlySupplier;
+    ///
+    /// let closure = || 42;
+    /// let mut fn_mut = closure.into_fn();
+    /// assert_eq!(fn_mut(), 42);
+    /// assert_eq!(fn_mut(), 42);
+    /// ```
+    fn into_fn(self) -> impl FnMut() -> T
+    where
+        Self: Sized,
+    {
+        move || self.get()
+    }
 }
 
 // ======================================================================
@@ -527,6 +575,11 @@ impl<T> ReadonlySupplier<T> for BoxReadonlySupplier<T> {
              Sync. Create ArcReadonlySupplier directly with Send + \
              Sync closures."
         )
+    }
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        let function = self.function;
+        move || function()
     }
 }
 
@@ -804,6 +857,11 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
         T: Send + 'static,
     {
         self
+    }
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        let function = self.function;
+        move || function()
     }
 }
 
@@ -1083,6 +1141,11 @@ impl<T> ReadonlySupplier<T> for RcReadonlySupplier<T> {
                 ArcReadonlySupplier (not Send + Sync)"
         )
     }
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        let function = self.function;
+        move || function()
+    }
 }
 
 impl<T> Clone for RcReadonlySupplier<T> {
@@ -1109,6 +1172,10 @@ where
         self()
     }
 
+    // Use optimized implementations for closures instead of the
+    // default implementations. This avoids double wrapping by
+    // directly creating the target type.
+
     fn into_box(self) -> BoxReadonlySupplier<T>
     where
         Self: Sized + 'static,
@@ -1132,4 +1199,28 @@ where
     {
         ArcReadonlySupplier::new(self)
     }
+
+    fn into_fn(self) -> impl FnMut() -> T
+    where
+        Self: Sized,
+    {
+        // For closures, we can directly return a FnMut closure
+        // that captures self
+        move || self()
+    }
 }
+
+// ======================================================================
+// Note on Extension Traits for Closures
+// ======================================================================
+//
+// We don't provide `FnReadonlySupplierOps` trait for `Fn() -> T` closures
+// because:
+//
+// 1. All `Fn` closures also implement `FnMut`, so they can use `FnSupplierOps`
+//    from the `supplier` module
+// 2. Providing both would cause ambiguity errors due to overlapping trait impls
+// 3. Rust doesn't support negative trait bounds to exclude `FnMut`
+//
+// Users of `Fn` closures should use `FnSupplierOps` from `supplier` module,
+// or explicitly convert to `BoxReadonlySupplier` using `.into_box()` first.
