@@ -85,7 +85,7 @@ pub use readonly_consumer::{
 pub use readonly_supplier::{
     ArcReadonlySupplier, BoxReadonlySupplier, RcReadonlySupplier, ReadonlySupplier,
 };
-pub use supplier::{ArcSupplier, BoxSupplier, RcSupplier, Supplier};
+pub use supplier::{ArcSupplier, BoxSupplier, FnSupplierOps, RcSupplier, Supplier};
 pub use supplier_once::{BoxSupplierOnce, SupplierOnce};
 pub use tester::{ArcTester, BoxTester, FnTesterOps, RcTester, Tester};
 pub use transformer::{
