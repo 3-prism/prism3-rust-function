@@ -39,6 +39,7 @@ pub mod mutator_once;
 pub mod predicate;
 pub mod readonly_bi_consumer;
 pub mod readonly_consumer;
+pub mod readonly_supplier;
 pub mod supplier;
 pub mod supplier_once;
 pub mod tester;
@@ -74,6 +75,9 @@ pub use readonly_bi_consumer::{
 pub use readonly_consumer::{
     ArcReadonlyConsumer, BoxReadonlyConsumer, FnReadonlyConsumerOps, RcReadonlyConsumer,
     ReadonlyConsumer,
+};
+pub use readonly_supplier::{
+    ArcReadonlySupplier, BoxReadonlySupplier, RcReadonlySupplier, ReadonlySupplier,
 };
 pub use supplier::{ArcSupplier, BoxSupplier, RcSupplier, Supplier};
 pub use supplier_once::{BoxSupplierOnce, SupplierOnce};
