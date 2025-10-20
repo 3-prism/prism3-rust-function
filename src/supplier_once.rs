@@ -358,7 +358,6 @@ impl<T> SupplierOnce<T> for BoxSupplierOnce<T> {
     // supplier that takes ownership of a non-cloneable resource.
 }
 
-
 // ==========================================================================
 // Implement SupplierOnce for Closures
 // ==========================================================================

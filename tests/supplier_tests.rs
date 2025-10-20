@@ -1510,8 +1510,8 @@ mod test_custom_supplier_default_impl {
 
         // Both threads should get different values
         assert!(v1 != v2);
-        assert!(v1 >= 1 && v1 <= 2);
-        assert!(v2 >= 1 && v2 <= 2);
+        assert!((1..=2).contains(&v1));
+        assert!((1..=2).contains(&v2));
     }
 
     #[test]
@@ -1951,11 +1951,12 @@ mod test_fn_supplier_ops {
     #[test]
     fn test_closure_result_operations() {
         // Test with Result type
-        let mut mapped = (|| Ok::<i32, String>(42)).map(|res: Result<i32, String>| res.unwrap_or(0));
+        let mut mapped =
+            (|| Ok::<i32, String>(42)).map(|res: Result<i32, String>| res.unwrap_or(0));
         assert_eq!(mapped.get(), 42);
 
-        let mut mapped_err =
-            (|| Err::<i32, String>("error".to_string())).map(|res: Result<i32, String>| res.unwrap_or(0));
+        let mut mapped_err = (|| Err::<i32, String>("error".to_string()))
+            .map(|res: Result<i32, String>| res.unwrap_or(0));
         assert_eq!(mapped_err.get(), 0);
     }
 
