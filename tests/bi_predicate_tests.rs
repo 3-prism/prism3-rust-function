@@ -1370,6 +1370,202 @@ mod tests {
     }
 
     // ========================================================================
+    // Default Implementation Tests - Test that custom types can use
+    // default implementations of into_xxx methods
+    // ========================================================================
+
+    mod default_implementation_tests {
+        use super::*;
+
+        // Custom bi-predicate type that only implements the core
+        // test method and relies on default implementations for
+        // all conversion methods
+        struct CustomBiPredicate<T, U>
+        where
+            T: 'static,
+            U: 'static,
+        {
+            threshold: i32,
+            _phantom: std::marker::PhantomData<(T, U)>,
+        }
+
+        impl CustomBiPredicate<i32, i32> {
+            fn new(threshold: i32) -> Self {
+                Self {
+                    threshold,
+                    _phantom: std::marker::PhantomData,
+                }
+            }
+        }
+
+        // Only implement the core test method - all into_xxx
+        // methods will use default implementations
+        impl BiPredicate<i32, i32> for CustomBiPredicate<i32, i32> {
+            fn test(&self, first: &i32, second: &i32) -> bool {
+                first + second > self.threshold
+            }
+
+            // All other methods (into_box, into_rc, into_arc,
+            // into_fn) use default implementations automatically
+        }
+
+        #[test]
+        fn test_custom_type_basic_test() {
+            let pred = CustomBiPredicate::new(10);
+            assert!(pred.test(&6, &5));
+            assert!(pred.test(&10, &1));
+            assert!(!pred.test(&5, &5));
+            assert!(!pred.test(&3, &4));
+        }
+
+        #[test]
+        fn test_custom_type_into_box() {
+            let pred = CustomBiPredicate::new(10);
+            // This uses the default implementation
+            let box_pred = pred.into_box();
+
+            assert!(box_pred.test(&6, &5));
+            assert!(box_pred.test(&10, &1));
+            assert!(!box_pred.test(&5, &5));
+            assert!(!box_pred.test(&3, &4));
+        }
+
+        #[test]
+        fn test_custom_type_into_rc() {
+            let pred = CustomBiPredicate::new(10);
+            // This uses the default implementation
+            let rc_pred = pred.into_rc();
+
+            assert!(rc_pred.test(&6, &5));
+            assert!(rc_pred.test(&10, &1));
+            assert!(!rc_pred.test(&5, &5));
+            assert!(!rc_pred.test(&3, &4));
+
+            // Verify it can be cloned (RcBiPredicate feature)
+            let cloned = rc_pred.clone();
+            assert!(cloned.test(&6, &5));
+            assert!(rc_pred.test(&6, &5));
+        }
+
+        #[test]
+        fn test_custom_type_into_arc() {
+            // Custom type for thread-safe testing
+            struct ThreadSafePredicate {
+                threshold: i32,
+            }
+
+            impl ThreadSafePredicate {
+                fn new(threshold: i32) -> Self {
+                    Self { threshold }
+                }
+            }
+
+            // Implement Send + Sync to allow conversion to Arc
+            unsafe impl Send for ThreadSafePredicate {}
+            unsafe impl Sync for ThreadSafePredicate {}
+
+            // Only implement test method
+            impl BiPredicate<i32, i32> for ThreadSafePredicate {
+                fn test(&self, first: &i32, second: &i32) -> bool {
+                    first + second > self.threshold
+                }
+            }
+
+            let pred = ThreadSafePredicate::new(10);
+            // This uses the default implementation
+            let arc_pred = pred.into_arc();
+
+            assert!(arc_pred.test(&6, &5));
+            assert!(arc_pred.test(&10, &1));
+            assert!(!arc_pred.test(&5, &5));
+            assert!(!arc_pred.test(&3, &4));
+
+            // Verify it can be sent across threads
+            let arc_clone = arc_pred.clone();
+            let handle = thread::spawn(move || {
+                arc_clone.test(&6, &5)
+            });
+
+            assert!(handle.join().unwrap());
+            assert!(arc_pred.test(&10, &1));
+        }
+
+        #[test]
+        fn test_custom_type_into_fn() {
+            let pred = CustomBiPredicate::new(10);
+            // This uses the default implementation
+            let func = pred.into_fn();
+
+            assert!(func(&6, &5));
+            assert!(func(&10, &1));
+            assert!(!func(&5, &5));
+            assert!(!func(&3, &4));
+        }
+
+        #[test]
+        fn test_custom_type_into_fn_with_filter() {
+            let pred = CustomBiPredicate::new(10);
+            let func = pred.into_fn();
+
+            let pairs = [(6, 5), (3, 4), (10, 1), (5, 5)];
+            let result: Vec<_> = pairs
+                .iter()
+                .filter(|(x, y)| func(x, y))
+                .collect();
+
+            assert_eq!(result, vec![&(6, 5), &(10, 1)]);
+        }
+
+        #[test]
+        fn test_custom_type_can_be_used_in_generic_context() {
+            fn accepts_predicate<P>(pred: &P, x: i32, y: i32) -> bool
+            where
+                P: BiPredicate<i32, i32>,
+            {
+                pred.test(&x, &y)
+            }
+
+            let pred = CustomBiPredicate::new(10);
+            assert!(accepts_predicate(&pred, 6, 5));
+            assert!(!accepts_predicate(&pred, 3, 4));
+        }
+
+        #[test]
+        fn test_custom_type_composition_via_conversion() {
+            let custom_pred = CustomBiPredicate::new(10);
+            let box_pred = custom_pred.into_box();
+
+            // Compose with another predicate
+            let both_positive = |x: &i32, y: &i32| *x > 0 && *y > 0;
+            let combined = box_pred.and(both_positive);
+
+            assert!(combined.test(&6, &5)); // Sum > 10, both positive
+            assert!(!combined.test(&-6, &20)); // Sum > 10, but not both
+            assert!(!combined.test(&3, &4)); // Both positive, but sum <= 10
+        }
+
+        #[test]
+        fn test_custom_type_all_conversions_preserve_behavior() {
+            let threshold = 10;
+
+            let custom_pred1 = CustomBiPredicate::new(threshold);
+            let box_pred = custom_pred1.into_box();
+
+            let custom_pred2 = CustomBiPredicate::new(threshold);
+            let rc_pred = custom_pred2.into_rc();
+
+            let test_values = [(6, 5), (3, 4), (10, 1), (5, 5)];
+
+            // All converted predicates should behave the same
+            for (x, y) in &test_values {
+                let expected = x + y > threshold;
+                assert_eq!(box_pred.test(x, y), expected);
+                assert_eq!(rc_pred.test(x, y), expected);
+            }
+        }
+    }
+
+    // ========================================================================
     // Edge Case Tests
     // ========================================================================
 

@@ -273,33 +273,64 @@ pub trait BiPredicate<T, U> {
     /// # Returns
     ///
     /// A `BoxBiPredicate` wrapping this bi-predicate.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps the bi-predicate in a
+    /// closure that calls `test`, providing automatic conversion
+    /// for custom types that only implement the core `test`
+    /// method.
     fn into_box(self) -> BoxBiPredicate<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        BoxBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+    }
 
     /// Converts this bi-predicate into an `RcBiPredicate`.
     ///
     /// # Returns
     ///
     /// An `RcBiPredicate` wrapping this bi-predicate.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps the bi-predicate in a
+    /// closure that calls `test`, providing automatic conversion
+    /// for custom types that only implement the core `test`
+    /// method.
     fn into_rc(self) -> RcBiPredicate<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        RcBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+    }
 
     /// Converts this bi-predicate into an `ArcBiPredicate`.
     ///
     /// # Returns
     ///
     /// An `ArcBiPredicate` wrapping this bi-predicate.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps the bi-predicate in a
+    /// closure that calls `test`, providing automatic conversion
+    /// for custom types that only implement the core `test`
+    /// method. Note that this requires `Send + Sync` bounds for
+    /// thread-safe sharing.
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Sized + Send + Sync + 'static,
         T: Send + Sync + 'static,
-        U: Send + Sync + 'static;
+        U: Send + Sync + 'static,
+    {
+        ArcBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+    }
 
     /// Converts this bi-predicate into a closure that can be used
     /// directly with standard library methods.
@@ -314,6 +345,12 @@ pub trait BiPredicate<T, U> {
     ///
     /// A closure implementing `Fn(&T, &U) -> bool` (also usable as
     /// `FnMut(&T, &U) -> bool`).
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation returns a closure that calls the
+    /// `test` method, providing automatic conversion for custom
+    /// types.
     ///
     /// # Examples
     ///
@@ -336,7 +373,10 @@ pub trait BiPredicate<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        move |first: &T, second: &U| self.test(first, second)
+    }
 }
 
 /// A Box-based bi-predicate with single ownership.
@@ -680,6 +720,7 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
         (self.function)(first, second)
     }
 
+    // Use optimized zero-cost conversion for into_box
     fn into_box(self) -> BoxBiPredicate<T, U>
     where
         T: 'static,
@@ -688,6 +729,8 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
         self
     }
 
+    // Use optimized conversion for into_rc that preserves the
+    // existing Box
     fn into_rc(self) -> RcBiPredicate<T, U>
     where
         T: 'static,
@@ -699,6 +742,8 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
         }
     }
 
+    // BoxBiPredicate cannot be converted to ArcBiPredicate
+    // because Box<dyn Fn> is not Send + Sync
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Send + Sync,
@@ -708,6 +753,8 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
         panic!("BoxBiPredicate cannot be converted to ArcBiPredicate - use ArcBiPredicate::new directly")
     }
 
+    // Use optimized conversion for into_fn that preserves the
+    // existing Box
     fn into_fn(self) -> impl Fn(&T, &U) -> bool
     where
         Self: Sized + 'static,
@@ -1109,6 +1156,8 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         (self.function)(first, second)
     }
 
+    // Use optimized conversion for into_box that preserves the
+    // existing Rc
     fn into_box(self) -> BoxBiPredicate<T, U>
     where
         T: 'static,
@@ -1121,6 +1170,7 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         }
     }
 
+    // Use optimized zero-cost conversion for into_rc
     fn into_rc(self) -> RcBiPredicate<T, U>
     where
         T: 'static,
@@ -1129,6 +1179,8 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         self
     }
 
+    // RcBiPredicate cannot be converted to ArcBiPredicate because
+    // Rc is not Send + Sync
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Send + Sync,
@@ -1138,6 +1190,8 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         panic!("RcBiPredicate cannot be converted to ArcBiPredicate - use ArcBiPredicate::new directly")
     }
 
+    // Use optimized conversion for into_fn that preserves the
+    // existing Rc
     fn into_fn(self) -> impl Fn(&T, &U) -> bool
     where
         Self: Sized + 'static,
@@ -1580,6 +1634,8 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         (self.function)(first, second)
     }
 
+    // Use optimized conversion for into_box that preserves the
+    // existing Arc
     fn into_box(self) -> BoxBiPredicate<T, U>
     where
         T: 'static,
@@ -1592,6 +1648,8 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         }
     }
 
+    // Use optimized conversion for into_rc that preserves the
+    // existing Arc
     fn into_rc(self) -> RcBiPredicate<T, U>
     where
         T: 'static,
@@ -1604,6 +1662,7 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         }
     }
 
+    // Use optimized zero-cost conversion for into_arc
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         T: Send + Sync + 'static,
@@ -1612,6 +1671,8 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         self
     }
 
+    // Use optimized conversion for into_fn that preserves the
+    // existing Arc
     fn into_fn(self) -> impl Fn(&T, &U) -> bool
     where
         Self: Sized + 'static,
@@ -1655,7 +1716,9 @@ impl<T, U> Debug for ArcBiPredicate<T, U> {
     }
 }
 
-// Blanket implementation for all closures that match Fn(&T, &U) -> bool
+// Blanket implementation for all closures that match
+// Fn(&T, &U) -> bool. This provides optimal implementations for
+// closures by wrapping them directly into the target type.
 impl<T: 'static, U: 'static, F> BiPredicate<T, U> for F
 where
     F: Fn(&T, &U) -> bool + 'static,
@@ -1664,14 +1727,17 @@ where
         self(first, second)
     }
 
+    // Optimal implementation for closures: wrap directly in Box
     fn into_box(self) -> BoxBiPredicate<T, U> {
         BoxBiPredicate::new(self)
     }
 
+    // Optimal implementation for closures: wrap directly in Rc
     fn into_rc(self) -> RcBiPredicate<T, U> {
         RcBiPredicate::new(self)
     }
 
+    // Optimal implementation for closures: wrap directly in Arc
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Send + Sync,
@@ -1681,6 +1747,7 @@ where
         ArcBiPredicate::new(self)
     }
 
+    // Optimal implementation for closures: return self (zero-cost)
     fn into_fn(self) -> impl Fn(&T, &U) -> bool {
         self
     }
