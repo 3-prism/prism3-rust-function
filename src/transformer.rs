@@ -183,8 +183,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let cloned = self.clone();
-        BoxTransformer::new(move |x| cloned.transform(x))
+        self.clone().into_box()
     }
 
     /// Converts to RcTransformer without consuming self
@@ -220,8 +219,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let cloned = self.clone();
-        RcTransformer::new(move |x| cloned.transform(x))
+        self.clone().into_rc()
     }
 
     /// Converts to ArcTransformer without consuming self
@@ -257,8 +255,7 @@ pub trait Transformer<T, R> {
         T: Send + Sync + 'static,
         R: Send + Sync + 'static,
     {
-        let cloned = self.clone();
-        ArcTransformer::new(move |x| cloned.transform(x))
+        self.clone().into_arc()
     }
 
     /// Converts transformer to a closure without consuming self
@@ -294,8 +291,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let cloned = self.clone();
-        move |t: T| cloned.transform(t)
+        self.clone().into_fn()
     }
 }
 
@@ -873,9 +869,9 @@ where
         S: Send + Sync + 'static,
         F: Transformer<R, S> + Send + Sync + 'static,
     {
-        let self_clone = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         ArcTransformer {
-            function: Arc::new(move |x: T| after.transform(self_clone(x))),
+            function: Arc::new(move |x: T| after.transform(self_fn(x))),
         }
     }
 
@@ -945,9 +941,9 @@ where
         S: Send + Sync + 'static,
         F: Transformer<S, T> + Send + Sync + 'static,
     {
-        let self_clone = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         ArcTransformer {
-            function: Arc::new(move |x: S| self_clone(before.transform(x))),
+            function: Arc::new(move |x: S| self_fn(before.transform(x))),
         }
     }
 
@@ -1005,12 +1001,12 @@ where
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
     /// ```
-    pub fn when<P>(self, predicate: P) -> ArcConditionalTransformer<T, R>
+    pub fn when<P>(&self, predicate: P) -> ArcConditionalTransformer<T, R>
     where
         P: Predicate<T> + Send + Sync + 'static,
     {
         ArcConditionalTransformer {
-            transformer: self,
+            transformer: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -1044,10 +1040,22 @@ impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
         (self.function)(input)
     }
 
-    // ArcTransformer::into_box() and ArcTransformer::into_rc() are implemented
-    // by the default implementation of Transformer::into_box() and Transformer::into_rc()
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformer::new(move |t| (self.function)(t))
+    }
 
-    // Override with zero-cost implementation: directly return itself
+    fn into_rc(self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        RcTransformer::new(move |t| (self.function)(t))
+    }
+
     fn into_arc(self) -> ArcTransformer<T, R>
     where
         T: Send + Sync + 'static,
@@ -1056,37 +1064,32 @@ impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
         self
     }
 
-    // Override with optimized implementation: wrap the Arc in a
-    // closure to avoid double indirection
     fn into_fn(self) -> impl Fn(T) -> R
     where
         T: 'static,
         R: 'static,
     {
-        move |t: T| (self.function)(t)
+        move |t| (self.function)(t)
     }
 
-    // Override with optimized implementation: clone the Arc (cheap)
     fn to_box(&self) -> BoxTransformer<T, R>
     where
         T: 'static,
         R: 'static,
     {
-        let arc_clone = self.function.clone();
-        BoxTransformer::new(move |x| arc_clone(x))
+        let self_fn = self.function.clone();
+        BoxTransformer::new(move |t| self_fn(t))
     }
 
-    // Override with optimized implementation: clone the Arc (cheap)
     fn to_rc(&self) -> RcTransformer<T, R>
     where
         T: 'static,
         R: 'static,
     {
-        let arc_clone = self.function.clone();
-        RcTransformer::new(move |x| arc_clone(x))
+        let self_fn = self.function.clone();
+        RcTransformer::new(move |t| self_fn(t))
     }
 
-    // Override with zero-cost implementation: clone itself
     fn to_arc(&self) -> ArcTransformer<T, R>
     where
         T: Send + Sync + 'static,
@@ -1095,14 +1098,13 @@ impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
         self.clone()
     }
 
-    // Override with optimized implementation: clone the Arc (cheap)
     fn to_fn(&self) -> impl Fn(T) -> R
     where
         T: 'static,
         R: 'static,
     {
-        let arc_clone = self.function.clone();
-        move |t: T| arc_clone(t)
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 
@@ -1357,9 +1359,9 @@ where
         S: 'static,
         F: Transformer<R, S> + 'static,
     {
-        let self_clone = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         RcTransformer {
-            function: Rc::new(move |x: T| after.transform(self_clone(x))),
+            function: Rc::new(move |x: T| after.transform(self_fn(x))),
         }
     }
 
@@ -1490,12 +1492,12 @@ where
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
     /// ```
-    pub fn when<P>(self, predicate: P) -> RcConditionalTransformer<T, R>
+    pub fn when<P>(&self, predicate: P) -> RcConditionalTransformer<T, R>
     where
         P: Predicate<T> + 'static,
     {
         RcConditionalTransformer {
-            transformer: self,
+            transformer: self.clone(),
             predicate: predicate.into_rc(),
         }
     }
@@ -1529,6 +1531,14 @@ impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
     // RcTransformer::into_box() is implemented by the default implementation
     // of Transformer::into_box()
 
+    fn into_box(self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformer::new(move |t| (self.function)(t))
+    }
+
     // Override with zero-cost implementation: directly return itself
     fn into_rc(self) -> RcTransformer<T, R>
     where
@@ -1548,7 +1558,7 @@ impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        move |t: T| (self.function)(t)
+        move |t| (self.function)(t)
     }
 
     // Override with optimized implementation: clone the Rc (cheap)
@@ -1557,8 +1567,8 @@ impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let rc_clone = self.function.clone();
-        BoxTransformer::new(move |x| rc_clone(x))
+        let self_fn = self.function.clone();
+        BoxTransformer::new(move |t| self_fn(t))
     }
 
     // Override with zero-cost implementation: clone itself
@@ -1579,8 +1589,8 @@ impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let rc_clone = self.function.clone();
-        move |t: T| rc_clone(t)
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 
