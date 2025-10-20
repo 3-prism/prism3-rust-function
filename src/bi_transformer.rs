@@ -58,7 +58,7 @@ pub trait BiTransformer<T, U, R> {
     /// # Returns
     ///
     /// The transformed output value
-    fn transform(&self, first: T, second: U) -> R;
+    fn apply(&self, first: T, second: U) -> R;
 
     /// Converts to BoxBiTransformer
     ///
@@ -164,7 +164,7 @@ where
     /// use prism3_function::{BoxBiTransformer, BiTransformer};
     ///
     /// let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
-    /// assert_eq!(add.transform(20, 22), 42);
+    /// assert_eq!(add.apply(20, 22), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -214,8 +214,8 @@ where
     ///
     /// // double is moved here
     /// let composed = add.and_then(double);
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
-    /// // double.transform(10); // Would not compile - moved
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
+    /// // double.apply(10); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -228,10 +228,10 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = add.and_then(double.clone());
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     ///
     /// // Original still usable
-    /// assert_eq!(double.transform(10), 20);
+    /// assert_eq!(double.apply(10), 20);
     /// ```
     pub fn and_then<S, F>(self, after: F) -> BoxBiTransformer<T, U, S>
     where
@@ -239,7 +239,7 @@ where
         F: crate::transformer::Transformer<R, S> + 'static,
     {
         let self_fn = self.function;
-        BoxBiTransformer::new(move |t: T, u: U| after.transform(self_fn(t, u)))
+        BoxBiTransformer::new(move |t: T, u: U| after.apply(self_fn(t, u)))
     }
 
     /// Creates a conditional bi-transformer
@@ -277,8 +277,8 @@ where
     /// let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0)
     ///     .or_else(multiply);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);  // add
-    /// assert_eq!(conditional.transform(-5, 3), -15); // multiply
+    /// assert_eq!(conditional.apply(5, 3), 8);  // add
+    /// assert_eq!(conditional.apply(-5, 3), -15); // multiply
     /// ```
     ///
     /// ## Preserving bi-predicate with clone
@@ -294,7 +294,7 @@ where
     /// let conditional = add.when(both_positive.clone())
     ///     .or_else(BoxBiTransformer::new(|x, y| x * y));
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
+    /// assert_eq!(conditional.apply(5, 3), 8);
     ///
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
@@ -324,7 +324,7 @@ where
     /// use prism3_function::{BoxBiTransformer, BiTransformer};
     ///
     /// let constant = BoxBiTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123, 456), "hello");
+    /// assert_eq!(constant.apply(123, 456), "hello");
     /// ```
     pub fn constant(value: R) -> BoxBiTransformer<T, U, R> {
         BoxBiTransformer::new(move |_, _| value.clone())
@@ -332,7 +332,7 @@ where
 }
 
 impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
-    fn transform(&self, first: T, second: U) -> R {
+    fn apply(&self, first: T, second: U) -> R {
         (self.function)(first, second)
     }
 
@@ -376,7 +376,7 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.transform(t, u)
+        move |t: T, u: U| self.apply(t, u)
     }
 }
 
@@ -411,8 +411,8 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
 /// let multiply = BoxBiTransformer::new(|x: i32, y: i32| x * y);
 /// let conditional = add.when(|x: &i32, y: &i32| *x > 0).or_else(multiply);
 ///
-/// assert_eq!(conditional.transform(5, 3), 8);  // when branch executed
-/// assert_eq!(conditional.transform(-5, 3), -15); // or_else branch executed
+/// assert_eq!(conditional.apply(5, 3), 8);  // when branch executed
+/// assert_eq!(conditional.apply(-5, 3), -15); // or_else branch executed
 /// ```
 ///
 /// # Author
@@ -455,8 +455,8 @@ where
     /// let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
     /// let conditional = add.when(|x: &i32, y: &i32| *x > 0).or_else(|x: i32, y: i32| x * y);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);   // Condition satisfied, execute add
-    /// assert_eq!(conditional.transform(-5, 3), -15); // Condition not satisfied, execute multiply
+    /// assert_eq!(conditional.apply(5, 3), 8);   // Condition satisfied, execute add
+    /// assert_eq!(conditional.apply(-5, 3), -15); // Condition not satisfied, execute multiply
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> BoxBiTransformer<T, U, R>
     where
@@ -466,9 +466,9 @@ where
         let then_trans = self.transformer;
         BoxBiTransformer::new(move |t, u| {
             if pred.test(&t, &u) {
-                then_trans.transform(t, u)
+                then_trans.apply(t, u)
             } else {
-                else_transformer.transform(t, u)
+                else_transformer.apply(t, u)
             }
         })
     }
@@ -517,7 +517,7 @@ where
     /// use prism3_function::{ArcBiTransformer, BiTransformer};
     ///
     /// let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
-    /// assert_eq!(add.transform(20, 22), 42);
+    /// assert_eq!(add.apply(20, 22), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -570,9 +570,9 @@ where
     /// let composed = add.and_then(double);
     ///
     /// // Original add bi-transformer still usable (uses &self)
-    /// assert_eq!(add.transform(20, 22), 42);
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
-    /// // double.transform(10); // Would not compile - moved
+    /// assert_eq!(add.apply(20, 22), 42);
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
+    /// // double.apply(10); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -585,11 +585,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = add.and_then(double.clone());
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     ///
     /// // Both originals still usable
-    /// assert_eq!(add.transform(20, 22), 42);
-    /// assert_eq!(double.transform(10), 20);
+    /// assert_eq!(add.apply(20, 22), 42);
+    /// assert_eq!(double.apply(10), 20);
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> ArcBiTransformer<T, U, S>
     where
@@ -598,7 +598,7 @@ where
     {
         let self_clone = Arc::clone(&self.function);
         ArcBiTransformer {
-            function: Arc::new(move |t: T, u: U| after.transform(self_clone(t, u))),
+            function: Arc::new(move |t: T, u: U| after.apply(self_clone(t, u))),
         }
     }
 
@@ -637,8 +637,8 @@ where
     ///
     /// let conditional_clone = conditional.clone();
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
-    /// assert_eq!(conditional_clone.transform(-5, 3), -15);
+    /// assert_eq!(conditional.apply(5, 3), 8);
+    /// assert_eq!(conditional_clone.apply(-5, 3), -15);
     /// ```
     ///
     /// ## Preserving bi-predicate with clone
@@ -654,7 +654,7 @@ where
     /// let conditional = add.when(both_positive.clone())
     ///     .or_else(ArcBiTransformer::new(|x, y| x * y));
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
+    /// assert_eq!(conditional.apply(5, 3), 8);
     ///
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
@@ -684,7 +684,7 @@ where
     /// use prism3_function::{ArcBiTransformer, BiTransformer};
     ///
     /// let constant = ArcBiTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123, 456), "hello");
+    /// assert_eq!(constant.apply(123, 456), "hello");
     /// ```
     pub fn constant(value: R) -> ArcBiTransformer<T, U, R>
     where
@@ -695,7 +695,7 @@ where
 }
 
 impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
-    fn transform(&self, first: T, second: U) -> R {
+    fn apply(&self, first: T, second: U) -> R {
         (self.function)(first, second)
     }
 
@@ -706,7 +706,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         R: 'static,
     {
         BoxBiTransformer {
-            function: Box::new(move |x, y| self.transform(x, y)),
+            function: Box::new(move |x, y| self.apply(x, y)),
         }
     }
 
@@ -717,7 +717,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         R: 'static,
     {
         RcBiTransformer {
-            function: Rc::new(move |x, y| self.transform(x, y)),
+            function: Rc::new(move |x, y| self.apply(x, y)),
         }
     }
 
@@ -737,7 +737,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.transform(t, u)
+        move |t: T, u: U| self.apply(t, u)
     }
 }
 
@@ -780,8 +780,8 @@ impl<T, U, R> Clone for ArcBiTransformer<T, U, R> {
 ///
 /// let conditional_clone = conditional.clone();
 ///
-/// assert_eq!(conditional.transform(5, 3), 8);
-/// assert_eq!(conditional_clone.transform(-5, 3), -15);
+/// assert_eq!(conditional.apply(5, 3), 8);
+/// assert_eq!(conditional_clone.apply(-5, 3), -15);
 /// ```
 ///
 /// # Author
@@ -824,8 +824,8 @@ where
     /// let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
     /// let conditional = add.when(|x: &i32, y: &i32| *x > 0).or_else(|x: i32, y: i32| x * y);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
-    /// assert_eq!(conditional.transform(-5, 3), -15);
+    /// assert_eq!(conditional.apply(5, 3), 8);
+    /// assert_eq!(conditional.apply(-5, 3), -15);
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> ArcBiTransformer<T, U, R>
     where
@@ -836,9 +836,9 @@ where
         let then_trans = self.transformer;
         ArcBiTransformer::new(move |t, u| {
             if pred.test(&t, &u) {
-                then_trans.transform(t, u)
+                then_trans.apply(t, u)
             } else {
-                else_transformer.transform(t, u)
+                else_transformer.apply(t, u)
             }
         })
     }
@@ -900,7 +900,7 @@ where
     /// use prism3_function::{RcBiTransformer, BiTransformer};
     ///
     /// let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
-    /// assert_eq!(add.transform(20, 22), 42);
+    /// assert_eq!(add.apply(20, 22), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -953,9 +953,9 @@ where
     /// let composed = add.and_then(double);
     ///
     /// // Original add bi-transformer still usable (uses &self)
-    /// assert_eq!(add.transform(20, 22), 42);
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
-    /// // double.transform(10); // Would not compile - moved
+    /// assert_eq!(add.apply(20, 22), 42);
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
+    /// // double.apply(10); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -968,11 +968,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = add.and_then(double.clone());
-    /// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+    /// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     ///
     /// // Both originals still usable
-    /// assert_eq!(add.transform(20, 22), 42);
-    /// assert_eq!(double.transform(10), 20);
+    /// assert_eq!(add.apply(20, 22), 42);
+    /// assert_eq!(double.apply(10), 20);
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> RcBiTransformer<T, U, S>
     where
@@ -981,7 +981,7 @@ where
     {
         let self_clone = Rc::clone(&self.function);
         RcBiTransformer {
-            function: Rc::new(move |t: T, u: U| after.transform(self_clone(t, u))),
+            function: Rc::new(move |t: T, u: U| after.apply(self_clone(t, u))),
         }
     }
 
@@ -1022,8 +1022,8 @@ where
     ///
     /// let conditional_clone = conditional.clone();
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
-    /// assert_eq!(conditional_clone.transform(-5, 3), -15);
+    /// assert_eq!(conditional.apply(5, 3), 8);
+    /// assert_eq!(conditional_clone.apply(-5, 3), -15);
     /// ```
     ///
     /// ## Preserving bi-predicate with clone
@@ -1039,7 +1039,7 @@ where
     /// let conditional = add.when(both_positive.clone())
     ///     .or_else(RcBiTransformer::new(|x, y| x * y));
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
+    /// assert_eq!(conditional.apply(5, 3), 8);
     ///
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
@@ -1069,7 +1069,7 @@ where
     /// use prism3_function::{RcBiTransformer, BiTransformer};
     ///
     /// let constant = RcBiTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123, 456), "hello");
+    /// assert_eq!(constant.apply(123, 456), "hello");
     /// ```
     pub fn constant(value: R) -> RcBiTransformer<T, U, R> {
         RcBiTransformer::new(move |_, _| value.clone())
@@ -1077,7 +1077,7 @@ where
 }
 
 impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
-    fn transform(&self, first: T, second: U) -> R {
+    fn apply(&self, first: T, second: U) -> R {
         (self.function)(first, second)
     }
 
@@ -1088,7 +1088,7 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         R: 'static,
     {
         BoxBiTransformer {
-            function: Box::new(move |x, y| self.transform(x, y)),
+            function: Box::new(move |x, y| self.apply(x, y)),
         }
     }
 
@@ -1121,7 +1121,7 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.transform(t, u)
+        move |t: T, u: U| self.apply(t, u)
     }
 }
 
@@ -1164,8 +1164,8 @@ impl<T, U, R> Clone for RcBiTransformer<T, U, R> {
 ///
 /// let conditional_clone = conditional.clone();
 ///
-/// assert_eq!(conditional.transform(5, 3), 8);
-/// assert_eq!(conditional_clone.transform(-5, 3), -15);
+/// assert_eq!(conditional.apply(5, 3), 8);
+/// assert_eq!(conditional_clone.apply(-5, 3), -15);
 /// ```
 ///
 /// # Author
@@ -1208,8 +1208,8 @@ where
     /// let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
     /// let conditional = add.when(|x: &i32, y: &i32| *x > 0).or_else(|x: i32, y: i32| x * y);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
-    /// assert_eq!(conditional.transform(-5, 3), -15);
+    /// assert_eq!(conditional.apply(5, 3), 8);
+    /// assert_eq!(conditional.apply(-5, 3), -15);
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> RcBiTransformer<T, U, R>
     where
@@ -1219,9 +1219,9 @@ where
         let then_trans = self.transformer;
         RcBiTransformer::new(move |t, u| {
             if pred.test(&t, &u) {
-                then_trans.transform(t, u)
+                then_trans.apply(t, u)
             } else {
-                else_transformer.transform(t, u)
+                else_transformer.apply(t, u)
             }
         })
     }
@@ -1256,10 +1256,10 @@ impl<T, U, R> Clone for RcConditionalBiTransformer<T, U, R> {
 ///
 /// fn add(x: i32, y: i32) -> i32 { x + y }
 ///
-/// assert_eq!(add.transform(20, 22), 42);
+/// assert_eq!(add.apply(20, 22), 42);
 ///
 /// let multiply = |x: i32, y: i32| x * y;
-/// assert_eq!(multiply.transform(6, 7), 42);
+/// assert_eq!(multiply.apply(6, 7), 42);
 /// ```
 ///
 /// # Author
@@ -1272,7 +1272,7 @@ where
     U: 'static,
     R: 'static,
 {
-    fn transform(&self, first: T, second: U) -> R {
+    fn apply(&self, first: T, second: U) -> R {
         self(first, second)
     }
 
@@ -1339,7 +1339,7 @@ where
 /// let double = |x: i32| x * 2;
 ///
 /// let composed = add.and_then(double);
-/// assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+/// assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
 /// ```
 ///
 /// ## Conditional execution with when
@@ -1352,8 +1352,8 @@ where
 ///
 /// let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
 ///
-/// assert_eq!(conditional.transform(5, 3), 8);   // add
-/// assert_eq!(conditional.transform(-5, 3), -15); // multiply
+/// assert_eq!(conditional.apply(5, 3), 8);   // add
+/// assert_eq!(conditional.apply(-5, 3), -15); // multiply
 /// ```
 ///
 /// # Author
@@ -1401,8 +1401,8 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     ///
     /// // to_string is moved here
     /// let composed = add.and_then(to_string);
-    /// assert_eq!(composed.transform(20, 22), "42");
-    /// // to_string.transform(10); // Would not compile - moved
+    /// assert_eq!(composed.apply(20, 22), "42");
+    /// // to_string.apply(10); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -1416,10 +1416,10 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     ///
     /// // Clone to preserve original
     /// let composed = add.and_then(to_string.clone());
-    /// assert_eq!(composed.transform(20, 22), "42");
+    /// assert_eq!(composed.apply(20, 22), "42");
     ///
     /// // Original still usable
-    /// assert_eq!(to_string.transform(10), "10");
+    /// assert_eq!(to_string.apply(10), "10");
     /// ```
     fn and_then<S, F>(self, after: F) -> BoxBiTransformer<T, U, S>
     where
@@ -1429,7 +1429,7 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
         U: 'static,
         R: 'static,
     {
-        BoxBiTransformer::new(move |t: T, u: U| after.transform(self(t, u)))
+        BoxBiTransformer::new(move |t: T, u: U| after.apply(self(t, u)))
     }
 
     /// Creates a conditional bi-transformer
@@ -1466,8 +1466,8 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     /// let conditional = add.when(|x: &i32, y: &i32| *x > 0)
     ///     .or_else(|x: i32, y: i32| x * y);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
-    /// assert_eq!(conditional.transform(-5, 3), -15);
+    /// assert_eq!(conditional.apply(5, 3), 8);
+    /// assert_eq!(conditional.apply(-5, 3), -15);
     /// ```
     ///
     /// ## Preserving bi-predicate with clone
@@ -1484,7 +1484,7 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     /// let conditional = add.when(both_positive.clone())
     ///     .or_else(|x: i32, y: i32| x * y);
     ///
-    /// assert_eq!(conditional.transform(5, 3), 8);
+    /// assert_eq!(conditional.apply(5, 3), 8);
     ///
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
@@ -1542,7 +1542,7 @@ impl<T, U, R, F> FnBiTransformerOps<T, U, R> for F where F: Fn(T, U) -> R + 'sta
 ///     O: BinaryOperator<T>,
 ///     T: Clone,
 /// {
-///     values.into_iter().fold(initial, |acc, val| op.transform(acc, val))
+///     values.into_iter().fold(initial, |acc, val| op.apply(acc, val))
 /// }
 ///
 /// let sum = |a: i32, b: i32| a + b;
@@ -1559,7 +1559,7 @@ impl<T, U, R, F> FnBiTransformerOps<T, U, R> for F where F: Fn(T, U) -> R + 'sta
 /// }
 ///
 /// let op = create_adder();
-/// assert_eq!(op.transform(20, 22), 42);
+/// assert_eq!(op.apply(20, 22), 42);
 /// ```
 ///
 /// # Author
@@ -1599,7 +1599,7 @@ where
 /// use prism3_function::{BoxBinaryOperator, BiTransformer};
 ///
 /// let add: BoxBinaryOperator<i32> = BoxBinaryOperator::new(|x, y| x + y);
-/// assert_eq!(add.transform(20, 22), 42);
+/// assert_eq!(add.apply(20, 22), 42);
 /// ```
 ///
 /// # Author
@@ -1620,8 +1620,8 @@ pub type BoxBinaryOperator<T> = BoxBiTransformer<T, T, T>;
 ///
 /// let multiply: ArcBinaryOperator<i32> = ArcBinaryOperator::new(|x, y| x * y);
 /// let multiply_clone = multiply.clone();
-/// assert_eq!(multiply.transform(6, 7), 42);
-/// assert_eq!(multiply_clone.transform(6, 7), 42);
+/// assert_eq!(multiply.apply(6, 7), 42);
+/// assert_eq!(multiply_clone.apply(6, 7), 42);
 /// ```
 ///
 /// # Author
@@ -1642,8 +1642,8 @@ pub type ArcBinaryOperator<T> = ArcBiTransformer<T, T, T>;
 ///
 /// let max: RcBinaryOperator<i32> = RcBinaryOperator::new(|x, y| if x > y { x } else { y });
 /// let max_clone = max.clone();
-/// assert_eq!(max.transform(30, 42), 42);
-/// assert_eq!(max_clone.transform(30, 42), 42);
+/// assert_eq!(max.apply(30, 42), 42);
+/// assert_eq!(max_clone.apply(30, 42), 42);
 /// ```
 ///
 /// # Author

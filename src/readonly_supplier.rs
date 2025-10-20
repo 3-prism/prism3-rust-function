@@ -585,7 +585,7 @@ where
         M: Transformer<T, U> + 'static,
         U: 'static,
     {
-        BoxReadonlySupplier::new(move || mapper.transform(self.get()))
+        BoxReadonlySupplier::new(move || mapper.apply(self.get()))
     }
 
     /// Filters output based on a predicate.
@@ -859,7 +859,7 @@ where
         ArcReadonlySupplier {
             function: Arc::new(move || {
                 let value = self_fn();
-                mapper.transform(value)
+                mapper.apply(value)
             }),
         }
     }
@@ -1177,7 +1177,7 @@ where
         RcReadonlySupplier {
             function: Rc::new(move || {
                 let value = self_fn();
-                mapper.transform(value)
+                mapper.apply(value)
             }),
         }
     }

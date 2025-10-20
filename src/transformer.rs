@@ -47,7 +47,7 @@ use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 ///
 /// Hu Haixing
 pub trait Transformer<T, R> {
-    /// Transforms the input value to produce an output value
+    /// Applies the transformation to the input value to produce an output value
     ///
     /// # Parameters
     ///
@@ -56,7 +56,7 @@ pub trait Transformer<T, R> {
     /// # Returns
     ///
     /// The transformed output value
-    fn transform(&self, input: T) -> R;
+    fn apply(&self, input: T) -> R;
 
     /// Converts to BoxTransformer
     ///
@@ -78,7 +78,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        BoxTransformer::new(move |x| self.transform(x))
+        BoxTransformer::new(move |x| self.apply(x))
     }
 
     /// Converts to RcTransformer
@@ -101,7 +101,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        RcTransformer::new(move |x| self.transform(x))
+        RcTransformer::new(move |x| self.apply(x))
     }
 
     /// Converts to ArcTransformer
@@ -124,7 +124,7 @@ pub trait Transformer<T, R> {
         T: Send + Sync + 'static,
         R: Send + Sync + 'static,
     {
-        ArcTransformer::new(move |x| self.transform(x))
+        ArcTransformer::new(move |x| self.apply(x))
     }
 
     /// Converts transformer to a closure
@@ -147,7 +147,7 @@ pub trait Transformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        move |t: T| self.transform(t)
+        move |t: T| self.apply(t)
     }
 
     /// Converts to BoxTransformer without consuming self
@@ -174,8 +174,8 @@ pub trait Transformer<T, R> {
     /// let boxed = double.to_box();
     ///
     /// // Original transformer still usable
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(boxed.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(boxed.apply(21), 42);
     /// ```
     fn to_box(&self) -> BoxTransformer<T, R>
     where
@@ -210,8 +210,8 @@ pub trait Transformer<T, R> {
     /// let rc = double.to_rc();
     ///
     /// // Original transformer still usable
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(rc.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(rc.apply(21), 42);
     /// ```
     fn to_rc(&self) -> RcTransformer<T, R>
     where
@@ -246,8 +246,8 @@ pub trait Transformer<T, R> {
     /// let arc = double.to_arc();
     ///
     /// // Original transformer still usable
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(arc.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(arc.apply(21), 42);
     /// ```
     fn to_arc(&self) -> ArcTransformer<T, R>
     where
@@ -282,7 +282,7 @@ pub trait Transformer<T, R> {
     /// let closure = double.to_fn();
     ///
     /// // Original transformer still usable
-    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
     /// assert_eq!(closure(21), 42);
     /// ```
     fn to_fn(&self) -> impl Fn(T) -> R
@@ -337,7 +337,7 @@ where
     /// use prism3_function::{BoxTransformer, Transformer};
     ///
     /// let double = BoxTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -356,7 +356,7 @@ where
     /// use prism3_function::{BoxTransformer, Transformer};
     ///
     /// let identity = BoxTransformer::<i32, i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> BoxTransformer<T, T> {
         BoxTransformer::new(|x| x)
@@ -402,8 +402,8 @@ where
     ///
     /// // to_string is moved here
     /// let composed = double.and_then(to_string);
-    /// assert_eq!(composed.transform(21), "42");
-    /// // to_string.transform(5); // Would not compile - moved
+    /// assert_eq!(composed.apply(21), "42");
+    /// // to_string.apply(5); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -416,10 +416,10 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.and_then(to_string.clone());
-    /// assert_eq!(composed.transform(21), "42");
+    /// assert_eq!(composed.apply(21), "42");
     ///
     /// // Original still usable
-    /// assert_eq!(to_string.transform(5), "5");
+    /// assert_eq!(to_string.apply(5), "5");
     /// ```
     pub fn and_then<S, F>(self, after: F) -> BoxTransformer<T, S>
     where
@@ -427,7 +427,7 @@ where
         F: Transformer<R, S> + 'static,
     {
         let self_fn = self.function;
-        BoxTransformer::new(move |x: T| after.transform(self_fn(x)))
+        BoxTransformer::new(move |x: T| after.apply(self_fn(x)))
     }
 
     /// Reverse composition - applies before first, then self
@@ -470,8 +470,8 @@ where
     ///
     /// // add_one is moved here
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
-    /// // add_one.transform(3); // Would not compile - moved
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
+    /// // add_one.apply(3); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -484,10 +484,10 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.compose(add_one.clone());
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     ///
     /// // Original still usable
-    /// assert_eq!(add_one.transform(3), 4);
+    /// assert_eq!(add_one.apply(3), 4);
     /// ```
     pub fn compose<S, F>(self, before: F) -> BoxTransformer<S, R>
     where
@@ -495,7 +495,7 @@ where
         F: Transformer<S, T> + 'static,
     {
         let self_fn = self.function;
-        BoxTransformer::new(move |x: S| self_fn(before.transform(x)))
+        BoxTransformer::new(move |x: S| self_fn(before.apply(x)))
     }
 
     /// Creates a conditional transformer
@@ -531,8 +531,8 @@ where
     /// let identity = BoxTransformer::<i32, i32>::identity();
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(identity);
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional.transform(-5), -5); // identity
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply(-5), -5); // identity
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -547,7 +547,7 @@ where
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(BoxTransformer::identity());
     ///
-    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.apply(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -576,7 +576,7 @@ where
     /// use prism3_function::{BoxTransformer, Transformer};
     ///
     /// let constant = BoxTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> BoxTransformer<T, R> {
         BoxTransformer::new(move |_| value.clone())
@@ -584,7 +584,7 @@ where
 }
 
 impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
-    fn transform(&self, input: T) -> R {
+    fn apply(&self, input: T) -> R {
         (self.function)(input)
     }
 
@@ -671,8 +671,8 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
 /// let negate = BoxTransformer::new(|x: i32| -x);
 /// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
 ///
-/// assert_eq!(conditional.transform(5), 10); // when branch executed
-/// assert_eq!(conditional.transform(-5), 5); // or_else branch executed
+/// assert_eq!(conditional.apply(5), 10); // when branch executed
+/// assert_eq!(conditional.apply(-5), 5); // or_else branch executed
 /// ```
 ///
 /// # Author
@@ -714,8 +714,8 @@ where
     /// let double = BoxTransformer::new(|x: i32| x * 2);
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.transform(5), 10); // Condition satisfied, execute double
-    /// assert_eq!(conditional.transform(-5), 5); // Condition not satisfied, execute negate
+    /// assert_eq!(conditional.apply(5), 10); // Condition satisfied, execute double
+    /// assert_eq!(conditional.apply(-5), 5); // Condition not satisfied, execute negate
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> BoxTransformer<T, R>
     where
@@ -725,9 +725,9 @@ where
         let then_trans = self.transformer;
         BoxTransformer::new(move |t| {
             if pred.test(&t) {
-                then_trans.transform(t)
+                then_trans.apply(t)
             } else {
-                else_transformer.transform(t)
+                else_transformer.apply(t)
             }
         })
     }
@@ -775,7 +775,7 @@ where
     /// use prism3_function::{ArcTransformer, Transformer};
     ///
     /// let double = ArcTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -794,7 +794,7 @@ where
     /// use prism3_function::{ArcTransformer, Transformer};
     ///
     /// let identity = ArcTransformer::<i32, i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> ArcTransformer<T, T> {
         ArcTransformer::new(|x| x)
@@ -843,9 +843,9 @@ where
     /// let composed = double.and_then(to_string);
     ///
     /// // Original double transformer still usable (uses &self)
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(composed.transform(21), "42");
-    /// // to_string.transform(5); // Would not compile - moved
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(composed.apply(21), "42");
+    /// // to_string.apply(5); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -858,11 +858,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.and_then(to_string.clone());
-    /// assert_eq!(composed.transform(21), "42");
+    /// assert_eq!(composed.apply(21), "42");
     ///
     /// // Both originals still usable
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(to_string.transform(5), "5");
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(to_string.apply(5), "5");
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> ArcTransformer<T, S>
     where
@@ -871,7 +871,7 @@ where
     {
         let self_fn = self.function.clone();
         ArcTransformer {
-            function: Arc::new(move |x: T| after.transform(self_fn(x))),
+            function: Arc::new(move |x: T| after.apply(self_fn(x))),
         }
     }
 
@@ -916,8 +916,8 @@ where
     ///
     /// // add_one is moved here
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
-    /// // add_one.transform(3); // Would not compile - moved
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
+    /// // add_one.apply(3); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -930,11 +930,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.compose(add_one.clone());
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     ///
     /// // Both originals still usable
-    /// assert_eq!(double.transform(10), 20);
-    /// assert_eq!(add_one.transform(3), 4);
+    /// assert_eq!(double.apply(10), 20);
+    /// assert_eq!(add_one.apply(3), 4);
     /// ```
     pub fn compose<S, F>(&self, before: F) -> ArcTransformer<S, R>
     where
@@ -943,7 +943,7 @@ where
     {
         let self_fn = self.function.clone();
         ArcTransformer {
-            function: Arc::new(move |x: S| self_fn(before.transform(x))),
+            function: Arc::new(move |x: S| self_fn(before.apply(x))),
         }
     }
 
@@ -980,8 +980,8 @@ where
     ///
     /// let conditional_clone = conditional.clone();
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional_clone.apply(-5), -5);
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -996,7 +996,7 @@ where
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(ArcTransformer::identity());
     ///
-    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.apply(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -1025,7 +1025,7 @@ where
     /// use prism3_function::{ArcTransformer, Transformer};
     ///
     /// let constant = ArcTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> ArcTransformer<T, R>
     where
@@ -1036,7 +1036,7 @@ where
 }
 
 impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
-    fn transform(&self, input: T) -> R {
+    fn apply(&self, input: T) -> R {
         (self.function)(input)
     }
 
@@ -1147,8 +1147,8 @@ impl<T, R> Clone for ArcTransformer<T, R> {
 ///
 /// let conditional_clone = conditional.clone();
 ///
-/// assert_eq!(conditional.transform(5), 10);
-/// assert_eq!(conditional_clone.transform(-5), -5);
+/// assert_eq!(conditional.apply(5), 10);
+/// assert_eq!(conditional_clone.apply(-5), -5);
 /// ```
 ///
 /// # Author
@@ -1190,8 +1190,8 @@ where
     /// let double = ArcTransformer::new(|x: i32| x * 2);
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional.transform(-5), 5);
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply(-5), 5);
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> ArcTransformer<T, R>
     where
@@ -1202,9 +1202,9 @@ where
         let then_trans = self.transformer;
         ArcTransformer::new(move |t| {
             if pred.test(&t) {
-                then_trans.transform(t)
+                then_trans.apply(t)
             } else {
-                else_transformer.transform(t)
+                else_transformer.apply(t)
             }
         })
     }
@@ -1265,7 +1265,7 @@ where
     /// use prism3_function::{RcTransformer, Transformer};
     ///
     /// let double = RcTransformer::new(|x: i32| x * 2);
-    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(double.apply(21), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -1284,7 +1284,7 @@ where
     /// use prism3_function::{RcTransformer, Transformer};
     ///
     /// let identity = RcTransformer::<i32, i32>::identity();
-    /// assert_eq!(identity.transform(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> RcTransformer<T, T> {
         RcTransformer::new(|x| x)
@@ -1333,9 +1333,9 @@ where
     /// let composed = double.and_then(to_string);
     ///
     /// // Original double transformer still usable (uses &self)
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(composed.transform(21), "42");
-    /// // to_string.transform(5); // Would not compile - moved
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(composed.apply(21), "42");
+    /// // to_string.apply(5); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -1348,11 +1348,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.and_then(to_string.clone());
-    /// assert_eq!(composed.transform(21), "42");
+    /// assert_eq!(composed.apply(21), "42");
     ///
     /// // Both originals still usable
-    /// assert_eq!(double.transform(21), 42);
-    /// assert_eq!(to_string.transform(5), "5");
+    /// assert_eq!(double.apply(21), 42);
+    /// assert_eq!(to_string.apply(5), "5");
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> RcTransformer<T, S>
     where
@@ -1361,7 +1361,7 @@ where
     {
         let self_fn = self.function.clone();
         RcTransformer {
-            function: Rc::new(move |x: T| after.transform(self_fn(x))),
+            function: Rc::new(move |x: T| after.apply(self_fn(x))),
         }
     }
 
@@ -1406,8 +1406,8 @@ where
     ///
     /// // add_one is moved here
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
-    /// // add_one.transform(3); // Would not compile - moved
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
+    /// // add_one.apply(3); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -1420,11 +1420,11 @@ where
     ///
     /// // Clone to preserve original
     /// let composed = double.compose(add_one.clone());
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     ///
     /// // Both originals still usable
-    /// assert_eq!(double.transform(10), 20);
-    /// assert_eq!(add_one.transform(3), 4);
+    /// assert_eq!(double.apply(10), 20);
+    /// assert_eq!(add_one.apply(3), 4);
     /// ```
     pub fn compose<S, F>(&self, before: F) -> RcTransformer<S, R>
     where
@@ -1433,7 +1433,7 @@ where
     {
         let self_clone = Rc::clone(&self.function);
         RcTransformer {
-            function: Rc::new(move |x: S| self_clone(before.transform(x))),
+            function: Rc::new(move |x: S| self_clone(before.apply(x))),
         }
     }
 
@@ -1471,8 +1471,8 @@ where
     ///
     /// let conditional_clone = conditional.clone();
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional_clone.transform(-5), -5);
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional_clone.apply(-5), -5);
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -1487,7 +1487,7 @@ where
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(RcTransformer::identity());
     ///
-    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.apply(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -1516,7 +1516,7 @@ where
     /// use prism3_function::{RcTransformer, Transformer};
     ///
     /// let constant = RcTransformer::constant("hello");
-    /// assert_eq!(constant.transform(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> RcTransformer<T, R> {
         RcTransformer::new(move |_| value.clone())
@@ -1524,7 +1524,7 @@ where
 }
 
 impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
-    fn transform(&self, input: T) -> R {
+    fn apply(&self, input: T) -> R {
         (self.function)(input)
     }
 
@@ -1633,8 +1633,8 @@ impl<T, R> Clone for RcTransformer<T, R> {
 ///
 /// let conditional_clone = conditional.clone();
 ///
-/// assert_eq!(conditional.transform(5), 10);
-/// assert_eq!(conditional_clone.transform(-5), -5);
+/// assert_eq!(conditional.apply(5), 10);
+/// assert_eq!(conditional_clone.apply(-5), -5);
 /// ```
 ///
 /// # Author
@@ -1676,8 +1676,8 @@ where
     /// let double = RcTransformer::new(|x: i32| x * 2);
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional.transform(-5), 5);
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply(-5), 5);
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> RcTransformer<T, R>
     where
@@ -1687,9 +1687,9 @@ where
         let then_trans = self.transformer;
         RcTransformer::new(move |t| {
             if pred.test(&t) {
-                then_trans.transform(t)
+                then_trans.apply(t)
             } else {
-                else_transformer.transform(t)
+                else_transformer.apply(t)
             }
         })
     }
@@ -1724,10 +1724,10 @@ impl<T, R> Clone for RcConditionalTransformer<T, R> {
 ///
 /// fn double(x: i32) -> i32 { x * 2 }
 ///
-/// assert_eq!(double.transform(21), 42);
+/// assert_eq!(double.apply(21), 42);
 ///
 /// let triple = |x: i32| x * 3;
-/// assert_eq!(triple.transform(14), 42);
+/// assert_eq!(triple.apply(14), 42);
 /// ```
 ///
 /// # Author
@@ -1739,7 +1739,7 @@ where
     T: 'static,
     R: 'static,
 {
-    fn transform(&self, input: T) -> R {
+    fn apply(&self, input: T) -> R {
         self(input)
     }
 
@@ -1815,7 +1815,7 @@ where
 /// let to_string = |x: i32| x.to_string();
 ///
 /// let composed = double.and_then(to_string);
-/// assert_eq!(composed.transform(21), "42");
+/// assert_eq!(composed.apply(21), "42");
 /// ```
 ///
 /// ## Reverse composition with compose
@@ -1827,7 +1827,7 @@ where
 /// let add_one = |x: i32| x + 1;
 ///
 /// let composed = double.compose(add_one);
-/// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+/// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
 /// ```
 ///
 /// ## Conditional transformation with when
@@ -1838,8 +1838,8 @@ where
 /// let double = |x: i32| x * 2;
 /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 ///
-/// assert_eq!(conditional.transform(5), 10);
-/// assert_eq!(conditional.transform(-5), 5);
+/// assert_eq!(conditional.apply(5), 10);
+/// assert_eq!(conditional.apply(-5), 5);
 /// ```
 ///
 /// # Author
@@ -1886,8 +1886,8 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// // to_string is moved here
     /// let composed = double.and_then(to_string);
-    /// assert_eq!(composed.transform(21), "42");
-    /// // to_string.transform(5); // Would not compile - moved
+    /// assert_eq!(composed.apply(21), "42");
+    /// // to_string.apply(5); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -1900,10 +1900,10 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// // Clone to preserve original
     /// let composed = double.and_then(to_string.clone());
-    /// assert_eq!(composed.transform(21), "42");
+    /// assert_eq!(composed.apply(21), "42");
     ///
     /// // Original still usable
-    /// assert_eq!(to_string.transform(5), "5");
+    /// assert_eq!(to_string.apply(5), "5");
     /// ```
     fn and_then<S, F>(self, after: F) -> BoxTransformer<T, S>
     where
@@ -1912,7 +1912,7 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
         T: 'static,
         R: 'static,
     {
-        BoxTransformer::new(move |x: T| after.transform(self(x)))
+        BoxTransformer::new(move |x: T| after.apply(self(x)))
     }
 
     /// Reverse composition - applies before first, then self
@@ -1955,8 +1955,8 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// // add_one is moved here
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
-    /// // add_one.transform(3); // Would not compile - moved
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
+    /// // add_one.apply(3); // Would not compile - moved
     /// ```
     ///
     /// ## Preserving original with clone
@@ -1969,10 +1969,10 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     ///
     /// // Clone to preserve original
     /// let composed = double.compose(add_one.clone());
-    /// assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     ///
     /// // Original still usable
-    /// assert_eq!(add_one.transform(3), 4);
+    /// assert_eq!(add_one.apply(3), 4);
     /// ```
     fn compose<S, F>(self, before: F) -> BoxTransformer<S, R>
     where
@@ -1981,7 +1981,7 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
         T: 'static,
         R: 'static,
     {
-        BoxTransformer::new(move |x: S| self(before.transform(x)))
+        BoxTransformer::new(move |x: S| self(before.apply(x)))
     }
 
     /// Creates a conditional transformer
@@ -2016,8 +2016,8 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     /// let double = |x: i32| x * 2;
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.transform(5), 10);
-    /// assert_eq!(conditional.transform(-5), 5);
+    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply(-5), 5);
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -2032,7 +2032,7 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.transform(5), 10);
+    /// assert_eq!(conditional.apply(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -2089,8 +2089,8 @@ impl<T, R, F> FnTransformerOps<T, R> for F where F: Fn(T) -> R + 'static {}
 ///     O: UnaryOperator<T>,
 ///     T: Clone,
 /// {
-///     let result = op.transform(value.clone());
-///     op.transform(result)
+///     let result = op.apply(value.clone());
+///     op.apply(result)
 /// }
 ///
 /// let increment = |x: i32| x + 1;
@@ -2107,7 +2107,7 @@ impl<T, R, F> FnTransformerOps<T, R> for F where F: Fn(T) -> R + 'static {}
 /// }
 ///
 /// let op = create_incrementer();
-/// assert_eq!(op.transform(41), 42);
+/// assert_eq!(op.apply(41), 42);
 /// ```
 ///
 /// # Author
@@ -2147,7 +2147,7 @@ where
 /// use prism3_function::{BoxUnaryOperator, Transformer};
 ///
 /// let increment: BoxUnaryOperator<i32> = BoxUnaryOperator::new(|x| x + 1);
-/// assert_eq!(increment.transform(41), 42);
+/// assert_eq!(increment.apply(41), 42);
 /// ```
 ///
 /// # Author
@@ -2168,8 +2168,8 @@ pub type BoxUnaryOperator<T> = BoxTransformer<T, T>;
 ///
 /// let double: ArcUnaryOperator<i32> = ArcUnaryOperator::new(|x| x * 2);
 /// let double_clone = double.clone();
-/// assert_eq!(double.transform(21), 42);
-/// assert_eq!(double_clone.transform(21), 42);
+/// assert_eq!(double.apply(21), 42);
+/// assert_eq!(double_clone.apply(21), 42);
 /// ```
 ///
 /// # Author
@@ -2190,8 +2190,8 @@ pub type ArcUnaryOperator<T> = ArcTransformer<T, T>;
 ///
 /// let negate: RcUnaryOperator<i32> = RcUnaryOperator::new(|x: i32| -x);
 /// let negate_clone = negate.clone();
-/// assert_eq!(negate.transform(42), -42);
-/// assert_eq!(negate_clone.transform(42), -42);
+/// assert_eq!(negate.apply(42), -42);
+/// assert_eq!(negate_clone.apply(42), -42);
 /// ```
 ///
 /// # Author
