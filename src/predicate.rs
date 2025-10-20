@@ -275,15 +275,26 @@ pub trait Predicate<T> {
 
     /// Converts this predicate into a `BoxPredicate`.
     ///
+    /// The default implementation wraps the predicate in a closure that
+    /// calls the `test` method. Concrete types may override this with
+    /// more efficient implementations.
+    ///
     /// # Returns
     ///
     /// A `BoxPredicate` wrapping this predicate.
     fn into_box(self) -> BoxPredicate<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxPredicate::new(move |value: &T| self.test(value))
+    }
 
     /// Converts this predicate into an `RcPredicate`.
+    ///
+    /// The default implementation wraps the predicate in a closure that
+    /// calls the `test` method. Concrete types may override this with
+    /// more efficient implementations.
     ///
     /// # Returns
     ///
@@ -291,9 +302,16 @@ pub trait Predicate<T> {
     fn into_rc(self) -> RcPredicate<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        RcPredicate::new(move |value: &T| self.test(value))
+    }
 
     /// Converts this predicate into an `ArcPredicate`.
+    ///
+    /// The default implementation wraps the predicate in a closure that
+    /// calls the `test` method. Concrete types may override this with
+    /// more efficient implementations.
     ///
     /// # Returns
     ///
@@ -301,7 +319,10 @@ pub trait Predicate<T> {
     fn into_arc(self) -> ArcPredicate<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static;
+        T: Send + Sync + 'static,
+    {
+        ArcPredicate::new(move |value: &T| self.test(value))
+    }
 
     /// Converts this predicate into a closure that can be used directly
     /// with standard library methods.
@@ -313,6 +334,10 @@ pub trait Predicate<T> {
     /// compatible with methods like `Iterator::filter`,
     /// `Iterator::filter_map`, `Vec::retain`, and similar standard
     /// library APIs.
+    ///
+    /// The default implementation returns a closure that calls the
+    /// `test` method. Concrete types may override this with more
+    /// efficient implementations.
     ///
     /// # Returns
     ///
@@ -349,7 +374,10 @@ pub trait Predicate<T> {
     fn into_fn(self) -> impl Fn(&T) -> bool
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        move |value: &T| self.test(value)
+    }
 }
 
 /// A Box-based predicate with single ownership.

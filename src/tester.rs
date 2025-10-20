@@ -252,7 +252,12 @@ pub trait Tester {
     /// ```
     fn into_box(self) -> BoxTester
     where
-        Self: Sized + 'static;
+        Self: Sized + 'static,
+    {
+        BoxTester {
+            func: Box::new(move || self.test()),
+        }
+    }
 
     /// Converts this tester to `RcTester`
     ///
@@ -270,7 +275,12 @@ pub trait Tester {
     /// ```
     fn into_rc(self) -> RcTester
     where
-        Self: Sized + 'static;
+        Self: Sized + 'static,
+    {
+        RcTester {
+            func: Rc::new(move || self.test()),
+        }
+    }
 
     /// Converts this tester to `ArcTester`
     ///
@@ -290,7 +300,9 @@ pub trait Tester {
     where
         Self: Sized + Send + Sync + 'static,
     {
-        panic!("into_arc() is not supported for this type")
+        ArcTester {
+            func: Arc::new(move || self.test()),
+        }
     }
 }
 
@@ -739,9 +751,9 @@ impl Tester for BoxTester {
     }
 
     fn into_arc(self) -> ArcTester {
-        // Note: This conversion is impossible because Box<dyn Fn() -> bool>
-        // may not implement Send + Sync. Users should create ArcTester
-        // directly.
+        // Note: This conversion is impossible because Box<dyn Fn() ->
+        // bool> may not implement Send + Sync. Users should create
+        // ArcTester directly.
         panic!(
             "Cannot convert BoxTester to ArcTester. Create ArcTester \
                 directly with ArcTester::new()"
