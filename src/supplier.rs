@@ -207,6 +207,10 @@ pub trait Supplier<T> {
 
     /// Converts to `BoxSupplier`.
     ///
+    /// This method has a default implementation that wraps the
+    /// supplier in a `BoxSupplier`. Custom implementations can
+    /// override this for more efficient conversions.
+    ///
     /// # Returns
     ///
     /// A new `BoxSupplier<T>` instance
@@ -220,12 +224,19 @@ pub trait Supplier<T> {
     /// let mut boxed = closure.into_box();
     /// assert_eq!(boxed.get(), 42);
     /// ```
-    fn into_box(self) -> BoxSupplier<T>
+    fn into_box(mut self) -> BoxSupplier<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxSupplier::new(move || self.get())
+    }
 
     /// Converts to `RcSupplier`.
+    ///
+    /// This method has a default implementation that wraps the
+    /// supplier in an `RcSupplier`. Custom implementations can
+    /// override this for more efficient conversions.
     ///
     /// # Returns
     ///
@@ -240,12 +251,19 @@ pub trait Supplier<T> {
     /// let mut rc = closure.into_rc();
     /// assert_eq!(rc.get(), 42);
     /// ```
-    fn into_rc(self) -> RcSupplier<T>
+    fn into_rc(mut self) -> RcSupplier<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        RcSupplier::new(move || self.get())
+    }
 
     /// Converts to `ArcSupplier`.
+    ///
+    /// This method has a default implementation that wraps the
+    /// supplier in an `ArcSupplier`. Custom implementations can
+    /// override this for more efficient conversions.
     ///
     /// # Returns
     ///
@@ -260,10 +278,54 @@ pub trait Supplier<T> {
     /// let mut arc = closure.into_arc();
     /// assert_eq!(arc.get(), 42);
     /// ```
-    fn into_arc(self) -> ArcSupplier<T>
+    fn into_arc(mut self) -> ArcSupplier<T>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static;
+        T: Send + 'static,
+    {
+        ArcSupplier::new(move || self.get())
+    }
+
+    /// Converts to a closure `FnMut() -> T`.
+    ///
+    /// This method wraps the supplier in a closure that calls the
+    /// `get()` method when invoked. This allows using suppliers
+    /// in contexts that expect `FnMut()` closures.
+    ///
+    /// # Returns
+    ///
+    /// A closure `impl FnMut() -> T`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, BoxSupplier};
+    ///
+    /// let supplier = BoxSupplier::new(|| 42);
+    /// let mut closure = supplier.into_fn();
+    /// assert_eq!(closure(), 42);
+    /// assert_eq!(closure(), 42);
+    /// ```
+    ///
+    /// ## Using with functions that expect FnMut
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, BoxSupplier};
+    ///
+    /// fn call_fn_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+    ///     (f(), f())
+    /// }
+    ///
+    /// let supplier = BoxSupplier::new(|| 100);
+    /// let closure = supplier.into_fn();
+    /// assert_eq!(call_fn_twice(closure), (100, 100));
+    /// ```
+    fn into_fn(mut self) -> impl FnMut() -> T
+    where
+        Self: Sized,
+    {
+        move || self.get()
+    }
 }
 
 // ==========================================================================
@@ -565,17 +627,13 @@ impl<T> Supplier<T> for BoxSupplier<T> {
         RcSupplier::new(self.function)
     }
 
-    fn into_arc(self) -> ArcSupplier<T>
-    where
-        T: Send + 'static,
-    {
-        // Note: This conversion may fail if the inner function is
-        // not Send. We panic here to indicate the error at runtime.
-        panic!(
-            "Cannot convert BoxSupplier to ArcSupplier: inner \
-             function may not be Send. Create ArcSupplier directly \
-             with Send closures."
-        )
+    // into_arc cannot be implemented because the inner function may not be Send.
+    // Attempting to call this method will result in a compiler error due to missing Send bound.
+    // Use ArcSupplier::new directly with a Send closure instead.
+    // compile_error!("Cannot convert BoxSupplier to ArcSupplier: inner function may not implement Send");
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        self.function
     }
 }
 
@@ -936,6 +994,11 @@ impl<T> Supplier<T> for ArcSupplier<T> {
         T: Send + 'static,
     {
         self
+    }
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        let function = self.function;
+        move || function.lock().unwrap()()
     }
 }
 
@@ -1298,11 +1361,14 @@ impl<T> Supplier<T> for RcSupplier<T> {
         self
     }
 
-    fn into_arc(self) -> ArcSupplier<T>
-    where
-        T: Send + 'static,
-    {
-        panic!("Cannot convert RcSupplier to ArcSupplier (not Send)")
+    // into_arc cannot be implemented because RcSupplier does not implement Send.
+    // Attempting to call this method will result in a compiler error due to missing Send bound.
+    // Use ArcSupplier::new directly instead.
+    // compile_error!("Cannot convert RcSupplier to ArcSupplier: RcSupplier does not implement Send");
+
+    fn into_fn(self) -> impl FnMut() -> T {
+        let function = self.function;
+        move || function.borrow_mut()()
     }
 }
 
@@ -1353,4 +1419,212 @@ where
     {
         ArcSupplier::new(self)
     }
+
+    fn into_fn(self) -> impl FnMut() -> T
+    where
+        Self: Sized,
+    {
+        self
+    }
 }
+
+// ==========================================================================
+// Extension Trait for Closure Operations
+// ==========================================================================
+
+/// Extension trait providing supplier operations for closures
+///
+/// Provides composition methods (`map`, `filter`, `zip`, `memoize`) for
+/// closures implementing `FnMut() -> T` without requiring explicit
+/// wrapping in `BoxSupplier`.
+///
+/// This trait is automatically implemented for all closures and function
+/// pointers that implement `FnMut() -> T`.
+///
+/// # Design Rationale
+///
+/// While closures automatically implement `Supplier<T>` through blanket
+/// implementation, they don't have access to instance methods like
+/// `map`, `filter`, and `zip`. This extension trait provides those
+/// methods, returning `BoxSupplier` for maximum flexibility.
+///
+/// # Examples
+///
+/// ## Map transformation
+///
+/// ```rust
+/// use prism3_function::{Supplier, FnSupplierOps};
+///
+/// let mut counter = 0;
+/// let mut mapped = (move || {
+///     counter += 1;
+///     counter
+/// }).map(|x| x * 2);
+///
+/// assert_eq!(mapped.get(), 2);
+/// assert_eq!(mapped.get(), 4);
+/// ```
+///
+/// ## Filter values
+///
+/// ```rust
+/// use prism3_function::{Supplier, FnSupplierOps};
+///
+/// let mut counter = 0;
+/// let mut filtered = (move || {
+///     counter += 1;
+///     counter
+/// }).filter(|x| x % 2 == 0);
+///
+/// assert_eq!(filtered.get(), None);     // 1 is odd
+/// assert_eq!(filtered.get(), Some(2));  // 2 is even
+/// ```
+///
+/// ## Combine with zip
+///
+/// ```rust
+/// use prism3_function::{Supplier, FnSupplierOps, BoxSupplier};
+///
+/// let first = || 42;
+/// let second = BoxSupplier::new(|| "hello");
+/// let mut zipped = first.zip(second);
+///
+/// assert_eq!(zipped.get(), (42, "hello"));
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub trait FnSupplierOps<T>: FnMut() -> T + Sized + 'static {
+    /// Maps the output using a transformation function.
+    ///
+    /// Consumes the closure and returns a new supplier that applies
+    /// the mapper to each output.
+    ///
+    /// # Parameters
+    ///
+    /// * `mapper` - The mapper to apply to the output
+    ///
+    /// # Returns
+    ///
+    /// A new mapped `BoxSupplier<U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, FnSupplierOps};
+    ///
+    /// let mut mapped = (|| 10)
+    ///     .map(|x| x * 2)
+    ///     .map(|x| x + 5);
+    /// assert_eq!(mapped.get(), 25);
+    /// ```
+    fn map<U, M>(self, mapper: M) -> BoxSupplier<U>
+    where
+        M: Mapper<T, U> + 'static,
+        U: 'static,
+        T: 'static,
+    {
+        BoxSupplier::new(self).map(mapper)
+    }
+
+    /// Filters output based on a predicate.
+    ///
+    /// Returns a new supplier that returns `Some(value)` if the
+    /// predicate is satisfied, `None` otherwise.
+    ///
+    /// # Parameters
+    ///
+    /// * `predicate` - The predicate to test the supplied value
+    ///
+    /// # Returns
+    ///
+    /// A new filtered `BoxSupplier<Option<T>>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, FnSupplierOps};
+    ///
+    /// let mut counter = 0;
+    /// let mut filtered = (move || {
+    ///     counter += 1;
+    ///     counter
+    /// }).filter(|x| x % 2 == 0);
+    ///
+    /// assert_eq!(filtered.get(), None);     // 1 is odd
+    /// assert_eq!(filtered.get(), Some(2));  // 2 is even
+    /// ```
+    fn filter<P>(self, predicate: P) -> BoxSupplier<Option<T>>
+    where
+        P: FnMut(&T) -> bool + 'static,
+        T: 'static,
+    {
+        BoxSupplier::new(self).filter(predicate)
+    }
+
+    /// Combines this supplier with another, producing a tuple.
+    ///
+    /// Consumes both suppliers and returns a new supplier that
+    /// produces `(T, U)` tuples.
+    ///
+    /// # Parameters
+    ///
+    /// * `other` - The other supplier to combine with
+    ///
+    /// # Returns
+    ///
+    /// A new `BoxSupplier<(T, U)>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, FnSupplierOps, BoxSupplier};
+    ///
+    /// let first = || 42;
+    /// let second = BoxSupplier::new(|| "hello");
+    /// let mut zipped = first.zip(second);
+    ///
+    /// assert_eq!(zipped.get(), (42, "hello"));
+    /// ```
+    fn zip<U>(self, other: BoxSupplier<U>) -> BoxSupplier<(T, U)>
+    where
+        U: 'static,
+        T: 'static,
+    {
+        BoxSupplier::new(self).zip(other)
+    }
+
+    /// Creates a memoizing supplier.
+    ///
+    /// Returns a new supplier that caches the first value it
+    /// produces. All subsequent calls return the cached value.
+    ///
+    /// # Returns
+    ///
+    /// A new memoized `BoxSupplier<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Supplier, FnSupplierOps};
+    ///
+    /// let mut call_count = 0;
+    /// let mut memoized = (move || {
+    ///     call_count += 1;
+    ///     42
+    /// }).memoize();
+    ///
+    /// assert_eq!(memoized.get(), 42); // Calls underlying function
+    /// assert_eq!(memoized.get(), 42); // Returns cached value
+    /// ```
+    fn memoize(self) -> BoxSupplier<T>
+    where
+        T: Clone + 'static,
+    {
+        BoxSupplier::new(self).memoize()
+    }
+}
+
+// Implement the extension trait for all closures
+impl<T, F> FnSupplierOps<T> for F where F: FnMut() -> T + Sized + 'static {}

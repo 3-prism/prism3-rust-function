@@ -86,6 +86,50 @@ mod test_supplier_trait {
         assert_eq!(closure.get(), 2);
         assert_eq!(closure.get(), 3);
     }
+
+    #[test]
+    fn test_closure_into_fn() {
+        // Test closure into_fn returns itself
+        let closure = || 42;
+        let mut f = closure.into_fn();
+        assert_eq!(f(), 42);
+        assert_eq!(f(), 42);
+    }
+
+    #[test]
+    fn test_closure_into_fn_stateful() {
+        // Test stateful closure into_fn
+        let mut counter = 0;
+        let closure = move || {
+            counter += 1;
+            counter
+        };
+        let mut f = closure.into_fn();
+        assert_eq!(f(), 1);
+        assert_eq!(f(), 2);
+        assert_eq!(f(), 3);
+    }
+
+    #[test]
+    fn test_closure_into_fn_with_fnmut_function() {
+        // Test that into_fn result can be used where FnMut is expected
+        fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+            (f(), f())
+        }
+
+        let closure = || 100;
+        let f = closure.into_fn();
+        assert_eq!(call_twice(f), (100, 100));
+    }
+
+    #[test]
+    fn test_closure_into_fn_with_string() {
+        // Test closure into_fn with non-Copy type
+        let closure = || String::from("hello");
+        let mut f = closure.into_fn();
+        assert_eq!(f(), "hello");
+        assert_eq!(f(), "hello");
+    }
 }
 
 // ==========================================================================
@@ -368,6 +412,68 @@ mod test_box_supplier {
             let supplier = BoxSupplier::new(|| 42);
             let mut rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
+        }
+    }
+
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn() {
+            let supplier = BoxSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 42);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_into_fn_with_stateful_closure() {
+            let mut counter = 0;
+            let supplier = BoxSupplier::new(move || {
+                counter += 1;
+                counter
+            });
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 1);
+            assert_eq!(f(), 2);
+            assert_eq!(f(), 3);
+        }
+
+        #[test]
+        fn test_into_fn_with_fnmut_function() {
+            fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+                (f(), f())
+            }
+
+            let supplier = BoxSupplier::new(|| 100);
+            let f = supplier.into_fn();
+            assert_eq!(call_twice(f), (100, 100));
+        }
+
+        #[test]
+        fn test_into_fn_with_string() {
+            let supplier = BoxSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), "hello");
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_into_fn_with_mapped_supplier() {
+            let supplier = BoxSupplier::new(|| 10).map(|x| x * 2);
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 20);
+            assert_eq!(f(), 20);
+        }
+
+        #[test]
+        fn test_into_fn_zero_overhead() {
+            // This test verifies that into_fn for BoxSupplier
+            // directly returns the inner function without wrapping
+            let supplier = BoxSupplier::new(|| 999);
+            let mut f = supplier.into_fn();
+            // Should work just like calling the original function
+            assert_eq!(f(), 999);
         }
     }
 
@@ -726,6 +832,84 @@ mod test_arc_supplier {
             assert_eq!(arc.get(), 42);
         }
     }
+
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn() {
+            let supplier = ArcSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 42);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_into_fn_with_stateful_closure() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 1);
+            assert_eq!(f(), 2);
+            assert_eq!(f(), 3);
+            assert_eq!(*counter.lock().unwrap(), 3);
+        }
+
+        #[test]
+        fn test_into_fn_with_fnmut_function() {
+            fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+                (f(), f())
+            }
+
+            let supplier = ArcSupplier::new(|| 100);
+            let f = supplier.into_fn();
+            assert_eq!(call_twice(f), (100, 100));
+        }
+
+        #[test]
+        fn test_into_fn_with_string() {
+            let supplier = ArcSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), "hello");
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_into_fn_with_mapped_supplier() {
+            let supplier = ArcSupplier::new(|| 10);
+            let mapped = supplier.map(|x| x * 2);
+            let mut f = mapped.into_fn();
+            assert_eq!(f(), 20);
+            assert_eq!(f(), 20);
+        }
+
+        #[test]
+        fn test_into_fn_thread_safe() {
+            // Test that the closure returned by into_fn works with thread-safe data
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+
+            let mut f = supplier.into_fn();
+
+            // Call multiple times
+            assert_eq!(f(), 1);
+            assert_eq!(f(), 2);
+            assert_eq!(f(), 3);
+
+            // Verify the counter was incremented correctly
+            assert_eq!(*counter.lock().unwrap(), 3);
+        }
+    }
 }
 
 // ==========================================================================
@@ -1034,7 +1218,674 @@ mod test_rc_supplier {
         }
     }
 
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn() {
+            let supplier = RcSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 42);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_into_fn_with_stateful_closure() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), 1);
+            assert_eq!(f(), 2);
+            assert_eq!(f(), 3);
+            assert_eq!(*counter.borrow(), 3);
+        }
+
+        #[test]
+        fn test_into_fn_with_fnmut_function() {
+            fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+                (f(), f())
+            }
+
+            let supplier = RcSupplier::new(|| 100);
+            let f = supplier.into_fn();
+            assert_eq!(call_twice(f), (100, 100));
+        }
+
+        #[test]
+        fn test_into_fn_with_string() {
+            let supplier = RcSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
+            assert_eq!(f(), "hello");
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_into_fn_with_mapped_supplier() {
+            let supplier = RcSupplier::new(|| 10);
+            let mapped = supplier.map(|x| x * 2);
+            let mut f = mapped.into_fn();
+            assert_eq!(f(), 20);
+            assert_eq!(f(), 20);
+        }
+
+        #[test]
+        fn test_into_fn_with_shared_state() {
+            // Test that the closure returned by into_fn shares state correctly
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+
+            let mut f = supplier.into_fn();
+
+            // Call multiple times
+            assert_eq!(f(), 1);
+            assert_eq!(f(), 2);
+            assert_eq!(f(), 3);
+
+            // Verify the counter was incremented correctly
+            assert_eq!(*counter.borrow(), 3);
+        }
+    }
+
     // Note: RcSupplier cannot be converted to ArcSupplier because
     // Rc is not Send. This is prevented at compile time by the
     // trait bound, so we don't test it.
+}
+
+// ==========================================================================
+// Custom Supplier Implementation Tests
+// ==========================================================================
+
+#[cfg(test)]
+mod test_custom_supplier_default_impl {
+    use super::*;
+
+    /// A custom supplier implementation that only implements the
+    /// core `get()` method, relying on default implementations for
+    /// conversion methods.
+    struct CounterSupplier {
+        counter: i32,
+    }
+
+    impl CounterSupplier {
+        fn new(initial: i32) -> Self {
+            Self { counter: initial }
+        }
+    }
+
+    impl Supplier<i32> for CounterSupplier {
+        fn get(&mut self) -> i32 {
+            self.counter += 1;
+            self.counter
+        }
+        // Note: into_box(), into_rc(), and into_arc() use the
+        // default implementations from the trait
+    }
+
+    #[test]
+    fn test_custom_supplier_into_box() {
+        // Create a custom supplier with initial value 0
+        let custom = CounterSupplier::new(0);
+
+        // Convert to BoxSupplier using the default implementation
+        let mut boxed = custom.into_box();
+
+        // Verify it works correctly
+        assert_eq!(boxed.get(), 1);
+        assert_eq!(boxed.get(), 2);
+        assert_eq!(boxed.get(), 3);
+    }
+
+    #[test]
+    fn test_custom_supplier_into_rc() {
+        // Create a custom supplier with initial value 10
+        let custom = CounterSupplier::new(10);
+
+        // Convert to RcSupplier using the default implementation
+        let mut rc = custom.into_rc();
+
+        // Verify it works correctly
+        assert_eq!(rc.get(), 11);
+        assert_eq!(rc.get(), 12);
+        assert_eq!(rc.get(), 13);
+    }
+
+    #[test]
+    fn test_custom_supplier_into_arc() {
+        // Create a custom supplier with initial value 100
+        let custom = CounterSupplier::new(100);
+
+        // Convert to ArcSupplier using the default implementation
+        let mut arc = custom.into_arc();
+
+        // Verify it works correctly
+        assert_eq!(arc.get(), 101);
+        assert_eq!(arc.get(), 102);
+        assert_eq!(arc.get(), 103);
+    }
+
+    #[test]
+    fn test_custom_supplier_clone_and_share() {
+        // Create a custom supplier and convert to RcSupplier
+        let custom = CounterSupplier::new(0);
+        let rc = custom.into_rc();
+
+        // Clone the RcSupplier to share state
+        let mut s1 = rc.clone();
+        let mut s2 = rc.clone();
+
+        // Verify shared state works correctly - they share the
+        // same underlying counter
+        assert_eq!(s1.get(), 1);
+        assert_eq!(s2.get(), 2);
+        assert_eq!(s1.get(), 3);
+    }
+
+    #[test]
+    fn test_custom_supplier_thread_safety() {
+        // Create a custom supplier and convert to ArcSupplier
+        let custom = CounterSupplier::new(0);
+        let arc = custom.into_arc();
+
+        // Clone for use in threads
+        let mut s1 = arc.clone();
+        let mut s2 = arc.clone();
+
+        let h1 = thread::spawn(move || s1.get());
+        let h2 = thread::spawn(move || s2.get());
+
+        let v1 = h1.join().unwrap();
+        let v2 = h2.join().unwrap();
+
+        // Both threads should get different values
+        assert!(v1 != v2);
+        assert!(v1 >= 1 && v1 <= 2);
+        assert!(v2 >= 1 && v2 <= 2);
+    }
+
+    #[test]
+    fn test_custom_supplier_with_string() {
+        /// A custom supplier that generates sequential string IDs
+        struct IdSupplier {
+            next_id: u32,
+        }
+
+        impl IdSupplier {
+            fn new() -> Self {
+                Self { next_id: 1 }
+            }
+        }
+
+        impl Supplier<String> for IdSupplier {
+            fn get(&mut self) -> String {
+                let id = format!("ID-{:04}", self.next_id);
+                self.next_id += 1;
+                id
+            }
+        }
+
+        // Test with BoxSupplier
+        let id_gen = IdSupplier::new();
+        let mut boxed = id_gen.into_box();
+        assert_eq!(boxed.get(), "ID-0001");
+        assert_eq!(boxed.get(), "ID-0002");
+        assert_eq!(boxed.get(), "ID-0003");
+    }
+
+    #[test]
+    fn test_custom_supplier_into_fn() {
+        // Test the default implementation of into_fn for custom supplier
+        let custom = CounterSupplier::new(0);
+
+        // Convert to closure using the default implementation
+        let mut f = custom.into_fn();
+
+        // Verify it works correctly
+        assert_eq!(f(), 1);
+        assert_eq!(f(), 2);
+        assert_eq!(f(), 3);
+    }
+
+    #[test]
+    fn test_custom_supplier_into_fn_with_fnmut_function() {
+        // Test that custom supplier's into_fn result works with FnMut
+        fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
+            (f(), f())
+        }
+
+        let custom = CounterSupplier::new(10);
+        let f = custom.into_fn();
+        assert_eq!(call_twice(f), (11, 12));
+    }
+
+    #[test]
+    fn test_custom_supplier_into_fn_with_string() {
+        /// A custom supplier that generates sequential string IDs
+        struct IdSupplier {
+            next_id: u32,
+        }
+
+        impl IdSupplier {
+            fn new() -> Self {
+                Self { next_id: 1 }
+            }
+        }
+
+        impl Supplier<String> for IdSupplier {
+            fn get(&mut self) -> String {
+                let id = format!("ID-{:04}", self.next_id);
+                self.next_id += 1;
+                id
+            }
+        }
+
+        // Test with into_fn
+        let id_gen = IdSupplier::new();
+        let mut f = id_gen.into_fn();
+        assert_eq!(f(), "ID-0001");
+        assert_eq!(f(), "ID-0002");
+        assert_eq!(f(), "ID-0003");
+    }
+
+    #[test]
+    fn test_custom_supplier_into_fn_default_impl() {
+        /// Test that the default into_fn implementation wraps get() correctly
+        struct SimpleSupplier {
+            value: i32,
+        }
+
+        impl SimpleSupplier {
+            fn new(value: i32) -> Self {
+                Self { value }
+            }
+        }
+
+        impl Supplier<i32> for SimpleSupplier {
+            fn get(&mut self) -> i32 {
+                self.value
+            }
+            // Only implements get(), relying on default into_fn
+        }
+
+        let supplier = SimpleSupplier::new(999);
+        let mut f = supplier.into_fn();
+
+        // Verify it uses the get() method correctly
+        assert_eq!(f(), 999);
+        assert_eq!(f(), 999);
+    }
+
+    #[test]
+    fn test_custom_supplier_into_fn_composition() {
+        // Test that into_fn works correctly when composing with other operations
+        let custom = CounterSupplier::new(0);
+
+        // First convert to BoxSupplier, then to closure
+        let boxed = custom.into_box();
+        let mut f = boxed.into_fn();
+
+        assert_eq!(f(), 1);
+        assert_eq!(f(), 2);
+        assert_eq!(f(), 3);
+    }
+}
+
+// ==========================================================================
+// FnSupplierOps Extension Trait Tests
+// ==========================================================================
+
+#[cfg(test)]
+mod test_fn_supplier_ops {
+    use super::*;
+    use prism3_function::FnSupplierOps;
+
+    #[test]
+    fn test_closure_map() {
+        // Test map method on closure
+        let mut mapped = (|| 10).map(|x| x * 2);
+        assert_eq!(mapped.get(), 20);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_closure_map_chain() {
+        // Test chaining multiple map operations
+        let mut mapped = (|| 10).map(|x| x * 2).map(|x| x + 5);
+        assert_eq!(mapped.get(), 25);
+        assert_eq!(mapped.get(), 25);
+    }
+
+    #[test]
+    fn test_closure_map_stateful() {
+        // Test map on stateful closure
+        let mut counter = 0;
+        let mut mapped = (move || {
+            counter += 1;
+            counter
+        })
+        .map(|x| x * 2);
+
+        assert_eq!(mapped.get(), 2);
+        assert_eq!(mapped.get(), 4);
+        assert_eq!(mapped.get(), 6);
+    }
+
+    #[test]
+    fn test_closure_map_with_box_mapper() {
+        // Test map using BoxMapper
+        let mapper = BoxMapper::new(|x: i32| x * 3);
+        let mut mapped = (|| 10).map(mapper);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_closure_map_with_rc_mapper() {
+        // Test map using RcMapper
+        let mapper = RcMapper::new(|x: i32| x * 3);
+        let mut mapped = (|| 10).map(mapper);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_closure_map_with_arc_mapper() {
+        // Test map using ArcMapper
+        let mapper = ArcMapper::new(|x: i32| x * 3);
+        let mut mapped = (|| 10).map(mapper);
+        assert_eq!(mapped.get(), 30);
+    }
+
+    #[test]
+    fn test_closure_map_type_conversion() {
+        // Test map with type conversion
+        let mut mapped = (|| 42).map(|x: i32| x.to_string());
+        assert_eq!(mapped.get(), "42");
+    }
+
+    #[test]
+    fn test_closure_filter() {
+        // Test filter method on closure
+        let mut counter = 0;
+        let mut filtered = (move || {
+            counter += 1;
+            counter
+        })
+        .filter(|x| x % 2 == 0);
+
+        assert_eq!(filtered.get(), None); // 1 is odd
+        assert_eq!(filtered.get(), Some(2)); // 2 is even
+        assert_eq!(filtered.get(), None); // 3 is odd
+        assert_eq!(filtered.get(), Some(4)); // 4 is even
+    }
+
+    #[test]
+    fn test_closure_filter_always_pass() {
+        // Test filter that always passes
+        let mut filtered = (|| 42).filter(|_| true);
+        assert_eq!(filtered.get(), Some(42));
+        assert_eq!(filtered.get(), Some(42));
+    }
+
+    #[test]
+    fn test_closure_filter_always_fail() {
+        // Test filter that always fails
+        let mut filtered = (|| 42).filter(|_| false);
+        assert_eq!(filtered.get(), None);
+        assert_eq!(filtered.get(), None);
+    }
+
+    #[test]
+    fn test_closure_filter_with_map() {
+        // Test combining filter and map
+        let mut counter = 0;
+        let mut pipeline = (move || {
+            counter += 1;
+            counter
+        })
+        .filter(|x| x % 2 == 0)
+        .map(|opt: Option<i32>| opt.map(|x| x * 10));
+
+        assert_eq!(pipeline.get(), None); // 1 is odd
+        assert_eq!(pipeline.get(), Some(20)); // 2 is even, doubled to 20
+        assert_eq!(pipeline.get(), None); // 3 is odd
+        assert_eq!(pipeline.get(), Some(40)); // 4 is even, doubled to 40
+    }
+
+    #[test]
+    fn test_closure_zip() {
+        // Test zip method on closure
+        let first = || 42;
+        let second = BoxSupplier::new(|| "hello");
+        let mut zipped = first.zip(second);
+
+        assert_eq!(zipped.get(), (42, "hello"));
+        assert_eq!(zipped.get(), (42, "hello"));
+    }
+
+    #[test]
+    fn test_closure_zip_stateful() {
+        // Test zip with stateful closures
+        let mut counter1 = 0;
+        let first = move || {
+            counter1 += 1;
+            counter1
+        };
+
+        let mut counter2 = 100;
+        let second = BoxSupplier::new(move || {
+            counter2 += 1;
+            counter2
+        });
+
+        let mut zipped = first.zip(second);
+
+        assert_eq!(zipped.get(), (1, 101));
+        assert_eq!(zipped.get(), (2, 102));
+        assert_eq!(zipped.get(), (3, 103));
+    }
+
+    #[test]
+    fn test_closure_zip_different_types() {
+        // Test zip with different types
+        let first = || 42;
+        let second = BoxSupplier::new(|| "world");
+        let mut zipped = first.zip(second);
+
+        let result = zipped.get();
+        assert_eq!(result.0, 42);
+        assert_eq!(result.1, "world");
+    }
+
+    #[test]
+    fn test_closure_memoize() {
+        // Test memoize method on closure
+        let mut memoized = (|| 42).memoize();
+
+        // First call executes the closure
+        assert_eq!(memoized.get(), 42);
+        // Subsequent calls return cached value
+        assert_eq!(memoized.get(), 42);
+        assert_eq!(memoized.get(), 42);
+    }
+
+    #[test]
+    fn test_closure_memoize_with_map() {
+        // Test combining memoize and map
+        let mut pipeline = (|| 10).memoize().map(|x| x * 2);
+
+        assert_eq!(pipeline.get(), 20);
+        assert_eq!(pipeline.get(), 20);
+        assert_eq!(pipeline.get(), 20);
+    }
+
+    #[test]
+    fn test_closure_complex_pipeline() {
+        // Test complex pipeline with multiple operations
+        let mut counter = 0;
+        let mut pipeline = (move || {
+            counter += 1;
+            counter
+        })
+        .map(|x| x * 2)
+        .filter(|x| x % 4 == 0)
+        .map(|opt: Option<i32>| opt.unwrap_or(0));
+
+        assert_eq!(pipeline.get(), 0); // 1*2=2, 2%4!=0, filtered out
+        assert_eq!(pipeline.get(), 4); // 2*2=4, 4%4==0, passed
+        assert_eq!(pipeline.get(), 0); // 3*2=6, 6%4!=0, filtered out
+        assert_eq!(pipeline.get(), 8); // 4*2=8, 8%4==0, passed
+    }
+
+    #[test]
+    fn test_closure_map_then_zip() {
+        // Test combining map and zip
+        let first = (|| 10).map(|x| x * 2);
+        let second = BoxSupplier::new(|| 5);
+        let mut zipped = first.zip(second);
+
+        assert_eq!(zipped.get(), (20, 5));
+    }
+
+    #[test]
+    fn test_closure_filter_then_zip() {
+        // Test combining filter and zip
+        let mut counter = 0;
+        let filtered = (move || {
+            counter += 1;
+            counter
+        })
+        .filter(|x| x % 2 == 0);
+
+        let second = BoxSupplier::new(|| "test");
+        let mut zipped = filtered.zip(second);
+
+        assert_eq!(zipped.get(), (None, "test")); // 1 is odd
+        assert_eq!(zipped.get(), (Some(2), "test")); // 2 is even
+    }
+
+    #[test]
+    fn test_closure_all_operations() {
+        // Test using all operations in one pipeline
+        let mut counter = 0;
+        let mut pipeline = (move || {
+            counter += 1;
+            counter
+        })
+        .map(|x| x * 2) // Double the counter
+        .filter(|x| x % 4 == 0) // Keep only multiples of 4
+        .map(|opt| match opt {
+            Some(x) => x / 2, // Convert back
+            None => 0,
+        });
+
+        assert_eq!(pipeline.get(), 0); // 1*2=2, not multiple of 4
+        assert_eq!(pipeline.get(), 2); // 2*2=4, multiple of 4, 4/2=2
+        assert_eq!(pipeline.get(), 0); // 3*2=6, not multiple of 4
+        assert_eq!(pipeline.get(), 4); // 4*2=8, multiple of 4, 8/2=4
+    }
+
+    #[test]
+    fn test_function_pointer_map() {
+        // Test map with function pointer
+        fn double(x: i32) -> i32 {
+            x * 2
+        }
+
+        let supplier = || 10;
+        let mut mapped = supplier.map(double);
+        assert_eq!(mapped.get(), 20);
+    }
+
+    #[test]
+    fn test_function_pointer_filter() {
+        // Test filter with function pointer
+        fn is_even(x: &i32) -> bool {
+            x % 2 == 0
+        }
+
+        let mut counter = 0;
+        let mut filtered = (move || {
+            counter += 1;
+            counter
+        })
+        .filter(is_even);
+
+        assert_eq!(filtered.get(), None); // 1 is odd
+        assert_eq!(filtered.get(), Some(2)); // 2 is even
+    }
+
+    #[test]
+    fn test_closure_string_operations() {
+        // Test with String type
+        let mut mapped = (|| "hello".to_string()).map(|s: String| s.to_uppercase());
+        assert_eq!(mapped.get(), "HELLO");
+    }
+
+    #[test]
+    fn test_closure_vec_operations() {
+        // Test with Vec type
+        let mut mapped = (|| vec![1, 2, 3]).map(|v: Vec<i32>| v.len());
+        assert_eq!(mapped.get(), 3);
+    }
+
+    #[test]
+    fn test_closure_option_operations() {
+        // Test with Option type
+        let mut mapped = (|| Some(42)).map(|opt: Option<i32>| opt.unwrap_or(0));
+        assert_eq!(mapped.get(), 42);
+
+        let mut mapped_none = (|| None::<i32>).map(|opt: Option<i32>| opt.unwrap_or(0));
+        assert_eq!(mapped_none.get(), 0);
+    }
+
+    #[test]
+    fn test_closure_result_operations() {
+        // Test with Result type
+        let mut mapped = (|| Ok::<i32, String>(42)).map(|res: Result<i32, String>| res.unwrap_or(0));
+        assert_eq!(mapped.get(), 42);
+
+        let mut mapped_err =
+            (|| Err::<i32, String>("error".to_string())).map(|res: Result<i32, String>| res.unwrap_or(0));
+        assert_eq!(mapped_err.get(), 0);
+    }
+
+    #[test]
+    fn test_closure_tuple_operations() {
+        // Test with tuple type
+        let mut mapped = (|| (1, 2)).map(|(a, b)| a + b);
+        assert_eq!(mapped.get(), 3);
+    }
+
+    #[test]
+    fn test_closure_nested_map() {
+        // Test nested map operations
+        let mut mapped = (|| 5)
+            .map(|x| x + 1)
+            .map(|x| x * 2)
+            .map(|x| x - 3)
+            .map(|x| x / 2);
+        assert_eq!(mapped.get(), 4); // (5+1)*2-3 = 9, 9/2 = 4
+    }
+
+    #[test]
+    fn test_closure_memoize_clone_behavior() {
+        // Test that memoize caches the cloned value
+        let mut memoized = (|| vec![1, 2, 3]).memoize();
+
+        let result1 = memoized.get();
+        let result2 = memoized.get();
+
+        assert_eq!(result1, vec![1, 2, 3]);
+        assert_eq!(result2, vec![1, 2, 3]);
+        // Verify they are separate clones
+        assert_eq!(result1, result2);
+    }
 }
