@@ -22,8 +22,8 @@ fn main() {
     let double = |x: i32| x * 2;
     let composed = parse.and_then(double);
     println!(
-        "   parse.and_then(double).transform(\"21\") = {}",
-        composed.transform("21".to_string())
+        "   parse.and_then(double).apply(\"21\") = {}",
+        composed.apply("21".to_string())
     );
     println!();
 
@@ -34,8 +34,8 @@ fn main() {
     let double = |x: i32| x * 2;
     let chained = parse.and_then(add_one).and_then(double);
     println!(
-        "   parse.and_then(add_one).and_then(double).transform(\"5\") = {}",
-        chained.transform("5".to_string())
+        "   parse.and_then(add_one).and_then(double).apply(\"5\") = {}",
+        chained.apply("5".to_string())
     ); // (5 + 1) * 2 = 12
     println!();
 
@@ -45,8 +45,8 @@ fn main() {
     let to_string = |x: i32| x.to_string();
     let composed = to_string.compose(double);
     println!(
-        "   to_string.compose(double).transform(21) = {}",
-        composed.transform(21)
+        "   to_string.compose(double).apply(21) = {}",
+        composed.apply(21)
     ); // (21 * 2).to_string() = "42"
     println!();
 
@@ -55,11 +55,11 @@ fn main() {
     let double = |x: i32| x * 2;
     let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     println!("   double.when(x > 0).or_else(negate):");
-    println!("     transform(5) = {}", conditional.transform(5)); // 10
+    println!("     transform(5) = {}", conditional.apply(5)); // 10
 
     let double2 = |x: i32| x * 2;
     let conditional2 = double2.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
-    println!("     transform(-5) = {}", conditional2.transform(-5)); // 5
+    println!("     transform(-5) = {}", conditional2.apply(-5)); // 5
     println!();
 
     // 5. Complex composition
@@ -76,7 +76,7 @@ fn main() {
     println!("   parse.and_then(double.when(x > 5).or_else(triple)).and_then(to_string):");
     println!(
         "     transform(\"3\") = {}",
-        complex.transform("3".to_string())
+        complex.apply("3".to_string())
     ); // 3 <= 5, so 3 * 3 = 9
 
     let parse2 = |s: String| s.parse::<i32>().unwrap_or(0);
@@ -88,7 +88,7 @@ fn main() {
         .and_then(to_string2);
     println!(
         "     transform(\"10\") = {}",
-        complex2.transform("10".to_string())
+        complex2.apply("10".to_string())
     ); // 10 > 5, so 10 * 2 = 20
     println!();
 
@@ -98,8 +98,8 @@ fn main() {
     let get_length = |s: String| s.len();
     let length_transformer = to_string.and_then(get_length);
     println!(
-        "   to_string.and_then(get_length).transform(12345) = {}",
-        length_transformer.transform(12345)
+        "   to_string.and_then(get_length).apply(12345) = {}",
+        length_transformer.apply(12345)
     ); // 5
     println!();
 
@@ -110,8 +110,8 @@ fn main() {
     let add_ten = |x: i32| x + 10;
     let with_capture = multiply.and_then(add_ten);
     println!(
-        "   multiply(3).and_then(add_ten).transform(5) = {}",
-        with_capture.transform(5)
+        "   multiply(3).and_then(add_ten).apply(5) = {}",
+        with_capture.apply(5)
     ); // 5 * 3 + 10 = 25
     println!();
 
@@ -125,8 +125,8 @@ fn main() {
     }
     let fn_composed = parse_fn.and_then(double_fn);
     println!(
-        "   parse_fn.and_then(double_fn).transform(\"21\") = {}",
-        fn_composed.transform("21".to_string())
+        "   parse_fn.and_then(double_fn).apply(\"21\") = {}",
+        fn_composed.apply("21".to_string())
     ); // 42
     println!();
 
@@ -137,8 +137,8 @@ fn main() {
     let uppercase = |s: String| s.to_uppercase();
     let composed = append.and_then(uppercase);
     println!(
-        "   append.and_then(uppercase).transform(\"world\") = {}",
-        composed.transform("world".to_string())
+        "   append.and_then(uppercase).apply(\"world\") = {}",
+        composed.apply("world".to_string())
     ); // "WORLD HELLO"
     println!();
 
@@ -148,16 +148,16 @@ fn main() {
     let validate = |x: i32| if x > 0 { x } else { 1 };
     let composed = parse.and_then(validate);
     println!(
-        "   parse.and_then(validate).transform(\"42\") = {}",
-        composed.transform("42".to_string())
+        "   parse.and_then(validate).apply(\"42\") = {}",
+        composed.apply("42".to_string())
     ); // 42
 
     let parse2 = |s: String| s.parse::<i32>().unwrap_or(0);
     let validate2 = |x: i32| if x > 0 { x } else { 1 };
     let composed2 = parse2.and_then(validate2);
     println!(
-        "   parse.and_then(validate).transform(\"-5\") = {}",
-        composed2.transform("-5".to_string())
+        "   parse.and_then(validate).apply(\"-5\") = {}",
+        composed2.apply("-5".to_string())
     ); // 1
     println!();
 

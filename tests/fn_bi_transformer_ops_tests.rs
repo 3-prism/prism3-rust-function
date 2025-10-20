@@ -20,7 +20,7 @@ mod fn_bi_transformer_ops_tests {
         let double = |x: i32| x * 2;
 
         let composed = add.and_then(double);
-        assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2 = 16
+        assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2 = 16
     }
 
     #[test]
@@ -30,7 +30,7 @@ mod fn_bi_transformer_ops_tests {
         let to_string = |x: i32| x.to_string();
 
         let composed = add.and_then(to_string);
-        assert_eq!(composed.transform(20, 22), "42");
+        assert_eq!(composed.apply(20, 22), "42");
     }
 
     #[test]
@@ -43,8 +43,8 @@ mod fn_bi_transformer_ops_tests {
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(multiply);
 
-        assert_eq!(conditional.transform(5, 3), 8); // Condition met, execute addition
-        assert_eq!(conditional.transform(-5, 3), -15); // Condition not met, execute multiplication
+        assert_eq!(conditional.apply(5, 3), 8); // Condition met, execute addition
+        assert_eq!(conditional.apply(-5, 3), -15); // Condition not met, execute multiplication
     }
 
     #[test]
@@ -55,8 +55,8 @@ mod fn_bi_transformer_ops_tests {
 
         let conditional = add.when(|x: &i32, _y: &i32| *x > 0).or_else(subtract);
 
-        assert_eq!(conditional.transform(10, 3), 13); // x > 0, execute addition
-        assert_eq!(conditional.transform(-10, 3), -13); // x <= 0, execute subtraction
+        assert_eq!(conditional.apply(10, 3), 13); // x > 0, execute addition
+        assert_eq!(conditional.apply(-10, 3), -13); // x <= 0, execute subtraction
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod fn_bi_transformer_ops_tests {
         }
 
         let composed = add.and_then(double);
-        assert_eq!(composed.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
     }
 
     #[test]
@@ -88,8 +88,8 @@ mod fn_bi_transformer_ops_tests {
 
         let conditional = add.when(both_positive).or_else(multiply);
 
-        assert_eq!(conditional.transform(5, 3), 8);
-        assert_eq!(conditional.transform(-5, 3), -15);
+        assert_eq!(conditional.apply(5, 3), 8);
+        assert_eq!(conditional.apply(-5, 3), -15);
     }
 
     #[test]
@@ -100,7 +100,7 @@ mod fn_bi_transformer_ops_tests {
         let double = |x: i32| x * 2;
 
         let step1 = add.and_then(double);
-        let result = step1.transform(3, 5);
+        let result = step1.apply(3, 5);
         assert_eq!(result, 16); // (3 + 5) * 2 = 16
     }
 
@@ -112,7 +112,7 @@ mod fn_bi_transformer_ops_tests {
 
         let composed = concat.and_then(uppercase);
         assert_eq!(
-            composed.transform("hello".to_string(), "world".to_string()),
+            composed.apply("hello".to_string(), "world".to_string()),
             "HELLOWORLD"
         );
     }
@@ -127,9 +127,9 @@ mod fn_bi_transformer_ops_tests {
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0 && (*x + *y) < 20)
             .or_else(multiply);
 
-        assert_eq!(conditional.transform(5, 3), 8); // Condition met
-        assert_eq!(conditional.transform(15, 10), 150); // Condition not met (sum >= 20)
-        assert_eq!(conditional.transform(-5, 3), -15); // Condition not met (x <= 0)
+        assert_eq!(conditional.apply(5, 3), 8); // Condition met
+        assert_eq!(conditional.apply(15, 10), 150); // Condition not met (sum >= 20)
+        assert_eq!(conditional.apply(-5, 3), -15); // Condition not met (x <= 0)
     }
 
     #[test]
@@ -140,12 +140,12 @@ mod fn_bi_transformer_ops_tests {
 
         // First do and_then composition
         let composed = add.and_then(double);
-        assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2 = 16
+        assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2 = 16
 
         // Test another composition
         let multiply = |x: i32, y: i32| x * y;
         let triple = |x: i32| x * 3;
         let composed2 = multiply.and_then(triple);
-        assert_eq!(composed2.transform(2, 3), 18); // (2 * 3) * 3 = 18
+        assert_eq!(composed2.apply(2, 3), 18); // (2 * 3) * 3 = 18
     }
 }

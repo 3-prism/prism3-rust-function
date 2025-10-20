@@ -22,8 +22,8 @@ fn main() {
     let to_string = |x: i32| x.to_string();
     let composed = double.and_then(to_string);
     println!(
-        "   double.and_then(to_string).transform(21) = {}",
-        composed.transform(21)
+        "   double.and_then(to_string).apply(21) = {}",
+        composed.apply(21)
     );
     println!();
 
@@ -34,8 +34,8 @@ fn main() {
     let to_string = |x: i32| x.to_string();
     let chained = add_one.and_then(double).and_then(to_string);
     println!(
-        "   add_one.and_then(double).and_then(to_string).transform(5) = {}",
-        chained.transform(5)
+        "   add_one.and_then(double).and_then(to_string).apply(5) = {}",
+        chained.apply(5)
     ); // (5 + 1) * 2 = 12
     println!();
 
@@ -45,8 +45,8 @@ fn main() {
     let add_one = |x: i32| x + 1;
     let composed = double.compose(add_one);
     println!(
-        "   double.compose(add_one).transform(5) = {}",
-        composed.transform(5)
+        "   double.compose(add_one).apply(5) = {}",
+        composed.apply(5)
     ); // (5 + 1) * 2 = 12
     println!();
 
@@ -55,8 +55,8 @@ fn main() {
     let double = |x: i32| x * 2;
     let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     println!("   double.when(x > 0).or_else(negate):");
-    println!("     transform(5) = {}", conditional.transform(5)); // 10
-    println!("     transform(-5) = {}", conditional.transform(-5)); // 5
+    println!("     transform(5) = {}", conditional.apply(5)); // 10
+    println!("     transform(-5) = {}", conditional.apply(-5)); // 5
     println!();
 
     // 5. Complex composition
@@ -71,9 +71,9 @@ fn main() {
         .and_then(to_string);
 
     println!("   add_one.and_then(double.when(x > 5).or_else(triple)).and_then(to_string):");
-    println!("     transform(1) = {}", complex.transform(1)); // (1 + 1) = 2 <= 5, so 2 * 3 = 6
-    println!("     transform(5) = {}", complex.transform(5)); // (5 + 1) = 6 > 5, so 6 * 2 = 12
-    println!("     transform(10) = {}", complex.transform(10)); // (10 + 1) = 11 > 5, so 11 * 2 = 22
+    println!("     transform(1) = {}", complex.apply(1)); // (1 + 1) = 2 <= 5, so 2 * 3 = 6
+    println!("     transform(5) = {}", complex.apply(5)); // (5 + 1) = 6 > 5, so 6 * 2 = 12
+    println!("     transform(10) = {}", complex.apply(10)); // (10 + 1) = 11 > 5, so 11 * 2 = 22
     println!();
 
     // 6. Type conversion
@@ -82,8 +82,8 @@ fn main() {
     let get_length = |s: String| s.len();
     let length_transformer = to_string.and_then(get_length);
     println!(
-        "   to_string.and_then(get_length).transform(12345) = {}",
-        length_transformer.transform(12345)
+        "   to_string.and_then(get_length).apply(12345) = {}",
+        length_transformer.apply(12345)
     ); // 5
     println!();
 
@@ -94,8 +94,8 @@ fn main() {
     let add_ten = |x: i32| x + 10;
     let with_capture = multiply.and_then(add_ten);
     println!(
-        "   multiply(3).and_then(add_ten).transform(5) = {}",
-        with_capture.transform(5)
+        "   multiply(3).and_then(add_ten).apply(5) = {}",
+        with_capture.apply(5)
     ); // 5 * 3 + 10 = 25
     println!();
 
@@ -109,8 +109,8 @@ fn main() {
     }
     let fn_composed = double_fn.and_then(add_one_fn);
     println!(
-        "   double_fn.and_then(add_one_fn).transform(5) = {}",
-        fn_composed.transform(5)
+        "   double_fn.and_then(add_one_fn).apply(5) = {}",
+        fn_composed.apply(5)
     ); // 5 * 2 + 1 = 11
     println!();
 
@@ -120,9 +120,9 @@ fn main() {
     let double = |x: i32| x * 2;
     let transformer = abs.when(|x: &i32| *x < 0).or_else(double);
     println!("   abs.when(x < 0).or_else(double):");
-    println!("     transform(-5) = {}", transformer.transform(-5)); // abs(-5) = 5
-    println!("     transform(5) = {}", transformer.transform(5)); // 5 * 2 = 10
-    println!("     transform(0) = {}", transformer.transform(0)); // 0 * 2 = 0
+    println!("     transform(-5) = {}", transformer.apply(-5)); // abs(-5) = 5
+    println!("     transform(5) = {}", transformer.apply(5)); // 5 * 2 = 10
+    println!("     transform(0) = {}", transformer.apply(0)); // 0 * 2 = 0
     println!();
 
     println!("=== Example completed ===");

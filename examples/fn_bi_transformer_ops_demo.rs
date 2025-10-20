@@ -22,7 +22,7 @@ fn main() {
     let double = |x: i32| x * 2;
 
     let composed = add.and_then(double);
-    let result = composed.transform(3, 5);
+    let result = composed.apply(3, 5);
     println!("   (3 + 5) * 2 = {}", result);
     println!();
 
@@ -32,7 +32,7 @@ fn main() {
     let to_string = |x: i32| format!("Result: {}", x);
 
     let composed = multiply.and_then(to_string);
-    let result = composed.transform(6, 7);
+    let result = composed.apply(6, 7);
     println!("   6 * 7 = {}", result);
     println!();
 
@@ -46,8 +46,8 @@ fn main() {
         .or_else(multiply);
 
     println!("   When both numbers are positive, perform addition, otherwise multiplication:");
-    println!("   conditional(5, 3) = {}", conditional.transform(5, 3));
-    println!("   conditional(-5, 3) = {}", conditional.transform(-5, 3));
+    println!("   conditional(5, 3) = {}", conditional.apply(5, 3));
+    println!("   conditional(-5, 3) = {}", conditional.apply(-5, 3));
     println!();
 
     // Example 4: Complex conditional logic
@@ -60,8 +60,8 @@ fn main() {
         .or_else(subtract);
 
     println!("   When sum is less than 100, perform addition, otherwise subtraction:");
-    println!("   conditional(30, 40) = {}", conditional.transform(30, 40));
-    println!("   conditional(60, 50) = {}", conditional.transform(60, 50));
+    println!("   conditional(30, 40) = {}", conditional.apply(30, 40));
+    println!("   conditional(60, 50) = {}", conditional.apply(60, 50));
     println!();
 
     // Example 5: String operations
@@ -70,7 +70,7 @@ fn main() {
     let uppercase = |s: String| s.to_uppercase();
 
     let composed = concat.and_then(uppercase);
-    let result = composed.transform("hello".to_string(), "world".to_string());
+    let result = composed.apply("hello".to_string(), "world".to_string());
     println!("   concat + uppercase: {}", result);
     println!();
 
@@ -84,7 +84,7 @@ fn main() {
     }
 
     let composed = add_fn.and_then(triple);
-    let result = composed.transform(4, 6);
+    let result = composed.apply(4, 6);
     println!("   (4 + 6) * 3 = {}", result);
     println!();
 
@@ -100,8 +100,8 @@ fn main() {
     };
 
     let calculator = calculate.and_then(format_result);
-    println!("   10 + 5 = {}", calculator.transform(10, 5));
-    println!("   -10 + 3 = {}", calculator.transform(-10, 3));
+    println!("   10 + 5 = {}", calculator.apply(10, 5));
+    println!("   -10 + 3 = {}", calculator.apply(-10, 3));
     println!();
 
     // Example 8: Combining multiple operations
@@ -117,8 +117,8 @@ fn main() {
         }
     });
 
-    println!("   3 + 5 = {}", sum_and_format.transform(3, 5));
-    println!("   4 + 6 = {}", sum_and_format.transform(4, 6));
+    println!("   3 + 5 = {}", sum_and_format.apply(3, 5));
+    println!("   4 + 6 = {}", sum_and_format.apply(4, 6));
 
     println!("\n=== Demo completed ===");
 }

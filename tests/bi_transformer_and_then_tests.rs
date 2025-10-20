@@ -31,7 +31,7 @@ mod tests {
         let double = |x: i32| x * 2;
         let composed = add.and_then(double);
 
-        assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+        assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     }
 
     #[test]
@@ -40,7 +40,7 @@ mod tests {
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
         let composed = add.and_then(to_string);
 
-        assert_eq!(composed.transform(20, 22), "42");
+        assert_eq!(composed.apply(20, 22), "42");
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod tests {
 
         let composed = add.and_then(double).and_then(to_string);
 
-        assert_eq!(composed.transform(10, 11), "42"); // ((10 + 11) * 2).to_string()
+        assert_eq!(composed.apply(10, 11), "42"); // ((10 + 11) * 2).to_string()
     }
 
     #[test]
@@ -60,7 +60,7 @@ mod tests {
         let to_float = |x: i32| x as f64;
         let composed = multiply.and_then(to_float);
 
-        assert_eq!(composed.transform(6, 7), 42.0);
+        assert_eq!(composed.apply(6, 7), 42.0);
     }
 
     // ========================================================================
@@ -74,8 +74,8 @@ mod tests {
         let composed = add.and_then(double);
 
         // Original bi-transformer still usable
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     }
 
     #[test]
@@ -84,8 +84,8 @@ mod tests {
         let to_string = ArcTransformer::new(|x: i32| x.to_string());
         let composed = add.and_then(to_string);
 
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(composed.transform(20, 22), "42");
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(composed.apply(20, 22), "42");
     }
 
     #[test]
@@ -96,8 +96,8 @@ mod tests {
 
         let composed_clone = composed.clone();
 
-        assert_eq!(composed.transform(3, 5), 16);
-        assert_eq!(composed_clone.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
+        assert_eq!(composed_clone.apply(3, 5), 16);
     }
 
     #[test]
@@ -108,7 +108,7 @@ mod tests {
 
         let composed = add.and_then(double).and_then(to_string);
 
-        assert_eq!(composed.transform(10, 11), "42");
+        assert_eq!(composed.apply(10, 11), "42");
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
         let handles: Vec<_> = (0..4)
             .map(|i| {
                 let composed_clone = StdArc::clone(&composed);
-                thread::spawn(move || composed_clone.transform(i, i + 1))
+                thread::spawn(move || composed_clone.apply(i, i + 1))
             })
             .collect();
 
@@ -143,8 +143,8 @@ mod tests {
         let composed = add.and_then(double);
 
         // Original bi-transformer still usable
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(composed.transform(3, 5), 16); // (3 + 5) * 2
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(composed.apply(3, 5), 16); // (3 + 5) * 2
     }
 
     #[test]
@@ -153,8 +153,8 @@ mod tests {
         let to_string = RcTransformer::new(|x: i32| x.to_string());
         let composed = add.and_then(to_string);
 
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(composed.transform(20, 22), "42");
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(composed.apply(20, 22), "42");
     }
 
     #[test]
@@ -165,8 +165,8 @@ mod tests {
 
         let composed_clone = composed.clone();
 
-        assert_eq!(composed.transform(3, 5), 16);
-        assert_eq!(composed_clone.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
+        assert_eq!(composed_clone.apply(3, 5), 16);
     }
 
     #[test]
@@ -177,7 +177,7 @@ mod tests {
 
         let composed = add.and_then(double).and_then(to_string);
 
-        assert_eq!(composed.transform(10, 11), "42");
+        assert_eq!(composed.apply(10, 11), "42");
     }
 
     // ========================================================================
@@ -190,7 +190,7 @@ mod tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let composed = add.and_then(double);
 
-        assert_eq!(composed.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let composed = add.and_then(double);
 
-        assert_eq!(composed.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
     }
 
     #[test]
@@ -208,7 +208,7 @@ mod tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let composed = add.and_then(double);
 
-        assert_eq!(composed.transform(3, 5), 16);
+        assert_eq!(composed.apply(3, 5), 16);
     }
 
     // ========================================================================
@@ -230,7 +230,7 @@ mod tests {
         let composed = create_person.and_then(get_description);
 
         assert_eq!(
-            composed.transform("Alice".to_string(), 30),
+            composed.apply("Alice".to_string(), 30),
             "Alice is 30 years old"
         );
     }
@@ -244,8 +244,8 @@ mod tests {
 
         let composed = divide.and_then(unwrap_or_zero);
 
-        assert_eq!(composed.transform(10, 2), 5);
-        assert_eq!(composed.transform(10, 0), 0);
+        assert_eq!(composed.apply(10, 2), 5);
+        assert_eq!(composed.apply(10, 0), 0);
     }
 
     #[test]
@@ -265,7 +265,7 @@ mod tests {
 
         let composed = divide.and_then(to_string);
 
-        assert_eq!(composed.transform(10, 2), "Success: 5");
-        assert_eq!(composed.transform(10, 0), "Error: Division by zero");
+        assert_eq!(composed.apply(10, 2), "Success: 5");
+        assert_eq!(composed.apply(10, 0), "Error: Division by zero");
     }
 }

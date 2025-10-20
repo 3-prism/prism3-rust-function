@@ -21,7 +21,7 @@ where
 {
     values
         .into_iter()
-        .fold(initial, |acc, val| op.transform(acc, val))
+        .fold(initial, |acc, val| op.apply(acc, val))
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn test_binary_operator_basic() {
 #[test]
 fn test_box_binary_operator_creation() {
     let add: BoxBinaryOperator<i32> = BoxBinaryOperator::new(|a, b| a + b);
-    assert_eq!(add.transform(20, 22), 42);
+    assert_eq!(add.apply(20, 22), 42);
 }
 
 #[test]
@@ -41,9 +41,9 @@ fn test_arc_binary_operator_thread_safety() {
     let multiply = ArcBinaryOperator::new(|a: i32, b: i32| a * b);
     let multiply_clone = multiply.clone();
 
-    let handle = thread::spawn(move || multiply_clone.transform(6, 7));
+    let handle = thread::spawn(move || multiply_clone.apply(6, 7));
 
-    assert_eq!(multiply.transform(8, 5), 40);
+    assert_eq!(multiply.apply(8, 5), 40);
     assert_eq!(handle.join().unwrap(), 42);
 }
 
@@ -52,20 +52,20 @@ fn test_rc_binary_operator_clone() {
     let max = RcBinaryOperator::new(|a: i32, b: i32| if a > b { a } else { b });
     let cloned = max.clone();
 
-    assert_eq!(max.transform(10, 20), 20);
-    assert_eq!(cloned.transform(30, 15), 30);
+    assert_eq!(max.apply(10, 20), 20);
+    assert_eq!(cloned.apply(30, 15), 30);
 }
 
 #[test]
 fn test_box_binary_operator_once() {
     let add: BoxBinaryOperatorOnce<i32> = BoxBinaryOperatorOnce::new(|a, b| a + b);
-    assert_eq!(add.transform(20, 22), 42);
+    assert_eq!(add.apply(20, 22), 42);
 }
 
 #[test]
 fn test_binary_operator_compatibility() {
     fn use_bi_transformer<T: BiTransformer<i32, i32, i32>>(t: T, a: i32, b: i32) -> i32 {
-        t.transform(a, b)
+        t.apply(a, b)
     }
 
     let binary_op = BoxBinaryOperator::new(|a: i32, b: i32| a + b);

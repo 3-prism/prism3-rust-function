@@ -16,37 +16,37 @@ mod box_transformer_tests {
     use prism3_function::{BoxTransformer, Transformer};
 
     #[test]
-    fn test_new_and_transform() {
+    fn test_new_and_apply() {
         let double = BoxTransformer::new(|x: i32| x * 2);
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
     }
 
     #[test]
     fn test_multiple_calls() {
         let double = BoxTransformer::new(|x: i32| x * 2);
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(double.transform(42), 84);
-        assert_eq!(double.transform(10), 20);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(double.apply(42), 84);
+        assert_eq!(double.apply(10), 20);
     }
 
     #[test]
     fn test_identity() {
         let identity = BoxTransformer::<i32, i32>::identity();
-        assert_eq!(identity.transform(42), 42);
+        assert_eq!(identity.apply(42), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = BoxTransformer::constant("hello");
-        assert_eq!(constant.transform(123), "hello");
-        assert_eq!(constant.transform(456), "hello");
+        assert_eq!(constant.apply(123), "hello");
+        assert_eq!(constant.apply(456), "hello");
     }
 
     #[test]
     fn test_with_string() {
         let len = BoxTransformer::new(|s: String| s.len());
         let text = "hello".to_string();
-        assert_eq!(len.transform(text), 5);
+        assert_eq!(len.apply(text), 5);
         // Note: text is consumed by transform
     }
 
@@ -54,7 +54,7 @@ mod box_transformer_tests {
     fn test_captured_variable() {
         let multiplier = 3;
         let multiply = BoxTransformer::new(move |x: i32| x * multiplier);
-        assert_eq!(multiply.transform(7), 21);
+        assert_eq!(multiply.apply(7), 21);
     }
 
     #[test]
@@ -62,7 +62,7 @@ mod box_transformer_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
         let composed = double.and_then(to_string);
-        assert_eq!(composed.transform(21), "42");
+        assert_eq!(composed.apply(21), "42");
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod box_transformer_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let add_one = BoxTransformer::new(|x: i32| x + 1);
         let composed = double.compose(add_one);
-        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+        assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     }
 }
 
@@ -84,9 +84,9 @@ mod arc_transformer_tests {
     use std::thread;
 
     #[test]
-    fn test_new_and_transform() {
+    fn test_new_and_apply() {
         let double = ArcTransformer::new(|x: i32| x * 2);
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
     }
 
     #[test]
@@ -94,8 +94,8 @@ mod arc_transformer_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let cloned = double.clone();
 
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(cloned.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(cloned.apply(21), 42);
     }
 
     #[test]
@@ -103,22 +103,22 @@ mod arc_transformer_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let cloned = double.clone();
 
-        let handle = thread::spawn(move || cloned.transform(21));
+        let handle = thread::spawn(move || cloned.apply(21));
 
         assert_eq!(handle.join().unwrap(), 42);
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
     }
 
     #[test]
     fn test_identity() {
         let identity = ArcTransformer::<i32, i32>::identity();
-        assert_eq!(identity.transform(42), 42);
+        assert_eq!(identity.apply(42), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = ArcTransformer::constant("hello");
-        assert_eq!(constant.transform(123), "hello");
+        assert_eq!(constant.apply(123), "hello");
     }
 
     #[test]
@@ -128,7 +128,7 @@ mod arc_transformer_tests {
         let handles: Vec<_> = (0..4)
             .map(|i| {
                 let sq = square.clone();
-                thread::spawn(move || sq.transform(i))
+                thread::spawn(move || sq.apply(i))
             })
             .collect();
 
@@ -144,8 +144,8 @@ mod arc_transformer_tests {
         let composed = double.and_then(to_string);
 
         // Original double transformer still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(composed.transform(21), "42");
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(composed.apply(21), "42");
     }
 
     #[test]
@@ -154,7 +154,7 @@ mod arc_transformer_tests {
         let add_one = ArcTransformer::new(|x: i32| x + 1);
         let composed = double.compose(add_one);
 
-        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+        assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     }
 }
 
@@ -167,9 +167,9 @@ mod rc_transformer_tests {
     use prism3_function::{RcTransformer, Transformer};
 
     #[test]
-    fn test_new_and_transform() {
+    fn test_new_and_apply() {
         let double = RcTransformer::new(|x: i32| x * 2);
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
     }
 
     #[test]
@@ -177,20 +177,20 @@ mod rc_transformer_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let cloned = double.clone();
 
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(cloned.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(cloned.apply(21), 42);
     }
 
     #[test]
     fn test_identity() {
         let identity = RcTransformer::<i32, i32>::identity();
-        assert_eq!(identity.transform(42), 42);
+        assert_eq!(identity.apply(42), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = RcTransformer::constant("hello");
-        assert_eq!(constant.transform(123), "hello");
+        assert_eq!(constant.apply(123), "hello");
     }
 
     #[test]
@@ -200,9 +200,9 @@ mod rc_transformer_tests {
         let func1 = to_upper.clone();
         let func2 = to_upper.clone();
 
-        assert_eq!(to_upper.transform("hello".to_string()), "HELLO");
-        assert_eq!(func1.transform("world".to_string()), "WORLD");
-        assert_eq!(func2.transform("rust".to_string()), "RUST");
+        assert_eq!(to_upper.apply("hello".to_string()), "HELLO");
+        assert_eq!(func1.apply("world".to_string()), "WORLD");
+        assert_eq!(func2.apply("rust".to_string()), "RUST");
     }
 
     #[test]
@@ -212,8 +212,8 @@ mod rc_transformer_tests {
         let composed = double.and_then(to_string);
 
         // Original double transformer still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(composed.transform(21), "42");
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(composed.apply(21), "42");
     }
 
     #[test]
@@ -222,7 +222,7 @@ mod rc_transformer_tests {
         let add_one = RcTransformer::new(|x: i32| x + 1);
         let composed = double.compose(add_one);
 
-        assert_eq!(composed.transform(5), 12); // (5 + 1) * 2
+        assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
     }
 }
 
@@ -241,8 +241,8 @@ mod box_conditional_tests {
         let negate = BoxTransformer::new(|x: i32| -x);
         let result = double.when(is_positive).or_else(negate);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
     }
 
     #[test]
@@ -250,9 +250,9 @@ mod box_conditional_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
-        assert_eq!(result.transform(0), 0);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
+        assert_eq!(result.apply(0), 0);
     }
 }
 
@@ -267,8 +267,8 @@ mod arc_conditional_tests {
         let negate = ArcTransformer::new(|x: i32| -x);
         let result = double.when(is_positive).or_else(negate);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
     }
 
     #[test]
@@ -276,9 +276,9 @@ mod arc_conditional_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
-        assert_eq!(result.transform(0), 0);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
+        assert_eq!(result.apply(0), 0);
     }
 
     #[test]
@@ -290,10 +290,10 @@ mod arc_conditional_tests {
         let result1 = conditional.or_else(|x: i32| -x);
         let result2 = cloned.or_else(|x: i32| -x);
 
-        assert_eq!(result1.transform(5), 10);
-        assert_eq!(result2.transform(5), 10);
-        assert_eq!(result1.transform(-5), 5);
-        assert_eq!(result2.transform(-5), 5);
+        assert_eq!(result1.apply(5), 10);
+        assert_eq!(result2.apply(5), 10);
+        assert_eq!(result1.apply(-5), 5);
+        assert_eq!(result2.apply(-5), 5);
     }
 }
 
@@ -308,8 +308,8 @@ mod rc_conditional_tests {
         let negate = RcTransformer::new(|x: i32| -x);
         let result = double.when(is_positive).or_else(negate);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
     }
 
     #[test]
@@ -317,9 +317,9 @@ mod rc_conditional_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let result = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 
-        assert_eq!(result.transform(5), 10);
-        assert_eq!(result.transform(-5), 5);
-        assert_eq!(result.transform(0), 0);
+        assert_eq!(result.apply(5), 10);
+        assert_eq!(result.apply(-5), 5);
+        assert_eq!(result.apply(0), 0);
     }
 
     #[test]
@@ -331,10 +331,10 @@ mod rc_conditional_tests {
         let result1 = conditional.or_else(|x: i32| -x);
         let result2 = cloned.or_else(|x: i32| -x);
 
-        assert_eq!(result1.transform(5), 10);
-        assert_eq!(result2.transform(5), 10);
-        assert_eq!(result1.transform(-5), 5);
-        assert_eq!(result2.transform(-5), 5);
+        assert_eq!(result1.apply(5), 10);
+        assert_eq!(result2.apply(5), 10);
+        assert_eq!(result1.apply(-5), 5);
+        assert_eq!(result2.apply(-5), 5);
     }
 }
 
@@ -350,21 +350,21 @@ mod conversion_tests {
     fn test_closure_to_box() {
         let double = |x: i32| x * 2;
         let boxed = double.into_box();
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
     fn test_closure_to_arc() {
         let double = |x: i32| x * 2;
         let arc = double.into_arc();
-        assert_eq!(arc.transform(21), 42);
+        assert_eq!(arc.apply(21), 42);
     }
 
     #[test]
     fn test_closure_to_rc() {
         let double = |x: i32| x * 2;
         let rc = double.into_rc();
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
@@ -392,28 +392,28 @@ mod conversion_tests {
     fn test_box_to_rc() {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let rc = double.into_rc();
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
     fn test_arc_to_box() {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let boxed = double.into_box();
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
     fn test_arc_to_rc() {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let rc = double.into_rc();
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
     fn test_rc_to_box() {
         let double = RcTransformer::new(|x: i32| x * 2);
         let boxed = double.into_box();
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
@@ -441,8 +441,8 @@ mod to_conversion_tests {
         let boxed = double.to_box();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
@@ -451,8 +451,8 @@ mod to_conversion_tests {
         let rc = double.to_rc();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
@@ -461,8 +461,8 @@ mod to_conversion_tests {
         let arc2 = double.to_arc();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(arc2.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(arc2.apply(21), 42);
     }
 
     #[test]
@@ -471,7 +471,7 @@ mod to_conversion_tests {
         let func = double.to_fn();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         assert_eq!(func(21), 42);
     }
 
@@ -482,8 +482,8 @@ mod to_conversion_tests {
         let boxed = double.to_box();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
@@ -492,8 +492,8 @@ mod to_conversion_tests {
         let rc2 = double.to_rc();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(rc2.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(rc2.apply(21), 42);
     }
 
     #[test]
@@ -502,7 +502,7 @@ mod to_conversion_tests {
         let func = double.to_fn();
 
         // Original still usable
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         assert_eq!(func(21), 42);
     }
 
@@ -515,7 +515,7 @@ mod to_conversion_tests {
         let boxed = double.to_box();
         let composed = boxed.and_then(to_string);
 
-        assert_eq!(composed.transform(21), "42");
+        assert_eq!(composed.apply(21), "42");
     }
 
     #[test]
@@ -526,7 +526,7 @@ mod to_conversion_tests {
         let boxed = double.to_box();
         let composed = boxed.and_then(to_string);
 
-        assert_eq!(composed.transform(21), "42");
+        assert_eq!(composed.apply(21), "42");
     }
 
     // Test multiple conversions
@@ -539,9 +539,9 @@ mod to_conversion_tests {
         let func = double.to_fn();
 
         // All still work
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(boxed.transform(21), 42);
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(boxed.apply(21), 42);
+        assert_eq!(rc.apply(21), 42);
         assert_eq!(func(21), 42);
     }
 
@@ -554,9 +554,9 @@ mod to_conversion_tests {
         let func = double.to_fn();
 
         // All still work
-        assert_eq!(double.transform(21), 42);
-        assert_eq!(boxed.transform(21), 42);
-        assert_eq!(rc2.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
+        assert_eq!(boxed.apply(21), 42);
+        assert_eq!(rc2.apply(21), 42);
         assert_eq!(func(21), 42);
     }
 
@@ -566,8 +566,8 @@ mod to_conversion_tests {
         let len = ArcTransformer::new(|s: String| s.len());
         let boxed = len.to_box();
 
-        assert_eq!(len.transform("hello".to_string()), 5);
-        assert_eq!(boxed.transform("world".to_string()), 5);
+        assert_eq!(len.apply("hello".to_string()), 5);
+        assert_eq!(boxed.apply("world".to_string()), 5);
     }
 
     #[test]
@@ -575,7 +575,7 @@ mod to_conversion_tests {
         let upper = RcTransformer::new(|s: String| s.to_uppercase());
         let func = upper.to_fn();
 
-        assert_eq!(upper.transform("hello".to_string()), "HELLO");
+        assert_eq!(upper.apply("hello".to_string()), "HELLO");
         assert_eq!(func("world".to_string()), "WORLD");
     }
 
@@ -599,7 +599,7 @@ mod to_conversion_tests {
         assert_eq!(handle2.join().unwrap(), 20);
 
         // Original still usable
-        assert_eq!(double.transform(5), 10);
+        assert_eq!(double.apply(5), 10);
     }
 
     // Test that to_xxx creates independent copies
@@ -611,8 +611,8 @@ mod to_conversion_tests {
         let boxed2 = double.to_box();
 
         // Both work independently
-        assert_eq!(boxed1.transform(21), 42);
-        assert_eq!(boxed2.transform(10), 20);
+        assert_eq!(boxed1.apply(21), 42);
+        assert_eq!(boxed2.apply(10), 20);
     }
 }
 
@@ -627,7 +627,7 @@ mod trait_usage_tests {
     #[test]
     fn test_transformer_trait() {
         fn apply_transformer<F: Transformer<i32, i32>>(f: &F, x: i32) -> i32 {
-            f.transform(x)
+            f.apply(x)
         }
 
         let double = BoxTransformer::new(|x: i32| x * 2);
@@ -637,7 +637,7 @@ mod trait_usage_tests {
     #[test]
     fn test_closure_as_transformer() {
         fn apply_transformer<F: Transformer<i32, i32>>(f: &F, x: i32) -> i32 {
-            f.transform(x)
+            f.apply(x)
         }
 
         let double = |x: i32| x * 2;
@@ -647,7 +647,7 @@ mod trait_usage_tests {
     #[test]
     fn test_with_different_types() {
         fn apply_transformer<T, R, F: Transformer<T, R>>(f: &F, x: T) -> R {
-            f.transform(x)
+            f.apply(x)
         }
 
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
@@ -669,7 +669,7 @@ mod complex_composition_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
         let composed = add_one.and_then(double).and_then(to_string);
-        assert_eq!(composed.transform(5), "12"); // (5 + 1) * 2 = 12
+        assert_eq!(composed.apply(5), "12"); // (5 + 1) * 2 = 12
     }
 
     #[test]
@@ -678,7 +678,7 @@ mod complex_composition_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let square = BoxTransformer::new(|x: i32| x * x);
         let composed = square.compose(double).compose(add_one);
-        assert_eq!(composed.transform(5), 144); // ((5 + 1) * 2)^2 = 144
+        assert_eq!(composed.apply(5), 144); // ((5 + 1) * 2)^2 = 144
     }
 
     #[test]
@@ -687,10 +687,10 @@ mod complex_composition_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let to_string = ArcTransformer::new(|x: i32| x.to_string());
         let composed = add_one.and_then(double.clone()).and_then(to_string.clone());
-        assert_eq!(composed.transform(5), "12");
+        assert_eq!(composed.apply(5), "12");
         // Original transformers still usable
-        assert_eq!(add_one.transform(5), 6);
-        assert_eq!(double.transform(5), 10);
+        assert_eq!(add_one.apply(5), 6);
+        assert_eq!(double.apply(5), 10);
     }
 
     #[test]
@@ -699,11 +699,11 @@ mod complex_composition_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let square = RcTransformer::new(|x: i32| x * x);
         let composed = square.compose(double.clone()).compose(add_one.clone());
-        assert_eq!(composed.transform(5), 144);
+        assert_eq!(composed.apply(5), 144);
         // Original transformers still usable
-        assert_eq!(add_one.transform(5), 6);
-        assert_eq!(double.transform(5), 10);
-        assert_eq!(square.transform(5), 25);
+        assert_eq!(add_one.apply(5), 6);
+        assert_eq!(double.apply(5), 10);
+        assert_eq!(square.apply(5), 25);
     }
 }
 
@@ -720,29 +720,29 @@ mod edge_cases_tests {
         let double = BoxTransformer::new(|x: i32| x * 2);
         let identity = BoxTransformer::<i32, i32>::identity();
         let composed = double.and_then(identity);
-        assert_eq!(composed.transform(21), 42);
+        assert_eq!(composed.apply(21), 42);
     }
 
     #[test]
     fn test_constant_with_different_types() {
         let constant = BoxTransformer::constant("hello");
-        assert_eq!(constant.transform(123), "hello");
-        assert_eq!(constant.transform(456), "hello");
-        assert_eq!(constant.transform(789), "hello");
+        assert_eq!(constant.apply(123), "hello");
+        assert_eq!(constant.apply(456), "hello");
+        assert_eq!(constant.apply(789), "hello");
     }
 
     #[test]
     fn test_with_option() {
         let parse = BoxTransformer::new(|s: String| s.parse::<i32>().ok());
-        assert_eq!(parse.transform("42".to_string()), Some(42));
-        assert_eq!(parse.transform("abc".to_string()), None);
+        assert_eq!(parse.apply("42".to_string()), Some(42));
+        assert_eq!(parse.apply("abc".to_string()), None);
     }
 
     #[test]
     fn test_with_result() {
         let parse = BoxTransformer::new(|s: String| s.parse::<i32>());
-        assert!(parse.transform("42".to_string()).is_ok());
-        assert!(parse.transform("abc".to_string()).is_err());
+        assert!(parse.apply("42".to_string()).is_ok());
+        assert!(parse.apply("abc".to_string()).is_err());
     }
 
     #[test]
@@ -751,7 +751,7 @@ mod edge_cases_tests {
             s.split(',').map(|s| s.to_string()).collect::<Vec<_>>()
         });
         assert_eq!(
-            split.transform("a,b,c".to_string()),
+            split.apply("a,b,c".to_string()),
             vec!["a".to_string(), "b".to_string(), "c".to_string()]
         );
     }
@@ -760,7 +760,7 @@ mod edge_cases_tests {
     fn test_arc_with_large_data() {
         let process = ArcTransformer::new(|v: Vec<i32>| v.iter().sum::<i32>());
         let data = (1..=100).collect::<Vec<_>>();
-        assert_eq!(process.transform(data), 5050);
+        assert_eq!(process.apply(data), 5050);
     }
 }
 
@@ -781,7 +781,7 @@ mod default_implementation_tests {
     }
 
     impl Transformer<i32, i32> for CustomTransformer {
-        fn transform(&self, input: i32) -> i32 {
+        fn apply(&self, input: i32) -> i32 {
             input * self.multiplier
         }
     }
@@ -793,8 +793,8 @@ mod default_implementation_tests {
 
         // Test that the BoxTransformer works correctly with the
         // default implementation
-        assert_eq!(boxed.transform(7), 21);
-        assert_eq!(boxed.transform(10), 30);
+        assert_eq!(boxed.apply(7), 21);
+        assert_eq!(boxed.apply(10), 30);
     }
 
     #[test]
@@ -804,11 +804,11 @@ mod default_implementation_tests {
 
         // Test that the RcTransformer works correctly with the
         // default implementation
-        assert_eq!(rc.transform(4), 20);
+        assert_eq!(rc.apply(4), 20);
 
         // Test that cloning works
         let rc_clone = rc.clone();
-        assert_eq!(rc_clone.transform(6), 30);
+        assert_eq!(rc_clone.apply(6), 30);
     }
 
     #[test]
@@ -828,13 +828,13 @@ mod default_implementation_tests {
 
         // Convert to Box, then convert to Rc
         let boxed = custom.into_box();
-        assert_eq!(boxed.transform(10), 20);
+        assert_eq!(boxed.apply(10), 20);
 
         // Create another custom transformer for the next test
         let custom2 = CustomTransformer { multiplier: 4 };
         let rc = custom2.into_rc();
         let boxed2 = rc.into_box();
-        assert_eq!(boxed2.transform(5), 20);
+        assert_eq!(boxed2.apply(5), 20);
     }
 
     #[test]
@@ -843,7 +843,7 @@ mod default_implementation_tests {
         struct IntToString;
 
         impl Transformer<i32, String> for IntToString {
-            fn transform(&self, input: i32) -> String {
+            fn apply(&self, input: i32) -> String {
                 format!("Number: {}", input)
             }
         }
@@ -851,8 +851,8 @@ mod default_implementation_tests {
         let custom = IntToString;
         let boxed = custom.into_box();
 
-        assert_eq!(boxed.transform(42), "Number: 42");
-        assert_eq!(boxed.transform(100), "Number: 100");
+        assert_eq!(boxed.apply(42), "Number: 42");
+        assert_eq!(boxed.apply(100), "Number: 100");
     }
 
     #[test]
@@ -864,7 +864,7 @@ mod default_implementation_tests {
         let to_string = BoxTransformer::new(|x: i32| x.to_string());
         let composed = boxed.and_then(to_string);
 
-        assert_eq!(composed.transform(7), "21");
+        assert_eq!(composed.apply(7), "21");
     }
 
     #[test]
@@ -876,7 +876,7 @@ mod default_implementation_tests {
         }
 
         impl Transformer<i32, i32> for ThreadSafeTransformer {
-            fn transform(&self, input: i32) -> i32 {
+            fn apply(&self, input: i32) -> i32 {
                 input * self.multiplier
             }
         }
@@ -886,17 +886,17 @@ mod default_implementation_tests {
 
         // Test that the ArcTransformer works correctly with the
         // default implementation
-        assert_eq!(arc.transform(5), 20);
+        assert_eq!(arc.apply(5), 20);
 
         // Test that cloning works
         let arc_clone = arc.clone();
-        assert_eq!(arc_clone.transform(10), 40);
+        assert_eq!(arc_clone.apply(10), 40);
 
         // Test thread safety
         let arc2 = arc.clone();
-        let handle = thread::spawn(move || arc2.transform(7));
+        let handle = thread::spawn(move || arc2.apply(7));
         assert_eq!(handle.join().unwrap(), 28);
-        assert_eq!(arc.transform(3), 12);
+        assert_eq!(arc.apply(3), 12);
     }
 }
 
@@ -966,7 +966,7 @@ mod specialized_into_fn_tests {
         assert_eq!(func(21), 42);
 
         // Original still usable
-        assert_eq!(double.transform(10), 20);
+        assert_eq!(double.apply(10), 20);
     }
 
     #[test]
@@ -1001,7 +1001,7 @@ mod specialized_into_fn_tests {
         assert_eq!(func(41), 42);
 
         // Original still usable
-        assert_eq!(add_one.transform(99), 100);
+        assert_eq!(add_one.apply(99), 100);
     }
 
     #[test]
@@ -1016,7 +1016,7 @@ mod specialized_into_fn_tests {
 
         assert_eq!(func1(42), -42);
         assert_eq!(func2(100), -100);
-        assert_eq!(negate.transform(7), -7);
+        assert_eq!(negate.apply(7), -7);
     }
 
     #[test]
@@ -1102,8 +1102,8 @@ mod specialized_into_fn_tests {
             }
         });
 
-        let original_result1 = transformer.transform(5);
-        let original_result2 = transformer.transform(-5);
+        let original_result1 = transformer.apply(5);
+        let original_result2 = transformer.apply(-5);
 
         let func = transformer.into_fn();
 
@@ -1124,21 +1124,21 @@ mod type_conversion_tests {
     fn test_box_into_box() {
         let add = BoxTransformer::new(|x: i32| x + 10);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20), 30);
+        assert_eq!(boxed.apply(20), 30);
     }
 
     #[test]
     fn test_box_into_rc() {
         let add = BoxTransformer::new(|x: i32| x + 10);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20), 30);
+        assert_eq!(rc.apply(20), 30);
     }
 
     #[test]
     fn test_arc_into_arc() {
         let add = ArcTransformer::new(|x: i32| x + 10);
         let arc = add.into_arc();
-        assert_eq!(arc.transform(20), 30);
+        assert_eq!(arc.apply(20), 30);
     }
 
     #[test]
@@ -1152,7 +1152,7 @@ mod type_conversion_tests {
     fn test_rc_into_rc() {
         let add = RcTransformer::new(|x: i32| x + 10);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20), 30);
+        assert_eq!(rc.apply(20), 30);
     }
 
     #[test]
@@ -1173,37 +1173,37 @@ mod type_conversion_tests {
     fn test_arc_into_box() {
         let add = ArcTransformer::new(|x: i32| x + 10);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20), 30);
+        assert_eq!(boxed.apply(20), 30);
     }
 
     #[test]
     fn test_arc_into_rc() {
         let add = ArcTransformer::new(|x: i32| x + 10);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20), 30);
+        assert_eq!(rc.apply(20), 30);
     }
 
     #[test]
     fn test_rc_into_box() {
         let add = RcTransformer::new(|x: i32| x + 10);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20), 30);
+        assert_eq!(boxed.apply(20), 30);
     }
 
     #[test]
     fn test_arc_constant_with_clone() {
         let constant = ArcTransformer::constant(42);
-        assert_eq!(constant.transform(1), 42);
-        assert_eq!(constant.transform(2), 42);
-        assert_eq!(constant.transform(3), 42);
+        assert_eq!(constant.apply(1), 42);
+        assert_eq!(constant.apply(2), 42);
+        assert_eq!(constant.apply(3), 42);
     }
 
     #[test]
     fn test_rc_constant_with_clone() {
         let constant = RcTransformer::constant("test");
-        assert_eq!(constant.transform(1), "test");
-        assert_eq!(constant.transform(2), "test");
-        assert_eq!(constant.transform(3), "test");
+        assert_eq!(constant.apply(1), "test");
+        assert_eq!(constant.apply(2), "test");
+        assert_eq!(constant.apply(3), "test");
     }
 }
 
@@ -1226,9 +1226,9 @@ mod transformer_default_to_methods_tests {
         let boxed = double.to_box();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的 BoxTransformer 也可用
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
@@ -1238,9 +1238,9 @@ mod transformer_default_to_methods_tests {
         let boxed2 = triple.to_box();
 
         // 多次转换都可以工作
-        assert_eq!(boxed1.transform(7), 21);
-        assert_eq!(boxed2.transform(7), 21);
-        assert_eq!(triple.transform(7), 21);
+        assert_eq!(boxed1.apply(7), 21);
+        assert_eq!(boxed2.apply(7), 21);
+        assert_eq!(triple.apply(7), 21);
     }
 
     #[test]
@@ -1248,8 +1248,8 @@ mod transformer_default_to_methods_tests {
         let length = ArcTransformer::new(|s: String| s.len());
         let boxed = length.to_box();
 
-        assert_eq!(length.transform("hello".to_string()), 5);
-        assert_eq!(boxed.transform("world".to_string()), 5);
+        assert_eq!(length.apply("hello".to_string()), 5);
+        assert_eq!(boxed.apply("world".to_string()), 5);
     }
 
     #[test]
@@ -1258,8 +1258,8 @@ mod transformer_default_to_methods_tests {
         let multiply = ArcTransformer::new(move |x: i32| x * multiplier);
         let boxed = multiply.to_box();
 
-        assert_eq!(multiply.transform(8), 40);
-        assert_eq!(boxed.transform(8), 40);
+        assert_eq!(multiply.apply(8), 40);
+        assert_eq!(boxed.apply(8), 40);
     }
 
     // ========================================================================
@@ -1272,9 +1272,9 @@ mod transformer_default_to_methods_tests {
         let rc = double.to_rc();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的 RcTransformer 也可用
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
@@ -1283,9 +1283,9 @@ mod transformer_default_to_methods_tests {
         let rc1 = add_ten.to_rc();
         let rc2 = add_ten.to_rc();
 
-        assert_eq!(rc1.transform(5), 15);
-        assert_eq!(rc2.transform(5), 15);
-        assert_eq!(add_ten.transform(5), 15);
+        assert_eq!(rc1.apply(5), 15);
+        assert_eq!(rc2.apply(5), 15);
+        assert_eq!(add_ten.apply(5), 15);
     }
 
     #[test]
@@ -1294,9 +1294,9 @@ mod transformer_default_to_methods_tests {
         let rc = negate.to_rc();
         let rc_clone = rc.clone();
 
-        assert_eq!(negate.transform(42), -42);
-        assert_eq!(rc.transform(42), -42);
-        assert_eq!(rc_clone.transform(42), -42);
+        assert_eq!(negate.apply(42), -42);
+        assert_eq!(rc.apply(42), -42);
+        assert_eq!(rc_clone.apply(42), -42);
     }
 
     // ========================================================================
@@ -1309,9 +1309,9 @@ mod transformer_default_to_methods_tests {
         let arc = double.to_arc();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的 ArcTransformer 也可用
-        assert_eq!(arc.transform(21), 42);
+        assert_eq!(arc.apply(21), 42);
     }
 
     #[test]
@@ -1320,8 +1320,8 @@ mod transformer_default_to_methods_tests {
         let arc = add_one.to_arc();
 
         // to_arc() 应该等价于 clone()
-        assert_eq!(add_one.transform(41), 42);
-        assert_eq!(arc.transform(41), 42);
+        assert_eq!(add_one.apply(41), 42);
+        assert_eq!(arc.apply(41), 42);
     }
 
     #[test]
@@ -1330,11 +1330,11 @@ mod transformer_default_to_methods_tests {
         let arc = increment.to_arc();
 
         let handle = thread::spawn(move || {
-            arc.transform(99)
+            arc.apply(99)
         });
 
         assert_eq!(handle.join().unwrap(), 100);
-        assert_eq!(increment.transform(41), 42);
+        assert_eq!(increment.apply(41), 42);
     }
 
     // ========================================================================
@@ -1347,7 +1347,7 @@ mod transformer_default_to_methods_tests {
         let func = double.to_fn();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的函数也可用
         assert_eq!(func(21), 42);
     }
@@ -1359,7 +1359,7 @@ mod transformer_default_to_methods_tests {
 
         assert_eq!(func(5), 25);
         assert_eq!(func(7), 49);
-        assert_eq!(square.transform(3), 9);
+        assert_eq!(square.apply(3), 9);
     }
 
     #[test]
@@ -1382,9 +1382,9 @@ mod transformer_default_to_methods_tests {
         let boxed = double.to_box();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的 BoxTransformer 也可用
-        assert_eq!(boxed.transform(21), 42);
+        assert_eq!(boxed.apply(21), 42);
     }
 
     #[test]
@@ -1393,9 +1393,9 @@ mod transformer_default_to_methods_tests {
         let boxed1 = subtract.to_box();
         let boxed2 = subtract.to_box();
 
-        assert_eq!(boxed1.transform(15), 10);
-        assert_eq!(boxed2.transform(15), 10);
-        assert_eq!(subtract.transform(15), 10);
+        assert_eq!(boxed1.apply(15), 10);
+        assert_eq!(boxed2.apply(15), 10);
+        assert_eq!(subtract.apply(15), 10);
     }
 
     #[test]
@@ -1404,9 +1404,9 @@ mod transformer_default_to_methods_tests {
         let rc_clone = negate.clone();
         let boxed = rc_clone.to_box();
 
-        assert_eq!(negate.transform(42), -42);
-        assert_eq!(rc_clone.transform(42), -42);
-        assert_eq!(boxed.transform(42), -42);
+        assert_eq!(negate.apply(42), -42);
+        assert_eq!(rc_clone.apply(42), -42);
+        assert_eq!(boxed.apply(42), -42);
     }
 
     // ========================================================================
@@ -1419,9 +1419,9 @@ mod transformer_default_to_methods_tests {
         let rc = double.to_rc();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的 RcTransformer 也可用
-        assert_eq!(rc.transform(21), 42);
+        assert_eq!(rc.apply(21), 42);
     }
 
     #[test]
@@ -1430,8 +1430,8 @@ mod transformer_default_to_methods_tests {
         let rc = add_one.to_rc();
 
         // to_rc() 应该等价于 clone()
-        assert_eq!(add_one.transform(41), 42);
-        assert_eq!(rc.transform(41), 42);
+        assert_eq!(add_one.apply(41), 42);
+        assert_eq!(rc.apply(41), 42);
     }
 
     #[test]
@@ -1441,10 +1441,10 @@ mod transformer_default_to_methods_tests {
         let rc2 = triple.to_rc();
         let rc1_clone = rc1.clone();
 
-        assert_eq!(triple.transform(7), 21);
-        assert_eq!(rc1.transform(7), 21);
-        assert_eq!(rc2.transform(7), 21);
-        assert_eq!(rc1_clone.transform(7), 21);
+        assert_eq!(triple.apply(7), 21);
+        assert_eq!(rc1.apply(7), 21);
+        assert_eq!(rc2.apply(7), 21);
+        assert_eq!(rc1_clone.apply(7), 21);
     }
 
     // ========================================================================
@@ -1457,7 +1457,7 @@ mod transformer_default_to_methods_tests {
         let func = double.to_fn();
 
         // 原始 transformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
         // 转换后的函数也可用
         assert_eq!(func(21), 42);
     }
@@ -1469,7 +1469,7 @@ mod transformer_default_to_methods_tests {
 
         assert_eq!(func(-5), 5);
         assert_eq!(func(5), 5);
-        assert_eq!(abs.transform(-10), 10);
+        assert_eq!(abs.apply(-10), 10);
     }
 
     #[test]
@@ -1479,7 +1479,7 @@ mod transformer_default_to_methods_tests {
         let func = add_offset.to_fn();
 
         assert_eq!(func(42), 142);
-        assert_eq!(add_offset.transform(42), 142);
+        assert_eq!(add_offset.apply(42), 142);
     }
 
     // ========================================================================
@@ -1494,7 +1494,7 @@ mod transformer_default_to_methods_tests {
 
         assert_eq!(func(21), 42);
         // 原始 ArcTransformer 仍然可用
-        assert_eq!(double.transform(21), 42);
+        assert_eq!(double.apply(21), 42);
     }
 
     #[test]
@@ -1503,9 +1503,9 @@ mod transformer_default_to_methods_tests {
         let rc = triple.to_rc();
         let boxed = rc.to_box();
 
-        assert_eq!(boxed.transform(7), 21);
-        assert_eq!(rc.transform(7), 21);
-        assert_eq!(triple.transform(7), 21);
+        assert_eq!(boxed.apply(7), 21);
+        assert_eq!(rc.apply(7), 21);
+        assert_eq!(triple.apply(7), 21);
     }
 
     #[test]
@@ -1516,8 +1516,8 @@ mod transformer_default_to_methods_tests {
         let boxed = double.to_box();
         let composed = boxed.and_then(add_one);
 
-        assert_eq!(composed.transform(5), 11); // (5 * 2) + 1
-        assert_eq!(double.transform(5), 10);
+        assert_eq!(composed.apply(5), 11); // (5 * 2) + 1
+        assert_eq!(double.apply(5), 10);
     }
 
     // ========================================================================
@@ -1529,9 +1529,9 @@ mod transformer_default_to_methods_tests {
         let parse = ArcTransformer::new(|s: String| s.parse::<i32>().ok());
         let boxed = parse.to_box();
 
-        assert_eq!(parse.transform("42".to_string()), Some(42));
-        assert_eq!(boxed.transform("42".to_string()), Some(42));
-        assert_eq!(boxed.transform("abc".to_string()), None);
+        assert_eq!(parse.apply("42".to_string()), Some(42));
+        assert_eq!(boxed.apply("42".to_string()), Some(42));
+        assert_eq!(boxed.apply("abc".to_string()), None);
     }
 
     #[test]
@@ -1547,7 +1547,7 @@ mod transformer_default_to_methods_tests {
 
         assert_eq!(func(10), Ok(10));
         assert_eq!(func(0), Err("Division by zero"));
-        assert_eq!(divide.transform(5), Ok(20));
+        assert_eq!(divide.apply(5), Ok(20));
     }
 
     #[test]
@@ -1561,8 +1561,8 @@ mod transformer_default_to_methods_tests {
         let input1 = vec![3, 1, 4, 1, 5, 9];
         let input2 = vec![3, 1, 4, 1, 5, 9];
 
-        assert_eq!(sort.transform(input1), vec![1, 1, 3, 4, 5, 9]);
-        assert_eq!(rc.transform(input2), vec![1, 1, 3, 4, 5, 9]);
+        assert_eq!(sort.apply(input1), vec![1, 1, 3, 4, 5, 9]);
+        assert_eq!(rc.apply(input2), vec![1, 1, 3, 4, 5, 9]);
     }
 
     // ========================================================================
@@ -1574,8 +1574,8 @@ mod transformer_default_to_methods_tests {
         let identity = ArcTransformer::<i32, i32>::identity();
         let boxed = identity.to_box();
 
-        assert_eq!(identity.transform(42), 42);
-        assert_eq!(boxed.transform(42), 42);
+        assert_eq!(identity.apply(42), 42);
+        assert_eq!(boxed.apply(42), 42);
     }
 
     #[test]
@@ -1585,7 +1585,7 @@ mod transformer_default_to_methods_tests {
 
         assert_eq!(func(1), "fixed");
         assert_eq!(func(2), "fixed");
-        assert_eq!(constant.transform(3), "fixed");
+        assert_eq!(constant.apply(3), "fixed");
     }
 
     #[test]
@@ -1593,8 +1593,8 @@ mod transformer_default_to_methods_tests {
         let constant = ArcTransformer::constant(123);
         let rc = constant.to_rc();
 
-        assert_eq!(constant.transform(999), 123);
-        assert_eq!(rc.transform(999), 123);
+        assert_eq!(constant.apply(999), 123);
+        assert_eq!(rc.apply(999), 123);
     }
 }
 
@@ -1615,7 +1615,7 @@ mod custom_transformer_to_methods_tests {
     }
 
     impl Transformer<i32, i32> for MultiplyTransformer {
-        fn transform(&self, input: i32) -> i32 {
+        fn apply(&self, input: i32) -> i32 {
             input * self.multiplier
         }
     }
@@ -1631,7 +1631,7 @@ mod custom_transformer_to_methods_tests {
     unsafe impl Sync for ThreadSafeMultiplyTransformer {}
 
     impl Transformer<i32, i32> for ThreadSafeMultiplyTransformer {
-        fn transform(&self, input: i32) -> i32 {
+        fn apply(&self, input: i32) -> i32 {
             input * self.multiplier
         }
     }
@@ -1646,9 +1646,9 @@ mod custom_transformer_to_methods_tests {
         let boxed = multiply.to_box();
 
         // 原始 transformer 仍然可用
-        assert_eq!(multiply.transform(7), 21);
+        assert_eq!(multiply.apply(7), 21);
         // 转换后的 BoxTransformer 也可用
-        assert_eq!(boxed.transform(7), 21);
+        assert_eq!(boxed.apply(7), 21);
     }
 
     #[test]
@@ -1658,9 +1658,9 @@ mod custom_transformer_to_methods_tests {
         let boxed2 = multiply.to_box();
 
         // 多次转换都可以工作
-        assert_eq!(boxed1.transform(4), 20);
-        assert_eq!(boxed2.transform(4), 20);
-        assert_eq!(multiply.transform(4), 20);
+        assert_eq!(boxed1.apply(4), 20);
+        assert_eq!(boxed2.apply(4), 20);
+        assert_eq!(multiply.apply(4), 20);
     }
 
     #[test]
@@ -1672,7 +1672,7 @@ mod custom_transformer_to_methods_tests {
         let add_ten = BoxTransformer::new(|x: i32| x + 10);
         let composed = boxed.and_then(add_ten);
 
-        assert_eq!(composed.transform(5), 20); // (5 * 2) + 10
+        assert_eq!(composed.apply(5), 20); // (5 * 2) + 10
     }
 
     // ========================================================================
@@ -1685,9 +1685,9 @@ mod custom_transformer_to_methods_tests {
         let rc = multiply.to_rc();
 
         // 原始 transformer 仍然可用
-        assert_eq!(multiply.transform(5), 20);
+        assert_eq!(multiply.apply(5), 20);
         // 转换后的 RcTransformer 也可用
-        assert_eq!(rc.transform(5), 20);
+        assert_eq!(rc.apply(5), 20);
     }
 
     #[test]
@@ -1696,9 +1696,9 @@ mod custom_transformer_to_methods_tests {
         let rc1 = multiply.to_rc();
         let rc2 = multiply.to_rc();
 
-        assert_eq!(rc1.transform(3), 21);
-        assert_eq!(rc2.transform(3), 21);
-        assert_eq!(multiply.transform(3), 21);
+        assert_eq!(rc1.apply(3), 21);
+        assert_eq!(rc2.apply(3), 21);
+        assert_eq!(multiply.apply(3), 21);
     }
 
     #[test]
@@ -1707,9 +1707,9 @@ mod custom_transformer_to_methods_tests {
         let rc = multiply.to_rc();
         let rc_clone = rc.clone();
 
-        assert_eq!(multiply.transform(4), 24);
-        assert_eq!(rc.transform(4), 24);
-        assert_eq!(rc_clone.transform(4), 24);
+        assert_eq!(multiply.apply(4), 24);
+        assert_eq!(rc.apply(4), 24);
+        assert_eq!(rc_clone.apply(4), 24);
     }
 
     #[test]
@@ -1721,7 +1721,7 @@ mod custom_transformer_to_methods_tests {
         let square = RcTransformer::new(|x: i32| x * x);
         let composed = rc.and_then(square);
 
-        assert_eq!(composed.transform(5), 225); // (5 * 3)^2 = 225
+        assert_eq!(composed.apply(5), 225); // (5 * 3)^2 = 225
     }
 
     // ========================================================================
@@ -1734,9 +1734,9 @@ mod custom_transformer_to_methods_tests {
         let arc = multiply.to_arc();
 
         // 原始 transformer 仍然可用
-        assert_eq!(multiply.transform(8), 40);
+        assert_eq!(multiply.apply(8), 40);
         // 转换后的 ArcTransformer 也可用
-        assert_eq!(arc.transform(8), 40);
+        assert_eq!(arc.apply(8), 40);
     }
 
     #[test]
@@ -1745,9 +1745,9 @@ mod custom_transformer_to_methods_tests {
         let arc1 = multiply.to_arc();
         let arc2 = multiply.to_arc();
 
-        assert_eq!(arc1.transform(2), 18);
-        assert_eq!(arc2.transform(2), 18);
-        assert_eq!(multiply.transform(2), 18);
+        assert_eq!(arc1.apply(2), 18);
+        assert_eq!(arc2.apply(2), 18);
+        assert_eq!(multiply.apply(2), 18);
     }
 
     #[test]
@@ -1756,9 +1756,9 @@ mod custom_transformer_to_methods_tests {
         let arc = multiply.to_arc();
         let arc_clone = arc.clone();
 
-        assert_eq!(multiply.transform(3), 30);
-        assert_eq!(arc.transform(3), 30);
-        assert_eq!(arc_clone.transform(3), 30);
+        assert_eq!(multiply.apply(3), 30);
+        assert_eq!(arc.apply(3), 30);
+        assert_eq!(arc_clone.apply(3), 30);
     }
 
     #[test]
@@ -1767,11 +1767,11 @@ mod custom_transformer_to_methods_tests {
         let arc = multiply.to_arc();
 
         let handle = thread::spawn(move || {
-            arc.transform(6)
+            arc.apply(6)
         });
 
         assert_eq!(handle.join().unwrap(), 42);
-        assert_eq!(multiply.transform(6), 42);
+        assert_eq!(multiply.apply(6), 42);
     }
 
     #[test]
@@ -1783,7 +1783,7 @@ mod custom_transformer_to_methods_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let composed = arc.and_then(double);
 
-        assert_eq!(composed.transform(5), 40); // (5 * 4) * 2 = 40
+        assert_eq!(composed.apply(5), 40); // (5 * 4) * 2 = 40
     }
 
     // ========================================================================
@@ -1796,7 +1796,7 @@ mod custom_transformer_to_methods_tests {
         let func = multiply.to_fn();
 
         // 原始 transformer 仍然可用
-        assert_eq!(multiply.transform(5), 40);
+        assert_eq!(multiply.apply(5), 40);
         // 转换后的函数也可用
         assert_eq!(func(5), 40);
     }
@@ -1808,7 +1808,7 @@ mod custom_transformer_to_methods_tests {
 
         assert_eq!(func(3), 18);
         assert_eq!(func(7), 42);
-        assert_eq!(multiply.transform(10), 60);
+        assert_eq!(multiply.apply(10), 60);
     }
 
     #[test]
@@ -1830,7 +1830,7 @@ mod custom_transformer_to_methods_tests {
         // 多次转换都可以工作
         assert_eq!(func1(5), 45);
         assert_eq!(func2(5), 45);
-        assert_eq!(multiply.transform(5), 45);
+        assert_eq!(multiply.apply(5), 45);
     }
 
     // ========================================================================
@@ -1843,9 +1843,9 @@ mod custom_transformer_to_methods_tests {
         let boxed = multiply.to_box();
         let rc = boxed.into_rc();
 
-        assert_eq!(rc.transform(7), 21);
+        assert_eq!(rc.apply(7), 21);
         // 原始自定义 transformer 仍然可用
-        assert_eq!(multiply.transform(7), 21);
+        assert_eq!(multiply.apply(7), 21);
     }
 
     #[test]
@@ -1854,9 +1854,9 @@ mod custom_transformer_to_methods_tests {
         let rc = multiply.to_rc();
         let boxed = rc.to_box();
 
-        assert_eq!(boxed.transform(6), 24);
-        assert_eq!(rc.transform(6), 24);
-        assert_eq!(multiply.transform(6), 24);
+        assert_eq!(boxed.apply(6), 24);
+        assert_eq!(rc.apply(6), 24);
+        assert_eq!(multiply.apply(6), 24);
     }
 
     #[test]
@@ -1865,9 +1865,9 @@ mod custom_transformer_to_methods_tests {
         let arc = multiply.to_arc();
         let rc = arc.to_rc();
 
-        assert_eq!(rc.transform(8), 40);
-        assert_eq!(arc.transform(8), 40);
-        assert_eq!(multiply.transform(8), 40);
+        assert_eq!(rc.apply(8), 40);
+        assert_eq!(arc.apply(8), 40);
+        assert_eq!(multiply.apply(8), 40);
     }
 
     #[test]
@@ -1880,10 +1880,10 @@ mod custom_transformer_to_methods_tests {
         let func = multiply.to_fn();
 
         // 所有转换后的类型都可以正常工作
-        assert_eq!(multiply.transform(10), 20);
-        assert_eq!(boxed.transform(10), 20);
-        assert_eq!(rc.transform(10), 20);
-        assert_eq!(arc.transform(10), 20);
+        assert_eq!(multiply.apply(10), 20);
+        assert_eq!(boxed.apply(10), 20);
+        assert_eq!(rc.apply(10), 20);
+        assert_eq!(arc.apply(10), 20);
         assert_eq!(func(10), 20);
     }
 
@@ -1898,7 +1898,7 @@ mod custom_transformer_to_methods_tests {
     }
 
     impl Transformer<i32, String> for IntToStringTransformer {
-        fn transform(&self, input: i32) -> String {
+        fn apply(&self, input: i32) -> String {
             format!("{}{}", self.prefix, input)
         }
     }
@@ -1910,8 +1910,8 @@ mod custom_transformer_to_methods_tests {
         };
         let boxed = transformer.to_box();
 
-        assert_eq!(transformer.transform(42), "Number: 42");
-        assert_eq!(boxed.transform(42), "Number: 42");
+        assert_eq!(transformer.apply(42), "Number: 42");
+        assert_eq!(boxed.apply(42), "Number: 42");
     }
 
     #[test]
@@ -1921,8 +1921,8 @@ mod custom_transformer_to_methods_tests {
         };
         let rc = transformer.to_rc();
 
-        assert_eq!(transformer.transform(100), "Value: 100");
-        assert_eq!(rc.transform(100), "Value: 100");
+        assert_eq!(transformer.apply(100), "Value: 100");
+        assert_eq!(rc.apply(100), "Value: 100");
     }
 
     #[test]
@@ -1932,7 +1932,7 @@ mod custom_transformer_to_methods_tests {
         };
         let func = transformer.to_fn();
 
-        assert_eq!(transformer.transform(999), "Result: 999");
+        assert_eq!(transformer.apply(999), "Result: 999");
         assert_eq!(func(999), "Result: 999");
     }
 
@@ -1949,7 +1949,7 @@ mod custom_transformer_to_methods_tests {
     }
 
     impl Transformer<i32, i32> for StatefulTransformer {
-        fn transform(&self, input: i32) -> i32 {
+        fn apply(&self, input: i32) -> i32 {
             (input + self.base) * self.multiplier + self.offset
         }
     }
@@ -1964,8 +1964,8 @@ mod custom_transformer_to_methods_tests {
         let boxed = transformer.to_box();
 
         // (10 + 5) * 3 + 10 = 55
-        assert_eq!(transformer.transform(10), 55);
-        assert_eq!(boxed.transform(10), 55);
+        assert_eq!(transformer.apply(10), 55);
+        assert_eq!(boxed.apply(10), 55);
     }
 
     #[test]
@@ -1978,8 +1978,8 @@ mod custom_transformer_to_methods_tests {
         let rc = transformer.to_rc();
 
         // (5 + 2) * 4 + 1 = 29
-        assert_eq!(transformer.transform(5), 29);
-        assert_eq!(rc.transform(5), 29);
+        assert_eq!(transformer.apply(5), 29);
+        assert_eq!(rc.apply(5), 29);
     }
 
     #[test]
@@ -1992,7 +1992,7 @@ mod custom_transformer_to_methods_tests {
         let func = transformer.to_fn();
 
         // (7 + 1) * 2 + 3 = 19
-        assert_eq!(transformer.transform(7), 19);
+        assert_eq!(transformer.apply(7), 19);
         assert_eq!(func(7), 19);
     }
 
@@ -2010,9 +2010,9 @@ mod custom_transformer_to_methods_tests {
 
         // (6 + 3) * 2 + 5 = 23
         let expected = 23;
-        assert_eq!(transformer.transform(6), expected);
-        assert_eq!(boxed.transform(6), expected);
-        assert_eq!(rc.transform(6), expected);
+        assert_eq!(transformer.apply(6), expected);
+        assert_eq!(boxed.apply(6), expected);
+        assert_eq!(rc.apply(6), expected);
         assert_eq!(func(6), expected);
     }
 }

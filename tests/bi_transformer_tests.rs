@@ -21,35 +21,35 @@ mod box_bi_transformer_tests {
     #[test]
     fn test_new_and_transform() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
-        assert_eq!(add.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
     }
 
     #[test]
     fn test_multiple_calls() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(add.transform(10, 10), 20);
-        assert_eq!(add.transform(5, 3), 8);
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(add.apply(10, 10), 20);
+        assert_eq!(add.apply(5, 3), 8);
     }
 
     #[test]
     fn test_multiply() {
         let multiply = BoxBiTransformer::new(|x: i32, y: i32| x * y);
-        assert_eq!(multiply.transform(6, 7), 42);
+        assert_eq!(multiply.apply(6, 7), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = BoxBiTransformer::constant("hello");
-        assert_eq!(constant.transform(123, 456), "hello");
-        assert_eq!(constant.transform(789, 101), "hello");
+        assert_eq!(constant.apply(123, 456), "hello");
+        assert_eq!(constant.apply(789, 101), "hello");
     }
 
     #[test]
     fn test_with_string() {
         let concat = BoxBiTransformer::new(|s1: String, s2: String| format!("{}{}", s1, s2));
         assert_eq!(
-            concat.transform("hello".to_string(), "world".to_string()),
+            concat.apply("hello".to_string(), "world".to_string()),
             "helloworld"
         );
     }
@@ -59,21 +59,21 @@ mod box_bi_transformer_tests {
         let multiplier = 3;
         let weighted_sum =
             BoxBiTransformer::new(move |x: i32, y: i32| x * multiplier + y * multiplier);
-        assert_eq!(weighted_sum.transform(2, 3), 15); // (2 * 3) + (3 * 3) = 15
+        assert_eq!(weighted_sum.apply(2, 3), 15); // (2 * 3) + (3 * 3) = 15
     }
 
     #[test]
     fn test_different_types() {
         let format = BoxBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
-        assert_eq!(format.transform("Alice".to_string(), 30), "Alice is 30");
+        assert_eq!(format.apply("Alice".to_string(), 30), "Alice is 30");
     }
 
     #[test]
     fn test_with_option() {
         let safe_divide =
             BoxBiTransformer::new(|x: i32, y: i32| if y == 0 { None } else { Some(x / y) });
-        assert_eq!(safe_divide.transform(42, 2), Some(21));
-        assert_eq!(safe_divide.transform(42, 0), None);
+        assert_eq!(safe_divide.apply(42, 2), Some(21));
+        assert_eq!(safe_divide.apply(42, 0), None);
     }
 }
 
@@ -88,7 +88,7 @@ mod arc_bi_transformer_tests {
     #[test]
     fn test_new_and_transform() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
-        assert_eq!(add.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
     }
 
     #[test]
@@ -96,8 +96,8 @@ mod arc_bi_transformer_tests {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let cloned = add.clone();
 
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(cloned.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(cloned.apply(20, 22), 42);
     }
 
     #[test]
@@ -105,16 +105,16 @@ mod arc_bi_transformer_tests {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let cloned = add.clone();
 
-        let handle = thread::spawn(move || cloned.transform(20, 22));
+        let handle = thread::spawn(move || cloned.apply(20, 22));
 
         assert_eq!(handle.join().unwrap(), 42);
-        assert_eq!(add.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = ArcBiTransformer::constant("hello");
-        assert_eq!(constant.transform(123, 456), "hello");
+        assert_eq!(constant.apply(123, 456), "hello");
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod arc_bi_transformer_tests {
         let handles: Vec<_> = (0..4)
             .map(|i| {
                 let m = multiply.clone();
-                thread::spawn(move || m.transform(i, i + 1))
+                thread::spawn(move || m.apply(i, i + 1))
             })
             .collect();
 
@@ -136,7 +136,7 @@ mod arc_bi_transformer_tests {
     #[test]
     fn test_with_different_types() {
         let format = ArcBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
-        assert_eq!(format.transform("Alice".to_string(), 30), "Alice is 30");
+        assert_eq!(format.apply("Alice".to_string(), 30), "Alice is 30");
     }
 }
 
@@ -151,7 +151,7 @@ mod rc_bi_transformer_tests {
     #[test]
     fn test_new_and_transform() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
-        assert_eq!(add.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
     }
 
     #[test]
@@ -159,14 +159,14 @@ mod rc_bi_transformer_tests {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
         let cloned = add.clone();
 
-        assert_eq!(add.transform(20, 22), 42);
-        assert_eq!(cloned.transform(20, 22), 42);
+        assert_eq!(add.apply(20, 22), 42);
+        assert_eq!(cloned.apply(20, 22), 42);
     }
 
     #[test]
     fn test_constant() {
         let constant = RcBiTransformer::constant("hello");
-        assert_eq!(constant.transform(123, 456), "hello");
+        assert_eq!(constant.apply(123, 456), "hello");
     }
 
     #[test]
@@ -177,15 +177,15 @@ mod rc_bi_transformer_tests {
         let func2 = concat.clone();
 
         assert_eq!(
-            concat.transform("hello".to_string(), "world".to_string()),
+            concat.apply("hello".to_string(), "world".to_string()),
             "helloworld"
         );
         assert_eq!(
-            func1.transform("foo".to_string(), "bar".to_string()),
+            func1.apply("foo".to_string(), "bar".to_string()),
             "foobar"
         );
         assert_eq!(
-            func2.transform("rust".to_string(), "lang".to_string()),
+            func2.apply("rust".to_string(), "lang".to_string()),
             "rustlang"
         );
     }
@@ -193,7 +193,7 @@ mod rc_bi_transformer_tests {
     #[test]
     fn test_with_different_types() {
         let format = RcBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
-        assert_eq!(format.transform("Alice".to_string(), 30), "Alice is 30");
+        assert_eq!(format.apply("Alice".to_string(), 30), "Alice is 30");
     }
 }
 
@@ -213,8 +213,8 @@ mod box_conditional_tests {
         let multiply = BoxBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 
-        assert_eq!(result.transform(5, 3), 8); // both positive, add
-        assert_eq!(result.transform(-5, 3), -15); // not both positive, multiply
+        assert_eq!(result.apply(5, 3), 8); // both positive, add
+        assert_eq!(result.apply(-5, 3), -15); // not both positive, multiply
     }
 
     #[test]
@@ -224,9 +224,9 @@ mod box_conditional_tests {
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(result.transform(5, 3), 8);
-        assert_eq!(result.transform(-5, 3), -15);
-        assert_eq!(result.transform(0, 5), 0);
+        assert_eq!(result.apply(5, 3), 8);
+        assert_eq!(result.apply(-5, 3), -15);
+        assert_eq!(result.apply(0, 5), 0);
     }
 }
 
@@ -242,8 +242,8 @@ mod arc_conditional_tests {
         let multiply = ArcBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 
-        assert_eq!(result.transform(5, 3), 8);
-        assert_eq!(result.transform(-5, 3), -15);
+        assert_eq!(result.apply(5, 3), 8);
+        assert_eq!(result.apply(-5, 3), -15);
     }
 
     #[test]
@@ -253,9 +253,9 @@ mod arc_conditional_tests {
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(result.transform(5, 3), 8);
-        assert_eq!(result.transform(-5, 3), -15);
-        assert_eq!(result.transform(0, 5), 0);
+        assert_eq!(result.apply(5, 3), 8);
+        assert_eq!(result.apply(-5, 3), -15);
+        assert_eq!(result.apply(0, 5), 0);
     }
 
     #[test]
@@ -267,10 +267,10 @@ mod arc_conditional_tests {
         let result1 = conditional.or_else(|x: i32, y: i32| x * y);
         let result2 = cloned.or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(result1.transform(5, 3), 8);
-        assert_eq!(result2.transform(5, 3), 8);
-        assert_eq!(result1.transform(-5, 3), -15);
-        assert_eq!(result2.transform(-5, 3), -15);
+        assert_eq!(result1.apply(5, 3), 8);
+        assert_eq!(result2.apply(5, 3), 8);
+        assert_eq!(result1.apply(-5, 3), -15);
+        assert_eq!(result2.apply(-5, 3), -15);
     }
 }
 
@@ -286,8 +286,8 @@ mod rc_conditional_tests {
         let multiply = RcBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 
-        assert_eq!(result.transform(5, 3), 8);
-        assert_eq!(result.transform(-5, 3), -15);
+        assert_eq!(result.apply(5, 3), 8);
+        assert_eq!(result.apply(-5, 3), -15);
     }
 
     #[test]
@@ -297,9 +297,9 @@ mod rc_conditional_tests {
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(result.transform(5, 3), 8);
-        assert_eq!(result.transform(-5, 3), -15);
-        assert_eq!(result.transform(0, 5), 0);
+        assert_eq!(result.apply(5, 3), 8);
+        assert_eq!(result.apply(-5, 3), -15);
+        assert_eq!(result.apply(0, 5), 0);
     }
 
     #[test]
@@ -311,10 +311,10 @@ mod rc_conditional_tests {
         let result1 = conditional.or_else(|x: i32, y: i32| x * y);
         let result2 = cloned.or_else(|x: i32, y: i32| x * y);
 
-        assert_eq!(result1.transform(5, 3), 8);
-        assert_eq!(result2.transform(5, 3), 8);
-        assert_eq!(result1.transform(-5, 3), -15);
-        assert_eq!(result2.transform(-5, 3), -15);
+        assert_eq!(result1.apply(5, 3), 8);
+        assert_eq!(result2.apply(5, 3), 8);
+        assert_eq!(result1.apply(-5, 3), -15);
+        assert_eq!(result2.apply(-5, 3), -15);
     }
 }
 
@@ -330,21 +330,21 @@ mod conversion_tests {
     fn test_closure_to_box() {
         let add = |x: i32, y: i32| x + y;
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20, 22), 42);
+        assert_eq!(boxed.apply(20, 22), 42);
     }
 
     #[test]
     fn test_closure_to_arc() {
         let add = |x: i32, y: i32| x + y;
         let arc = add.into_arc();
-        assert_eq!(arc.transform(20, 22), 42);
+        assert_eq!(arc.apply(20, 22), 42);
     }
 
     #[test]
     fn test_closure_to_rc() {
         let add = |x: i32, y: i32| x + y;
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20, 22), 42);
+        assert_eq!(rc.apply(20, 22), 42);
     }
 
     #[test]
@@ -372,28 +372,28 @@ mod conversion_tests {
     fn test_box_to_rc() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20, 22), 42);
+        assert_eq!(rc.apply(20, 22), 42);
     }
 
     #[test]
     fn test_arc_to_box() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20, 22), 42);
+        assert_eq!(boxed.apply(20, 22), 42);
     }
 
     #[test]
     fn test_arc_to_rc() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(20, 22), 42);
+        assert_eq!(rc.apply(20, 22), 42);
     }
 
     #[test]
     fn test_rc_to_box() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(20, 22), 42);
+        assert_eq!(boxed.apply(20, 22), 42);
     }
 }
 
@@ -408,7 +408,7 @@ mod trait_usage_tests {
     #[test]
     fn test_bi_transformer_trait() {
         fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(f: &F, x: i32, y: i32) -> i32 {
-            f.transform(x, y)
+            f.apply(x, y)
         }
 
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
@@ -418,7 +418,7 @@ mod trait_usage_tests {
     #[test]
     fn test_closure_as_bi_transformer() {
         fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(f: &F, x: i32, y: i32) -> i32 {
-            f.transform(x, y)
+            f.apply(x, y)
         }
 
         let add = |x: i32, y: i32| x + y;
@@ -428,7 +428,7 @@ mod trait_usage_tests {
     #[test]
     fn test_with_different_types() {
         fn apply_bi_transformer<T, U, R, F: BiTransformer<T, U, R>>(f: &F, x: T, y: U) -> R {
-            f.transform(x, y)
+            f.apply(x, y)
         }
 
         let format = BoxBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
@@ -450,16 +450,16 @@ mod edge_cases_tests {
     #[test]
     fn test_constant_with_different_types() {
         let constant = BoxBiTransformer::constant("hello");
-        assert_eq!(constant.transform(123, 456), "hello");
-        assert_eq!(constant.transform(789, 101), "hello");
+        assert_eq!(constant.apply(123, 456), "hello");
+        assert_eq!(constant.apply(789, 101), "hello");
     }
 
     #[test]
     fn test_with_option() {
         let safe_divide =
             BoxBiTransformer::new(|x: i32, y: i32| if y == 0 { None } else { Some(x / y) });
-        assert_eq!(safe_divide.transform(42, 2), Some(21));
-        assert_eq!(safe_divide.transform(42, 0), None);
+        assert_eq!(safe_divide.apply(42, 2), Some(21));
+        assert_eq!(safe_divide.apply(42, 0), None);
     }
 
     #[test]
@@ -471,8 +471,8 @@ mod edge_cases_tests {
                 Ok(x / y)
             }
         });
-        assert_eq!(safe_divide.transform(42, 2), Ok(21));
-        assert!(safe_divide.transform(42, 0).is_err());
+        assert_eq!(safe_divide.apply(42, 2), Ok(21));
+        assert!(safe_divide.apply(42, 0).is_err());
     }
 
     #[test]
@@ -483,7 +483,7 @@ mod edge_cases_tests {
             result
         });
         assert_eq!(
-            combine.transform(vec![1, 2, 3], vec![4, 5, 6]),
+            combine.apply(vec![1, 2, 3], vec![4, 5, 6]),
             vec![1, 2, 3, 4, 5, 6]
         );
     }
@@ -495,20 +495,20 @@ mod edge_cases_tests {
         });
         let data1 = (1..=50).collect::<Vec<_>>();
         let data2 = (51..=100).collect::<Vec<_>>();
-        assert_eq!(sum_vecs.transform(data1, data2), 5050);
+        assert_eq!(sum_vecs.apply(data1, data2), 5050);
     }
 
     #[test]
     fn test_with_tuples() {
         let swap = BoxBiTransformer::new(|x: i32, y: i32| (y, x));
-        assert_eq!(swap.transform(1, 2), (2, 1));
+        assert_eq!(swap.apply(1, 2), (2, 1));
     }
 
     #[test]
     fn test_string_operations() {
         let join = BoxBiTransformer::new(|s1: String, s2: String| format!("{} {}", s1, s2));
         assert_eq!(
-            join.transform("Hello".to_string(), "World".to_string()),
+            join.apply("Hello".to_string(), "World".to_string()),
             "Hello World"
         );
     }
@@ -526,21 +526,21 @@ mod type_conversion_tests {
     fn test_box_into_box() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(10, 20), 30);
+        assert_eq!(boxed.apply(10, 20), 30);
     }
 
     #[test]
     fn test_box_into_rc() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(10, 20), 30);
+        assert_eq!(rc.apply(10, 20), 30);
     }
 
     #[test]
     fn test_arc_into_arc() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let arc = add.into_arc();
-        assert_eq!(arc.transform(10, 20), 30);
+        assert_eq!(arc.apply(10, 20), 30);
     }
 
     #[test]
@@ -568,28 +568,28 @@ mod type_conversion_tests {
     fn test_rc_into_rc() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(10, 20), 30);
+        assert_eq!(rc.apply(10, 20), 30);
     }
 
     #[test]
     fn test_arc_into_box() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(10, 20), 30);
+        assert_eq!(boxed.apply(10, 20), 30);
     }
 
     #[test]
     fn test_arc_into_rc() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
         let rc = add.into_rc();
-        assert_eq!(rc.transform(10, 20), 30);
+        assert_eq!(rc.apply(10, 20), 30);
     }
 
     #[test]
     fn test_rc_into_box() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(10, 20), 30);
+        assert_eq!(boxed.apply(10, 20), 30);
     }
 }
 
@@ -604,14 +604,14 @@ mod closure_bi_transformer_tests {
     #[test]
     fn test_closure_transform() {
         let add = |x: i32, y: i32| x + y;
-        assert_eq!(add.transform(10, 20), 30);
+        assert_eq!(add.apply(10, 20), 30);
     }
 
     #[test]
     fn test_closure_transform_with_string() {
         let concat = |s1: String, s2: String| format!("{}{}", s1, s2);
         assert_eq!(
-            concat.transform("Hello".to_string(), "World".to_string()),
+            concat.apply("Hello".to_string(), "World".to_string()),
             "HelloWorld"
         );
     }
@@ -620,14 +620,14 @@ mod closure_bi_transformer_tests {
     fn test_closure_into_box() {
         let add = |x: i32, y: i32| x + y;
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(10, 20), 30);
+        assert_eq!(boxed.apply(10, 20), 30);
     }
 
     #[test]
     fn test_closure_into_rc() {
         let add = |x: i32, y: i32| x + y;
         let rc = add.into_rc();
-        assert_eq!(rc.transform(10, 20), 30);
+        assert_eq!(rc.apply(10, 20), 30);
     }
 
     #[test]
@@ -642,7 +642,7 @@ mod closure_bi_transformer_tests {
         fn multiply(x: i32, y: i32) -> i32 {
             x * y
         }
-        assert_eq!(multiply.transform(6, 7), 42);
+        assert_eq!(multiply.apply(6, 7), 42);
     }
 
     #[test]
@@ -651,7 +651,7 @@ mod closure_bi_transformer_tests {
             x + y
         }
         let boxed = add.into_box();
-        assert_eq!(boxed.transform(10, 20), 30);
+        assert_eq!(boxed.apply(10, 20), 30);
     }
 
     #[test]
@@ -667,13 +667,13 @@ mod closure_bi_transformer_tests {
     fn test_closure_with_captured_variable() {
         let multiplier = 3;
         let multiply_by = move |x: i32, y: i32| (x + y) * multiplier;
-        assert_eq!(multiply_by.transform(5, 5), 30);
+        assert_eq!(multiply_by.apply(5, 5), 30);
     }
 
     #[test]
     fn test_closure_into_arc() {
         let add = |x: i32, y: i32| x + y;
         let arc = add.into_arc();
-        assert_eq!(arc.transform(10, 20), 30);
+        assert_eq!(arc.apply(10, 20), 30);
     }
 }
