@@ -424,7 +424,6 @@ where
     pub fn constant(value: R) -> BoxTransformerOnce<T, R> {
         BoxTransformerOnce::new(move |_| value.clone())
     }
-
 }
 
 impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {

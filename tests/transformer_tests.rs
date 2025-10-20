@@ -1069,9 +1069,7 @@ mod specialized_into_fn_tests {
     fn test_into_fn_multiple_calls() {
         // Test that the returned function can be called multiple
         // times
-        let factorial = BoxTransformer::new(|n: u32| {
-            (1..=n).product::<u32>()
-        });
+        let factorial = BoxTransformer::new(|n: u32| (1..=n).product::<u32>());
         let func = factorial.into_fn();
 
         assert_eq!(func(0), 1);
@@ -1094,13 +1092,7 @@ mod specialized_into_fn_tests {
     fn test_into_fn_preserves_behavior() {
         // Test that into_fn preserves the exact behavior of the
         // original transformer
-        let transformer = RcTransformer::new(|x: i32| {
-            if x > 0 {
-                x * 2
-            } else {
-                x * 3
-            }
-        });
+        let transformer = RcTransformer::new(|x: i32| if x > 0 { x * 2 } else { x * 3 });
 
         let original_result1 = transformer.apply(5);
         let original_result2 = transformer.apply(-5);
@@ -1329,9 +1321,7 @@ mod transformer_default_to_methods_tests {
         let increment = ArcTransformer::new(|x: i32| x + 1);
         let arc = increment.to_arc();
 
-        let handle = thread::spawn(move || {
-            arc.apply(99)
-        });
+        let handle = thread::spawn(move || arc.apply(99));
 
         assert_eq!(handle.join().unwrap(), 100);
         assert_eq!(increment.apply(41), 42);
@@ -1766,9 +1756,7 @@ mod custom_transformer_to_methods_tests {
         let multiply = ThreadSafeMultiplyTransformer { multiplier: 7 };
         let arc = multiply.to_arc();
 
-        let handle = thread::spawn(move || {
-            arc.apply(6)
-        });
+        let handle = thread::spawn(move || arc.apply(6));
 
         assert_eq!(handle.join().unwrap(), 42);
         assert_eq!(multiply.apply(6), 42);

@@ -74,10 +74,7 @@ fn main() {
         .and_then(to_string);
 
     println!("   parse.and_then(double.when(x > 5).or_else(triple)).and_then(to_string):");
-    println!(
-        "     transform(\"3\") = {}",
-        complex.apply("3".to_string())
-    ); // 3 <= 5, so 3 * 3 = 9
+    println!("     transform(\"3\") = {}", complex.apply("3".to_string())); // 3 <= 5, so 3 * 3 = 9
 
     let parse2 = |s: String| s.parse::<i32>().unwrap_or(0);
     let double2 = |x: i32| x * 2;
