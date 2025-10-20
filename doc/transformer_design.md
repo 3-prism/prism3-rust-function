@@ -44,7 +44,7 @@ This is similar to function mapping in mathematics:
 | **Data mapping** | Work with `map()` and other iterator methods | `vec.into_iter().map(transformer)` |
 | **Pipeline processing** | Build data processing pipelines | `parse.and_then(validate).and_then(transform)` |
 | **Strategy pattern** | Save transformation logic as strategy | `transformers.insert("json", parser)` |
-| **Lazy computation** | Save transformation logic, execute later | `let result = transformer.transform(input)` |
+| **Lazy computation** | Save transformation logic, execute later | `let result = transformer.apply(input)` |
 
 ### 1.3 Core Value of Transformer
 
@@ -56,8 +56,8 @@ let result = input.to_string();
 
 // ✅ Need Transformer: save transformation logic for reuse
 let to_string = BoxTransformer::new(|x: i32| x.to_string());
-let result1 = values1.into_iter().map(|x| to_string.transform(x));
-let result2 = values2.into_iter().map(|x| to_string.transform(x));
+let result1 = values1.into_iter().map(|x| to_string.apply(x));
+let result2 = values2.into_iter().map(|x| to_string.apply(x));
 ```
 
 **The value of Transformer lies in**:
@@ -83,7 +83,7 @@ pub trait Transformer<T, R> {
 
 // Use case: type conversion
 let parse = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
-let result = parse.transform("42".to_string());  // String is consumed
+let result = parse.apply("42".to_string());  // String is consumed
 ```
 
 **Advantages**:
@@ -105,8 +105,8 @@ pub trait Transformer<T, R> {
 // Use case: non-destructive transformation
 let length = BoxTransformer::new(|s: &String| s.len());
 let s = "hello".to_string();
-let len1 = length.transform(&s);
-let len2 = length.transform(&s);  // Can use same input multiple times
+let len1 = length.apply(&s);
+let len2 = length.apply(&s);  // Can use same input multiple times
 ```
 
 **Advantages**:
@@ -168,7 +168,7 @@ let cached_parse = BoxTransformer::new(move |s: String| {
 });
 
 // User doesn't need mut
-cached_parse.transform("42".to_string());
+cached_parse.apply("42".to_string());
 ```
 
 **Why is internal mutability better?**
@@ -176,7 +176,7 @@ cached_parse.transform("42".to_string());
 | Feature | TransformerMut (`&mut self`) | Transformer + RefCell (`&self`) |
 |---------|-------------------------------|----------------------------------|
 | **User code** | `let mut transformer = ...` | `let transformer = ...` |
-| **Calling method** | `transformer.transform_mut(x)` | `transformer.transform(x)` |
+| **Calling method** | `transformer.transform_mut(x)` | `transformer.apply(x)` |
 | **Semantics** | "This transformer will change" ❌ | "This is a pure transformation" (internal optimization) ✅ |
 | **Flexibility** | Cannot use in immutable context | Can use anywhere |
 | **Implementation complexity** | Needs additional trait | Unified Transformer usage |
@@ -202,7 +202,7 @@ let transformer = BoxTransformerOnce::new(move |input: String| {
     // Use resource and input for transformation
     process_with_resource(resource, input)
 });
-let result = transformer.transform("data".to_string());  // transformer is consumed
+let result = transformer.apply("data".to_string());  // transformer is consumed
 
 // Use case 2: Lazy initialization transformation
 struct Processor {
@@ -212,7 +212,7 @@ struct Processor {
 impl Processor {
     fn initialize(mut self, config: Config) -> Processor {
         if let Some(init) = self.initializer.take() {
-            init.transform(config)
+            init.apply(config)
         } else {
             self
         }
@@ -404,7 +404,7 @@ where
         S: 'static,
     {
         let func = self.function;
-        BoxTransformer::new(move |x| after.transform(func(x)))
+        BoxTransformer::new(move |x| after.apply(func(x)))
     }
 
     /// Reverse composition: before -> self
@@ -414,7 +414,7 @@ where
         S: 'static,
     {
         let func = self.function;
-        BoxTransformer::new(move |x| func(before.transform(x)))
+        BoxTransformer::new(move |x| func(before.apply(x)))
     }
 }
 
@@ -454,8 +454,8 @@ where
         S: 'static,
     {
         BoxTransformerOnce::new(move |x| {
-            let intermediate = self.transform(x);
-            after.transform(intermediate)
+            let intermediate = self.apply(x);
+            after.apply(intermediate)
         })
     }
 
@@ -466,8 +466,8 @@ where
         S: 'static,
     {
         BoxTransformerOnce::new(move |x| {
-            let intermediate = before.transform(x);
-            self.transform(intermediate)
+            let intermediate = before.apply(x);
+            self.apply(intermediate)
         })
     }
 }
@@ -517,7 +517,7 @@ where
     {
         let self_func = Arc::clone(&self.function);
         ArcTransformer {
-            function: Arc::new(move |x| after.transform(self_func(x))),
+            function: Arc::new(move |x| after.apply(self_func(x))),
         }
     }
 
@@ -529,7 +529,7 @@ where
     {
         let self_func = Arc::clone(&self.function);
         ArcTransformer {
-            function: Arc::new(move |x| self_func(before.transform(x))),
+            function: Arc::new(move |x| self_func(before.apply(x))),
         }
     }
 }
@@ -589,7 +589,7 @@ where
     {
         let self_func = Rc::clone(&self.function);
         RcTransformer {
-            function: Rc::new(move |x| after.transform(self_func(x))),
+            function: Rc::new(move |x| after.apply(self_func(x))),
         }
     }
 
@@ -601,7 +601,7 @@ where
     {
         let self_func = Rc::clone(&self.function);
         RcTransformer {
-            function: Rc::new(move |x| self_func(before.transform(x))),
+            function: Rc::new(move |x| self_func(before.apply(x))),
         }
     }
 }
@@ -630,12 +630,12 @@ impl<T, R> Clone for RcTransformer<T, R> {
 // ============================================================================
 
 let double = |x: i32| x * 2;
-assert_eq!(double.transform(21), 42);  // Closure automatically implements Transformer
+assert_eq!(double.apply(21), 42);  // Closure automatically implements Transformer
 
 // Closures can be composed directly
 let add_one = |x: i32| x + 1;
 let pipeline = double.and_then(add_one);  // Returns BoxTransformer
-assert_eq!(pipeline.transform(5), 11);  // (5 * 2) + 1
+assert_eq!(pipeline.apply(5), 11);  // (5 * 2) + 1
 
 // ============================================================================
 // 2. BoxTransformer - repeatable calls, single ownership
@@ -644,15 +644,15 @@ assert_eq!(pipeline.transform(5), 11);  // (5 * 2) + 1
 let parse = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
 // ✅ Can be called multiple times (needs new input each time)
-assert_eq!(parse.transform("42".to_string()), 42);
-assert_eq!(parse.transform("100".to_string()), 100);
+assert_eq!(parse.apply("42".to_string()), 42);
+assert_eq!(parse.apply("100".to_string()), 100);
 
 // Method chaining
 let pipeline = BoxTransformer::new(|s: String| s.len())
     .and_then(|len| len * 2)
     .and_then(|x| format!("Length: {}", x));
 
-assert_eq!(pipeline.transform("hello".to_string()), "Length: 10");
+assert_eq!(pipeline.apply("hello".to_string()), "Length: 10");
 
 // ============================================================================
 // 3. BoxTransformerOnce - one-time use
@@ -664,7 +664,7 @@ let transformer = BoxTransformerOnce::new(move |multiplier: i32| {
     resource.into_iter().map(|x| x * multiplier).collect::<Vec<_>>()
 });
 
-let result = transformer.transform(10);
+let result = transformer.apply(10);
 assert_eq!(result, vec![10, 20, 30]);
 // transformer has been consumed, cannot be used again
 
@@ -682,13 +682,13 @@ let double = ArcTransformer::new(|x: i32| x * 2);
 let pipeline = parse.and_then(double);
 
 // Original parse transformer is still available (double has been consumed)
-assert_eq!(parse.transform("42".to_string()), 42);
-assert_eq!(pipeline.transform("21".to_string()), 42);
+assert_eq!(parse.apply("42".to_string()), 42);
+assert_eq!(pipeline.apply("21".to_string()), 42);
 
 // ✅ Can be used across threads
 use std::thread;
 let handle = thread::spawn(move || {
-    parse_clone.transform("100".to_string())
+    parse_clone.apply("100".to_string())
 });
 assert_eq!(handle.join().unwrap(), 100);
 
@@ -708,7 +708,7 @@ let to_string = RcTransformer::new(|x: i32| x.to_string());
 let pipeline2 = parse.and_then(to_string);
 
 // Original parse transformer is still available (double and to_string have been consumed)
-assert_eq!(parse.transform("42".to_string()), 42);
+assert_eq!(parse.apply("42".to_string()), 42);
 
 // ============================================================================
 // 6. Unified interface - generic programming
@@ -718,7 +718,7 @@ fn transform_vec<T, R, F>(transformer: &F, vec: Vec<T>) -> Vec<R>
 where
     F: Transformer<T, R>,
 {
-    vec.into_iter().map(|x| transformer.transform(x)).collect()
+    vec.into_iter().map(|x| transformer.apply(x)).collect()
 }
 
 let arc_transformer = ArcTransformer::new(|x: i32| x * 2);
@@ -743,9 +743,9 @@ let cached_expensive = BoxTransformer::new(move |x: i32| {
 });
 
 // First call: compute
-assert_eq!(cached_expensive.transform(5), 25);  // Prints "Computing for 5"
+assert_eq!(cached_expensive.apply(5), 25);  // Prints "Computing for 5"
 // Second call: use cache
-assert_eq!(cached_expensive.transform(5), 25);  // No print (uses cache)
+assert_eq!(cached_expensive.apply(5), 25);  // No print (uses cache)
 
 // ============================================================================
 // 8. Convert to standard closures - deep integration with standard library
@@ -828,7 +828,7 @@ let json = r#"{"key": "value"}"#.to_string();
 
 // After judgment, json is still available
 if is_valid_json.test(&json) {
-    let data = parse_json.transform(json);  // json is consumed
+    let data = parse_json.apply(json);  // json is consumed
     // json is no longer available
 }
 ```
@@ -857,7 +857,7 @@ let pipeline = BoxTransformer::new(|raw: String| raw.trim().to_string())
     .and_then(|x| x * 2)
     .and_then(|x| format!("Result: {}", x));
 
-let result = pipeline.transform("  42  ".to_string());
+let result = pipeline.apply("  42  ".to_string());
 assert_eq!(result, "Result: 84");
 ```
 
@@ -890,7 +890,7 @@ impl ConfigManager {
 
     fn transform(&self, key: &str, value: String) -> String {
         if let Some(transformer) = self.transformers.get(key) {
-            transformer.transform(value)
+            transformer.apply(value)
         } else {
             value
         }
@@ -915,7 +915,7 @@ for i in 0..4 {
     let transformer = heavy_transform.clone();
     let handle = thread::spawn(move || {
         let data = vec![i; 100];
-        transformer.transform(data)
+        transformer.apply(data)
     });
     handles.push(handle);
 }
@@ -949,7 +949,7 @@ impl<T, R> LazyComputation<T, R> {
 
     fn compute(mut self) -> R {
         let input = self.input.take().unwrap();
-        self.transformer.transform(input)
+        self.transformer.apply(input)
     }
 }
 

@@ -115,8 +115,8 @@ let transformer = BoxTransformer::new(move |x: i32| {
 });
 
 // ✅ 用户代码不需要 mut
-assert_eq!(transformer.transform(100), "Item #1: 100");
-assert_eq!(transformer.transform(200), "Item #2: 200");
+assert_eq!(transformer.apply(100), "Item #1: 100");
+assert_eq!(transformer.apply(200), "Item #2: 200");
 ```
 
 **优点**：
@@ -429,7 +429,7 @@ assert_eq!(supplier.get(), (10 + 2) * 2);  // 24
 use rayon::prelude::*;
 
 let results: Vec<_> = data.par_iter()
-    .map(|x| transformer.transform(x))  // Transformer（纯函数）
+    .map(|x| transformer.apply(x))  // Transformer（纯函数）
     .collect();
 ```
 
@@ -906,7 +906,7 @@ assert_eq!(results, vec![11, 22, 33]);
 ```rust
 // Transformer：纯函数转换（状态是次要的）
 let transformer = BoxTransformer::new(|x: i32| x * 2);
-transformer.transform(21);  // 不需要 mut
+transformer.apply(21);  // 不需要 mut
 
 // Mapper：有状态转换（状态是核心）
 let mut mapper = BoxMapper::new(move |x: i32| {

@@ -454,8 +454,8 @@ let parse_and_double = BoxTransformer::new(|s: String| s.parse::<i32>().ok())
     .and_then(|opt: Option<i32>| opt.unwrap_or(0))
     .and_then(|x: i32| x * 2);
 
-assert_eq!(parse_and_double.transform("21".to_string()), 42);
-assert_eq!(parse_and_double.transform("invalid".to_string()), 0);
+assert_eq!(parse_and_double.apply("21".to_string()), 42);
+assert_eq!(parse_and_double.apply("invalid".to_string()), 0);
 ```
 
 ##### 使用 `when` 条件转换
@@ -467,8 +467,8 @@ use prism3_function::{BoxTransformer, Transformer};
 let double_if_positive = BoxTransformer::new(|x: i32| x * 2)
     .when(|x: &i32| *x > 0);
 
-assert_eq!(double_if_positive.transform(5), Some(10));
-assert_eq!(double_if_positive.transform(-5), None);
+assert_eq!(double_if_positive.apply(5), Some(10));
+assert_eq!(double_if_positive.apply(-5), None);
 ```
 
 ##### 使用 `or_else` 实现条件分支
@@ -481,8 +481,8 @@ let transform = BoxTransformer::new(|x: i32| format!("正数: {}", x * 2))
     .when(|x: &i32| *x > 0)
     .or_else(|x: i32| format!("非正数: {}", x - 1));
 
-assert_eq!(transform.transform(5), "正数: 10");
-assert_eq!(transform.transform(-5), "非正数: -6");
+assert_eq!(transform.apply(5), "正数: 10");
+assert_eq!(transform.apply(-5), "非正数: -6");
 ```
 
 ### BiConsumer<T, U>（双参数消费者）
@@ -702,18 +702,18 @@ use prism3_function::{BoxBiTransformer, BiTransformer};
 // 创建用于组合两个值的双参数转换器
 let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
 
-assert_eq!(add.transform(10, 20), 30);
+assert_eq!(add.apply(10, 20), 30);
 
 // 与转换器链接进行进一步处理
 let add_and_double = BoxBiTransformer::new(|x: i32, y: i32| x + y)
     .and_then(|sum: i32| sum * 2);
-assert_eq!(add_and_double.transform(10, 20), 60);
+assert_eq!(add_and_double.apply(10, 20), 60);
 
 // 多重链式调用
 let complex = BoxBiTransformer::new(|x: i32, y: i32| x + y)
     .and_then(|sum: i32| sum * 2)
     .and_then(|doubled: i32| format!("结果: {}", doubled));
-assert_eq!(complex.transform(10, 20), "结果: 60");
+assert_eq!(complex.apply(10, 20), "结果: 60");
 ```
 
 ##### 使用 `when` 条件转换
@@ -725,9 +725,9 @@ use prism3_function::{BoxBiTransformer, BiTransformer};
 let add_if_positive = BoxBiTransformer::new(|x: i32, y: i32| x + y)
     .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
-assert_eq!(add_if_positive.transform(3, 4), Some(7));
-assert_eq!(add_if_positive.transform(-1, 4), None);
-assert_eq!(add_if_positive.transform(3, -4), None);
+assert_eq!(add_if_positive.apply(3, 4), Some(7));
+assert_eq!(add_if_positive.apply(-1, 4), None);
+assert_eq!(add_if_positive.apply(3, -4), None);
 ```
 
 ##### 使用 `or_else` 实现条件分支
@@ -740,9 +740,9 @@ let transform = BoxBiTransformer::new(|x: i32, y: i32| format!("和: {}", x + y)
     .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
     .or_else(|x: i32, y: i32| format!("积: {}", x * y));
 
-assert_eq!(transform.transform(3, 4), "和: 7");
-assert_eq!(transform.transform(-1, 4), "积: -4");
-assert_eq!(transform.transform(3, -4), "积: -12");
+assert_eq!(transform.apply(3, 4), "和: 7");
+assert_eq!(transform.apply(-1, 4), "积: -4");
+assert_eq!(transform.apply(3, -4), "积: -12");
 ```
 
 ### Comparator<T>（比较器）

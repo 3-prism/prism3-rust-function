@@ -44,7 +44,7 @@ Transformer 的核心功能是**将一个类型的值转换为另一个类型的
 | **数据映射** | 配合 `map()` 等迭代器方法 | `vec.into_iter().map(transformer)` |
 | **管道处理** | 构建数据处理管道 | `parse.and_then(validate).and_then(transform)` |
 | **策略模式** | 将转换逻辑作为策略保存 | `transformers.insert("json", parser)` |
-| **延迟计算** | 保存转换逻辑，稍后执行 | `let result = transformer.transform(input)` |
+| **延迟计算** | 保存转换逻辑，稍后执行 | `let result = transformer.apply(input)` |
 
 ### 1.3 Transformer 的核心价值
 
@@ -56,8 +56,8 @@ let result = input.to_string();
 
 // ✅ 需要 Transformer：保存转换逻辑以便复用
 let to_string = BoxTransformer::new(|x: i32| x.to_string());
-let result1 = values1.into_iter().map(|x| to_string.transform(x));
-let result2 = values2.into_iter().map(|x| to_string.transform(x));
+let result1 = values1.into_iter().map(|x| to_string.apply(x));
+let result2 = values2.into_iter().map(|x| to_string.apply(x));
 ```
 
 **Transformer 的价值在于**：
@@ -83,7 +83,7 @@ pub trait Transformer<T, R> {
 
 // 使用场景：类型转换
 let parse = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
-let result = parse.transform("42".to_string());  // String 被消耗
+let result = parse.apply("42".to_string());  // String 被消耗
 ```
 
 **优点**：
@@ -105,8 +105,8 @@ pub trait Transformer<T, R> {
 // 使用场景：非破坏性转换
 let length = BoxTransformer::new(|s: &String| s.len());
 let s = "hello".to_string();
-let len1 = length.transform(&s);
-let len2 = length.transform(&s);  // 可以多次使用同一个输入
+let len1 = length.apply(&s);
+let len2 = length.apply(&s);  // 可以多次使用同一个输入
 ```
 
 **优点**：
@@ -168,7 +168,7 @@ let cached_parse = BoxTransformer::new(move |s: String| {
 });
 
 // 用户不需要 mut
-cached_parse.transform("42".to_string());
+cached_parse.apply("42".to_string());
 ```
 
 **为什么内部可变性更好？**
@@ -176,7 +176,7 @@ cached_parse.transform("42".to_string());
 | 特性 | TransformerMut (`&mut self`) | Transformer + RefCell (`&self`) |
 |------|------------------------------|----------------------------------|
 | **用户代码** | `let mut transformer = ...` | `let transformer = ...` |
-| **调用方式** | `transformer.transform_mut(x)` | `transformer.transform(x)` |
+| **调用方式** | `transformer.transform_mut(x)` | `transformer.apply(x)` |
 | **语义** | "这个转换器会改变" ❌ | "这是一个纯转换"（内部优化）✅ |
 | **灵活性** | 不能在不可变上下文使用 | 可以在任何地方使用 |
 | **实现复杂度** | 需要额外的 trait | 统一使用 Transformer |
@@ -202,7 +202,7 @@ let transformer = BoxTransformerOnce::new(move |input: String| {
     // 使用 resource 和 input 进行转换
     process_with_resource(resource, input)
 });
-let result = transformer.transform("data".to_string());  // transformer 被消耗
+let result = transformer.apply("data".to_string());  // transformer 被消耗
 
 // 使用场景 2：延迟初始化转换
 struct Processor {
@@ -212,7 +212,7 @@ struct Processor {
 impl Processor {
     fn initialize(mut self, config: Config) -> Processor {
         if let Some(init) = self.initializer.take() {
-            init.transform(config)
+            init.apply(config)
         } else {
             self
         }
@@ -404,7 +404,7 @@ where
         S: 'static,
     {
         let func = self.function;
-        BoxTransformer::new(move |x| after.transform(func(x)))
+        BoxTransformer::new(move |x| after.apply(func(x)))
     }
 
     /// 反向组合：before -> self
@@ -414,7 +414,7 @@ where
         S: 'static,
     {
         let func = self.function;
-        BoxTransformer::new(move |x| func(before.transform(x)))
+        BoxTransformer::new(move |x| func(before.apply(x)))
     }
 }
 
@@ -454,8 +454,8 @@ where
         S: 'static,
     {
         BoxTransformerOnce::new(move |x| {
-            let intermediate = self.transform(x);
-            after.transform(intermediate)
+            let intermediate = self.apply(x);
+            after.apply(intermediate)
         })
     }
 
@@ -466,8 +466,8 @@ where
         S: 'static,
     {
         BoxTransformerOnce::new(move |x| {
-            let intermediate = before.transform(x);
-            self.transform(intermediate)
+            let intermediate = before.apply(x);
+            self.apply(intermediate)
         })
     }
 }
@@ -517,7 +517,7 @@ where
     {
         let self_func = Arc::clone(&self.function);
         ArcTransformer {
-            function: Arc::new(move |x| after.transform(self_func(x))),
+            function: Arc::new(move |x| after.apply(self_func(x))),
         }
     }
 
@@ -529,7 +529,7 @@ where
     {
         let self_func = Arc::clone(&self.function);
         ArcTransformer {
-            function: Arc::new(move |x| self_func(before.transform(x))),
+            function: Arc::new(move |x| self_func(before.apply(x))),
         }
     }
 }
@@ -589,7 +589,7 @@ where
     {
         let self_func = Rc::clone(&self.function);
         RcTransformer {
-            function: Rc::new(move |x| after.transform(self_func(x))),
+            function: Rc::new(move |x| after.apply(self_func(x))),
         }
     }
 
@@ -601,7 +601,7 @@ where
     {
         let self_func = Rc::clone(&self.function);
         RcTransformer {
-            function: Rc::new(move |x| self_func(before.transform(x))),
+            function: Rc::new(move |x| self_func(before.apply(x))),
         }
     }
 }
@@ -630,12 +630,12 @@ impl<T, R> Clone for RcTransformer<T, R> {
 // ============================================================================
 
 let double = |x: i32| x * 2;
-assert_eq!(double.transform(21), 42);  // 闭包自动实现 Transformer
+assert_eq!(double.apply(21), 42);  // 闭包自动实现 Transformer
 
 // 闭包可以直接组合
 let add_one = |x: i32| x + 1;
 let pipeline = double.and_then(add_one);  // 返回 BoxTransformer
-assert_eq!(pipeline.transform(5), 11);  // (5 * 2) + 1
+assert_eq!(pipeline.apply(5), 11);  // (5 * 2) + 1
 
 // ============================================================================
 // 2. BoxTransformer - 可重复调用，单一所有权
@@ -644,15 +644,15 @@ assert_eq!(pipeline.transform(5), 11);  // (5 * 2) + 1
 let parse = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
 // ✅ 可以多次调用（每次需要新的输入）
-assert_eq!(parse.transform("42".to_string()), 42);
-assert_eq!(parse.transform("100".to_string()), 100);
+assert_eq!(parse.apply("42".to_string()), 42);
+assert_eq!(parse.apply("100".to_string()), 100);
 
 // 方法链
 let pipeline = BoxTransformer::new(|s: String| s.len())
     .and_then(|len| len * 2)
     .and_then(|x| format!("Length: {}", x));
 
-assert_eq!(pipeline.transform("hello".to_string()), "Length: 10");
+assert_eq!(pipeline.apply("hello".to_string()), "Length: 10");
 
 // ============================================================================
 // 3. BoxTransformerOnce - 一次性使用
@@ -664,7 +664,7 @@ let transformer = BoxTransformerOnce::new(move |multiplier: i32| {
     resource.into_iter().map(|x| x * multiplier).collect::<Vec<_>>()
 });
 
-let result = transformer.transform(10);
+let result = transformer.apply(10);
 assert_eq!(result, vec![10, 20, 30]);
 // transformer 已被消耗，不能再次使用
 
@@ -682,13 +682,13 @@ let double = ArcTransformer::new(|x: i32| x * 2);
 let pipeline = parse.and_then(double);
 
 // 原始 parse 转换器仍然可用（double 已被消耗）
-assert_eq!(parse.transform("42".to_string()), 42);
-assert_eq!(pipeline.transform("21".to_string()), 42);
+assert_eq!(parse.apply("42".to_string()), 42);
+assert_eq!(pipeline.apply("21".to_string()), 42);
 
 // ✅ 可以跨线程使用
 use std::thread;
 let handle = thread::spawn(move || {
-    parse_clone.transform("100".to_string())
+    parse_clone.apply("100".to_string())
 });
 assert_eq!(handle.join().unwrap(), 100);
 
@@ -708,7 +708,7 @@ let to_string = RcTransformer::new(|x: i32| x.to_string());
 let pipeline2 = parse.and_then(to_string);
 
 // 原始 parse 转换器仍然可用（double 和 to_string 已被消耗）
-assert_eq!(parse.transform("42".to_string()), 42);
+assert_eq!(parse.apply("42".to_string()), 42);
 
 // ============================================================================
 // 6. 统一的接口 - 泛型编程
@@ -718,7 +718,7 @@ fn transform_vec<T, R, F>(transformer: &F, vec: Vec<T>) -> Vec<R>
 where
     F: Transformer<T, R>,
 {
-    vec.into_iter().map(|x| transformer.transform(x)).collect()
+    vec.into_iter().map(|x| transformer.apply(x)).collect()
 }
 
 let arc_transformer = ArcTransformer::new(|x: i32| x * 2);
@@ -743,9 +743,9 @@ let cached_expensive = BoxTransformer::new(move |x: i32| {
 });
 
 // 第一次调用：计算
-assert_eq!(cached_expensive.transform(5), 25);  // 打印 "Computing for 5"
+assert_eq!(cached_expensive.apply(5), 25);  // 打印 "Computing for 5"
 // 第二次调用：使用缓存
-assert_eq!(cached_expensive.transform(5), 25);  // 不打印（使用缓存）
+assert_eq!(cached_expensive.apply(5), 25);  // 不打印（使用缓存）
 
 // ============================================================================
 // 8. 转换为标准闭包 - 与标准库深度集成
@@ -828,7 +828,7 @@ let json = r#"{"key": "value"}"#.to_string();
 
 // 判断后 json 仍然可用
 if is_valid_json.test(&json) {
-    let data = parse_json.transform(json);  // json 被消耗
+    let data = parse_json.apply(json);  // json 被消耗
     // json 不再可用
 }
 ```
@@ -857,7 +857,7 @@ let pipeline = BoxTransformer::new(|raw: String| raw.trim().to_string())
     .and_then(|x| x * 2)
     .and_then(|x| format!("Result: {}", x));
 
-let result = pipeline.transform("  42  ".to_string());
+let result = pipeline.apply("  42  ".to_string());
 assert_eq!(result, "Result: 84");
 ```
 
@@ -890,7 +890,7 @@ impl ConfigManager {
 
     fn transform(&self, key: &str, value: String) -> String {
         if let Some(transformer) = self.transformers.get(key) {
-            transformer.transform(value)
+            transformer.apply(value)
         } else {
             value
         }
@@ -915,7 +915,7 @@ for i in 0..4 {
     let transformer = heavy_transform.clone();
     let handle = thread::spawn(move || {
         let data = vec![i; 100];
-        transformer.transform(data)
+        transformer.apply(data)
     });
     handles.push(handle);
 }
@@ -949,7 +949,7 @@ impl<T, R> LazyComputation<T, R> {
 
     fn compute(mut self) -> R {
         let input = self.input.take().unwrap();
-        self.transformer.transform(input)
+        self.transformer.apply(input)
     }
 }
 
