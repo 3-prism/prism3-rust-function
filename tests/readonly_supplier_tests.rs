@@ -581,8 +581,8 @@ mod test_arc_readonly_supplier {
         fn test_into_fn_thread_safe() {
             // Test that into_fn result can be sent to another thread
             let supplier = ArcReadonlySupplier::new(|| 42);
-            let mut fn_mut = supplier.into_fn();
-            let handle = thread::spawn(move || fn_mut());
+            let func = supplier.into_fn();
+            let handle = thread::spawn(func);
             assert_eq!(handle.join().unwrap(), 42);
         }
     }
@@ -1600,9 +1600,7 @@ mod test_to_methods {
         #[test]
         fn test_arc_to_methods_with_string() {
             // Test to_* methods with String type
-            let arc = ArcReadonlySupplier::new(|| {
-                String::from("Hello")
-            });
+            let arc = ArcReadonlySupplier::new(|| String::from("Hello"));
 
             let boxed = arc.to_box();
             assert_eq!(boxed.get(), "Hello");

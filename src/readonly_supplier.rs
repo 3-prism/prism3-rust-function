@@ -1396,7 +1396,7 @@ where
         T: 'static,
     {
         let cloned = self.clone();
-        BoxReadonlySupplier::new(move || cloned())
+        BoxReadonlySupplier::new(cloned)
     }
 
     fn to_rc(&self) -> RcReadonlySupplier<T>
@@ -1405,7 +1405,7 @@ where
         T: 'static,
     {
         let cloned = self.clone();
-        RcReadonlySupplier::new(move || cloned())
+        RcReadonlySupplier::new(cloned)
     }
 
     fn to_arc(&self) -> ArcReadonlySupplier<T>
@@ -1414,7 +1414,7 @@ where
         T: Send + 'static,
     {
         let cloned = self.clone();
-        ArcReadonlySupplier::new(move || cloned())
+        ArcReadonlySupplier::new(cloned)
     }
 
     fn to_fn(&self) -> impl FnMut() -> T
