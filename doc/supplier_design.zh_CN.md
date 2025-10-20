@@ -22,17 +22,21 @@
 
 基于这个语义理解，我们需要明确 Supplier 与其他类型的区别：
 
-| 类型 | 输入 | 输出 | 修改自己？| 典型用途 | Java 对应 |
-|------|------|------|----------|---------|-----------|
-| **Supplier** | 无 | `T` | ✅ | 工厂、生成器、延迟初始化 | `Supplier<T>` |
-| **Function** | `&T` | `R` | ❌ | 转换、映射、计算 | `Function<T, R>` |
-| **Consumer** | `&T` | `()` | ✅ | 观察、日志、统计 | `Consumer<T>` |
-| **Predicate** | `&T` | `bool` | ❌ | 过滤、验证、判断 | `Predicate<T>` |
+| 类型 | 输入 | 输出 | self 签名 | 修改自己？| 典型用途 | Java 对应 |
+|------|------|------|----------|----------|---------|-----------|
+| **Supplier** | 无 | `T` | `&mut self` | ✅ | 计数器、生成器 | `Supplier<T>` (部分) |
+| **ReadonlySupplier** | 无 | `T` | `&self` | ❌ | 工厂、常量、高并发 | `Supplier<T>` (部分) |
+| **Function** | `&T` | `R` | `&self` | ❌ | 转换、映射、计算 | `Function<T, R>` |
+| **Consumer** | `&T` | `()` | `&mut self` | ✅ | 观察、日志、统计 | `Consumer<T>` |
+| **Predicate** | `&T` | `bool` | `&self` | ❌ | 过滤、验证、判断 | `Predicate<T>` |
 
 **关键洞察**：
 - Supplier 是**唯一不需要输入的**函数式抽象
-- Supplier **可以修改自身状态**（生成不同的值）
+- Supplier 分为两种变体：
+  - `Supplier` (`&mut self` + `FnMut`)：可以修改自身状态（计数器、生成器）
+  - `ReadonlySupplier` (`&self` + `Fn`)：不修改状态，可并发调用（工厂、常量）
 - Supplier 必须返回**所有权 `T`**（不返回引用，避免生命周期问题）
+- `ArcReadonlySupplier` 无需 `Mutex`，在高并发场景性能显著优于 `ArcSupplier`
 
 ### Supplier 的主要用途
 
@@ -206,35 +210,201 @@ let v2 = cached.get();  // 第二次：返回缓存
 |------|-----------------|------|
 | **Consumer** | ✅ 高（ReadonlyConsumer）| 主要场景（日志、通知）确实不需要修改状态 |
 | **Predicate** | N/A（只有 `&self`）| 判断操作天然不应该修改状态 |
-| **Supplier** | ❌ 低（ReadonlySupplier）| 主要场景（计数器、生成器、有状态工厂）都需要修改状态 |
+| **Supplier** | ✅ **中等（ReadonlySupplier）**| 部分场景需要在 `&self` 中调用、并发调用、无锁性能 |
 
-#### 为什么 Supplier 不需要 ReadonlySupplier？
+#### ReadonlySupplier 的价值重新评估
 
-**关键差异**：Supplier 本身使用 `&mut self`，已经可以修改状态，**不需要**内部可变性：
+**最初的判断**：ReadonlySupplier 价值极低，因为大多数场景需要修改状态。
+
+**实际使用中的发现**：ReadonlySupplier 在以下场景有**重要价值**：
+
+##### 场景 1：在 `&self` 方法中调用 Supplier
 
 ```rust
-// Supplier：直接修改状态，无需内部可变性
-let mut counter = {
-    let mut count = 0;
-    BoxSupplier::new(move || {
-        count += 1;  // 直接修改，因为 get(&mut self)
-        count
-    })
-};
+// 问题：需要在 &self 方法中调用 supplier
+struct Executor<E> {
+    error_supplier: BoxSupplier<E>,  // ❌ 无法在 &self 中调用
+}
 
-// Predicate：需要内部可变性才能修改状态
-let counter_pred = {
-    let count = Cell::new(0);  // ❗ 必须用 Cell
-    BoxPredicate::new(move |x: &i32| {
-        count.set(count.get() + 1);  // 通过 Cell 修改
-        *x > 0
-    })
-};
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        // ❌ 编译错误：需要 &mut self.error_supplier
+        Err(self.error_supplier.get())
+    }
+}
+
+// 解决方案 1：使用 RcSupplier (单线程)
+struct Executor<E> {
+    error_supplier: RcSupplier<E>,  // ✅ 可以 clone
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        let mut s = self.error_supplier.clone();  // clone 很轻量
+        Err(s.get())
+    }
+}
+
+// 解决方案 2：使用 ArcSupplier (多线程)
+struct Executor<E> {
+    error_supplier: ArcSupplier<E>,  // ✅ 线程安全，但有 Mutex
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        let mut s = self.error_supplier.clone();
+        Err(s.get())  // ⚠️ 内部需要获取 Mutex 锁
+    }
+}
+
+// 解决方案 3：使用 ReadonlySupplier (最优)
+struct Executor<E> {
+    error_supplier: ArcReadonlySupplier<E>,  // ✅ 无锁，直接调用
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        Err(self.error_supplier.get())  // ✅ 无需 clone，无需锁
+    }
+}
 ```
 
+##### 场景 2：高并发场景的性能优势
+
+**性能对比**：
+
+| 类型 | 内部结构 | 并发性能 | 锁开销 |
+|------|----------|---------|--------|
+| `RcSupplier<T>` | `Rc<RefCell<FnMut>>` | ❌ 不支持多线程 | N/A |
+| `ArcSupplier<T>` | `Arc<Mutex<FnMut>>` | ✅ 线程安全 | ⚠️ **每次调用都需要获取锁** |
+| `ArcReadonlySupplier<T>` | `Arc<dyn Fn + Send + Sync>` | ✅ 线程安全 | ✅ **无锁，可并发调用** |
+
+```rust
+// 性能测试：1000 个线程并发调用
+use std::sync::Arc;
+use std::thread;
+
+// ArcSupplier: 每次 get() 都要获取 Mutex 锁
+let supplier = ArcSupplier::new(|| compute_value());
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let mut s = supplier.clone();
+        thread::spawn(move || s.get())  // ⚠️ 竞争锁
+    })
+    .collect();
+
+// ArcReadonlySupplier: 无锁并发调用
+let readonly = ArcReadonlySupplier::new(|| compute_value());
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let s = readonly.clone();
+        thread::spawn(move || s.get())  // ✅ 无锁竞争
+    })
+    .collect();
+```
+
+##### 场景 3：真实项目中的使用
+
+在 `prism3-rust-concurrent` 项目中已经在使用这种模式：
+
+```rust
+// double_checked_executor_design.zh_CN.md 第 132 行
+pub struct DoubleCheckedExecutor<R, E> {
+    /// 错误工厂 - 用于创建错误实例（可选）
+    error_supplier: Option<Arc<dyn Fn() -> E + Send + Sync>>,
+    // ☝️ 这就是 ArcReadonlySupplier 的裸类型版本！
+}
+
+// 为什么不用 ArcSupplier<E>？
+// 1. ArcSupplier 需要 Mutex<FnMut>，每次调用都要加锁
+// 2. error_supplier 不需要修改状态
+// 3. 需要在多线程环境中调用
+// 4. 直接用 Fn() 可以无锁并发调用
+```
+
+**关键发现**：
+- 当 Supplier 不需要修改状态时
+- 在多线程环境中使用时
+- `ArcReadonlySupplier` **性能远优于** `ArcSupplier`（无锁）
+
+#### ReadonlySupplier 设计方案
+
+基于以上分析，**应该提供 ReadonlySupplier**：
+
+```rust
+/// 只读供应者：生成值但不修改自身状态
+pub trait ReadonlySupplier<T> {
+    fn get(&self) -> T;  // 注意是 &self，不是 &mut self
+}
+
+// 为闭包实现
+impl<T, F> ReadonlySupplier<T> for F
+where
+    F: Fn() -> T,  // 注意是 Fn，不是 FnMut
+{
+    fn get(&self) -> T {
+        self()
+    }
+}
+
+// Box 实现（单一所有权）
+pub struct BoxReadonlySupplier<T> {
+    function: Box<dyn Fn() -> T>,
+}
+
+// Rc 实现（单线程共享）
+pub struct RcReadonlySupplier<T> {
+    function: Rc<dyn Fn() -> T>,
+}
+
+// Arc 实现（多线程共享，无锁！）
+pub struct ArcReadonlySupplier<T> {
+    function: Arc<dyn Fn() -> T + Send + Sync>,
+    // ☝️ 关键：直接用 Arc，不需要 Mutex！
+}
+
+impl<T> ArcReadonlySupplier<T> {
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        ArcReadonlySupplier {
+            function: Arc::new(f),
+        }
+    }
+}
+
+impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
+    fn get(&self) -> T {
+        (self.function)()  // ✅ 无锁调用
+    }
+}
+
+impl<T> Clone for ArcReadonlySupplier<T> {
+    fn clone(&self) -> Self {
+        Self {
+            function: Arc::clone(&self.function),
+        }
+    }
+}
+```
+
+#### Supplier vs ReadonlySupplier 选择指南
+
+| 场景 | 推荐类型 | 理由 |
+|------|---------|------|
+| 计数器、生成器 | `Supplier` (FnMut) | 需要修改状态 |
+| 随机数生成 | `Supplier` (FnMut) | RNG 需要可变状态 |
+| 固定工厂 | `ReadonlySupplier` (Fn) | 不修改状态，可以 `&self` |
+| 常量返回 | `ReadonlySupplier` (Fn) | 不修改状态，可以 `&self` |
+| 在 `&self` 方法中调用 | `ReadonlySupplier` (Fn) | 无需 `&mut` |
+| 高并发场景 | `ArcReadonlySupplier` | **无锁性能** |
+| 嵌入在只读结构中 | `ReadonlySupplier` (Fn) | 结构体可以保持 `&self` API |
+
 **结论**：
-- ✅ **只提供 `Supplier<T>` (使用 `&mut self`)**：覆盖所有场景
-- ❌ **不需要 ReadonlySupplier**：价值极低，增加复杂度
+- ✅ **提供 `Supplier<T>` (使用 `&mut self`)**：用于有状态的供应者
+- ✅ **提供 `ReadonlySupplier<T>` (使用 `&self`)**：用于无状态的供应者
+- 两者形成互补，覆盖不同的使用场景
 
 ### 3. SupplierOnce 的价值
 
@@ -833,10 +1003,16 @@ use_supplier(&mut arc_sup);
 ```rust
 // === Supplier 系列（生成值）===
 
-/// 供应者：生成并返回值
+/// 供应者：生成并返回值（可修改状态）
 pub trait Supplier<T> {
-    /// 获取值（可以多次调用）
+    /// 获取值（可以多次调用，可修改自身状态）
     fn get(&mut self) -> T;
+}
+
+/// 只读供应者：生成并返回值（不修改状态）
+pub trait ReadonlySupplier<T> {
+    /// 获取值（可以多次调用，不修改自身状态）
+    fn get(&self) -> T;
 }
 
 /// 一次性供应者：生成并返回值，只能调用一次
@@ -847,34 +1023,78 @@ pub trait SupplierOnce<T> {
 ```
 
 **当前实现状态**：
-- ✅ `Supplier` - 需要实现
-- ✅ `SupplierOnce` - 需要实现
-- ❌ `ReadonlySupplier` - 不需要（主要场景都需要状态修改，价值极低）
+- ✅ `Supplier` - 需要实现（有状态供应者，使用 `&mut self`）
+- ✅ `SupplierOnce` - 需要实现（一次性供应者）
+- ✅ `ReadonlySupplier` - **需要实现**（无状态供应者，使用 `&self`，无锁性能）
 
 ### 具体实现
 
 ```rust
-// Box 实现（单一所有权）
-pub struct BoxSupplier<T> { func: Box<dyn FnMut() -> T> }
-pub struct BoxSupplierOnce<T> { func: Option<Box<dyn FnOnce() -> T>> }
+// ============================================================================
+// Supplier - 有状态供应者（可修改状态）
+// ============================================================================
 
-// Arc 实现（线程安全共享）
-pub struct ArcSupplier<T> { func: Arc<Mutex<dyn FnMut() -> T + Send>> }
+// Box 实现（单一所有权）
+pub struct BoxSupplier<T> {
+    func: Box<dyn FnMut() -> T>
+}
+
+// Arc 实现（线程安全共享，需要 Mutex）
+pub struct ArcSupplier<T> {
+    func: Arc<Mutex<dyn FnMut() -> T + Send>>
+}
+
+// Rc 实现（单线程共享，使用 RefCell）
+pub struct RcSupplier<T> {
+    func: Rc<RefCell<dyn FnMut() -> T>>
+}
+
+// ============================================================================
+// ReadonlySupplier - 只读供应者（不修改状态）
+// ============================================================================
+
+// Box 实现（单一所有权）
+pub struct BoxReadonlySupplier<T> {
+    func: Box<dyn Fn() -> T>
+}
+
+// Arc 实现（线程安全共享，无锁！）
+pub struct ArcReadonlySupplier<T> {
+    func: Arc<dyn Fn() -> T + Send + Sync>
+}
 
 // Rc 实现（单线程共享）
-pub struct RcSupplier<T> { func: Rc<RefCell<dyn FnMut() -> T>> }
+pub struct RcReadonlySupplier<T> {
+    func: Rc<dyn Fn() -> T>
+}
+
+// ============================================================================
+// SupplierOnce - 一次性供应者
+// ============================================================================
+
+pub struct BoxSupplierOnce<T> {
+    func: Option<Box<dyn FnOnce() -> T>>
+}
 ```
 
 ### 类型选择指南
 
 | 需求 | 推荐类型 | 理由 |
 |------|---------|------|
-| 一次性使用 | `BoxSupplier` | 单一所有权，无开销 |
-| 延迟初始化（只计算一次）| `BoxSupplierOnce` | 消耗 self，保存 FnOnce |
-| 多线程共享 | `ArcSupplier` | 线程安全，Mutex 保护 |
-| 单线程复用 | `RcSupplier` | RefCell 无锁开销 |
-| 固定常量 | `BoxSupplier::constant()` | 工厂方法 |
+| **有状态场景** | | |
 | 计数器/生成器 | `BoxSupplier` | 可修改状态 |
+| 随机数生成 | `BoxSupplier` | RNG 需要可变状态 |
+| 多线程共享（有状态）| `ArcSupplier` | 线程安全，Mutex 保护 |
+| 单线程复用（有状态）| `RcSupplier` | RefCell 无锁开销 |
+| **无状态场景** | | |
+| 固定工厂 | `BoxReadonlySupplier` | 不修改状态，`&self` 可用 |
+| 常量返回 | `BoxReadonlySupplier::constant()` | 不修改状态 |
+| 多线程共享（无状态）| `ArcReadonlySupplier` | **无锁，高性能** ⭐ |
+| 单线程复用（无状态）| `RcReadonlySupplier` | 轻量级共享 |
+| 嵌入在只读结构中 | `ArcReadonlySupplier` | 结构体可保持 `&self` API |
+| **特殊场景** | | |
+| 延迟初始化（只计算一次）| `BoxSupplierOnce` | 消耗 self，保存 FnOnce |
+| 一次性资源消耗 | `BoxSupplierOnce` | 移动捕获的变量 |
 
 ### 常用工厂方法
 
@@ -945,22 +1165,26 @@ impl<T> BoxSupplierOnce<T> {
 ### 核心设计原则
 
 1. **Supplier 返回所有权 `T`**：避免生命周期问题，语义明确
-2. **Supplier 使用 `&mut self`**：典型场景（计数器、生成器）都需要修改状态
+2. **同时提供 Supplier 和 ReadonlySupplier**：
+   - `Supplier` 使用 `&mut self` + `FnMut`：用于有状态场景（计数器、生成器）
+   - `ReadonlySupplier` 使用 `&self` + `Fn`：用于无状态场景（工厂、常量、高并发）
 3. **保留 SupplierOnce**：延迟初始化、一次性资源消耗
-4. **不需要 ReadonlySupplier**：主要场景都需要状态修改，价值极低
+4. **性能优先**：`ArcReadonlySupplier` 无需 Mutex，高并发场景性能更优
 5. **类型名称语义明确**：Box/Arc/Rc 表达所有权模型
 
 ### Supplier 与其他函数式抽象的对比
 
-| | Supplier | Consumer | Predicate | Function |
-|---|---|---|---|---|
-| **输入** | 无 | `&T` | `&T` | `&T` |
-| **输出** | `T` | `()` | `bool` | `R` |
-| **self 签名** | `&mut self` | `&mut self` | `&self` | `&self` |
-| **修改自己** | ✅ 典型场景 | ✅ 典型场景 | ❌ 不应该 | ❌ 不应该 |
-| **Once 变体** | ✅ 有价值 | ✅ 有价值 | ❌ 无意义 | 🟡 边缘场景 |
-| **Readonly 变体** | ❌ 不需要 | ✅ 有价值 | N/A（只有 `&self`）| N/A（只有 `&self`）|
-| **核心用途** | 工厂、生成器 | 观察、累积 | 过滤、验证 | 转换、映射 |
+| | Supplier | ReadonlySupplier | Consumer | Predicate | Function |
+|---|---|---|---|---|---|
+| **输入** | 无 | 无 | `&T` | `&T` | `&T` |
+| **输出** | `T` | `T` | `()` | `bool` | `R` |
+| **self 签名** | `&mut self` | `&self` | `&mut self` | `&self` | `&self` |
+| **闭包类型** | `FnMut()` | `Fn()` | `FnMut(T)` | `Fn(&T)` | `Fn(&T)` |
+| **修改自己** | ✅ 可以 | ❌ 不能 | ✅ 可以 | ❌ 不能 | ❌ 不能 |
+| **Once 变体** | ✅ 有价值 | ❌ 不需要 | ✅ 有价值 | ❌ 无意义 | 🟡 边缘场景 |
+| **Arc 实现** | `Arc<Mutex<FnMut>>` | `Arc<Fn>` ⭐ | `Arc<Mutex<FnMut>>` | `Arc<Fn>` | `Arc<Fn>` |
+| **并发性能** | ⚠️ 有锁 | ✅ 无锁 | ⚠️ 有锁 | ✅ 无锁 | ✅ 无锁 |
+| **核心用途** | 计数器、生成器 | 工厂、常量 | 观察、累积 | 过滤、验证 | 转换、映射 |
 
 ### 设计一致性
 
@@ -1063,9 +1287,11 @@ fn random_range_supplier(min: i32, max: i32) -> BoxSupplier<i32> {
 }
 ```
 
-### 5. 多线程共享供应者
+### 5. 多线程共享供应者（有状态）
 
 ```rust
+use std::sync::atomic::{AtomicU64, Ordering};
+
 let id_gen = ArcSupplier::new({
     let mut id = AtomicU64::new(0);
     move || id.fetch_add(1, Ordering::SeqCst)
@@ -1080,5 +1306,114 @@ let handles: Vec<_> = (0..10)
         })
     })
     .collect();
+```
+
+### 6. 多线程共享供应者（无状态，推荐）
+
+```rust
+// 错误工厂 - 不需要修改状态
+let error_factory = ArcReadonlySupplier::new(|| {
+    MyError::new("Operation failed")
+});
+
+// 在多个线程中使用
+let handles: Vec<_> = (0..10)
+    .map(|_| {
+        let factory = error_factory.clone();
+        std::thread::spawn(move || {
+            // ✅ 直接调用 get(&self)，无需锁
+            let err = factory.get();
+            println!("Error: {}", err);
+        })
+    })
+    .collect();
+```
+
+### 7. 在 Executor 中使用 ReadonlySupplier
+
+```rust
+use std::sync::Arc;
+
+/// 双重检查执行器
+pub struct DoubleCheckedExecutor<R, E> {
+    /// 待执行的操作
+    operation: Box<dyn FnMut() -> Result<R, E>>,
+
+    /// 测试条件
+    tester: ArcTester,
+
+    /// 错误供应者（无状态）
+    error_supplier: Option<ArcReadonlySupplier<E>>,
+}
+
+impl<R, E> DoubleCheckedExecutor<R, E> {
+    pub fn execute(&self) -> Result<R, E> {
+        if !self.tester.test() {
+            // ✅ 在 &self 方法中直接调用
+            return Err(self.error_supplier.as_ref().unwrap().get());
+        }
+
+        // ... 执行操作
+    }
+}
+
+// 使用示例
+let executor = DoubleCheckedExecutor {
+    operation: Box::new(|| perform_task()),
+    tester: ArcTester::new(|| check_condition()),
+    error_supplier: Some(ArcReadonlySupplier::new(|| {
+        MyError::new("Condition not met")
+    })),
+};
+
+// 可以在多个线程中共享 executor
+let executor_clone = Arc::new(executor);
+let handles: Vec<_> = (0..10)
+    .map(|_| {
+        let exec = Arc::clone(&executor_clone);
+        std::thread::spawn(move || {
+            exec.execute()  // 无锁调用
+        })
+    })
+    .collect();
+```
+
+### 8. 性能对比示例
+
+```rust
+use std::time::Instant;
+use std::thread;
+
+// 场景：1000 个线程并发获取配置
+
+// 方案 1：使用 ArcSupplier（有 Mutex）
+let config_supplier = ArcSupplier::new(|| Config::default());
+let start = Instant::now();
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let mut s = config_supplier.clone();
+        thread::spawn(move || s.get())  // 竞争 Mutex 锁
+    })
+    .collect();
+for h in handles {
+    h.join().unwrap();
+}
+println!("ArcSupplier: {:?}", start.elapsed());
+
+// 方案 2：使用 ArcReadonlySupplier（无锁）
+let config_factory = ArcReadonlySupplier::new(|| Config::default());
+let start = Instant::now();
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let s = config_factory.clone();
+        thread::spawn(move || s.get())  // 无锁并发调用
+    })
+    .collect();
+for h in handles {
+    h.join().unwrap();
+}
+println!("ArcReadonlySupplier: {:?}", start.elapsed());
+
+// 预期结果：ArcReadonlySupplier 性能显著优于 ArcSupplier
 ```
 

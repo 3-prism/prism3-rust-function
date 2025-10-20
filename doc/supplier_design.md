@@ -22,17 +22,21 @@ This is similar to real-world "supply" behavior:
 
 Based on this semantic understanding, we need to clarify the differences between Supplier and other types:
 
-| Type | Input | Output | Modify Self? | Typical Use Cases | Java Equivalent |
-|------|-------|--------|--------------|------------------|-----------------|
-| **Supplier** | None | `T` | ✅ | Factory, generator, lazy initialization | `Supplier<T>` |
-| **Function** | `&T` | `R` | ❌ | Transformation, mapping, computation | `Function<T, R>` |
-| **Consumer** | `&T` | `()` | ✅ | Observation, logging, statistics | `Consumer<T>` |
-| **Predicate** | `&T` | `bool` | ❌ | Filtering, validation, judgment | `Predicate<T>` |
+| Type | Input | Output | self Signature | Modify Self? | Typical Use Cases | Java Equivalent |
+|------|-------|--------|---------------|--------------|------------------|-----------------|
+| **Supplier** | None | `T` | `&mut self` | ✅ | Counter, generator | `Supplier<T>` (partial) |
+| **ReadonlySupplier** | None | `T` | `&self` | ❌ | Factory, constant, high concurrency | `Supplier<T>` (partial) |
+| **Function** | `&T` | `R` | `&self` | ❌ | Transformation, mapping, computation | `Function<T, R>` |
+| **Consumer** | `&T` | `()` | `&mut self` | ✅ | Observation, logging, statistics | `Consumer<T>` |
+| **Predicate** | `&T` | `bool` | `&self` | ❌ | Filtering, validation, judgment | `Predicate<T>` |
 
 **Key Insights**:
 - Supplier is the **only functional abstraction that requires no input**
-- Supplier **can modify its own state** (generating different values)
+- Supplier has two variants:
+  - `Supplier` (`&mut self` + `FnMut`): Can modify its own state (counter, generator)
+  - `ReadonlySupplier` (`&self` + `Fn`): Doesn't modify state, can be called concurrently (factory, constant)
 - Supplier must return **owned `T`** (not references, avoiding lifetime issues)
+- `ArcReadonlySupplier` doesn't need `Mutex`, significantly better performance than `ArcSupplier` in high-concurrency scenarios
 
 ### Main Use Cases of Supplier
 
@@ -206,35 +210,201 @@ let v2 = cached.get();  // Second time: return cached
 |------|-------------------------|--------|
 | **Consumer** | ✅ High (ReadonlyConsumer) | Main scenarios (logging, notifications) indeed don't need to modify state |
 | **Predicate** | N/A (only `&self`) | Judgment operations naturally shouldn't modify state |
-| **Supplier** | ❌ Low (ReadonlySupplier) | Main scenarios (counters, generators, stateful factories) all need state modification |
+| **Supplier** | ✅ **Medium (ReadonlySupplier)** | Some scenarios need calling in `&self`, concurrent calls, lock-free performance |
 
-#### Why Supplier Doesn't Need ReadonlySupplier?
+#### Re-evaluation of ReadonlySupplier Value
 
-**Key Difference**: Supplier itself uses `&mut self`, already allowing state modification, **no need** for interior mutability:
+**Initial Assessment**: ReadonlySupplier has extremely low value because most scenarios need state modification.
+
+**Discovery in Actual Use**: ReadonlySupplier has **significant value** in the following scenarios:
+
+##### Scenario 1: Calling Supplier in `&self` Methods
 
 ```rust
-// Supplier: directly modify state, no need for interior mutability
-let mut counter = {
-    let mut count = 0;
-    BoxSupplier::new(move || {
-        count += 1;  // Direct modification, because get(&mut self)
-        count
-    })
-};
+// Problem: Need to call supplier in &self methods
+struct Executor<E> {
+    error_supplier: BoxSupplier<E>,  // ❌ Cannot call in &self
+}
 
-// Predicate: needs interior mutability to modify state
-let counter_pred = {
-    let count = Cell::new(0);  // ❗ Must use Cell
-    BoxPredicate::new(move |x: &i32| {
-        count.set(count.get() + 1);  // Modify through Cell
-        *x > 0
-    })
-};
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        // ❌ Compilation error: needs &mut self.error_supplier
+        Err(self.error_supplier.get())
+    }
+}
+
+// Solution 1: Use RcSupplier (single-threaded)
+struct Executor<E> {
+    error_supplier: RcSupplier<E>,  // ✅ Can clone
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        let mut s = self.error_supplier.clone();  // clone is lightweight
+        Err(s.get())
+    }
+}
+
+// Solution 2: Use ArcSupplier (multi-threaded)
+struct Executor<E> {
+    error_supplier: ArcSupplier<E>,  // ✅ Thread-safe, but has Mutex
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        let mut s = self.error_supplier.clone();
+        Err(s.get())  // ⚠️ Needs to acquire Mutex lock internally
+    }
+}
+
+// Solution 3: Use ReadonlySupplier (optimal)
+struct Executor<E> {
+    error_supplier: ArcReadonlySupplier<E>,  // ✅ Lock-free, direct call
+}
+
+impl<E> Executor<E> {
+    fn execute(&self) -> Result<(), E> {
+        Err(self.error_supplier.get())  // ✅ No clone needed, no lock
+    }
+}
 ```
 
+##### Scenario 2: Performance Advantage in High-Concurrency Scenarios
+
+**Performance Comparison**:
+
+| Type | Internal Structure | Concurrency Performance | Lock Overhead |
+|------|-------------------|------------------------|---------------|
+| `RcSupplier<T>` | `Rc<RefCell<FnMut>>` | ❌ No multi-threading support | N/A |
+| `ArcSupplier<T>` | `Arc<Mutex<FnMut>>` | ✅ Thread-safe | ⚠️ **Must acquire lock on every call** |
+| `ArcReadonlySupplier<T>` | `Arc<dyn Fn + Send + Sync>` | ✅ Thread-safe | ✅ **Lock-free, concurrent calls** |
+
+```rust
+// Performance test: 1000 threads calling concurrently
+use std::sync::Arc;
+use std::thread;
+
+// ArcSupplier: Must acquire Mutex lock every get()
+let supplier = ArcSupplier::new(|| compute_value());
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let mut s = supplier.clone();
+        thread::spawn(move || s.get())  // ⚠️ Lock contention
+    })
+    .collect();
+
+// ArcReadonlySupplier: Lock-free concurrent calls
+let readonly = ArcReadonlySupplier::new(|| compute_value());
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let s = readonly.clone();
+        thread::spawn(move || s.get())  // ✅ No lock contention
+    })
+    .collect();
+```
+
+##### Scenario 3: Real Project Usage
+
+Already using this pattern in the `prism3-rust-concurrent` project:
+
+```rust
+// double_checked_executor_design.zh_CN.md line 132
+pub struct DoubleCheckedExecutor<R, E> {
+    /// Error factory - used to create error instances (optional)
+    error_supplier: Option<Arc<dyn Fn() -> E + Send + Sync>>,
+    // ☝️ This is the raw type version of ArcReadonlySupplier!
+}
+
+// Why not use ArcSupplier<E>?
+// 1. ArcSupplier requires Mutex<FnMut>, locking on every call
+// 2. error_supplier doesn't need to modify state
+// 3. Needs to be called in multi-threaded environment
+// 4. Direct Fn() allows lock-free concurrent calls
+```
+
+**Key Discovery**:
+- When Supplier doesn't need to modify state
+- When used in multi-threaded environment
+- `ArcReadonlySupplier` **performs significantly better** than `ArcSupplier` (lock-free)
+
+#### ReadonlySupplier Design Proposal
+
+Based on the above analysis, **ReadonlySupplier should be provided**:
+
+```rust
+/// Read-only supplier: generates values without modifying its own state
+pub trait ReadonlySupplier<T> {
+    fn get(&self) -> T;  // Note: &self, not &mut self
+}
+
+// Implement for closures
+impl<T, F> ReadonlySupplier<T> for F
+where
+    F: Fn() -> T,  // Note: Fn, not FnMut
+{
+    fn get(&self) -> T {
+        self()
+    }
+}
+
+// Box implementation (single ownership)
+pub struct BoxReadonlySupplier<T> {
+    function: Box<dyn Fn() -> T>,
+}
+
+// Rc implementation (single-threaded sharing)
+pub struct RcReadonlySupplier<T> {
+    function: Rc<dyn Fn() -> T>,
+}
+
+// Arc implementation (multi-threaded sharing, lock-free!)
+pub struct ArcReadonlySupplier<T> {
+    function: Arc<dyn Fn() -> T + Send + Sync>,
+    // ☝️ Key: Direct Arc, no Mutex needed!
+}
+
+impl<T> ArcReadonlySupplier<T> {
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Fn() -> T + Send + Sync + 'static,
+    {
+        ArcReadonlySupplier {
+            function: Arc::new(f),
+        }
+    }
+}
+
+impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
+    fn get(&self) -> T {
+        (self.function)()  // ✅ Lock-free call
+    }
+}
+
+impl<T> Clone for ArcReadonlySupplier<T> {
+    fn clone(&self) -> Self {
+        Self {
+            function: Arc::clone(&self.function),
+        }
+    }
+}
+```
+
+#### Supplier vs ReadonlySupplier Selection Guide
+
+| Scenario | Recommended Type | Reason |
+|----------|-----------------|--------|
+| Counter, generator | `Supplier` (FnMut) | Needs to modify state |
+| Random number generation | `Supplier` (FnMut) | RNG needs mutable state |
+| Fixed factory | `ReadonlySupplier` (Fn) | Doesn't modify state, can use `&self` |
+| Constant return | `ReadonlySupplier` (Fn) | Doesn't modify state, can use `&self` |
+| Call in `&self` methods | `ReadonlySupplier` (Fn) | No need for `&mut` |
+| High-concurrency scenarios | `ArcReadonlySupplier` | **Lock-free performance** |
+| Embedded in read-only structures | `ReadonlySupplier` (Fn) | Structure can keep `&self` API |
+
 **Conclusion**:
-- ✅ **Only provide `Supplier<T>` (using `&mut self`)**: covers all scenarios
-- ❌ **No need for ReadonlySupplier**: extremely low value, adds complexity
+- ✅ **Provide `Supplier<T>` (using `&mut self`)**: For stateful suppliers
+- ✅ **Provide `ReadonlySupplier<T>` (using `&self`)**: For stateless suppliers
+- The two complement each other, covering different use cases
 
 ### 3. Value of SupplierOnce
 
@@ -833,10 +1003,16 @@ use_supplier(&mut arc_sup);
 ```rust
 // === Supplier Series (Generate Values) ===
 
-/// Supplier: generate and return values
+/// Supplier: generate and return values (can modify state)
 pub trait Supplier<T> {
-    /// Get value (can be called multiple times)
+    /// Get value (can be called multiple times, can modify its own state)
     fn get(&mut self) -> T;
+}
+
+/// Read-only supplier: generate and return values (doesn't modify state)
+pub trait ReadonlySupplier<T> {
+    /// Get value (can be called multiple times, doesn't modify its own state)
+    fn get(&self) -> T;
 }
 
 /// One-time supplier: generate and return values, can only be called once
@@ -847,34 +1023,78 @@ pub trait SupplierOnce<T> {
 ```
 
 **Current Implementation Status**:
-- ✅ `Supplier` - needs implementation
-- ✅ `SupplierOnce` - needs implementation
-- ❌ `ReadonlySupplier` - not needed (main scenarios all need state modification, extremely low value)
+- ✅ `Supplier` - needs implementation (stateful supplier, uses `&mut self`)
+- ✅ `SupplierOnce` - needs implementation (one-shot supplier)
+- ✅ `ReadonlySupplier` - **needs implementation** (stateless supplier, uses `&self`, lock-free performance)
 
 ### Specific Implementations
 
 ```rust
-// Box implementation (single ownership)
-pub struct BoxSupplier<T> { func: Box<dyn FnMut() -> T> }
-pub struct BoxSupplierOnce<T> { func: Option<Box<dyn FnOnce() -> T>> }
+// ============================================================================
+// Supplier - Stateful supplier (can modify state)
+// ============================================================================
 
-// Arc implementation (thread-safe sharing)
-pub struct ArcSupplier<T> { func: Arc<Mutex<dyn FnMut() -> T + Send>> }
+// Box implementation (single ownership)
+pub struct BoxSupplier<T> {
+    func: Box<dyn FnMut() -> T>
+}
+
+// Arc implementation (thread-safe sharing, needs Mutex)
+pub struct ArcSupplier<T> {
+    func: Arc<Mutex<dyn FnMut() -> T + Send>>
+}
+
+// Rc implementation (single-threaded sharing, uses RefCell)
+pub struct RcSupplier<T> {
+    func: Rc<RefCell<dyn FnMut() -> T>>
+}
+
+// ============================================================================
+// ReadonlySupplier - Read-only supplier (doesn't modify state)
+// ============================================================================
+
+// Box implementation (single ownership)
+pub struct BoxReadonlySupplier<T> {
+    func: Box<dyn Fn() -> T>
+}
+
+// Arc implementation (thread-safe sharing, lock-free!)
+pub struct ArcReadonlySupplier<T> {
+    func: Arc<dyn Fn() -> T + Send + Sync>
+}
 
 // Rc implementation (single-threaded sharing)
-pub struct RcSupplier<T> { func: Rc<RefCell<dyn FnMut() -> T>> }
+pub struct RcReadonlySupplier<T> {
+    func: Rc<dyn Fn() -> T>
+}
+
+// ============================================================================
+// SupplierOnce - One-time supplier
+// ============================================================================
+
+pub struct BoxSupplierOnce<T> {
+    func: Option<Box<dyn FnOnce() -> T>>
+}
 ```
 
 ### Type Selection Guide
 
 | Requirement | Recommended Type | Reason |
 |-------------|------------------|--------|
-| One-time use | `BoxSupplier` | Single ownership, no overhead |
-| Lazy initialization (compute only once) | `BoxSupplierOnce` | Consume self, preserve FnOnce |
-| Multi-threaded sharing | `ArcSupplier` | Thread-safe, Mutex protection |
-| Single-threaded reuse | `RcSupplier` | RefCell lock-free overhead |
-| Fixed constants | `BoxSupplier::constant()` | Factory method |
+| **Stateful Scenarios** | | |
 | Counters/generators | `BoxSupplier` | Can modify state |
+| Random number generation | `BoxSupplier` | RNG needs mutable state |
+| Multi-threaded sharing (stateful) | `ArcSupplier` | Thread-safe, Mutex protection |
+| Single-threaded reuse (stateful) | `RcSupplier` | RefCell lock-free overhead |
+| **Stateless Scenarios** | | |
+| Fixed factory | `BoxReadonlySupplier` | Doesn't modify state, `&self` usable |
+| Constant return | `BoxReadonlySupplier::constant()` | Doesn't modify state |
+| Multi-threaded sharing (stateless) | `ArcReadonlySupplier` | **Lock-free, high performance** ⭐ |
+| Single-threaded reuse (stateless) | `RcReadonlySupplier` | Lightweight sharing |
+| Embedded in read-only structures | `ArcReadonlySupplier` | Structure can keep `&self` API |
+| **Special Scenarios** | | |
+| Lazy initialization (compute only once) | `BoxSupplierOnce` | Consume self, preserve FnOnce |
+| One-time resource consumption | `BoxSupplierOnce` | Move captured variables |
 
 ### Common Factory Methods
 
@@ -945,22 +1165,26 @@ impl<T> BoxSupplierOnce<T> {
 ### Core Design Principles
 
 1. **Supplier returns ownership `T`**: Avoid lifetime issues, clear semantics
-2. **Supplier uses `&mut self`**: Typical scenarios (counters, generators) all need state modification
+2. **Provide both Supplier and ReadonlySupplier**:
+   - `Supplier` uses `&mut self` + `FnMut`: For stateful scenarios (counter, generator)
+   - `ReadonlySupplier` uses `&self` + `Fn`: For stateless scenarios (factory, constant, high concurrency)
 3. **Keep SupplierOnce**: Lazy initialization, one-time resource consumption
-4. **No need for ReadonlySupplier**: Main scenarios all need state modification, extremely low value
+4. **Performance priority**: `ArcReadonlySupplier` doesn't need Mutex, better performance in high-concurrency scenarios
 5. **Type names are semantically clear**: Box/Arc/Rc express ownership models
 
 ### Supplier vs Other Functional Abstractions
 
-| | Supplier | Consumer | Predicate | Function |
-|---|---|---|---|---|
-| **Input** | None | `&T` | `&T` | `&T` |
-| **Output** | `T` | `()` | `bool` | `R` |
-| **self signature** | `&mut self` | `&mut self` | `&self` | `&self` |
-| **Modify self** | ✅ Typical scenario | ✅ Typical scenario | ❌ Should not | ❌ Should not |
-| **Once variant** | ✅ Valuable | ✅ Valuable | ❌ Meaningless | 🟡 Edge case |
-| **Readonly variant** | ❌ Not needed | ✅ Valuable | N/A (only `&self`) | N/A (only `&self`) |
-| **Core use** | Factory, generator | Observation, accumulation | Filtering, validation | Transformation, mapping |
+| | Supplier | ReadonlySupplier | Consumer | Predicate | Function |
+|---|---|---|---|---|---|
+| **Input** | None | None | `&T` | `&T` | `&T` |
+| **Output** | `T` | `T` | `()` | `bool` | `R` |
+| **self signature** | `&mut self` | `&self` | `&mut self` | `&self` | `&self` |
+| **Closure type** | `FnMut()` | `Fn()` | `FnMut(T)` | `Fn(&T)` | `Fn(&T)` |
+| **Modify self** | ✅ Can | ❌ Cannot | ✅ Can | ❌ Cannot | ❌ Cannot |
+| **Once variant** | ✅ Valuable | ❌ Not needed | ✅ Valuable | ❌ Meaningless | 🟡 Edge case |
+| **Arc implementation** | `Arc<Mutex<FnMut>>` | `Arc<Fn>` ⭐ | `Arc<Mutex<FnMut>>` | `Arc<Fn>` | `Arc<Fn>` |
+| **Concurrency performance** | ⚠️ Has lock | ✅ Lock-free | ⚠️ Has lock | ✅ Lock-free | ✅ Lock-free |
+| **Core use** | Counter, generator | Factory, constant | Observation, accumulation | Filtering, validation | Transformation, mapping |
 
 ### Design Consistency
 
@@ -1063,9 +1287,11 @@ fn random_range_supplier(min: i32, max: i32) -> BoxSupplier<i32> {
 }
 ```
 
-### 5. Multi-threaded Shared Supplier
+### 5. Multi-threaded Shared Supplier (Stateful)
 
 ```rust
+use std::sync::atomic::{AtomicU64, Ordering};
+
 let id_gen = ArcSupplier::new({
     let mut id = AtomicU64::new(0);
     move || id.fetch_add(1, Ordering::SeqCst)
@@ -1080,4 +1306,113 @@ let handles: Vec<_> = (0..10)
         })
     })
     .collect();
+```
+
+### 6. Multi-threaded Shared Supplier (Stateless, Recommended)
+
+```rust
+// Error factory - doesn't need to modify state
+let error_factory = ArcReadonlySupplier::new(|| {
+    MyError::new("Operation failed")
+});
+
+// Use in multiple threads
+let handles: Vec<_> = (0..10)
+    .map(|_| {
+        let factory = error_factory.clone();
+        std::thread::spawn(move || {
+            // ✅ Direct call get(&self), no lock needed
+            let err = factory.get();
+            println!("Error: {}", err);
+        })
+    })
+    .collect();
+```
+
+### 7. Using ReadonlySupplier in Executor
+
+```rust
+use std::sync::Arc;
+
+/// Double-checked executor
+pub struct DoubleCheckedExecutor<R, E> {
+    /// Operation to execute
+    operation: Box<dyn FnMut() -> Result<R, E>>,
+
+    /// Test condition
+    tester: ArcTester,
+
+    /// Error supplier (stateless)
+    error_supplier: Option<ArcReadonlySupplier<E>>,
+}
+
+impl<R, E> DoubleCheckedExecutor<R, E> {
+    pub fn execute(&self) -> Result<R, E> {
+        if !self.tester.test() {
+            // ✅ Direct call in &self method
+            return Err(self.error_supplier.as_ref().unwrap().get());
+        }
+
+        // ... execute operation
+    }
+}
+
+// Usage example
+let executor = DoubleCheckedExecutor {
+    operation: Box::new(|| perform_task()),
+    tester: ArcTester::new(|| check_condition()),
+    error_supplier: Some(ArcReadonlySupplier::new(|| {
+        MyError::new("Condition not met")
+    })),
+};
+
+// Can share executor across multiple threads
+let executor_clone = Arc::new(executor);
+let handles: Vec<_> = (0..10)
+    .map(|_| {
+        let exec = Arc::clone(&executor_clone);
+        std::thread::spawn(move || {
+            exec.execute()  // Lock-free call
+        })
+    })
+    .collect();
+```
+
+### 8. Performance Comparison Example
+
+```rust
+use std::time::Instant;
+use std::thread;
+
+// Scenario: 1000 threads calling concurrently to get configuration
+
+// Solution 1: Using ArcSupplier (with Mutex)
+let config_supplier = ArcSupplier::new(|| Config::default());
+let start = Instant::now();
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let mut s = config_supplier.clone();
+        thread::spawn(move || s.get())  // Compete for Mutex lock
+    })
+    .collect();
+for h in handles {
+    h.join().unwrap();
+}
+println!("ArcSupplier: {:?}", start.elapsed());
+
+// Solution 2: Using ArcReadonlySupplier (lock-free)
+let config_factory = ArcReadonlySupplier::new(|| Config::default());
+let start = Instant::now();
+let handles: Vec<_> = (0..1000)
+    .map(|_| {
+        let s = config_factory.clone();
+        thread::spawn(move || s.get())  // Lock-free concurrent call
+    })
+    .collect();
+for h in handles {
+    h.join().unwrap();
+}
+println!("ArcReadonlySupplier: {:?}", start.elapsed());
+
+// Expected result: ArcReadonlySupplier performs significantly better than ArcSupplier
 ```
