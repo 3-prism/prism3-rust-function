@@ -44,10 +44,7 @@ fn main() {
 
     // Original bi-transformer is still available
     println!("   Original: 20 + 22 = {}", add_arc.apply(20, 22));
-    println!(
-        "   Composed: (5 + 3) * 3 = {}",
-        composed_arc.apply(5, 3)
-    );
+    println!("   Composed: (5 + 3) * 3 = {}", composed_arc.apply(5, 3));
     println!();
 
     // 4. ArcBiTransformer::and_then - Cloneable
@@ -57,10 +54,7 @@ fn main() {
     let composed_abs = subtract.and_then(abs);
     let cloned = composed_abs.clone();
 
-    println!(
-        "   Original: |10 - 15| = {}",
-        composed_abs.apply(10, 15)
-    );
+    println!("   Original: |10 - 15| = {}", composed_abs.apply(10, 15));
     println!("   Cloned: |15 - 10| = {}", cloned.apply(15, 10));
     println!();
 

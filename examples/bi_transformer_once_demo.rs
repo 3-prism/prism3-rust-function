@@ -44,10 +44,7 @@ fn main() {
     let conditional = add
         .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
         .or_else(multiply);
-    println!(
-        "   conditional(5, 3) = {} (add)",
-        conditional.apply(5, 3)
-    );
+    println!("   conditional(5, 3) = {} (add)", conditional.apply(5, 3));
 
     println!("\n6. Conditional transformation (negative numbers):");
     let add2 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);

@@ -30,10 +30,7 @@ fn main() {
     let arc_add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
     let arc_add_clone = arc_add.clone();
 
-    println!(
-        "   arc_add.apply(10, 15) = {}",
-        arc_add.apply(10, 15)
-    );
+    println!("   arc_add.apply(10, 15) = {}", arc_add.apply(10, 15));
     println!(
         "   arc_add_clone.apply(5, 8) = {}",
         arc_add_clone.apply(5, 8)
@@ -45,10 +42,7 @@ fn main() {
     let rc_multiply = RcBiTransformer::new(|x: i32, y: i32| x * y);
     let rc_multiply_clone = rc_multiply.clone();
 
-    println!(
-        "   rc_multiply.apply(3, 4) = {}",
-        rc_multiply.apply(3, 4)
-    );
+    println!("   rc_multiply.apply(3, 4) = {}", rc_multiply.apply(3, 4));
     println!(
         "   rc_multiply_clone.apply(5, 6) = {}",
         rc_multiply_clone.apply(5, 6)
@@ -86,10 +80,7 @@ fn main() {
     // 6. Closure as BiTransformer
     println!("6. Closure as BiTransformer");
     let subtract = |x: i32, y: i32| x - y;
-    println!(
-        "   subtract.apply(42, 10) = {}",
-        subtract.apply(42, 10)
-    );
+    println!("   subtract.apply(42, 10) = {}", subtract.apply(42, 10));
     println!();
 
     // 7. Conversion between types
