@@ -180,10 +180,7 @@ mod rc_bi_transformer_tests {
             concat.apply("hello".to_string(), "world".to_string()),
             "helloworld"
         );
-        assert_eq!(
-            func1.apply("foo".to_string(), "bar".to_string()),
-            "foobar"
-        );
+        assert_eq!(func1.apply("foo".to_string(), "bar".to_string()), "foobar");
         assert_eq!(
             func2.apply("rust".to_string(), "lang".to_string()),
             "rustlang"

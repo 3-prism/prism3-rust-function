@@ -1482,9 +1482,7 @@ mod tests {
 
             // Verify it can be sent across threads
             let arc_clone = arc_pred.clone();
-            let handle = thread::spawn(move || {
-                arc_clone.test(&6, &5)
-            });
+            let handle = thread::spawn(move || arc_clone.test(&6, &5));
 
             assert!(handle.join().unwrap());
             assert!(arc_pred.test(&10, &1));
@@ -1508,10 +1506,7 @@ mod tests {
             let func = pred.into_fn();
 
             let pairs = [(6, 5), (3, 4), (10, 1), (5, 5)];
-            let result: Vec<_> = pairs
-                .iter()
-                .filter(|(x, y)| func(x, y))
-                .collect();
+            let result: Vec<_> = pairs.iter().filter(|(x, y)| func(x, y)).collect();
 
             assert_eq!(result, vec![&(6, 5), &(10, 1)]);
         }

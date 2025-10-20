@@ -355,10 +355,7 @@ mod edge_case_tests {
     #[test]
     fn test_with_empty_strings() {
         let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{}{}", x, y));
-        assert_eq!(
-            concat.apply(String::new(), String::new()),
-            String::new()
-        );
+        assert_eq!(concat.apply(String::new(), String::new()), String::new());
     }
 
     #[test]
