@@ -1311,9 +1311,7 @@ mod tests {
         // Can clone and share across threads
         let arc_clone = arc.clone();
         let tester_clone = tester.clone();
-        let handle = std::thread::spawn(move || {
-            arc_clone.test() && tester_clone.test()
-        });
+        let handle = std::thread::spawn(move || arc_clone.test() && tester_clone.test());
 
         assert!(handle.join().unwrap());
     }

@@ -503,7 +503,9 @@ impl BoxTester {
     where
         F: Fn() -> bool + 'static,
     {
-        BoxTester { function: Box::new(f) }
+        BoxTester {
+            function: Box::new(f),
+        }
     }
 
     /// Combines this tester with another tester using logical AND
@@ -958,7 +960,9 @@ impl ArcTester {
     where
         F: Fn() -> bool + Send + Sync + 'static,
     {
-        ArcTester { function: Arc::new(f) }
+        ArcTester {
+            function: Arc::new(f),
+        }
     }
 
     /// Combines this tester with another tester using logical AND
@@ -1478,7 +1482,9 @@ impl RcTester {
     where
         F: Fn() -> bool + 'static,
     {
-        RcTester { function: Rc::new(f) }
+        RcTester {
+            function: Rc::new(f),
+        }
     }
 
     /// Combines this tester with another tester using logical AND
