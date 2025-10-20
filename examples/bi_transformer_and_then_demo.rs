@@ -24,7 +24,7 @@ fn main() {
     let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
     let double = |x: i32| x * 2;
     let composed = add.and_then(double);
-    println!("   (3 + 5) * 2 = {}", composed.transform(3, 5));
+    println!("   (3 + 5) * 2 = {}", composed.apply(3, 5));
     println!();
 
     // 2. BoxBiTransformer::and_then - Chained calls
@@ -33,7 +33,7 @@ fn main() {
     let add_ten = |x: i32| x + 10;
     let to_string = |x: i32| format!("Result: {}", x);
     let pipeline = multiply.and_then(add_ten).and_then(to_string);
-    println!("   (6 * 7) + 10 = {}", pipeline.transform(6, 7));
+    println!("   (6 * 7) + 10 = {}", pipeline.apply(6, 7));
     println!();
 
     // 3. ArcBiTransformer::and_then - Shared ownership
@@ -43,10 +43,10 @@ fn main() {
     let composed_arc = add_arc.and_then(triple);
 
     // Original bi-transformer is still available
-    println!("   Original: 20 + 22 = {}", add_arc.transform(20, 22));
+    println!("   Original: 20 + 22 = {}", add_arc.apply(20, 22));
     println!(
         "   Composed: (5 + 3) * 3 = {}",
-        composed_arc.transform(5, 3)
+        composed_arc.apply(5, 3)
     );
     println!();
 
@@ -59,9 +59,9 @@ fn main() {
 
     println!(
         "   Original: |10 - 15| = {}",
-        composed_abs.transform(10, 15)
+        composed_abs.apply(10, 15)
     );
-    println!("   Cloned: |15 - 10| = {}", cloned.transform(15, 10));
+    println!("   Cloned: |15 - 10| = {}", cloned.apply(15, 10));
     println!();
 
     // 5. RcBiTransformer::and_then - Single-threaded sharing
@@ -70,8 +70,8 @@ fn main() {
     let square = |x: i32| x * x;
     let composed_rc = divide.and_then(square);
 
-    println!("   Original: 20 / 4 = {}", divide.transform(20, 4));
-    println!("   Composed: (20 / 4)² = {}", composed_rc.transform(20, 4));
+    println!("   Original: 20 / 4 = {}", divide.apply(20, 4));
+    println!("   Composed: (20 / 4)² = {}", composed_rc.apply(20, 4));
     println!();
 
     // 6. Type conversion example
@@ -83,14 +83,14 @@ fn main() {
     let uppercase_pipeline = concat.and_then(to_uppercase);
     println!(
         "   \"hello\" + \"world\" -> uppercase: {}",
-        uppercase_pipeline.transform("hello".to_string(), "world".to_string())
+        uppercase_pipeline.apply("hello".to_string(), "world".to_string())
     );
 
     let concat2 = BoxBiTransformer::new(|s1: String, s2: String| format!("{} {}", s1, s2));
     let length_pipeline = concat2.and_then(get_length);
     println!(
         "   \"hello\" + \"world\" -> length: {}",
-        length_pipeline.transform("hello".to_string(), "world".to_string())
+        length_pipeline.apply("hello".to_string(), "world".to_string())
     );
     println!();
 
@@ -103,7 +103,7 @@ fn main() {
     let calculator = calculate.and_then(round).and_then(to_int);
     println!(
         "   3.7 + 4.8 -> round -> integer: {}",
-        calculator.transform(3.7, 4.8)
+        calculator.apply(3.7, 4.8)
     );
     println!();
 
@@ -123,8 +123,8 @@ fn main() {
     };
 
     let safe_calculator = safe_divide.and_then(format_result);
-    println!("   10 / 2 = {}", safe_calculator.transform(10, 2));
-    println!("   10 / 0 = {}", safe_calculator.transform(10, 0));
+    println!("   10 / 2 = {}", safe_calculator.apply(10, 2));
+    println!("   10 / 0 = {}", safe_calculator.apply(10, 0));
     println!();
 
     // 9. Complex data structures
@@ -144,7 +144,7 @@ fn main() {
         .and_then(format_distance);
     println!(
         "   Distance from point(3, 4) to origin: {}",
-        point_processor.transform(3, 4)
+        point_processor.apply(3, 4)
     );
     println!();
 
@@ -162,11 +162,11 @@ fn main() {
 
     println!(
         "   Add positive numbers then double: (5 + 3) * 2 = {}",
-        final_transformer.transform(5, 3)
+        final_transformer.apply(5, 3)
     );
     println!(
         "   Multiply negative numbers then double: (-5 * 3) * 2 = {}",
-        final_transformer.transform(-5, 3)
+        final_transformer.apply(-5, 3)
     );
 
     println!("\n=== Demo completed ===");

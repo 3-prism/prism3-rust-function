@@ -21,19 +21,19 @@ fn test_transformer_once() {
     fn parse(s: String) -> i32 {
         s.parse().unwrap_or(0)
     }
-    assert_eq!(parse.transform("42".to_string()), 42);
-    println!("✓ Function pointer test passed: parse.transform(\"42\") = 42");
+    assert_eq!(parse.apply("42".to_string()), 42);
+    println!("✓ Function pointer test passed: parse.apply(\"42\") = 42");
 
     // Test closure that consumes ownership
     let owned_value = String::from("hello");
     let consume = |s: String| format!("{} world", s);
-    assert_eq!(consume.transform(owned_value), "hello world");
+    assert_eq!(consume.apply(owned_value), "hello world");
     println!("✓ Closure that consumes ownership test passed");
 
     // Test conversion to BoxTransformerOnce
     let transform = |s: String| s.to_uppercase();
     let boxed = transform.into_box();
-    assert_eq!(boxed.transform("hello".to_string()), "HELLO");
+    assert_eq!(boxed.apply("hello".to_string()), "HELLO");
     println!("✓ into_box() test passed");
 
     // Test into_fn

@@ -19,15 +19,15 @@ fn main() {
     // ====================================================================
     println!("--- BoxTransformer ---");
     let double = BoxTransformer::new(|x: i32| x * 2);
-    println!("double.transform(21) = {}", double.transform(21));
-    println!("double.transform(42) = {}", double.transform(42));
+    println!("double.apply(21) = {}", double.apply(21));
+    println!("double.apply(42) = {}", double.apply(42));
 
     // Identity and constant
     let identity = BoxTransformer::<i32, i32>::identity();
-    println!("identity.transform(42) = {}", identity.transform(42));
+    println!("identity.apply(42) = {}", identity.apply(42));
 
     let constant = BoxTransformer::constant("hello");
-    println!("constant.transform(123) = {}", constant.transform(123));
+    println!("constant.apply(123) = {}", constant.apply(123));
     println!();
 
     // ====================================================================
@@ -37,15 +37,15 @@ fn main() {
     let arc_double = ArcTransformer::new(|x: i32| x * 2);
     let arc_cloned = arc_double.clone();
 
-    println!("arc_double.transform(21) = {}", arc_double.transform(21));
-    println!("arc_cloned.transform(42) = {}", arc_cloned.transform(42));
+    println!("arc_double.apply(21) = {}", arc_double.apply(21));
+    println!("arc_cloned.apply(42) = {}", arc_cloned.apply(42));
 
     // Multi-threaded usage
     let for_thread = arc_double.clone();
-    let handle = thread::spawn(move || for_thread.transform(100));
+    let handle = thread::spawn(move || for_thread.apply(100));
     println!(
-        "In main thread: arc_double.transform(50) = {}",
-        arc_double.transform(50)
+        "In main thread: arc_double.apply(50) = {}",
+        arc_double.apply(50)
     );
     println!("In child thread: result = {}", handle.join().unwrap());
     println!();
@@ -57,8 +57,8 @@ fn main() {
     let rc_double = RcTransformer::new(|x: i32| x * 2);
     let rc_cloned = rc_double.clone();
 
-    println!("rc_double.transform(21) = {}", rc_double.transform(21));
-    println!("rc_cloned.transform(42) = {}", rc_cloned.transform(42));
+    println!("rc_double.apply(21) = {}", rc_double.apply(21));
+    println!("rc_cloned.apply(42) = {}", rc_cloned.apply(42));
     println!();
 
     // ====================================================================
@@ -70,12 +70,12 @@ fn main() {
     println!("--- String Transformation ---");
     let to_upper = BoxTransformer::new(|s: String| s.to_uppercase());
     println!(
-        "to_upper.transform('hello') = {}",
-        to_upper.transform("hello".to_string())
+        "to_upper.apply('hello') = {}",
+        to_upper.apply("hello".to_string())
     );
     println!(
-        "to_upper.transform('world') = {}",
-        to_upper.transform("world".to_string())
+        "to_upper.apply('world') = {}",
+        to_upper.apply("world".to_string())
     );
     println!();
 
@@ -87,8 +87,8 @@ fn main() {
 
     let pipeline = parse_int.and_then(double_int).and_then(to_string);
     println!(
-        "pipeline.transform('21') = {}",
-        pipeline.transform("21".to_string())
+        "pipeline.apply('21') = {}",
+        pipeline.apply("21".to_string())
     );
     println!();
 
@@ -100,9 +100,9 @@ fn main() {
     let transformer1 = square.clone();
     let transformer2 = square.clone();
 
-    println!("transformer1.transform(5) = {}", transformer1.transform(5));
-    println!("transformer2.transform(7) = {}", transformer2.transform(7));
-    println!("square.transform(3) = {}", square.transform(3));
+    println!("transformer1.apply(5) = {}", transformer1.apply(5));
+    println!("transformer2.apply(7) = {}", transformer2.apply(7));
+    println!("square.apply(3) = {}", square.apply(3));
     println!();
 
     // Example 4: Transformer registry
@@ -119,10 +119,10 @@ fn main() {
     );
 
     if let Some(transformer) = transformers.get("double") {
-        println!("Transformer 'double': {}", transformer.transform(7));
+        println!("Transformer 'double': {}", transformer.apply(7));
     }
     if let Some(transformer) = transformers.get("square") {
-        println!("Transformer 'square': {}", transformer.transform(7));
+        println!("Transformer 'square': {}", transformer.apply(7));
     }
     println!();
 
@@ -132,7 +132,7 @@ fn main() {
     println!("=== Trait Usage ===\n");
 
     fn apply_transformer<F: Transformer<i32, String>>(f: &F, x: i32) -> String {
-        f.transform(x)
+        f.apply(x)
     }
 
     let to_string = BoxTransformer::new(|x: i32| format!("Value: {}", x));

@@ -18,8 +18,8 @@ fn main() {
     println!("--- BoxTransformerOnce ---");
     let parse = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
     println!(
-        "parse.transform(\"42\".to_string()) = {}",
-        parse.transform("42".to_string())
+        "parse.apply(\"42\".to_string()) = {}",
+        parse.apply("42".to_string())
     );
     // parse is consumed and cannot be used again
 
@@ -28,7 +28,7 @@ fn main() {
     let double = BoxTransformerOnce::new(|x: i32| x * 2);
     let to_string = BoxTransformerOnce::new(|x: i32| x.to_string());
     let pipeline = add_one.and_then(double).and_then(to_string);
-    println!("pipeline(5) = {} (expected: \"12\")", pipeline.transform(5));
+    println!("pipeline(5) = {} (expected: \"12\")", pipeline.apply(5));
     println!();
 
     // ====================================================================
@@ -41,14 +41,14 @@ fn main() {
     let to_upper = BoxTransformerOnce::new(|s: String| s.to_uppercase());
     println!(
         "to_upper(\"hello\") = {}",
-        to_upper.transform("hello".to_string())
+        to_upper.apply("hello".to_string())
     );
     println!();
 
     // Example 2: Type conversion with ownership transfer
     println!("--- Type Conversion ---");
     let into_bytes = BoxTransformerOnce::new(|s: String| s.into_bytes());
-    let bytes = into_bytes.transform("hello".to_string());
+    let bytes = into_bytes.apply("hello".to_string());
     println!("into_bytes(\"hello\") = {:?}", bytes);
     println!();
 
@@ -61,7 +61,7 @@ fn main() {
 
     println!(
         "parse_and_process(\"21\") = {}",
-        parse_and_process.transform("21".to_string())
+        parse_and_process.apply("21".to_string())
     );
     println!();
 
@@ -71,7 +71,7 @@ fn main() {
     println!("=== Trait Usage ===\n");
 
     fn apply_transformer_once<F: TransformerOnce<String, usize>>(f: F, x: String) -> usize {
-        f.transform(x)
+        f.apply(x)
     }
 
     let length = BoxTransformerOnce::new(|s: String| s.len());

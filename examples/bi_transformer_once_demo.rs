@@ -16,25 +16,25 @@ fn main() {
     // Example 1: Basic usage with closure
     println!("1. Basic usage with closure:");
     let add = |x: i32, y: i32| x + y;
-    let result = add.transform(20, 22);
+    let result = add.apply(20, 22);
     println!("   20 + 22 = {}", result);
 
     // Example 2: BoxBiTransformerOnce with new
     println!("\n2. BoxBiTransformerOnce with new:");
     let multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y);
-    println!("   6 * 7 = {}", multiply.transform(6, 7));
+    println!("   6 * 7 = {}", multiply.apply(6, 7));
 
     // Example 3: Constant transformer
     println!("\n3. Constant transformer:");
     let constant = BoxBiTransformerOnce::constant("hello");
-    println!("   constant(123, 456) = {}", constant.transform(123, 456));
+    println!("   constant(123, 456) = {}", constant.apply(123, 456));
 
     // Example 4: Consuming owned values
     println!("\n4. Consuming owned values:");
     let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
     let s1 = String::from("hello");
     let s2 = String::from("world");
-    let result = concat.transform(s1, s2);
+    let result = concat.apply(s1, s2);
     println!("   concat('hello', 'world') = {}", result);
 
     // Example 5: Conditional transformation with when/or_else
@@ -46,7 +46,7 @@ fn main() {
         .or_else(multiply);
     println!(
         "   conditional(5, 3) = {} (add)",
-        conditional.transform(5, 3)
+        conditional.apply(5, 3)
     );
 
     println!("\n6. Conditional transformation (negative numbers):");
@@ -57,7 +57,7 @@ fn main() {
         .or_else(multiply2);
     println!(
         "   conditional(-5, 3) = {} (multiply)",
-        conditional2.transform(-5, 3)
+        conditional2.apply(-5, 3)
     );
 
     // Example 7: Conditional with closure in or_else
@@ -66,7 +66,7 @@ fn main() {
     let conditional3 = add3
         .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
         .or_else(|x: i32, y: i32| x * y);
-    println!("   conditional(4, 6) = {}", conditional3.transform(4, 6));
+    println!("   conditional(4, 6) = {}", conditional3.apply(4, 6));
 
     // Example 8: Merging vectors
     println!("\n8. Merging vectors:");
@@ -76,7 +76,7 @@ fn main() {
     });
     let v1 = vec![1, 2, 3];
     let v2 = vec![4, 5, 6];
-    let result = merge.transform(v1, v2);
+    let result = merge.apply(v1, v2);
     println!("   merge([1, 2, 3], [4, 5, 6]) = {:?}", result);
 
     // Example 9: Complex transformation with calculation
@@ -86,7 +86,7 @@ fn main() {
         let product = x * y;
         (sum, product)
     });
-    let (sum, product) = calculate.transform(5, 3);
+    let (sum, product) = calculate.apply(5, 3);
     println!("   calculate(5, 3) = (sum: {}, product: {})", sum, product);
 
     // Example 10: String manipulation
@@ -96,7 +96,7 @@ fn main() {
     });
     println!(
         "   process('Hello', 'WORLD') = {}",
-        process.transform("Hello".to_string(), "WORLD".to_string())
+        process.apply("Hello".to_string(), "WORLD".to_string())
     );
 
     // Example 11: Converting to function
@@ -109,7 +109,7 @@ fn main() {
     println!("\n12. Converting to box (zero-cost):");
     let add5 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let boxed = add5.into_box();
-    println!("   boxed(15, 25) = {}", boxed.transform(15, 25));
+    println!("   boxed(15, 25) = {}", boxed.apply(15, 25));
 
     println!("\n=== All examples completed successfully! ===");
 }
