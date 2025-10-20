@@ -1448,4 +1448,378 @@ mod test_custom_readonly_supplier_default_impl {
             assert_eq!(fn_mut(), 999);
         }
     }
+
+    #[test]
+    fn test_custom_supplier_to_box_default() {
+        // Test that the default implementation of to_box works
+        // correctly for custom Clone types
+        let supplier = CounterSupplier::new(100);
+        let boxed = supplier.to_box();
+
+        assert_eq!(boxed.get(), 100);
+        assert_eq!(boxed.get(), 100);
+    }
+
+    #[test]
+    fn test_custom_supplier_to_rc_default() {
+        // Test that the default implementation of to_rc works
+        // correctly for custom Clone types
+        let supplier = CounterSupplier::new(200);
+        let rc = supplier.to_rc();
+
+        assert_eq!(rc.get(), 200);
+        assert_eq!(rc.get(), 200);
+
+        // Verify that Rc can be cloned
+        let rc_clone = rc.clone();
+        assert_eq!(rc_clone.get(), 200);
+    }
+
+    #[test]
+    fn test_custom_supplier_to_arc_default() {
+        // Test that the default implementation of to_arc works
+        // correctly for custom Clone types
+        let supplier = CounterSupplier::new(300);
+        let arc = supplier.to_arc();
+
+        assert_eq!(arc.get(), 300);
+        assert_eq!(arc.get(), 300);
+
+        // Verify that Arc can be cloned
+        let arc_clone = arc.clone();
+        assert_eq!(arc_clone.get(), 300);
+    }
+
+    #[test]
+    fn test_custom_supplier_to_fn_default() {
+        // Test that the default implementation of to_fn works
+        // correctly for custom Clone types
+        let supplier = CounterSupplier::new(42);
+        let mut fn_mut = supplier.to_fn();
+
+        assert_eq!(fn_mut(), 42);
+        assert_eq!(fn_mut(), 42);
+        assert_eq!(fn_mut(), 42);
+    }
+
+    #[test]
+    fn test_custom_supplier_to_arc_thread_safety() {
+        // Test that the Arc variant created from custom supplier
+        // using to_arc is thread-safe
+        let supplier = CounterSupplier::new(999);
+        let arc = supplier.to_arc();
+
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let a = arc.clone();
+                thread::spawn(move || a.get())
+            })
+            .collect();
+
+        for h in handles {
+            assert_eq!(h.join().unwrap(), 999);
+        }
+    }
+
+    // Implement Clone for CounterSupplier to enable to_* methods
+    impl Clone for CounterSupplier {
+        fn clone(&self) -> Self {
+            Self { value: self.value }
+        }
+    }
+}
+
+// ======================================================================
+// Tests for to_* Methods
+// ======================================================================
+
+#[cfg(test)]
+mod test_to_methods {
+    use super::*;
+
+    // ============================================================
+    // Tests for ArcReadonlySupplier to_* methods
+    // ============================================================
+
+    mod test_arc_readonly_supplier_to_methods {
+        use super::*;
+
+        #[test]
+        fn test_arc_to_box() {
+            // Test ArcReadonlySupplier::to_box
+            let arc = ArcReadonlySupplier::new(|| 42);
+            let boxed = arc.to_box();
+
+            assert_eq!(boxed.get(), 42);
+            assert_eq!(boxed.get(), 42);
+
+            // Original arc is still usable
+            assert_eq!(arc.get(), 42);
+        }
+
+        #[test]
+        fn test_arc_to_rc() {
+            // Test ArcReadonlySupplier::to_rc
+            let arc = ArcReadonlySupplier::new(|| 100);
+            let rc = arc.to_rc();
+
+            assert_eq!(rc.get(), 100);
+            assert_eq!(rc.get(), 100);
+
+            // Original arc is still usable
+            assert_eq!(arc.get(), 100);
+        }
+
+        #[test]
+        fn test_arc_to_arc() {
+            // Test ArcReadonlySupplier::to_arc (optimized clone)
+            let arc1 = ArcReadonlySupplier::new(|| 200);
+            let arc2 = arc1.to_arc();
+
+            assert_eq!(arc1.get(), 200);
+            assert_eq!(arc2.get(), 200);
+
+            // Both are still usable
+            assert_eq!(arc1.get(), 200);
+            assert_eq!(arc2.get(), 200);
+        }
+
+        #[test]
+        fn test_arc_to_fn() {
+            // Test ArcReadonlySupplier::to_fn
+            let arc = ArcReadonlySupplier::new(|| 42);
+            let mut fn_mut = arc.to_fn();
+
+            assert_eq!(fn_mut(), 42);
+            assert_eq!(fn_mut(), 42);
+
+            // Original arc is still usable
+            assert_eq!(arc.get(), 42);
+        }
+
+        #[test]
+        fn test_arc_to_methods_with_string() {
+            // Test to_* methods with String type
+            let arc = ArcReadonlySupplier::new(|| {
+                String::from("Hello")
+            });
+
+            let boxed = arc.to_box();
+            assert_eq!(boxed.get(), "Hello");
+
+            let rc = arc.to_rc();
+            assert_eq!(rc.get(), "Hello");
+
+            let arc2 = arc.to_arc();
+            assert_eq!(arc2.get(), "Hello");
+
+            let mut fn_mut = arc.to_fn();
+            assert_eq!(fn_mut(), "Hello");
+
+            // Original arc is still usable
+            assert_eq!(arc.get(), "Hello");
+        }
+
+        #[test]
+        fn test_arc_to_arc_thread_safety() {
+            // Test that to_arc result is thread-safe
+            let arc1 = ArcReadonlySupplier::new(|| 999);
+            let arc2 = arc1.to_arc();
+
+            let handles: Vec<_> = (0..5)
+                .map(|_| {
+                    let a = arc2.clone();
+                    thread::spawn(move || a.get())
+                })
+                .collect();
+
+            for h in handles {
+                assert_eq!(h.join().unwrap(), 999);
+            }
+        }
+    }
+
+    // ============================================================
+    // Tests for RcReadonlySupplier to_* methods
+    // ============================================================
+
+    mod test_rc_readonly_supplier_to_methods {
+        use super::*;
+
+        #[test]
+        fn test_rc_to_box() {
+            // Test RcReadonlySupplier::to_box
+            let rc = RcReadonlySupplier::new(|| 42);
+            let boxed = rc.to_box();
+
+            assert_eq!(boxed.get(), 42);
+            assert_eq!(boxed.get(), 42);
+
+            // Original rc is still usable
+            assert_eq!(rc.get(), 42);
+        }
+
+        #[test]
+        fn test_rc_to_rc() {
+            // Test RcReadonlySupplier::to_rc (optimized clone)
+            let rc1 = RcReadonlySupplier::new(|| 100);
+            let rc2 = rc1.to_rc();
+
+            assert_eq!(rc1.get(), 100);
+            assert_eq!(rc2.get(), 100);
+
+            // Both are still usable
+            assert_eq!(rc1.get(), 100);
+            assert_eq!(rc2.get(), 100);
+        }
+
+        #[test]
+        fn test_rc_to_fn() {
+            // Test RcReadonlySupplier::to_fn
+            let rc = RcReadonlySupplier::new(|| 42);
+            let mut fn_mut = rc.to_fn();
+
+            assert_eq!(fn_mut(), 42);
+            assert_eq!(fn_mut(), 42);
+
+            // Original rc is still usable
+            assert_eq!(rc.get(), 42);
+        }
+
+        #[test]
+        fn test_rc_to_methods_with_string() {
+            // Test to_* methods with String type
+            let rc = RcReadonlySupplier::new(|| String::from("Hello"));
+
+            let boxed = rc.to_box();
+            assert_eq!(boxed.get(), "Hello");
+
+            let rc2 = rc.to_rc();
+            assert_eq!(rc2.get(), "Hello");
+
+            let mut fn_mut = rc.to_fn();
+            assert_eq!(fn_mut(), "Hello");
+
+            // Original rc is still usable
+            assert_eq!(rc.get(), "Hello");
+        }
+
+        // Note: to_arc is not implemented for RcReadonlySupplier
+        // because Rc is not Send + Sync. If you try to call it,
+        // the compiler will fail with a trait bound error.
+    }
+
+    // ============================================================
+    // Tests for Closure to_* methods
+    // ============================================================
+
+    mod test_closure_to_methods {
+        use super::*;
+
+        #[test]
+        fn test_closure_to_box() {
+            // Test closure to_box
+            let closure = || 42;
+            let boxed = closure.to_box();
+
+            assert_eq!(boxed.get(), 42);
+            assert_eq!(boxed.get(), 42);
+
+            // Original closure is still usable
+            assert_eq!(closure.get(), 42);
+        }
+
+        #[test]
+        fn test_closure_to_rc() {
+            // Test closure to_rc
+            let closure = || 100;
+            let rc = closure.to_rc();
+
+            assert_eq!(rc.get(), 100);
+            assert_eq!(rc.get(), 100);
+
+            // Original closure is still usable
+            assert_eq!(closure.get(), 100);
+        }
+
+        #[test]
+        fn test_closure_to_arc() {
+            // Test closure to_arc
+            let closure = || 200;
+            let arc = closure.to_arc();
+
+            assert_eq!(arc.get(), 200);
+            assert_eq!(arc.get(), 200);
+
+            // Original closure is still usable
+            assert_eq!(closure.get(), 200);
+        }
+
+        #[test]
+        fn test_closure_to_fn() {
+            // Test closure to_fn
+            let closure = || 42;
+            let mut fn_mut = closure.to_fn();
+
+            assert_eq!(fn_mut(), 42);
+            assert_eq!(fn_mut(), 42);
+
+            // Original closure is still usable
+            assert_eq!(closure.get(), 42);
+        }
+
+        #[test]
+        fn test_closure_to_methods_with_captured_value() {
+            // Test to_* methods with captured value
+            let value = 100;
+            let closure = move || value * 2;
+
+            let boxed = closure.to_box();
+            assert_eq!(boxed.get(), 200);
+
+            let rc = closure.to_rc();
+            assert_eq!(rc.get(), 200);
+
+            let arc = closure.to_arc();
+            assert_eq!(arc.get(), 200);
+
+            let mut fn_mut = closure.to_fn();
+            assert_eq!(fn_mut(), 200);
+
+            // Original closure is still usable
+            assert_eq!(closure.get(), 200);
+        }
+
+        #[test]
+        fn test_closure_to_arc_thread_safety() {
+            // Test that to_arc result is thread-safe
+            let closure = || 999;
+            let arc = closure.to_arc();
+
+            let handles: Vec<_> = (0..5)
+                .map(|_| {
+                    let a = arc.clone();
+                    thread::spawn(move || a.get())
+                })
+                .collect();
+
+            for h in handles {
+                assert_eq!(h.join().unwrap(), 999);
+            }
+        }
+    }
+
+    // ============================================================
+    // Note: BoxReadonlySupplier does not implement to_* methods
+    // ============================================================
+    //
+    // BoxReadonlySupplier cannot implement to_* methods because
+    // it does not implement Clone. Box provides unique ownership
+    // and cannot be cloned unless the inner type implements Clone,
+    // which dyn Fn() -> T does not.
+    //
+    // If you try to call to_box, to_rc, to_arc, or to_fn on
+    // BoxReadonlySupplier, the compiler will fail with an error
+    // indicating that BoxReadonlySupplier<T> does not implement
+    // Clone, which is required by the default implementations.
 }
