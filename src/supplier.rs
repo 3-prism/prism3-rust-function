@@ -121,6 +121,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::mapper::Mapper;
+
 // ==========================================================================
 // Supplier Trait
 // ==========================================================================
@@ -391,13 +393,19 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The mapper to apply to the output. Can be:
+    ///   - A closure: `|x: T| -> U`
+    ///   - A function pointer: `fn(T) -> U`
+    ///   - A `BoxMapper<T, U>`, `RcMapper<T, U>`, `ArcMapper<T, U>`
+    ///   - Any type implementing `Mapper<T, U>`
     ///
     /// # Returns
     ///
     /// A new mapped `BoxSupplier<U>`
     ///
     /// # Examples
+    ///
+    /// ## Using with closure
     ///
     /// ```rust
     /// use prism3_function::{BoxSupplier, Supplier};
@@ -407,12 +415,23 @@ where
     ///     .map(|x| x + 5);
     /// assert_eq!(mapped.get(), 25);
     /// ```
+    ///
+    /// ## Using with Mapper object
+    ///
+    /// ```rust
+    /// use prism3_function::{BoxSupplier, BoxMapper, Supplier, Mapper};
+    ///
+    /// let mapper = BoxMapper::new(|x: i32| x * 2);
+    /// let mut supplier = BoxSupplier::new(|| 10)
+    ///     .map(mapper);
+    /// assert_eq!(supplier.get(), 20);
+    /// ```
     pub fn map<U, F>(mut self, mut mapper: F) -> BoxSupplier<U>
     where
-        F: FnMut(T) -> U + 'static,
+        F: Mapper<T, U> + 'static,
         U: 'static,
     {
-        BoxSupplier::new(move || mapper(self.get()))
+        BoxSupplier::new(move || mapper.map(self.get()))
     }
 
     /// Filters output based on a predicate.
@@ -701,13 +720,19 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The mapper to apply to the output. Can be:
+    ///   - A closure: `|x: T| -> U` (must be `Send`)
+    ///   - A function pointer: `fn(T) -> U`
+    ///   - A `BoxMapper<T, U>`, `RcMapper<T, U>`, `ArcMapper<T, U>`
+    ///   - Any type implementing `Mapper<T, U> + Send`
     ///
     /// # Returns
     ///
     /// A new mapped `ArcSupplier<U>`
     ///
     /// # Examples
+    ///
+    /// ## Using with closure
     ///
     /// ```rust
     /// use prism3_function::{ArcSupplier, Supplier};
@@ -718,9 +743,20 @@ where
     /// let mut s = mapped;
     /// assert_eq!(s.get(), 20);
     /// ```
+    ///
+    /// ## Using with Mapper object
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcSupplier, ArcMapper, Supplier, Mapper};
+    ///
+    /// let mapper = ArcMapper::new(|x: i32| x * 2);
+    /// let source = ArcSupplier::new(|| 10);
+    /// let mut supplier = source.map(mapper);
+    /// assert_eq!(supplier.get(), 20);
+    /// ```
     pub fn map<U, F>(&self, mapper: F) -> ArcSupplier<U>
     where
-        F: FnMut(T) -> U + Send + 'static,
+        F: Mapper<T, U> + Send + 'static,
         U: Send + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -728,7 +764,7 @@ where
         ArcSupplier {
             function: Arc::new(Mutex::new(move || {
                 let value = self_fn.lock().unwrap()();
-                mapper.lock().unwrap()(value)
+                mapper.lock().unwrap().map(value)
             })),
         }
     }
@@ -1050,13 +1086,19 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The mapper to apply to the output. Can be:
+    ///   - A closure: `|x: T| -> U`
+    ///   - A function pointer: `fn(T) -> U`
+    ///   - A `BoxMapper<T, U>`, `RcMapper<T, U>`, `ArcMapper<T, U>`
+    ///   - Any type implementing `Mapper<T, U>`
     ///
     /// # Returns
     ///
     /// A new mapped `RcSupplier<U>`
     ///
     /// # Examples
+    ///
+    /// ## Using with closure
     ///
     /// ```rust
     /// use prism3_function::{RcSupplier, Supplier};
@@ -1067,9 +1109,20 @@ where
     /// let mut s = mapped;
     /// assert_eq!(s.get(), 20);
     /// ```
+    ///
+    /// ## Using with Mapper object
+    ///
+    /// ```rust
+    /// use prism3_function::{RcSupplier, RcMapper, Supplier, Mapper};
+    ///
+    /// let mapper = RcMapper::new(|x: i32| x * 2);
+    /// let source = RcSupplier::new(|| 10);
+    /// let mut supplier = source.map(mapper);
+    /// assert_eq!(supplier.get(), 20);
+    /// ```
     pub fn map<U, F>(&self, mapper: F) -> RcSupplier<U>
     where
-        F: FnMut(T) -> U + 'static,
+        F: Mapper<T, U> + 'static,
         U: 'static,
     {
         let self_fn = Rc::clone(&self.function);
@@ -1077,7 +1130,7 @@ where
         RcSupplier {
             function: Rc::new(RefCell::new(move || {
                 let value = self_fn.borrow_mut()();
-                mapper.borrow_mut()(value)
+                mapper.borrow_mut().map(value)
             })),
         }
     }

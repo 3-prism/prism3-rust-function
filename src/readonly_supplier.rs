@@ -122,6 +122,8 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::transformer::Transformer;
+
 // ======================================================================
 // ReadonlySupplier Trait
 // ======================================================================
@@ -399,7 +401,9 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The transformer to apply to the output. Can be a
+    ///   closure, function pointer, or any type implementing
+    ///   `Transformer<T, U>`.
     ///
     /// # Returns
     ///
@@ -415,12 +419,12 @@ where
     ///     .map(|x| x + 5);
     /// assert_eq!(mapped.get(), 25);
     /// ```
-    pub fn map<U, F>(self, mapper: F) -> BoxReadonlySupplier<U>
+    pub fn map<U, M>(self, mapper: M) -> BoxReadonlySupplier<U>
     where
-        F: Fn(T) -> U + 'static,
+        M: Transformer<T, U> + 'static,
         U: 'static,
     {
-        BoxReadonlySupplier::new(move || mapper(self.get()))
+        BoxReadonlySupplier::new(move || mapper.transform(self.get()))
     }
 
     /// Filters output based on a predicate.
@@ -662,7 +666,9 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The transformer to apply to the output. Can be a
+    ///   closure, function pointer, or any type implementing
+    ///   `Transformer<T, U>`.
     ///
     /// # Returns
     ///
@@ -678,9 +684,9 @@ where
     /// // source is still usable
     /// assert_eq!(mapped.get(), 20);
     /// ```
-    pub fn map<U, F>(&self, mapper: F) -> ArcReadonlySupplier<U>
+    pub fn map<U, M>(&self, mapper: M) -> ArcReadonlySupplier<U>
     where
-        F: Fn(T) -> U + Send + Sync + 'static,
+        M: Transformer<T, U> + Send + Sync + 'static,
         U: Send + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -688,7 +694,7 @@ where
         ArcReadonlySupplier {
             function: Arc::new(move || {
                 let value = self_fn();
-                mapper(value)
+                mapper.transform(value)
             }),
         }
     }
@@ -936,7 +942,9 @@ where
     ///
     /// # Parameters
     ///
-    /// * `mapper` - The function to apply to the output
+    /// * `mapper` - The transformer to apply to the output. Can be a
+    ///   closure, function pointer, or any type implementing
+    ///   `Transformer<T, U>`.
     ///
     /// # Returns
     ///
@@ -952,9 +960,9 @@ where
     /// // source is still usable
     /// assert_eq!(mapped.get(), 20);
     /// ```
-    pub fn map<U, F>(&self, mapper: F) -> RcReadonlySupplier<U>
+    pub fn map<U, M>(&self, mapper: M) -> RcReadonlySupplier<U>
     where
-        F: Fn(T) -> U + 'static,
+        M: Transformer<T, U> + 'static,
         U: 'static,
     {
         let self_fn = Rc::clone(&self.function);
@@ -962,7 +970,7 @@ where
         RcReadonlySupplier {
             function: Rc::new(move || {
                 let value = self_fn();
-                mapper(value)
+                mapper.transform(value)
             }),
         }
     }
