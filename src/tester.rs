@@ -255,7 +255,7 @@ pub trait Tester {
         Self: Sized + 'static,
     {
         BoxTester {
-            func: Box::new(move || self.test()),
+            function: Box::new(move || self.test()),
         }
     }
 
@@ -278,7 +278,7 @@ pub trait Tester {
         Self: Sized + 'static,
     {
         RcTester {
-            func: Rc::new(move || self.test()),
+            function: Rc::new(move || self.test()),
         }
     }
 
@@ -301,7 +301,7 @@ pub trait Tester {
         Self: Sized + Send + Sync + 'static,
     {
         ArcTester {
-            func: Arc::new(move || self.test()),
+            function: Arc::new(move || self.test()),
         }
     }
 
@@ -348,7 +348,7 @@ pub trait Tester {
     {
         let cloned = self.clone();
         BoxTester {
-            func: Box::new(move || cloned.test()),
+            function: Box::new(move || cloned.test()),
         }
     }
 
@@ -373,7 +373,7 @@ pub trait Tester {
     {
         let cloned = self.clone();
         RcTester {
-            func: Rc::new(move || cloned.test()),
+            function: Rc::new(move || cloned.test()),
         }
     }
 
@@ -398,7 +398,7 @@ pub trait Tester {
     {
         let cloned = self.clone();
         ArcTester {
-            func: Arc::new(move || cloned.test()),
+            function: Arc::new(move || cloned.test()),
         }
     }
 
@@ -484,7 +484,7 @@ pub trait Tester {
 ///
 /// Hu Haixing
 pub struct BoxTester {
-    func: Box<dyn Fn() -> bool>,
+    function: Box<dyn Fn() -> bool>,
 }
 
 impl BoxTester {
@@ -513,7 +513,7 @@ impl BoxTester {
     where
         F: Fn() -> bool + 'static,
     {
-        BoxTester { func: Box::new(f) }
+        BoxTester { function: Box::new(f) }
     }
 
     /// Combines this tester with another tester using logical AND
@@ -575,9 +575,9 @@ impl BoxTester {
     where
         T: Tester + 'static,
     {
-        let first = self.func;
-        let second = next;
-        BoxTester::new(move || first() && second.test())
+        let self_fn = self.function;
+        let next_tester = next;
+        BoxTester::new(move || self_fn() && next_tester.test())
     }
 
     /// Combines this tester with another tester using logical OR
@@ -644,9 +644,9 @@ impl BoxTester {
     where
         T: Tester + 'static,
     {
-        let first = self.func;
-        let second = next;
-        BoxTester::new(move || first() || second.test())
+        let self_fn = self.function;
+        let next_tester = next;
+        BoxTester::new(move || self_fn() || next_tester.test())
     }
 
     /// Negates the result of this tester
@@ -689,8 +689,8 @@ impl BoxTester {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn not(self) -> BoxTester {
-        let func = self.func;
-        BoxTester::new(move || !func())
+        let self_fn = self.function;
+        BoxTester::new(move || !self_fn())
     }
 
     /// Combines this tester with another tester using logical NAND
@@ -740,9 +740,9 @@ impl BoxTester {
     where
         T: Tester + 'static,
     {
-        let first = self.func;
-        let second = next;
-        BoxTester::new(move || !(first() && second.test()))
+        let self_fn = self.function;
+        let next_tester = next;
+        BoxTester::new(move || !(self_fn() && next_tester.test()))
     }
 
     /// Combines this tester with another tester using logical XOR
@@ -797,9 +797,9 @@ impl BoxTester {
     where
         T: Tester + 'static,
     {
-        let first = self.func;
-        let second = next;
-        BoxTester::new(move || first() ^ second.test())
+        let self_fn = self.function;
+        let next_tester = next;
+        BoxTester::new(move || self_fn() ^ next_tester.test())
     }
 
     /// Combines this tester with another tester using logical NOR
@@ -849,15 +849,15 @@ impl BoxTester {
     where
         T: Tester + 'static,
     {
-        let first = self.func;
-        let second = next;
-        BoxTester::new(move || !(first() || second.test()))
+        let self_fn = self.function;
+        let next_tester = next;
+        BoxTester::new(move || !(self_fn() || next_tester.test()))
     }
 }
 
 impl Tester for BoxTester {
     fn test(&self) -> bool {
-        (self.func)()
+        (self.function)()
     }
 
     fn into_box(self) -> BoxTester {
@@ -865,9 +865,9 @@ impl Tester for BoxTester {
     }
 
     fn into_rc(self) -> RcTester {
-        let func = self.func;
+        let func = self.function;
         RcTester {
-            func: Rc::new(func),
+            function: Rc::new(func),
         }
     }
 
@@ -877,7 +877,7 @@ impl Tester for BoxTester {
     // satisfied. The default Tester trait implementation will be used.
 
     fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        self.func
+        self.function
     }
 
     // Note: BoxTester does not implement Clone, so to_box(), to_rc(),
@@ -939,7 +939,7 @@ impl Tester for BoxTester {
 ///
 /// Hu Haixing
 pub struct ArcTester {
-    func: Arc<dyn Fn() -> bool + Send + Sync>,
+    function: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl ArcTester {
@@ -968,7 +968,7 @@ impl ArcTester {
     where
         F: Fn() -> bool + Send + Sync + 'static,
     {
-        ArcTester { func: Arc::new(f) }
+        ArcTester { function: Arc::new(f) }
     }
 
     /// Combines this tester with another tester using logical AND
@@ -1031,10 +1031,10 @@ impl ArcTester {
     /// assert!(!pool_ready.test());
     /// ```
     pub fn and(&self, next: &ArcTester) -> ArcTester {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let self_fn = Arc::clone(&self.function);
+        let next_fn = Arc::clone(&next.function);
         ArcTester {
-            func: Arc::new(move || first() && second()),
+            function: Arc::new(move || self_fn() && next_fn()),
         }
     }
 
@@ -1113,10 +1113,10 @@ impl ArcTester {
     /// assert!(!should_route_here.test());
     /// ```
     pub fn or(&self, next: &ArcTester) -> ArcTester {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let self_fn = Arc::clone(&self.function);
+        let next_fn = Arc::clone(&next.function);
         ArcTester {
-            func: Arc::new(move || first() || second()),
+            function: Arc::new(move || self_fn() || next_fn()),
         }
     }
 
@@ -1175,9 +1175,9 @@ impl ArcTester {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> ArcTester {
-        let func = Arc::clone(&self.func);
+        let func = Arc::clone(&self.function);
         ArcTester {
-            func: Arc::new(move || !func()),
+            function: Arc::new(move || !func()),
         }
     }
 
@@ -1229,10 +1229,10 @@ impl ArcTester {
     /// assert!(tester2.test());
     /// ```
     pub fn nand(&self, next: &ArcTester) -> ArcTester {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let self_fn = Arc::clone(&self.function);
+        let next_fn = Arc::clone(&next.function);
         ArcTester {
-            func: Arc::new(move || !(first() && second())),
+            function: Arc::new(move || !(self_fn() && next_fn())),
         }
     }
 
@@ -1289,10 +1289,10 @@ impl ArcTester {
     /// assert!(!tester2.test());
     /// ```
     pub fn xor(&self, next: &ArcTester) -> ArcTester {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let self_fn = Arc::clone(&self.function);
+        let next_fn = Arc::clone(&next.function);
         ArcTester {
-            func: Arc::new(move || first() ^ second()),
+            function: Arc::new(move || self_fn() ^ next_fn()),
         }
     }
 
@@ -1344,30 +1344,30 @@ impl ArcTester {
     /// assert!(!tester2.test());
     /// ```
     pub fn nor(&self, next: &ArcTester) -> ArcTester {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let self_fn = Arc::clone(&self.function);
+        let next_fn = Arc::clone(&next.function);
         ArcTester {
-            func: Arc::new(move || !(first() || second())),
+            function: Arc::new(move || !(self_fn() || next_fn())),
         }
     }
 }
 
 impl Tester for ArcTester {
     fn test(&self) -> bool {
-        (self.func)()
+        (self.function)()
     }
 
     fn into_box(self) -> BoxTester {
-        let func = self.func;
+        let func = self.function;
         BoxTester {
-            func: Box::new(move || func()),
+            function: Box::new(move || func()),
         }
     }
 
     fn into_rc(self) -> RcTester {
-        let func = self.func;
+        let func = self.function;
         RcTester {
-            func: Rc::new(move || func()),
+            function: Rc::new(move || func()),
         }
     }
 
@@ -1376,21 +1376,21 @@ impl Tester for ArcTester {
     }
 
     fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        let func = self.func;
+        let func = self.function;
         Box::new(move || func())
     }
 
     fn to_box(&self) -> BoxTester {
-        let func = Arc::clone(&self.func);
+        let func = Arc::clone(&self.function);
         BoxTester {
-            func: Box::new(move || func()),
+            function: Box::new(move || func()),
         }
     }
 
     fn to_rc(&self) -> RcTester {
-        let func = Arc::clone(&self.func);
+        let func = Arc::clone(&self.function);
         RcTester {
-            func: Rc::new(move || func()),
+            function: Rc::new(move || func()),
         }
     }
 
@@ -1399,7 +1399,7 @@ impl Tester for ArcTester {
     }
 
     fn to_fn(&self) -> Box<dyn Fn() -> bool> {
-        let func = Arc::clone(&self.func);
+        let func = Arc::clone(&self.function);
         Box::new(move || func())
     }
 }
@@ -1412,7 +1412,7 @@ impl Clone for ArcTester {
     /// logic.
     fn clone(&self) -> Self {
         Self {
-            func: Arc::clone(&self.func),
+            function: Arc::clone(&self.function),
         }
     }
 }
@@ -1460,7 +1460,7 @@ impl Clone for ArcTester {
 ///
 /// Hu Haixing
 pub struct RcTester {
-    func: Rc<dyn Fn() -> bool>,
+    function: Rc<dyn Fn() -> bool>,
 }
 
 impl RcTester {
@@ -1489,7 +1489,7 @@ impl RcTester {
     where
         F: Fn() -> bool + 'static,
     {
-        RcTester { func: Rc::new(f) }
+        RcTester { function: Rc::new(f) }
     }
 
     /// Combines this tester with another tester using logical AND
@@ -1516,10 +1516,10 @@ impl RcTester {
     /// // first and second are still available
     /// ```
     pub fn and(&self, next: &RcTester) -> RcTester {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let self_fn = Rc::clone(&self.function);
+        let next_fn = Rc::clone(&next.function);
         RcTester {
-            func: Rc::new(move || first() && second()),
+            function: Rc::new(move || self_fn() && next_fn()),
         }
     }
 
@@ -1547,10 +1547,10 @@ impl RcTester {
     /// // first and second are still available
     /// ```
     pub fn or(&self, next: &RcTester) -> RcTester {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let self_fn = Rc::clone(&self.function);
+        let next_fn = Rc::clone(&next.function);
         RcTester {
-            func: Rc::new(move || first() || second()),
+            function: Rc::new(move || self_fn() || next_fn()),
         }
     }
 
@@ -1575,9 +1575,9 @@ impl RcTester {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> RcTester {
-        let func = Rc::clone(&self.func);
+        let func = Rc::clone(&self.function);
         RcTester {
-            func: Rc::new(move || !func()),
+            function: Rc::new(move || !func()),
         }
     }
 
@@ -1611,10 +1611,10 @@ impl RcTester {
     /// assert!(second.test());
     /// ```
     pub fn nand(&self, next: &RcTester) -> RcTester {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let self_fn = Rc::clone(&self.function);
+        let next_fn = Rc::clone(&next.function);
         RcTester {
-            func: Rc::new(move || !(first() && second())),
+            function: Rc::new(move || !(self_fn() && next_fn())),
         }
     }
 
@@ -1648,10 +1648,10 @@ impl RcTester {
     /// assert!(!second.test());
     /// ```
     pub fn xor(&self, next: &RcTester) -> RcTester {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let self_fn = Rc::clone(&self.function);
+        let next_fn = Rc::clone(&next.function);
         RcTester {
-            func: Rc::new(move || first() ^ second()),
+            function: Rc::new(move || self_fn() ^ next_fn()),
         }
     }
 
@@ -1685,23 +1685,23 @@ impl RcTester {
     /// assert!(!second.test());
     /// ```
     pub fn nor(&self, next: &RcTester) -> RcTester {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
+        let self_fn = Rc::clone(&self.function);
+        let next_fn = Rc::clone(&next.function);
         RcTester {
-            func: Rc::new(move || !(first() || second())),
+            function: Rc::new(move || !(self_fn() || next_fn())),
         }
     }
 }
 
 impl Tester for RcTester {
     fn test(&self) -> bool {
-        (self.func)()
+        (self.function)()
     }
 
     fn into_box(self) -> BoxTester {
-        let func = self.func;
+        let func = self.function;
         BoxTester {
-            func: Box::new(move || func()),
+            function: Box::new(move || func()),
         }
     }
 
@@ -1715,14 +1715,14 @@ impl Tester for RcTester {
     // satisfied. The default Tester trait implementation will be used.
 
     fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        let func = self.func;
+        let func = self.function;
         Box::new(move || func())
     }
 
     fn to_box(&self) -> BoxTester {
-        let func = Rc::clone(&self.func);
+        let func = Rc::clone(&self.function);
         BoxTester {
-            func: Box::new(move || func()),
+            function: Box::new(move || func()),
         }
     }
 
@@ -1736,7 +1736,7 @@ impl Tester for RcTester {
     // default Tester trait implementation will be used.
 
     fn to_fn(&self) -> Box<dyn Fn() -> bool> {
-        let func = Rc::clone(&self.func);
+        let func = Rc::clone(&self.function);
         Box::new(move || func())
     }
 }
@@ -1749,7 +1749,7 @@ impl Clone for RcTester {
     /// logic.
     fn clone(&self) -> Self {
         Self {
-            func: Rc::clone(&self.func),
+            function: Rc::clone(&self.function),
         }
     }
 }
