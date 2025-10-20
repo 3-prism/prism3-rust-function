@@ -61,11 +61,24 @@ pub trait TransformerOnce<T, R> {
     /// # Returns
     ///
     /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::TransformerOnce;
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let boxed = double.into_box();
+    /// assert_eq!(boxed.transform(21), 42);
+    /// ```
     fn into_box(self) -> BoxTransformerOnce<T, R>
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        BoxTransformerOnce::new(move |input: T| self.transform(input))
+    }
 
     /// Converts transformer to a closure
     ///
@@ -75,11 +88,92 @@ pub trait TransformerOnce<T, R> {
     /// # Returns
     ///
     /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::TransformerOnce;
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let func = double.into_fn();
+    /// assert_eq!(func(21), 42);
+    /// ```
     fn into_fn(self) -> impl FnOnce(T) -> R
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        move |input: T| self.transform(input)
+    }
+
+    /// Converts to BoxTransformerOnce without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a new `BoxTransformerOnce` that
+    /// captures a clone. Types implementing `Clone` can override this method
+    /// to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::TransformerOnce;
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let boxed = double.to_box();
+    /// assert_eq!(boxed.transform(21), 42);
+    /// ```
+    fn to_box(&self) -> BoxTransformerOnce<T, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cloned = self.clone();
+        BoxTransformerOnce::new(move |input: T| cloned.transform(input))
+    }
+
+    /// Converts transformer to a closure without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a closure that captures a
+    /// clone of `self` and calls its `transform` method. Types can
+    /// override this method to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::TransformerOnce;
+    ///
+    /// let double = |x: i32| x * 2;
+    /// let func = double.to_fn();
+    /// assert_eq!(func(21), 42);
+    /// ```
+    fn to_fn(&self) -> impl FnOnce(T) -> R
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cloned = self.clone();
+        move |input: T| cloned.transform(input)
+    }
 }
 
 // ============================================================================
@@ -332,6 +426,7 @@ where
     pub fn constant(value: R) -> BoxTransformerOnce<T, R> {
         BoxTransformerOnce::new(move |_| value.clone())
     }
+
 }
 
 impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
@@ -353,8 +448,13 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
         T: 'static,
         R: 'static,
     {
-        move |t: T| self.transform(t)
+        // Zero-cost: directly return the inner function
+        self.function
     }
+
+    // do NOT override BoxTransformer::to_box() and BoxTransformer::to_fn()
+    // because BoxTransformer is not Clone and calling BoxTransformer::to_box()
+    // or BoxTransformer::to_fn() will cause a compile error
 }
 
 // ============================================================================
@@ -508,7 +608,8 @@ where
     where
         Self: Sized + 'static,
     {
-        move |input: T| -> R { self(input) }
+        // Zero-cost: directly return self since F is already FnOnce(T) -> R
+        self
     }
 }
 

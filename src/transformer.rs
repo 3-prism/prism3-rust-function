@@ -60,8 +60,14 @@ pub trait Transformer<T, R> {
 
     /// Converts to BoxTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: The original transformer becomes
+    /// unavailable after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in a `Box` and creates a
+    /// `BoxTransformer`. Types can override this method to provide more
+    /// efficient conversions.
     ///
     /// # Returns
     ///
@@ -70,12 +76,21 @@ pub trait Transformer<T, R> {
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        BoxTransformer::new(move |x| self.transform(x))
+    }
 
     /// Converts to RcTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: The original transformer becomes
+    /// unavailable after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in an `Rc` and creates an
+    /// `RcTransformer`. Types can override this method to provide more
+    /// efficient conversions.
     ///
     /// # Returns
     ///
@@ -84,12 +99,21 @@ pub trait Transformer<T, R> {
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        RcTransformer::new(move |x| self.transform(x))
+    }
 
     /// Converts to ArcTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: The original transformer becomes
+    /// unavailable after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in an `Arc` and creates
+    /// an `ArcTransformer`. Types can override this method to provide
+    /// more efficient conversions.
     ///
     /// # Returns
     ///
@@ -98,12 +122,21 @@ pub trait Transformer<T, R> {
     where
         Self: Sized + Send + Sync + 'static,
         T: Send + Sync + 'static,
-        R: Send + Sync + 'static;
+        R: Send + Sync + 'static,
+    {
+        ArcTransformer::new(move |x| self.transform(x))
+    }
 
     /// Converts transformer to a closure
     ///
-    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
-    /// after calling this method.
+    /// **⚠️ Consumes `self`**: The original transformer becomes
+    /// unavailable after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a closure that captures `self`
+    /// and calls its `transform` method. Types can override this method
+    /// to provide more efficient conversions.
     ///
     /// # Returns
     ///
@@ -112,7 +145,158 @@ pub trait Transformer<T, R> {
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        move |t: T| self.transform(t)
+    }
+
+    /// Converts to BoxTransformer without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a new `BoxTransformer` that
+    /// captures a reference-counted clone. Types implementing `Clone`
+    /// can override this method to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let boxed = double.to_box();
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(boxed.transform(21), 42);
+    /// ```
+    fn to_box(&self) -> BoxTransformer<T, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cloned = self.clone();
+        BoxTransformer::new(move |x| cloned.transform(x))
+    }
+
+    /// Converts to RcTransformer without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a new `RcTransformer` that
+    /// captures a reference-counted clone. Types implementing `Clone`
+    /// can override this method to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns `RcTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let rc = double.to_rc();
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(rc.transform(21), 42);
+    /// ```
+    fn to_rc(&self) -> RcTransformer<T, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cloned = self.clone();
+        RcTransformer::new(move |x| cloned.transform(x))
+    }
+
+    /// Converts to ArcTransformer without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a new `ArcTransformer` that
+    /// captures a reference-counted clone. Types implementing `Clone`
+    /// can override this method to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns `ArcTransformer<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let arc = double.to_arc();
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(arc.transform(21), 42);
+    /// ```
+    fn to_arc(&self) -> ArcTransformer<T, R>
+    where
+        Self: Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        let cloned = self.clone();
+        ArcTransformer::new(move |x| cloned.transform(x))
+    }
+
+    /// Converts transformer to a closure without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a closure that captures a
+    /// clone of `self` and calls its `transform` method. Types can
+    /// override this method to provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `Fn(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, Transformer};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let closure = double.to_fn();
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.transform(21), 42);
+    /// assert_eq!(closure(21), 42);
+    /// ```
+    fn to_fn(&self) -> impl Fn(T) -> R
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cloned = self.clone();
+        move |t: T| cloned.transform(t)
+    }
 }
 
 // ============================================================================
@@ -408,15 +592,16 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
         (self.function)(input)
     }
 
+    // Override with zero-cost implementation: directly return itself
     fn into_box(self) -> BoxTransformer<T, R>
     where
         T: 'static,
         R: 'static,
     {
-        // Zero-cost: directly return itself
         self
     }
 
+    // Override with optimized implementation: convert Box to Rc
     fn into_rc(self) -> RcTransformer<T, R>
     where
         T: 'static,
@@ -427,25 +612,37 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
         }
     }
 
-    fn into_arc(self) -> ArcTransformer<T, R>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        R: Send + Sync + 'static,
-    {
-        unreachable!(
-            "BoxTransformer<T, R> does not implement Send + Sync, so this \
-             method can never be called"
-        )
-    }
+    // do NOT override BoxTransformer::into_arc() because BoxTransformer is not Send + Sync
+    // and calling BoxTransformer::to_arc() will cause a compile error
 
+    // Override with optimized implementation: directly return the
+    // underlying function by unwrapping the Box
     fn into_fn(self) -> impl Fn(T) -> R
     where
         T: 'static,
         R: 'static,
     {
-        move |t: T| self.transform(t)
+        self.function
     }
+
+    // Note: BoxTransformer doesn't implement Clone, so the default to_xxx()
+    // implementations that require Clone cannot be used. We need to provide
+    // special implementations that create new transformers by wrapping the
+    // function reference.
+
+    // Override: BoxTransformer doesn't implement Clone, can't use default
+    // We create a new BoxTransformer that references self through a closure
+    // This requires T and R to be Clone-independent
+    // Users should prefer using RcTransformer if they need sharing
+
+    // Note: We intentionally don't override to_box(), to_rc(), to_arc(), to_fn()
+    // for BoxTransformer because:
+    // 1. BoxTransformer doesn't implement Clone
+    // 2. We can't share ownership of Box<dyn Fn> without cloning
+    // 3. Users should convert to RcTransformer or ArcTransformer first if they
+    //    need to create multiple references
+    // 4. The default implementations will fail to compile (as expected), which
+    //    guides users to the correct usage pattern
 }
 
 // ============================================================================
@@ -847,41 +1044,65 @@ impl<T, R> Transformer<T, R> for ArcTransformer<T, R> {
         (self.function)(input)
     }
 
-    fn into_box(self) -> BoxTransformer<T, R>
-    where
-        T: 'static,
-        R: 'static,
-    {
-        BoxTransformer {
-            function: Box::new(move |x| self.transform(x)),
-        }
-    }
+    // ArcTransformer::into_box() and ArcTransformer::into_rc() are implemented
+    // by the default implementation of Transformer::into_box() and Transformer::into_rc()
 
-    fn into_rc(self) -> RcTransformer<T, R>
-    where
-        T: 'static,
-        R: 'static,
-    {
-        RcTransformer {
-            function: Rc::new(move |x| self.transform(x)),
-        }
-    }
-
+    // Override with zero-cost implementation: directly return itself
     fn into_arc(self) -> ArcTransformer<T, R>
     where
         T: Send + Sync + 'static,
         R: Send + Sync + 'static,
     {
-        // Zero-cost: directly return itself
         self
     }
 
+    // Override with optimized implementation: wrap the Arc in a
+    // closure to avoid double indirection
     fn into_fn(self) -> impl Fn(T) -> R
     where
         T: 'static,
         R: 'static,
     {
-        move |t: T| self.transform(t)
+        move |t: T| (self.function)(t)
+    }
+
+    // Override with optimized implementation: clone the Arc (cheap)
+    fn to_box(&self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let arc_clone = self.function.clone();
+        BoxTransformer::new(move |x| arc_clone(x))
+    }
+
+    // Override with optimized implementation: clone the Arc (cheap)
+    fn to_rc(&self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let arc_clone = self.function.clone();
+        RcTransformer::new(move |x| arc_clone(x))
+    }
+
+    // Override with zero-cost implementation: clone itself
+    fn to_arc(&self) -> ArcTransformer<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        self.clone()
+    }
+
+    // Override with optimized implementation: clone the Arc (cheap)
+    fn to_fn(&self) -> impl Fn(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let arc_clone = self.function.clone();
+        move |t: T| arc_clone(t)
     }
 }
 
@@ -1305,43 +1526,61 @@ impl<T, R> Transformer<T, R> for RcTransformer<T, R> {
         (self.function)(input)
     }
 
-    fn into_box(self) -> BoxTransformer<T, R>
-    where
-        T: 'static,
-        R: 'static,
-    {
-        BoxTransformer {
-            function: Box::new(move |x| self.transform(x)),
-        }
-    }
+    // RcTransformer::into_box() is implemented by the default implementation
+    // of Transformer::into_box()
 
+    // Override with zero-cost implementation: directly return itself
     fn into_rc(self) -> RcTransformer<T, R>
     where
         T: 'static,
         R: 'static,
     {
-        // Zero-cost: directly return itself
         self
     }
 
-    fn into_arc(self) -> ArcTransformer<T, R>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        R: Send + Sync + 'static,
-    {
-        unreachable!(
-            "RcTransformer cannot be converted to ArcTransformer because Rc \
-             is not Send + Sync"
-        )
-    }
+    // do NOT override RcTransformer::into_arc() because RcTransformer is not Send + Sync
+    // and calling RcTransformer::into_arc() will cause a compile error
 
+    // Override with optimized implementation: wrap the Rc in a
+    // closure to avoid double indirection
     fn into_fn(self) -> impl Fn(T) -> R
     where
         T: 'static,
         R: 'static,
     {
-        move |t: T| self.transform(t)
+        move |t: T| (self.function)(t)
+    }
+
+    // Override with optimized implementation: clone the Rc (cheap)
+    fn to_box(&self) -> BoxTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let rc_clone = self.function.clone();
+        BoxTransformer::new(move |x| rc_clone(x))
+    }
+
+    // Override with zero-cost implementation: clone itself
+    fn to_rc(&self) -> RcTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        self.clone()
+    }
+
+    // do NOT override RcTransformer::to_arc() because RcTransformer is not Send + Sync
+    // and calling RcTransformer::to_arc() will cause a compile error
+
+    // Override with optimized implementation: clone the Rc (cheap)
+    fn to_fn(&self) -> impl Fn(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let rc_clone = self.function.clone();
+        move |t: T| rc_clone(t)
     }
 }
 
@@ -1494,6 +1733,7 @@ where
         self(input)
     }
 
+    // Override with optimized implementation: wrap in BoxTransformer
     fn into_box(self) -> BoxTransformer<T, R>
     where
         Self: Sized + 'static,
@@ -1501,6 +1741,7 @@ where
         BoxTransformer::new(self)
     }
 
+    // Override with optimized implementation: wrap in RcTransformer
     fn into_rc(self) -> RcTransformer<T, R>
     where
         Self: Sized + 'static,
@@ -1508,6 +1749,7 @@ where
         RcTransformer::new(self)
     }
 
+    // Override with optimized implementation: wrap in ArcTransformer
     fn into_arc(self) -> ArcTransformer<T, R>
     where
         Self: Sized + Send + Sync + 'static,
@@ -1517,12 +1759,19 @@ where
         ArcTransformer::new(self)
     }
 
+    // Override with zero-cost implementation: directly return the
+    // closure itself without any wrapper
     fn into_fn(self) -> impl Fn(T) -> R
     where
         Self: Sized + 'static,
     {
-        move |t: T| self(t)
+        self
     }
+
+    // do NOT override FnTransformer::to_box(),
+    // FnTransformer::to_rc(), FnTransformer::to_arc(), FnTransformer::to_fn()
+    // because FnTransformer is not Clone and calling FnTransformer::to_xxx()
+    // will cause a compile error
 }
 
 // ============================================================================
