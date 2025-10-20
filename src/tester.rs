@@ -85,7 +85,7 @@
 //! use prism3_function::{BoxTester, Tester};
 //! use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
 //!
-//! // 模拟微服务健康检查场景
+//! // Simulate microservice health check scenario
 //! let cpu_usage = Arc::new(AtomicUsize::new(0));
 //! let memory_usage = Arc::new(AtomicUsize::new(0));
 //! let is_healthy = Arc::new(AtomicBool::new(true));
@@ -98,7 +98,7 @@
 //! let health_clone = Arc::clone(&is_healthy);
 //! let ready_clone = Arc::clone(&is_ready);
 //!
-//! // 系统资源检查：CPU和内存都在安全范围内
+//! // System resource check: CPU and memory within safe limits
 //! let resources_ok = BoxTester::new(move || {
 //!     cpu_clone.load(Ordering::Relaxed) < max_cpu
 //! })
@@ -106,7 +106,7 @@
 //!     memory_clone.load(Ordering::Relaxed) < max_memory
 //! });
 //!
-//! // 服务状态检查：健康或就绪
+//! // Service status check: healthy or ready
 //! let service_ok = BoxTester::new(move || {
 //!     health_clone.load(Ordering::Relaxed)
 //! })
@@ -114,28 +114,28 @@
 //!     ready_clone.load(Ordering::Relaxed)
 //! });
 //!
-//! // 组合条件：资源正常且服务可用
+//! // Combined condition: resources normal and service available
 //! let can_accept_traffic = resources_ok.and(service_ok);
 //!
-//! // 测试不同状态组合
-//! // 初始状态：资源正常且服务健康
+//! // Test different state combinations
+//! // Initial state: resources normal and service healthy
 //! cpu_usage.store(50, Ordering::Relaxed);
 //! memory_usage.store(60, Ordering::Relaxed);
-//! assert!(can_accept_traffic.test()); // 资源正常且服务健康
+//! assert!(can_accept_traffic.test()); // resources normal and service healthy
 //!
-//! // 服务不健康但就绪
+//! // Service unhealthy but ready
 //! is_healthy.store(false, Ordering::Relaxed);
 //! is_ready.store(true, Ordering::Relaxed);
-//! assert!(can_accept_traffic.test()); // 资源正常且服务就绪
+//! assert!(can_accept_traffic.test()); // resources normal and service ready
 //!
-//! // CPU使用率过高
+//! // CPU usage too high
 //! cpu_usage.store(95, Ordering::Relaxed);
-//! assert!(!can_accept_traffic.test()); // 资源超限
+//! assert!(!can_accept_traffic.test()); // resources exceeded
 //!
-//! // 服务不健康但就绪
+//! // Service unhealthy but ready
 //! is_healthy.store(false, Ordering::Relaxed);
 //! cpu_usage.store(50, Ordering::Relaxed);
-//! assert!(can_accept_traffic.test()); // 仍然就绪
+//! assert!(can_accept_traffic.test()); // still ready
 //! ```
 //!
 //! ## Thread-Safe Sharing
@@ -304,6 +304,127 @@ pub trait Tester {
             func: Arc::new(move || self.test()),
         }
     }
+
+    /// Converts this tester to a boxed function pointer
+    ///
+    /// # Return Value
+    ///
+    /// A `Box<dyn Fn() -> bool>` that wraps this tester
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::Tester;
+    ///
+    /// let closure = || true;
+    /// let func: Box<dyn Fn() -> bool> = closure.into_fn();
+    /// assert!(func());
+    /// ```
+    fn into_fn(self) -> Box<dyn Fn() -> bool>
+    where
+        Self: Sized + 'static,
+    {
+        Box::new(move || self.test())
+    }
+
+    /// Clones and converts this tester to `BoxTester`
+    ///
+    /// # Return Value
+    ///
+    /// A `BoxTester` that wraps a clone of this tester
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Tester, BoxTester, ArcTester};
+    ///
+    /// let arc = ArcTester::new(|| true);
+    /// let boxed: BoxTester = arc.to_box();
+    /// // arc is still available
+    /// ```
+    fn to_box(&self) -> BoxTester
+    where
+        Self: Clone + 'static,
+    {
+        let cloned = self.clone();
+        BoxTester {
+            func: Box::new(move || cloned.test()),
+        }
+    }
+
+    /// Clones and converts this tester to `RcTester`
+    ///
+    /// # Return Value
+    ///
+    /// A `RcTester` that wraps a clone of this tester
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Tester, RcTester, ArcTester};
+    ///
+    /// let arc = ArcTester::new(|| true);
+    /// let rc: RcTester = arc.to_rc();
+    /// // arc is still available
+    /// ```
+    fn to_rc(&self) -> RcTester
+    where
+        Self: Clone + 'static,
+    {
+        let cloned = self.clone();
+        RcTester {
+            func: Rc::new(move || cloned.test()),
+        }
+    }
+
+    /// Clones and converts this tester to `ArcTester`
+    ///
+    /// # Return Value
+    ///
+    /// An `ArcTester` that wraps a clone of this tester
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Tester, ArcTester, RcTester};
+    ///
+    /// let rc = RcTester::new(|| true);
+    /// // Note: This will panic for RcTester as it's not Send + Sync
+    /// // let arc: ArcTester = rc.to_arc();
+    /// ```
+    fn to_arc(&self) -> ArcTester
+    where
+        Self: Clone + Send + Sync + 'static,
+    {
+        let cloned = self.clone();
+        ArcTester {
+            func: Arc::new(move || cloned.test()),
+        }
+    }
+
+    /// Clones and converts this tester to a boxed function pointer
+    ///
+    /// # Return Value
+    ///
+    /// A `Box<dyn Fn() -> bool>` that wraps a clone of this tester
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Tester, ArcTester};
+    ///
+    /// let arc = ArcTester::new(|| true);
+    /// let func: Box<dyn Fn() -> bool> = arc.to_fn();
+    /// // arc is still available
+    /// assert!(func());
+    /// ```
+    fn to_fn(&self) -> Box<dyn Fn() -> bool>
+    where
+        Self: Clone + 'static,
+    {
+        let cloned = self.clone();
+        Box::new(move || cloned.test())
+    }
 }
 
 // ============================================================================
@@ -419,7 +540,7 @@ impl BoxTester {
     /// use prism3_function::{BoxTester, Tester};
     /// use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
     ///
-    /// // 模拟服务状态
+    /// // Simulate service status
     /// let request_count = Arc::new(AtomicUsize::new(0));
     /// let is_available = Arc::new(AtomicBool::new(true));
     /// let max_requests = 1000;
@@ -427,7 +548,7 @@ impl BoxTester {
     /// let count_clone = Arc::clone(&request_count);
     /// let available_clone = Arc::clone(&is_available);
     ///
-    /// // 服务可用且请求数未超限
+    /// // Service available and request count not exceeded
     /// let service_ok = BoxTester::new(move || {
     ///     available_clone.load(Ordering::Relaxed)
     /// })
@@ -435,18 +556,18 @@ impl BoxTester {
     ///     count_clone.load(Ordering::Relaxed) < max_requests
     /// });
     ///
-    /// // 初始状态：可用且请求数为0
+    /// // Initial state: available and request count 0
     /// assert!(service_ok.test());
     ///
-    /// // 模拟请求增加
+    /// // Simulate request increase
     /// request_count.store(500, Ordering::Relaxed);
     /// assert!(service_ok.test());
     ///
-    /// // 请求数超限
+    /// // Request count exceeded
     /// request_count.store(1500, Ordering::Relaxed);
     /// assert!(!service_ok.test());
     ///
-    /// // 服务不可用
+    /// // Service unavailable
     /// is_available.store(false, Ordering::Relaxed);
     /// assert!(!service_ok.test());
     /// ```
@@ -483,7 +604,7 @@ impl BoxTester {
     /// use prism3_function::{BoxTester, Tester};
     /// use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
     ///
-    /// // 模拟服务状态
+    /// // Simulate service status
     /// let request_count = Arc::new(AtomicUsize::new(0));
     /// let is_healthy = Arc::new(AtomicBool::new(true));
     /// let max_requests = 100;
@@ -491,7 +612,7 @@ impl BoxTester {
     /// let count_clone = Arc::clone(&request_count);
     /// let health_clone = Arc::clone(&is_healthy);
     ///
-    /// // 服务健康或请求数较少
+    /// // Service healthy or low request count
     /// let can_serve = BoxTester::new(move || {
     ///     health_clone.load(Ordering::Relaxed)
     /// })
@@ -499,23 +620,23 @@ impl BoxTester {
     ///     count_clone.load(Ordering::Relaxed) < max_requests
     /// });
     ///
-    /// // 初始状态：健康且请求数为0
+    /// // Initial state: healthy and request count 0
     /// assert!(can_serve.test());
     ///
-    /// // 请求数增加但仍在限制内
+    /// // Request count increased but within limit
     /// request_count.store(50, Ordering::Relaxed);
     /// assert!(can_serve.test());
     ///
-    /// // 请求数超限但服务健康
+    /// // Request count exceeded but service healthy
     /// request_count.store(150, Ordering::Relaxed);
-    /// assert!(can_serve.test()); // 仍然健康
+    /// assert!(can_serve.test()); // still healthy
     ///
-    /// // 服务不健康但请求数少
+    /// // Service unhealthy but low request count
     /// is_healthy.store(false, Ordering::Relaxed);
     /// request_count.store(50, Ordering::Relaxed);
-    /// assert!(can_serve.test()); // 请求数少
+    /// assert!(can_serve.test()); // low request count
     ///
-    /// // 既不健康又请求数多
+    /// // Unhealthy and high request count
     /// request_count.store(150, Ordering::Relaxed);
     /// assert!(!can_serve.test());
     /// ```
@@ -543,26 +664,26 @@ impl BoxTester {
     /// use prism3_function::{BoxTester, Tester};
     /// use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
     ///
-    /// // 模拟资源使用情况
+    /// // Simulate resource usage
     /// let memory_usage = Arc::new(AtomicUsize::new(0));
     /// let max_memory = 1024; // MB
     ///
     /// let memory_clone = Arc::clone(&memory_usage);
     ///
-    /// // 内存使用是否超限
+    /// // Memory usage not exceeded
     /// let memory_ok = BoxTester::new(move || {
     ///     memory_clone.load(Ordering::Relaxed) <= max_memory
     /// });
     ///
-    /// // 初始状态：内存使用正常
+    /// // Initial state: normal memory usage
     /// memory_usage.store(512, Ordering::Relaxed);
     /// assert!(memory_ok.test());
     ///
-    /// // 内存使用是否超限（取反）
+    /// // Memory usage exceeded (negated)
     /// let memory_critical = memory_ok.not();
     /// assert!(!memory_critical.test());
     ///
-    /// // 内存使用超限
+    /// // Memory usage exceeded
     /// memory_usage.store(2048, Ordering::Relaxed);
     /// assert!(memory_critical.test());
     /// ```
@@ -608,10 +729,10 @@ impl BoxTester {
     ///     flag2_clone.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 两个都为 true 时返回 false
+    /// // Both true returns false
     /// assert!(!nand.test());
     ///
-    /// // 至少一个为 false 时返回 true
+    /// // At least one false returns true
     /// flag1.store(false, Ordering::Relaxed);
     /// assert!(nand.test());
     /// ```
@@ -660,14 +781,14 @@ impl BoxTester {
     ///     flag2_clone1.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 一个 true 一个 false 时返回 true
+    /// // One true one false returns true
     /// assert!(xor.test());
     ///
-    /// // 两个都为 true 时返回 false
+    /// // Both true returns false
     /// flag2.store(true, Ordering::Relaxed);
     /// assert!(!xor.test());
     ///
-    /// // 两个都为 false 时返回 false
+    /// // Both false returns false
     /// flag1.store(false, Ordering::Relaxed);
     /// flag2.store(false, Ordering::Relaxed);
     /// assert!(!xor.test());
@@ -717,10 +838,10 @@ impl BoxTester {
     ///     flag2_clone.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 两个都为 false 时返回 true
+    /// // Both false returns true
     /// assert!(nor.test());
     ///
-    /// // 至少一个为 true 时返回 false
+    /// // At least one true returns false
     /// flag1.store(true, Ordering::Relaxed);
     /// assert!(!nor.test());
     /// ```
@@ -750,15 +871,20 @@ impl Tester for BoxTester {
         }
     }
 
-    fn into_arc(self) -> ArcTester {
-        // Note: This conversion is impossible because Box<dyn Fn() ->
-        // bool> may not implement Send + Sync. Users should create
-        // ArcTester directly.
-        panic!(
-            "Cannot convert BoxTester to ArcTester. Create ArcTester \
-                directly with ArcTester::new()"
-        )
+    // Note: BoxTester does not implement Send + Sync, so into_arc()
+    // cannot be implemented. Calling into_arc() on BoxTester will result
+    // in a compile error due to the Send + Sync trait bounds not being
+    // satisfied. The default Tester trait implementation will be used.
+
+    fn into_fn(self) -> Box<dyn Fn() -> bool> {
+        self.func
     }
+
+    // Note: BoxTester does not implement Clone, so to_box(), to_rc(),
+    // to_arc(), and to_fn() cannot be implemented. Calling these methods
+    // on BoxTester will result in a compile error due to the Clone trait
+    // bound not being satisfied. The default Tester trait implementations
+    // will be used.
 }
 
 // ============================================================================
@@ -865,7 +991,7 @@ impl ArcTester {
     /// use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
     /// use std::thread;
     ///
-    /// // 模拟数据库连接池状态
+    /// // Simulate database connection pool status
     /// let active_connections = Arc::new(AtomicUsize::new(0));
     /// let is_pool_healthy = Arc::new(AtomicBool::new(true));
     /// let max_connections = 50;
@@ -873,34 +999,34 @@ impl ArcTester {
     /// let conn_clone = Arc::clone(&active_connections);
     /// let health_clone = Arc::clone(&is_pool_healthy);
     ///
-    /// // 连接池健康检查
+    /// // Connection pool health check
     /// let pool_healthy = ArcTester::new(move || {
     ///     health_clone.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 连接数检查
+    /// // Connection count check
     /// let conn_ok = ArcTester::new(move || {
     ///     conn_clone.load(Ordering::Relaxed) < max_connections
     /// });
     ///
-    /// // 组合检查：连接池健康且连接数未超限
+    /// // Combined check: pool healthy and connection count not exceeded
     /// let pool_ready = pool_healthy.and(&conn_ok);
     ///
-    /// // 多线程测试
+    /// // Multi-threaded test
     /// let pool_ready_clone = pool_ready.clone();
     /// let handle = thread::spawn(move || {
     ///     pool_ready_clone.test()
     /// });
     ///
-    /// // 初始状态应该通过
+    /// // Initial state should pass
     /// assert!(handle.join().unwrap());
     /// assert!(pool_ready.test());
     ///
-    /// // 连接数超限
+    /// // Connection count exceeded
     /// active_connections.store(60, Ordering::Relaxed);
     /// assert!(!pool_ready.test());
     ///
-    /// // 连接池不健康
+    /// // Connection pool unhealthy
     /// is_pool_healthy.store(false, Ordering::Relaxed);
     /// assert!(!pool_ready.test());
     /// ```
@@ -932,7 +1058,7 @@ impl ArcTester {
     /// use std::sync::{Arc, atomic::{AtomicUsize, AtomicBool, Ordering}};
     /// use std::thread;
     ///
-    /// // 模拟负载均衡器状态
+    /// // Simulate load balancer status
     /// let server_load = Arc::new(AtomicUsize::new(0));
     /// let is_server_healthy = Arc::new(AtomicBool::new(true));
     /// let max_load = 80;
@@ -942,47 +1068,47 @@ impl ArcTester {
     /// let health_clone = Arc::clone(&is_server_healthy);
     /// let emergency_clone = Arc::clone(&emergency_mode);
     ///
-    /// // 服务器负载低
+    /// // Server low load
     /// let low_load = ArcTester::new(move || {
     ///     load_clone.load(Ordering::Relaxed) < max_load
     /// });
     ///
-    /// // 紧急模式检查
+    /// // Emergency mode check
     /// let emergency_check = ArcTester::new(move || {
     ///     emergency_clone.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 服务器健康检查
+    /// // Server health check
     /// let server_healthy = ArcTester::new(move || {
     ///     health_clone.load(Ordering::Relaxed)
     /// });
     ///
-    /// // 紧急模式或服务器健康
+    /// // Emergency mode or server healthy
     /// let can_handle_requests = emergency_check.or(&server_healthy);
     ///
-    /// // 组合条件：负载低或可以处理请求
+    /// // Combined condition: low load or can handle requests
     /// let should_route_here = low_load.or(&can_handle_requests);
     ///
-    /// // 多线程测试
+    /// // Multi-threaded test
     /// let router_clone = should_route_here.clone();
     /// let handle = thread::spawn(move || {
     ///     router_clone.test()
     /// });
     ///
-    /// // 初始状态：负载低且健康
+    /// // Initial state: low load and healthy
     /// assert!(handle.join().unwrap());
     /// assert!(should_route_here.test());
     ///
-    /// // 负载高但服务器健康
+    /// // High load but server healthy
     /// server_load.store(90, Ordering::Relaxed);
-    /// assert!(should_route_here.test()); // 仍然健康
+    /// assert!(should_route_here.test()); // still healthy
     ///
-    /// // 服务器不健康但紧急模式
+    /// // Server unhealthy but emergency mode
     /// is_server_healthy.store(false, Ordering::Relaxed);
     /// emergency_mode.store(true, Ordering::Relaxed);
-    /// assert!(should_route_here.test()); // 紧急模式
+    /// assert!(should_route_here.test()); // emergency mode
     ///
-    /// // 既不健康又非紧急模式
+    /// // Unhealthy and not emergency mode
     /// emergency_mode.store(false, Ordering::Relaxed);
     /// assert!(!should_route_here.test());
     /// ```
@@ -1011,38 +1137,38 @@ impl ArcTester {
     /// use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
     /// use std::thread;
     ///
-    /// // 模拟任务队列状态
+    /// // Simulate task queue status
     /// let pending_tasks = Arc::new(AtomicUsize::new(0));
     /// let max_queue_size = 100;
     ///
     /// let tasks_clone = Arc::clone(&pending_tasks);
     ///
-    /// // 队列未满
+    /// // Queue not full
     /// let queue_available = ArcTester::new(move || {
     ///     tasks_clone.load(Ordering::Relaxed) < max_queue_size
     /// });
     ///
-    /// // 队列已满（取反）
+    /// // Queue full (negated)
     /// let queue_full = queue_available.not();
     ///
-    /// // 多线程测试
+    /// // Multi-threaded test
     /// let queue_full_clone = queue_full.clone();
     /// let handle = thread::spawn(move || {
     ///     queue_full_clone.test()
     /// });
     ///
-    /// // 初始状态：队列未满
+    /// // Initial state: queue not full
     /// pending_tasks.store(50, Ordering::Relaxed);
     /// assert!(queue_available.test());
     /// assert!(!handle.join().unwrap());
     /// assert!(!queue_full.test());
     ///
-    /// // 队列接近满载
+    /// // Queue near full
     /// pending_tasks.store(95, Ordering::Relaxed);
     /// assert!(queue_available.test());
     /// assert!(!queue_full.test());
     ///
-    /// // 队列已满
+    /// // Queue full
     /// pending_tasks.store(120, Ordering::Relaxed);
     /// assert!(!queue_available.test());
     /// assert!(queue_full.test());
@@ -1091,14 +1217,14 @@ impl ArcTester {
     ///
     /// let nand = tester1.nand(&tester2);
     ///
-    /// // 两个都为 true 时返回 false
+    /// // Both true returns false
     /// assert!(!nand.test());
     ///
-    /// // 至少一个为 false 时返回 true
+    /// // At least one false returns true
     /// flag1.store(false, Ordering::Relaxed);
     /// assert!(nand.test());
     ///
-    /// // 原始 tester 仍然可用
+    /// // Original tester still available
     /// assert!(!tester1.test());
     /// assert!(tester2.test());
     /// ```
@@ -1146,19 +1272,19 @@ impl ArcTester {
     ///
     /// let xor = tester1.xor(&tester2);
     ///
-    /// // 一个 true 一个 false 时返回 true
+    /// // One true one false returns true
     /// assert!(xor.test());
     ///
-    /// // 两个都为 true 时返回 false
+    /// // Both true returns false
     /// flag2.store(true, Ordering::Relaxed);
     /// assert!(!xor.test());
     ///
-    /// // 两个都为 false 时返回 false
+    /// // Both false returns false
     /// flag1.store(false, Ordering::Relaxed);
     /// flag2.store(false, Ordering::Relaxed);
     /// assert!(!xor.test());
     ///
-    /// // 原始 tester 仍然可用
+    /// // Original tester still available
     /// assert!(!tester1.test());
     /// assert!(!tester2.test());
     /// ```
@@ -1206,14 +1332,14 @@ impl ArcTester {
     ///
     /// let nor = tester1.nor(&tester2);
     ///
-    /// // 两个都为 false 时返回 true
+    /// // Both false returns true
     /// assert!(nor.test());
     ///
-    /// // 至少一个为 true 时返回 false
+    /// // At least one true returns false
     /// flag1.store(true, Ordering::Relaxed);
     /// assert!(!nor.test());
     ///
-    /// // 原始 tester 仍然可用
+    /// // Original tester still available
     /// assert!(tester1.test());
     /// assert!(!tester2.test());
     /// ```
@@ -1247,6 +1373,34 @@ impl Tester for ArcTester {
 
     fn into_arc(self) -> ArcTester {
         self
+    }
+
+    fn into_fn(self) -> Box<dyn Fn() -> bool> {
+        let func = self.func;
+        Box::new(move || func())
+    }
+
+    fn to_box(&self) -> BoxTester {
+        let func = Arc::clone(&self.func);
+        BoxTester {
+            func: Box::new(move || func()),
+        }
+    }
+
+    fn to_rc(&self) -> RcTester {
+        let func = Arc::clone(&self.func);
+        RcTester {
+            func: Rc::new(move || func()),
+        }
+    }
+
+    fn to_arc(&self) -> ArcTester {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> Box<dyn Fn() -> bool> {
+        let func = Arc::clone(&self.func);
+        Box::new(move || func())
     }
 }
 
@@ -1449,10 +1603,10 @@ impl RcTester {
     /// let second = RcTester::new(|| true);
     /// let nand = first.nand(&second);
     ///
-    /// // 两个都为 true 时返回 false
+    /// // Both true returns false
     /// assert!(!nand.test());
     ///
-    /// // first 和 second 仍然可用
+    /// // first and second still available
     /// assert!(first.test());
     /// assert!(second.test());
     /// ```
@@ -1486,10 +1640,10 @@ impl RcTester {
     /// let second = RcTester::new(|| false);
     /// let xor = first.xor(&second);
     ///
-    /// // 一个 true 一个 false 时返回 true
+    /// // One true one false returns true
     /// assert!(xor.test());
     ///
-    /// // first 和 second 仍然可用
+    /// // first and second still available
     /// assert!(first.test());
     /// assert!(!second.test());
     /// ```
@@ -1523,10 +1677,10 @@ impl RcTester {
     /// let second = RcTester::new(|| false);
     /// let nor = first.nor(&second);
     ///
-    /// // 两个都为 false 时返回 true
+    /// // Both false returns true
     /// assert!(nor.test());
     ///
-    /// // first 和 second 仍然可用
+    /// // first and second still available
     /// assert!(!first.test());
     /// assert!(!second.test());
     /// ```
@@ -1555,13 +1709,35 @@ impl Tester for RcTester {
         self
     }
 
-    fn into_arc(self) -> ArcTester {
-        // Note: RcTester is not Send, so this conversion is impossible.
-        // Users should create ArcTester directly.
-        panic!(
-            "Cannot convert RcTester to ArcTester. Create ArcTester \
-                directly with ArcTester::new()"
-        )
+    // Note: RcTester is not Send + Sync, so into_arc() cannot be
+    // implemented. Calling into_arc() on RcTester will result in a
+    // compile error due to the Send + Sync trait bounds not being
+    // satisfied. The default Tester trait implementation will be used.
+
+    fn into_fn(self) -> Box<dyn Fn() -> bool> {
+        let func = self.func;
+        Box::new(move || func())
+    }
+
+    fn to_box(&self) -> BoxTester {
+        let func = Rc::clone(&self.func);
+        BoxTester {
+            func: Box::new(move || func()),
+        }
+    }
+
+    fn to_rc(&self) -> RcTester {
+        self.clone()
+    }
+
+    // Note: RcTester is not Send + Sync, so to_arc() cannot be
+    // implemented. Calling to_arc() on RcTester will result in a compile
+    // error due to the Send + Sync trait bounds not being satisfied. The
+    // default Tester trait implementation will be used.
+
+    fn to_fn(&self) -> Box<dyn Fn() -> bool> {
+        let func = Rc::clone(&self.func);
+        Box::new(move || func())
     }
 }
 
@@ -1610,6 +1786,19 @@ where
     {
         ArcTester::new(self)
     }
+
+    fn into_fn(self) -> Box<dyn Fn() -> bool>
+    where
+        Self: Sized + 'static,
+    {
+        Box::new(self)
+    }
+
+    // Note: Closures generally do not implement Clone unless they are
+    // empty or only capture Copy types. Therefore, to_box(), to_rc(),
+    // to_arc(), and to_fn() will use the default trait implementation,
+    // which will result in a compile error for most closures due to the
+    // Clone trait bound not being satisfied.
 }
 
 // ============================================================================
