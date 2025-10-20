@@ -252,3 +252,94 @@ mod test_box_supplier_once {
         }
     }
 }
+
+// ==========================================================================
+// Test Custom Type with Default into_box_once Implementation
+// ==========================================================================
+
+#[cfg(test)]
+mod test_custom_supplier_once_default_implementation {
+    use super::*;
+
+    // A custom type that implements SupplierOnce by only providing
+    // the core get() method. The into_box_once() method will use
+    // the default implementation from the trait.
+    struct CustomSupplierOnce<T> {
+        value: Option<T>,
+    }
+
+    impl<T> CustomSupplierOnce<T> {
+        fn new(value: T) -> Self {
+            CustomSupplierOnce { value: Some(value) }
+        }
+    }
+
+    impl<T> SupplierOnce<T> for CustomSupplierOnce<T> {
+        fn get(mut self) -> T {
+            self.value
+                .take()
+                .expect("CustomSupplierOnce already consumed")
+        }
+        // Note: into_box_once() is NOT implemented here, so the
+        // default implementation from the trait will be used
+    }
+
+    #[test]
+    fn test_custom_type_get_method() {
+        let custom = CustomSupplierOnce::new(42);
+        assert_eq!(custom.get(), 42);
+    }
+
+    #[test]
+    fn test_custom_type_into_box_once_default_impl() {
+        let custom = CustomSupplierOnce::new(42);
+        let boxed = custom.into_box_once();
+        assert_eq!(boxed.get(), 42);
+    }
+
+    #[test]
+    fn test_custom_type_with_string() {
+        let custom = CustomSupplierOnce::new(String::from("hello"));
+        let boxed = custom.into_box_once();
+        assert_eq!(boxed.get(), "hello");
+    }
+
+    #[test]
+    fn test_custom_type_with_vec() {
+        let custom = CustomSupplierOnce::new(vec![1, 2, 3]);
+        let boxed = custom.into_box_once();
+        assert_eq!(boxed.get(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_custom_type_with_complex_type() {
+        struct Data {
+            id: i32,
+            name: String,
+        }
+
+        let data = Data {
+            id: 1,
+            name: String::from("test"),
+        };
+        let custom = CustomSupplierOnce::new(data);
+        let boxed = custom.into_box_once();
+        let result = boxed.get();
+        assert_eq!(result.id, 1);
+        assert_eq!(result.name, "test");
+    }
+
+    #[test]
+    fn test_custom_type_with_option() {
+        let custom = CustomSupplierOnce::new(Some(42));
+        let boxed = custom.into_box_once();
+        assert_eq!(boxed.get(), Some(42));
+    }
+
+    #[test]
+    fn test_custom_type_with_result() {
+        let custom = CustomSupplierOnce::new(Ok::<i32, String>(42));
+        let boxed = custom.into_box_once();
+        assert_eq!(boxed.get(), Ok(42));
+    }
+}

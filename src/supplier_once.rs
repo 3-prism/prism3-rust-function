@@ -167,7 +167,10 @@ pub trait SupplierOnce<T> {
     fn into_box_once(self) -> BoxSupplierOnce<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxSupplierOnce::new(move || self.get())
+    }
 }
 
 // ==========================================================================
@@ -180,14 +183,6 @@ where
 {
     fn get(self) -> T {
         self()
-    }
-
-    fn into_box_once(self) -> BoxSupplierOnce<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        BoxSupplierOnce::new(self)
     }
 }
 
@@ -267,12 +262,5 @@ impl<T> BoxSupplierOnce<T> {
 impl<T> SupplierOnce<T> for BoxSupplierOnce<T> {
     fn get(mut self) -> T {
         (self.func.take().expect("Supplier already consumed"))()
-    }
-
-    fn into_box_once(self) -> BoxSupplierOnce<T>
-    where
-        T: 'static,
-    {
-        self
     }
 }
