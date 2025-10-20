@@ -867,7 +867,7 @@ impl Tester for BoxTester {
     // satisfied. The default Tester trait implementation will be used.
 
     fn into_fn(self) -> impl Fn() -> bool {
-        move || (self.function)()
+        self.function
     }
 
     // Note: BoxTester does not implement Clone, so to_box(), to_rc(),
