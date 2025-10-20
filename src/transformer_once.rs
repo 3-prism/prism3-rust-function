@@ -137,8 +137,7 @@ pub trait TransformerOnce<T, R> {
         T: 'static,
         R: 'static,
     {
-        let cloned = self.clone();
-        BoxTransformerOnce::new(move |input: T| cloned.apply(input))
+        self.clone().into_box()
     }
 
     /// Converts transformer to a closure without consuming self
@@ -171,8 +170,7 @@ pub trait TransformerOnce<T, R> {
         T: 'static,
         R: 'static,
     {
-        let cloned = self.clone();
-        move |input: T| cloned.apply(input)
+        self.clone().into_fn()
     }
 }
 

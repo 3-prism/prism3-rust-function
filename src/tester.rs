@@ -317,10 +317,10 @@ pub trait Tester {
     /// use prism3_function::Tester;
     ///
     /// let closure = || true;
-    /// let func: Box<dyn Fn() -> bool> = closure.into_fn();
+    /// let func = closure.into_fn();
     /// assert!(func());
     /// ```
-    fn into_fn(self) -> Box<dyn Fn() -> bool>
+    fn into_fn(self) -> impl Fn() -> bool
     where
         Self: Sized + 'static,
     {
@@ -346,10 +346,7 @@ pub trait Tester {
     where
         Self: Clone + 'static,
     {
-        let cloned = self.clone();
-        BoxTester {
-            function: Box::new(move || cloned.test()),
-        }
+        self.clone().into_box()
     }
 
     /// Clones and converts this tester to `RcTester`
@@ -371,10 +368,7 @@ pub trait Tester {
     where
         Self: Clone + 'static,
     {
-        let cloned = self.clone();
-        RcTester {
-            function: Rc::new(move || cloned.test()),
-        }
+        self.clone().into_rc()
     }
 
     /// Clones and converts this tester to `ArcTester`
@@ -396,10 +390,7 @@ pub trait Tester {
     where
         Self: Clone + Send + Sync + 'static,
     {
-        let cloned = self.clone();
-        ArcTester {
-            function: Arc::new(move || cloned.test()),
-        }
+        self.clone().into_arc()
     }
 
     /// Clones and converts this tester to a boxed function pointer
@@ -414,16 +405,15 @@ pub trait Tester {
     /// use prism3_function::{Tester, ArcTester};
     ///
     /// let arc = ArcTester::new(|| true);
-    /// let func: Box<dyn Fn() -> bool> = arc.to_fn();
+    /// let func = arc.to_fn();
     /// // arc is still available
     /// assert!(func());
     /// ```
-    fn to_fn(&self) -> Box<dyn Fn() -> bool>
+    fn to_fn(&self) -> impl Fn() -> bool
     where
         Self: Clone + 'static,
     {
-        let cloned = self.clone();
-        Box::new(move || cloned.test())
+        self.clone().into_fn()
     }
 }
 
@@ -876,8 +866,8 @@ impl Tester for BoxTester {
     // in a compile error due to the Send + Sync trait bounds not being
     // satisfied. The default Tester trait implementation will be used.
 
-    fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        self.function
+    fn into_fn(self) -> impl Fn() -> bool {
+        move || (self.function)()
     }
 
     // Note: BoxTester does not implement Clone, so to_box(), to_rc(),
@@ -1375,22 +1365,21 @@ impl Tester for ArcTester {
         self
     }
 
-    fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        let func = self.function;
-        Box::new(move || func())
+    fn into_fn(self) -> impl Fn() -> bool {
+        move || (self.function)()
     }
 
     fn to_box(&self) -> BoxTester {
-        let func = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxTester {
-            function: Box::new(move || func()),
+            function: Box::new(move || self_fn()),
         }
     }
 
     fn to_rc(&self) -> RcTester {
-        let func = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         RcTester {
-            function: Rc::new(move || func()),
+            function: Rc::new(move || self_fn()),
         }
     }
 
@@ -1398,9 +1387,9 @@ impl Tester for ArcTester {
         self.clone()
     }
 
-    fn to_fn(&self) -> Box<dyn Fn() -> bool> {
-        let func = Arc::clone(&self.function);
-        Box::new(move || func())
+    fn to_fn(&self) -> impl Fn() -> bool {
+        let self_fn = self.function.clone();
+        move || self_fn()
     }
 }
 
@@ -1575,9 +1564,9 @@ impl RcTester {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> RcTester {
-        let func = Rc::clone(&self.function);
+        let self_fn = Rc::clone(&self.function);
         RcTester {
-            function: Rc::new(move || !func()),
+            function: Rc::new(move || !self_fn()),
         }
     }
 
@@ -1699,9 +1688,8 @@ impl Tester for RcTester {
     }
 
     fn into_box(self) -> BoxTester {
-        let func = self.function;
         BoxTester {
-            function: Box::new(move || func()),
+            function: Box::new(move || (self.function)()),
         }
     }
 
@@ -1714,15 +1702,14 @@ impl Tester for RcTester {
     // compile error due to the Send + Sync trait bounds not being
     // satisfied. The default Tester trait implementation will be used.
 
-    fn into_fn(self) -> Box<dyn Fn() -> bool> {
-        let func = self.function;
-        Box::new(move || func())
+    fn into_fn(self) -> impl Fn() -> bool {
+        move || (self.function)()
     }
 
     fn to_box(&self) -> BoxTester {
-        let func = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxTester {
-            function: Box::new(move || func()),
+            function: Box::new(move || self_fn()),
         }
     }
 
@@ -1735,9 +1722,9 @@ impl Tester for RcTester {
     // error due to the Send + Sync trait bounds not being satisfied. The
     // default Tester trait implementation will be used.
 
-    fn to_fn(&self) -> Box<dyn Fn() -> bool> {
-        let func = Rc::clone(&self.function);
-        Box::new(move || func())
+    fn to_fn(&self) -> impl Fn() -> bool {
+        let self_fn = self.function.clone();
+        move || self_fn()
     }
 }
 
@@ -1787,11 +1774,11 @@ where
         ArcTester::new(self)
     }
 
-    fn into_fn(self) -> Box<dyn Fn() -> bool>
+    fn into_fn(self) -> impl Fn() -> bool
     where
         Self: Sized + 'static,
     {
-        Box::new(self)
+        self
     }
 
     // Note: Closures generally do not implement Clone unless they are

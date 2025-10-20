@@ -35,7 +35,7 @@ fn demo_closure_supplier() {
 
     // Simple closure
     let closure = || 42;
-    let mut boxed = closure.into_box();
+    let mut boxed = Supplier::into_box(closure);
     println!("Closure: {}", boxed.get());
 
     // Stateful closure
@@ -44,7 +44,7 @@ fn demo_closure_supplier() {
         counter += 1;
         counter
     };
-    let mut boxed_stateful = stateful.into_box();
+    let mut boxed_stateful = Supplier::into_box(stateful);
     println!("Counter: {}", boxed_stateful.get());
     println!("Counter: {}", boxed_stateful.get());
     println!("Counter: {}", boxed_stateful.get());
@@ -253,7 +253,7 @@ fn demo_type_conversions() {
 
     // Closure to Box
     let closure = || 42;
-    let mut boxed = closure.into_box();
+    let mut boxed = Supplier::into_box(closure);
     println!("Closure -> Box: {}", boxed.get());
 
     // Closure to Rc
