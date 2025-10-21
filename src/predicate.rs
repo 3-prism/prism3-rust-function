@@ -378,6 +378,78 @@ pub trait Predicate<T> {
     {
         move |value: &T| self.test(value)
     }
+
+    /// Converts a reference to this predicate into a `BoxPredicate`.
+    ///
+    /// This method clones the predicate and then converts it to a
+    /// `BoxPredicate`. The original predicate remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// A `BoxPredicate` wrapping a clone of this predicate.
+    fn to_box(&self) -> BoxPredicate<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Converts a reference to this predicate into an `RcPredicate`.
+    ///
+    /// This method clones the predicate and then converts it to an
+    /// `RcPredicate`. The original predicate remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// An `RcPredicate` wrapping a clone of this predicate.
+    fn to_rc(&self) -> RcPredicate<T>
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Converts a reference to this predicate into an `ArcPredicate`.
+    ///
+    /// This method clones the predicate and then converts it to an
+    /// `ArcPredicate`. The original predicate remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// An `ArcPredicate` wrapping a clone of this predicate.
+    fn to_arc(&self) -> ArcPredicate<T>
+    where
+        Self: Clone + Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Converts a reference to this predicate into a closure that can be
+    /// used directly with standard library methods.
+    ///
+    /// This method clones the predicate and then converts it to a closure.
+    /// The original predicate remains usable after this call.
+    ///
+    /// The returned closure has signature `Fn(&T) -> bool`. Since `Fn` is a
+    /// subtrait of `FnMut`, it can be used in any context that requires
+    /// either `Fn(&T) -> bool` or `FnMut(&T) -> bool`, making it compatible
+    /// with methods like `Iterator::filter`, `Iterator::filter_map`,
+    /// `Vec::retain`, and similar standard library APIs.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `Fn(&T) -> bool` (also usable as
+    /// `FnMut(&T) -> bool`).
+    fn to_fn(&self) -> impl Fn(&T) -> bool
+    where
+        Self: Clone + Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 /// A Box-based predicate with single ownership.
@@ -1042,20 +1114,15 @@ impl<T: 'static> Predicate<T> for BoxPredicate<T> {
         }
     }
 
-    fn into_arc(self) -> ArcPredicate<T>
-    where
-        T: Send + Sync,
-    {
-        // This is a best-effort conversion. If the underlying function
-        // is not Send + Sync, this will fail at compile time.
-        // Users should use ArcPredicate::new directly if they need
-        // guaranteed Send + Sync.
-        panic!("BoxPredicate cannot be converted to ArcPredicate - use ArcPredicate::new directly")
-    }
+    // do NOT override Predicate::into_arc() because BoxPredicate is not Send + Sync
+    // and calling BoxPredicate::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T) -> bool {
         move |value: &T| (self.function)(value)
     }
+
+    // do NOT override Predicate::to_xxx() because BoxPredicate is not Clone
+    // and calling BoxPredicate::to_xxx() will cause a compile error
 }
 
 impl<T> Display for BoxPredicate<T> {
@@ -1506,95 +1573,6 @@ impl<T: 'static> RcPredicate<T> {
             name: None,
         }
     }
-
-    /// Converts this predicate to a `BoxPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// A `BoxPredicate` wrapping this predicate.
-    pub fn to_box(&self) -> BoxPredicate<T> {
-        let self_fn = Rc::clone(&self.function);
-        BoxPredicate {
-            function: Box::new(move |value: &T| self_fn(value)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this predicate to a closure that can be used directly with
-    /// standard library methods.
-    ///
-    /// This method creates a new closure without consuming the original
-    /// predicate, since `RcPredicate` uses shared ownership. The returned
-    /// closure has signature `Fn(&T) -> bool`. Since `Fn` is a subtrait of
-    /// `FnMut`, it can be used in any context that requires either
-    /// `Fn(&T) -> bool` or `FnMut(&T) -> bool`, making it compatible with
-    /// methods like `Iterator::filter`, `Iterator::filter_map`,
-    /// `Vec::retain`, and similar standard library APIs.
-    ///
-    /// # Returns
-    ///
-    /// A closure implementing `Fn(&T) -> bool` (also usable as
-    /// `FnMut(&T) -> bool`).
-    ///
-    /// # Examples
-    ///
-    /// ## Using with `Iterator::filter` (requires `FnMut`)
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, RcPredicate};
-    ///
-    /// let pred = RcPredicate::new(|x: &i32| *x > 0);
-    /// let closure = pred.to_fn();
-    ///
-    /// let numbers = vec![-2, -1, 0, 1, 2, 3];
-    /// let positives: Vec<_> = numbers.iter()
-    ///     .copied()
-    ///     .filter(closure)
-    ///     .collect();
-    /// assert_eq!(positives, vec![1, 2, 3]);
-    ///
-    /// // Original predicate is still usable
-    /// assert!(pred.test(&5));
-    /// ```
-    ///
-    /// ## Using with `Vec::retain` (requires `FnMut`)
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, RcPredicate};
-    ///
-    /// let pred = RcPredicate::new(|x: &i32| *x % 2 == 0);
-    /// let mut numbers = vec![1, 2, 3, 4, 5, 6];
-    /// numbers.retain(pred.to_fn());
-    /// assert_eq!(numbers, vec![2, 4, 6]);
-    ///
-    /// // Original predicate is still usable
-    /// assert!(pred.test(&2));
-    /// ```
-    ///
-    /// ## Passing to functions that require `FnMut`
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, RcPredicate};
-    ///
-    /// fn count_matching<F>(items: &[i32], mut predicate: F) -> usize
-    /// where
-    ///     F: FnMut(&i32) -> bool,
-    /// {
-    ///     items.iter().filter(|x| predicate(x)).count()
-    /// }
-    ///
-    /// let pred = RcPredicate::new(|x: &i32| *x > 10);
-    /// let count = count_matching(&[5, 15, 8, 20], pred.to_fn());
-    /// assert_eq!(count, 2);
-    ///
-    /// // Original predicate can be reused
-    /// let count2 = count_matching(&[12, 3, 18], pred.to_fn());
-    /// assert_eq!(count2, 2);
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T) -> bool {
-        let function = Rc::clone(&self.function);
-        move |value: &T| function(value)
-    }
 }
 
 impl<T: 'static> Predicate<T> for RcPredicate<T> {
@@ -1614,17 +1592,31 @@ impl<T: 'static> Predicate<T> for RcPredicate<T> {
         self
     }
 
-    fn into_arc(self) -> ArcPredicate<T>
-    where
-        T: Send + Sync,
-    {
-        // RcPredicate cannot be converted to ArcPredicate because Rc is not Send.
-        // Users should use ArcPredicate::new directly if they need thread-safety.
-        panic!("RcPredicate cannot be converted to ArcPredicate - use ArcPredicate::new directly")
-    }
+    // do NOT override Predicate::into_arc() because RcPredicate is not Send + Sync
+    // and calling RcPredicate::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T) -> bool {
         let self_fn = self.function;
+        move |value: &T| self_fn(value)
+    }
+
+    fn to_box(&self) -> BoxPredicate<T> {
+        let self_fn = self.function.clone();
+        BoxPredicate {
+            function: Box::new(move |value: &T| self_fn(value)),
+            name: self.name.clone(),
+        }
+    }
+
+    fn to_rc(&self) -> RcPredicate<T> {
+        self.clone()
+    }
+
+    // do NOT override Predicate::to_arc() because RcPredicate is not Send + Sync
+    // and calling RcPredicate::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl Fn(&T) -> bool {
+        let self_fn = self.function.clone();
         move |value: &T| self_fn(value)
     }
 }
@@ -2028,132 +2020,6 @@ impl<T: 'static> ArcPredicate<T> {
             name: None,
         }
     }
-
-    /// Converts this predicate to a `BoxPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// A `BoxPredicate` wrapping this predicate.
-    pub fn to_box(&self) -> BoxPredicate<T> {
-        let self_fn = Arc::clone(&self.function);
-        BoxPredicate {
-            function: Box::new(move |value: &T| self_fn(value)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this predicate to an `RcPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// An `RcPredicate` wrapping this predicate.
-    pub fn to_rc(&self) -> RcPredicate<T> {
-        let self_fn = Arc::clone(&self.function);
-        RcPredicate {
-            function: Rc::new(move |value: &T| self_fn(value)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this predicate to a closure that can be used directly with
-    /// standard library methods.
-    ///
-    /// This method creates a new closure without consuming the original
-    /// predicate, since `ArcPredicate` uses shared ownership. The returned
-    /// closure has signature `Fn(&T) -> bool + Send + Sync` and is
-    /// thread-safe. Since `Fn` is a subtrait of `FnMut`, it can be used in
-    /// any context that requires either `Fn(&T) -> bool` or
-    /// `FnMut(&T) -> bool`, making it compatible with methods like
-    /// `Iterator::filter`, `Iterator::filter_map`, `Vec::retain`, and
-    /// similar standard library APIs.
-    ///
-    /// # Returns
-    ///
-    /// A closure implementing `Fn(&T) -> bool + Send + Sync` (also usable
-    /// as `FnMut(&T) -> bool`).
-    ///
-    /// # Examples
-    ///
-    /// ## Using with `Iterator::filter` (requires `FnMut`)
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, ArcPredicate};
-    ///
-    /// let pred = ArcPredicate::new(|x: &i32| *x > 0);
-    /// let closure = pred.to_fn();
-    ///
-    /// let numbers = vec![-2, -1, 0, 1, 2, 3];
-    /// let positives: Vec<_> = numbers.iter()
-    ///     .copied()
-    ///     .filter(closure)
-    ///     .collect();
-    /// assert_eq!(positives, vec![1, 2, 3]);
-    ///
-    /// // Original predicate is still usable
-    /// assert!(pred.test(&5));
-    /// ```
-    ///
-    /// ## Using with `Vec::retain` (requires `FnMut`)
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, ArcPredicate};
-    ///
-    /// let pred = ArcPredicate::new(|x: &i32| *x % 2 == 0);
-    /// let mut numbers = vec![1, 2, 3, 4, 5, 6];
-    /// numbers.retain(pred.to_fn());
-    /// assert_eq!(numbers, vec![2, 4, 6]);
-    ///
-    /// // Original predicate is still usable
-    /// assert!(pred.test(&2));
-    /// ```
-    ///
-    /// ## Passing to functions that require `FnMut`
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, ArcPredicate};
-    ///
-    /// fn count_matching<F>(items: &[i32], mut predicate: F) -> usize
-    /// where
-    ///     F: FnMut(&i32) -> bool,
-    /// {
-    ///     items.iter().filter(|x| predicate(x)).count()
-    /// }
-    ///
-    /// let pred = ArcPredicate::new(|x: &i32| *x > 10);
-    /// let count = count_matching(&[5, 15, 8, 20], pred.to_fn());
-    /// assert_eq!(count, 2);
-    ///
-    /// // Original predicate can be reused
-    /// let count2 = count_matching(&[12, 3, 18], pred.to_fn());
-    /// assert_eq!(count2, 2);
-    /// ```
-    ///
-    /// ## Thread-safe usage
-    ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, ArcPredicate};
-    /// use std::thread;
-    ///
-    /// let pred = ArcPredicate::new(|x: &i32| *x > 0);
-    /// let closure = pred.to_fn();
-    ///
-    /// // Closure can be sent across threads
-    /// let handle = thread::spawn(move || {
-    ///     let numbers = vec![-2, -1, 0, 1, 2, 3];
-    ///     numbers.iter().copied().filter(closure).count()
-    /// });
-    ///
-    /// assert_eq!(handle.join().unwrap(), 3);
-    /// // Original predicate is still usable
-    /// assert!(pred.test(&5));
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T) -> bool + Send + Sync
-    where
-        T: Send + Sync,
-    {
-        let self_fn = Arc::clone(&self.function);
-        move |value: &T| self_fn(value)
-    }
 }
 
 impl<T: 'static> Predicate<T> for ArcPredicate<T> {
@@ -2162,17 +2028,15 @@ impl<T: 'static> Predicate<T> for ArcPredicate<T> {
     }
 
     fn into_box(self) -> BoxPredicate<T> {
-        let self_fn = self.function;
         BoxPredicate {
-            function: Box::new(move |value: &T| self_fn(value)),
+            function: Box::new(move |value: &T| (self.function)(value)),
             name: self.name,
         }
     }
 
     fn into_rc(self) -> RcPredicate<T> {
-        let self_fn = self.function;
         RcPredicate {
-            function: Rc::new(move |value: &T| self_fn(value)),
+            function: Rc::new(move |value: &T| (self.function)(value)),
             name: self.name,
         }
     }
@@ -2185,7 +2049,31 @@ impl<T: 'static> Predicate<T> for ArcPredicate<T> {
     }
 
     fn into_fn(self) -> impl Fn(&T) -> bool {
-        let self_fn = self.function;
+        move |value: &T| (self.function)(value)
+    }
+
+    fn to_box(&self) -> BoxPredicate<T> {
+        let self_fn = self.function.clone();
+        BoxPredicate {
+            function: Box::new(move |value: &T| self_fn(value)),
+            name: self.name.clone(),
+        }
+    }
+
+    fn to_rc(&self) -> RcPredicate<T> {
+        let self_fn = self.function.clone();
+        RcPredicate {
+            function: Rc::new(move |value: &T| self_fn(value)),
+            name: self.name.clone(),
+        }
+    }
+
+    fn to_arc(&self) -> ArcPredicate<T> {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T) -> bool {
+        let self_fn = self.function.clone();
         move |value: &T| self_fn(value)
     }
 }
@@ -2254,6 +2142,37 @@ where
 
     fn into_fn(self) -> impl Fn(&T) -> bool {
         self
+    }
+
+    fn to_box(&self) -> BoxPredicate<T>
+    where
+        Self: Clone + 'static,
+    {
+        let self_fn = self.clone();
+        BoxPredicate::new(self_fn)
+    }
+
+    fn to_rc(&self) -> RcPredicate<T>
+    where
+        Self: Clone + 'static,
+    {
+        let self_fn = self.clone();
+        RcPredicate::new(self_fn)
+    }
+
+    fn to_arc(&self) -> ArcPredicate<T>
+    where
+        Self: Clone + Send + Sync + 'static,
+    {
+        let self_fn = self.clone();
+        ArcPredicate::new(self_fn)
+    }
+
+    fn to_fn(&self) -> impl Fn(&T) -> bool
+    where
+        Self: Clone + 'static,
+    {
+        self.clone()
     }
 }
 

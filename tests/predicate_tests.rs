@@ -2330,3 +2330,552 @@ mod display_debug_tests {
         assert!(debug_str.contains("name"));
     }
 }
+
+// ============================================================================
+// to_xxx Methods Tests for All Predicate Implementations
+// ============================================================================
+
+#[cfg(test)]
+mod to_methods_comprehensive_tests {
+    use super::*;
+
+    // ========================================================================
+    // RcPredicate to_xxx methods
+    // ========================================================================
+
+    #[test]
+    fn test_rc_to_box_basic() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = rc_pred.to_box();
+
+        // Original predicate still usable
+        assert!(rc_pred.test(&5));
+        assert!(!rc_pred.test(&-3));
+
+        // Converted predicate works
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_rc_to_box_multiple_conversions() {
+        let rc_pred = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let box1 = rc_pred.to_box();
+        let box2 = rc_pred.to_box();
+
+        assert!(box1.test(&4));
+        assert!(box2.test(&6));
+        assert!(rc_pred.test(&8));
+    }
+
+    #[test]
+    fn test_rc_to_rc_basic() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let rc_pred2 = rc_pred.to_rc();
+
+        assert!(rc_pred.test(&5));
+        assert!(rc_pred2.test(&5));
+        assert!(!rc_pred2.test(&-3));
+    }
+
+    #[test]
+    fn test_rc_to_fn_basic() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let func = rc_pred.to_fn();
+
+        assert!(func(&5));
+        assert!(!func(&-3));
+        assert!(rc_pred.test(&10));
+    }
+
+    #[test]
+    fn test_rc_to_fn_with_iterator() {
+        let rc_pred = RcPredicate::new(|x: &i32| x % 2 == 0);
+        let func = rc_pred.to_fn();
+
+        let numbers = [1, 2, 3, 4, 5, 6];
+        let evens: Vec<_> = numbers.iter().copied().filter(func).collect();
+
+        assert_eq!(evens, vec![2, 4, 6]);
+        assert!(rc_pred.test(&8));
+    }
+
+    // ========================================================================
+    // ArcPredicate to_xxx methods
+    // ========================================================================
+
+    #[test]
+    fn test_arc_to_box_basic() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = arc_pred.to_box();
+
+        assert!(arc_pred.test(&5));
+        assert!(!arc_pred.test(&-3));
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_to_box_multiple_conversions() {
+        let arc_pred = ArcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let box1 = arc_pred.to_box();
+        let box2 = arc_pred.to_box();
+
+        assert!(box1.test(&4));
+        assert!(box2.test(&6));
+        assert!(arc_pred.test(&8));
+    }
+
+    #[test]
+    fn test_arc_to_rc_basic() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let rc_pred = arc_pred.to_rc();
+
+        assert!(arc_pred.test(&5));
+        assert!(rc_pred.test(&5));
+        assert!(!rc_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_to_rc_multiple_conversions() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x < 10);
+
+        let rc1 = arc_pred.to_rc();
+        let rc2 = arc_pred.to_rc();
+
+        assert!(rc1.test(&5));
+        assert!(rc2.test(&7));
+        assert!(arc_pred.test(&9));
+    }
+
+    #[test]
+    fn test_arc_to_arc_basic() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let arc_pred2 = arc_pred.to_arc();
+
+        assert!(arc_pred.test(&5));
+        assert!(arc_pred2.test(&5));
+        assert!(!arc_pred2.test(&-3));
+    }
+
+    #[test]
+    fn test_arc_to_arc_thread_safe() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let arc_pred2 = arc_pred.to_arc();
+
+        let handle = std::thread::spawn(move || arc_pred2.test(&10) && !arc_pred2.test(&-10));
+
+        assert!(handle.join().unwrap());
+        assert!(arc_pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_to_fn_basic() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let func = arc_pred.to_fn();
+
+        assert!(func(&5));
+        assert!(!func(&-3));
+        assert!(arc_pred.test(&10));
+    }
+
+    #[test]
+    fn test_arc_to_fn_with_iterator() {
+        let arc_pred = ArcPredicate::new(|x: &i32| x % 2 == 0);
+        let func = arc_pred.to_fn();
+
+        let numbers = [1, 2, 3, 4, 5, 6];
+        let evens: Vec<_> = numbers.iter().copied().filter(func).collect();
+
+        assert_eq!(evens, vec![2, 4, 6]);
+        assert!(arc_pred.test(&8));
+    }
+
+    // ========================================================================
+    // Closure to_xxx methods (testing the blanket implementation)
+    // ========================================================================
+
+    #[test]
+    fn test_closure_to_box() {
+        // Note: Function pointers are Clone + Copy
+        fn is_positive(x: &i32) -> bool {
+            *x > 0
+        }
+
+        // Test with function pointer (which is Clone + Copy)
+        let box_pred = is_positive.to_box();
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+
+        // Original function still usable
+        assert!(is_positive(&10));
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        fn is_even(x: &i32) -> bool {
+            x % 2 == 0
+        }
+
+        let rc_pred = is_even.to_rc();
+        assert!(rc_pred.test(&4));
+        assert!(!rc_pred.test(&3));
+
+        // Original function still usable
+        assert!(is_even(&6));
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        fn is_negative(x: &i32) -> bool {
+            *x < 0
+        }
+
+        let arc_pred = is_negative.to_arc();
+        assert!(arc_pred.test(&-5));
+        assert!(!arc_pred.test(&5));
+
+        // Original function still usable
+        assert!(is_negative(&-10));
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        fn is_large(x: &i32) -> bool {
+            *x > 100
+        }
+
+        let func = is_large.to_fn();
+        assert!(func(&150));
+        assert!(!func(&50));
+
+        // Original function still usable
+        assert!(is_large(&200));
+    }
+
+    // ========================================================================
+    // Custom Predicate with Clone - testing default to_xxx implementations
+    // ========================================================================
+
+    #[derive(Clone)]
+    struct ClonableThresholdPredicate {
+        threshold: i32,
+    }
+
+    impl Predicate<i32> for ClonableThresholdPredicate {
+        fn test(&self, value: &i32) -> bool {
+            *value > self.threshold
+        }
+        // Using all default implementations for to_xxx methods
+    }
+
+    #[test]
+    fn test_custom_clonable_to_box() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let box_pred = pred.to_box();
+
+        // Original predicate still usable
+        assert!(pred.test(&5));
+        assert!(!pred.test(&-3));
+
+        // Converted predicate works
+        assert!(box_pred.test(&5));
+        assert!(!box_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_box_multiple() {
+        let pred = ClonableThresholdPredicate { threshold: 10 };
+
+        let box1 = pred.to_box();
+        let box2 = pred.to_box();
+
+        assert!(box1.test(&15));
+        assert!(box2.test(&20));
+        assert!(pred.test(&25));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_rc() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let rc_pred = pred.to_rc();
+
+        assert!(pred.test(&5));
+        assert!(rc_pred.test(&5));
+        assert!(!rc_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_rc_composition() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let rc_pred = pred.to_rc();
+        let is_even = RcPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = rc_pred.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(pred.test(&7));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_arc() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let arc_pred = pred.to_arc();
+
+        assert!(pred.test(&5));
+        assert!(arc_pred.test(&5));
+        assert!(!arc_pred.test(&-3));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_arc_thread_safe() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let arc_pred = pred.to_arc();
+
+        let arc_clone = arc_pred.clone();
+        let handle = std::thread::spawn(move || arc_clone.test(&10) && !arc_clone.test(&-10));
+
+        assert!(handle.join().unwrap());
+        assert!(arc_pred.test(&5));
+        assert!(pred.test(&3));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_fn() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let func = pred.to_fn();
+
+        assert!(func(&5));
+        assert!(!func(&-3));
+        assert!(pred.test(&10));
+    }
+
+    #[test]
+    fn test_custom_clonable_to_fn_with_iterator() {
+        let pred = ClonableThresholdPredicate { threshold: 0 };
+        let func = pred.to_fn();
+
+        let numbers = [-5, -2, 0, 3, 7, -1];
+        let positives: Vec<_> = numbers.iter().copied().filter(func).collect();
+
+        assert_eq!(positives, vec![3, 7]);
+        assert!(pred.test(&1));
+    }
+
+    // ========================================================================
+    // Custom Predicate with Send + Sync for Arc compatibility
+    // ========================================================================
+
+    #[derive(Clone)]
+    struct ThreadSafeRangePredicate {
+        min: i32,
+        max: i32,
+    }
+
+    // Mark it as Send + Sync explicitly
+    unsafe impl Send for ThreadSafeRangePredicate {}
+    unsafe impl Sync for ThreadSafeRangePredicate {}
+
+    impl Predicate<i32> for ThreadSafeRangePredicate {
+        fn test(&self, value: &i32) -> bool {
+            *value >= self.min && *value <= self.max
+        }
+    }
+
+    #[test]
+    fn test_thread_safe_custom_to_arc() {
+        let pred = ThreadSafeRangePredicate { min: 0, max: 100 };
+        let arc_pred = pred.to_arc();
+
+        assert!(pred.test(&50));
+        assert!(arc_pred.test(&50));
+        assert!(!arc_pred.test(&150));
+    }
+
+    #[test]
+    fn test_thread_safe_custom_to_arc_multithreaded() {
+        let pred = ThreadSafeRangePredicate { min: 0, max: 100 };
+        let arc_pred = pred.to_arc();
+
+        let arc1 = arc_pred.clone();
+        let arc2 = arc_pred.clone();
+
+        let handle1 = std::thread::spawn(move || arc1.test(&25) && arc1.test(&75));
+
+        let handle2 = std::thread::spawn(move || !arc2.test(&-5) && !arc2.test(&150));
+
+        assert!(handle1.join().unwrap());
+        assert!(handle2.join().unwrap());
+        assert!(pred.test(&50));
+    }
+
+    // ========================================================================
+    // Complex scenarios with to_xxx methods
+    // ========================================================================
+
+    #[test]
+    fn test_rc_to_box_then_composition() {
+        let rc_pred = RcPredicate::new(|x: &i32| *x > 0);
+        let box_pred = rc_pred.to_box();
+        let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
+
+        let combined = box_pred.and(is_even);
+
+        assert!(combined.test(&4));
+        assert!(!combined.test(&3));
+        assert!(rc_pred.test(&5));
+    }
+
+    #[test]
+    fn test_arc_to_rc_then_composition() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+        let rc_pred = arc_pred.to_rc();
+        let is_small = RcPredicate::new(|x: &i32| *x < 100);
+
+        let combined = rc_pred.and(is_small);
+
+        assert!(combined.test(&50));
+        assert!(!combined.test(&150));
+        assert!(arc_pred.test(&75));
+    }
+
+    #[test]
+    fn test_multiple_conversions_chain() {
+        let arc_pred = ArcPredicate::new(|x: &i32| *x > 0);
+
+        let rc_pred = arc_pred.to_rc();
+        let box_pred = rc_pred.to_box();
+
+        assert!(arc_pred.test(&5));
+        assert!(rc_pred.test(&5));
+        assert!(box_pred.test(&5));
+    }
+
+    #[test]
+    fn test_to_fn_preserves_original() {
+        let rc_pred = RcPredicate::new(|x: &i32| x % 3 == 0);
+
+        let func1 = rc_pred.to_fn();
+        let func2 = rc_pred.to_fn();
+
+        assert!(func1(&9));
+        assert!(func2(&12));
+        assert!(rc_pred.test(&15));
+    }
+
+    // ========================================================================
+    // Custom predicate with state
+    // ========================================================================
+
+    #[derive(Clone)]
+    struct StatefulPredicate {
+        allowed_values: Vec<i32>,
+    }
+
+    impl Predicate<i32> for StatefulPredicate {
+        fn test(&self, value: &i32) -> bool {
+            self.allowed_values.contains(value)
+        }
+    }
+
+    #[test]
+    fn test_stateful_custom_to_box() {
+        let pred = StatefulPredicate {
+            allowed_values: vec![1, 3, 5, 7],
+        };
+
+        let box_pred = pred.to_box();
+
+        assert!(box_pred.test(&3));
+        assert!(box_pred.test(&7));
+        assert!(!box_pred.test(&2));
+        assert!(!box_pred.test(&4));
+
+        // Original still works
+        assert!(pred.test(&5));
+    }
+
+    #[test]
+    fn test_stateful_custom_to_rc() {
+        let pred = StatefulPredicate {
+            allowed_values: vec![2, 4, 6, 8],
+        };
+
+        let rc_pred = pred.to_rc();
+
+        assert!(rc_pred.test(&4));
+        assert!(!rc_pred.test(&5));
+
+        // Original still works
+        assert!(pred.test(&6));
+    }
+
+    #[test]
+    fn test_stateful_custom_to_fn_with_filter() {
+        let pred = StatefulPredicate {
+            allowed_values: vec![10, 20, 30],
+        };
+
+        let func = pred.to_fn();
+
+        let numbers = [5, 10, 15, 20, 25, 30, 35];
+        let filtered: Vec<_> = numbers.iter().copied().filter(func).collect();
+
+        assert_eq!(filtered, vec![10, 20, 30]);
+
+        // Original still works
+        assert!(pred.test(&20));
+    }
+
+    // ========================================================================
+    // Test String predicate with to_xxx methods
+    // ========================================================================
+
+    #[test]
+    fn test_rc_string_predicate_to_box() {
+        let rc_pred = RcPredicate::new(|s: &String| s.starts_with("test"));
+        let box_pred = rc_pred.to_box();
+
+        assert!(box_pred.test(&"test123".to_string()));
+        assert!(!box_pred.test(&"hello".to_string()));
+        assert!(rc_pred.test(&"testing".to_string()));
+    }
+
+    #[test]
+    fn test_arc_string_predicate_to_rc() {
+        let arc_pred = ArcPredicate::new(|s: &String| s.len() > 5);
+        let rc_pred = arc_pred.to_rc();
+
+        assert!(rc_pred.test(&"hello world".to_string()));
+        assert!(!rc_pred.test(&"hi".to_string()));
+        assert!(arc_pred.test(&"testing".to_string()));
+    }
+
+    // ========================================================================
+    // Test with complex types
+    // ========================================================================
+
+    #[test]
+    fn test_rc_vec_predicate_to_box() {
+        let rc_pred = RcPredicate::new(|v: &Vec<i32>| v.iter().sum::<i32>() > 10);
+        let box_pred = rc_pred.to_box();
+
+        assert!(box_pred.test(&vec![5, 6]));
+        assert!(!box_pred.test(&vec![1, 2]));
+        assert!(rc_pred.test(&vec![3, 4, 5]));
+    }
+
+    #[test]
+    fn test_arc_option_predicate_to_fn() {
+        let arc_pred = ArcPredicate::new(|opt: &Option<i32>| opt.is_some_and(|x| x > 0));
+        let func = arc_pred.to_fn();
+
+        assert!(func(&Some(5)));
+        assert!(!func(&Some(-5)));
+        assert!(!func(&None));
+        assert!(arc_pred.test(&Some(10)));
+    }
+}
