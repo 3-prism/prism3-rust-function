@@ -265,7 +265,7 @@ pub trait MutatorOnce<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t: &mut T| self.mutate(t)
+        move |t| self.mutate(t)
     }
 
     /// Non-consuming adapter to `BoxMutatorOnce`
@@ -280,8 +280,8 @@ pub trait MutatorOnce<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mutator = self.clone();
-        BoxMutatorOnce::new(move |t| mutator.mutate(t))
+        let cloned = self.clone();
+        BoxMutatorOnce::new(move |t| cloned.mutate(t))
     }
 
     /// Non-consuming adapter to a callable `FnOnce(&mut T)`
@@ -295,8 +295,8 @@ pub trait MutatorOnce<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mutator = self.clone();
-        move |t| mutator.mutate(t)
+        let cloned = self.clone();
+        move |t| cloned.mutate(t)
     }
 }
 
@@ -382,7 +382,7 @@ pub trait MutatorOnce<T> {
 ///
 /// Haixing Hu
 pub struct BoxMutatorOnce<T> {
-    func: Box<dyn FnOnce(&mut T)>,
+    function: Box<dyn FnOnce(&mut T)>,
 }
 
 impl<T> BoxMutatorOnce<T>
@@ -418,7 +418,7 @@ where
     where
         F: FnOnce(&mut T) + 'static,
     {
-        BoxMutatorOnce { func: Box::new(f) }
+        BoxMutatorOnce { function: Box::new(f) }
     }
 
     /// Creates a no-op mutator
@@ -489,7 +489,7 @@ where
     where
         C: MutatorOnce<T> + 'static,
     {
-        let first = self.func;
+        let first = self.function;
         BoxMutatorOnce::new(move |t| {
             first(t);
             next.mutate(t);
@@ -597,7 +597,7 @@ where
 
 impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
     fn mutate(self, value: &mut T) {
-        (self.func)(value)
+        (self.function)(value)
     }
 
     fn into_box(self) -> BoxMutatorOnce<T>
@@ -611,7 +611,7 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
     where
         T: 'static,
     {
-        move |t: &mut T| (self.func)(t)
+        move |t| (self.function)(t)
     }
 }
 
@@ -897,8 +897,8 @@ where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mutator = self.clone();
-        BoxMutatorOnce::new(move |t| mutator.mutate(t))
+        let cloned = self.clone();
+        BoxMutatorOnce::new(move |t| cloned.mutate(t))
     }
 
     fn to_fn(&self) -> impl FnOnce(&mut T)

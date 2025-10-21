@@ -543,7 +543,7 @@ where
         F: Mapper<T, U> + 'static,
         U: 'static,
     {
-        BoxSupplier::new(move || mapper.map(self.get()))
+        BoxSupplier::new(move || mapper.apply(self.get()))
     }
 
     /// Filters output based on a predicate.
@@ -877,7 +877,7 @@ where
         ArcSupplier {
             function: Arc::new(Mutex::new(move || {
                 let value = self_fn.lock().unwrap()();
-                mapper.lock().unwrap().map(value)
+                mapper.lock().unwrap().apply(value)
             })),
         }
     }
@@ -1282,7 +1282,7 @@ where
         RcSupplier {
             function: Rc::new(RefCell::new(move || {
                 let value = self_fn.borrow_mut()();
-                mapper.borrow_mut().map(value)
+                mapper.borrow_mut().apply(value)
             })),
         }
     }

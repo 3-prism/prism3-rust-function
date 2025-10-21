@@ -801,7 +801,7 @@ impl<T> Mutator<T> for BoxMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t: &mut T| (self.function)(t)
+        move |t| (self.function)(t)
     }
 
     // do NOT override Mutator::to_xxx() because BoxMutator is not Clone
@@ -1273,8 +1273,8 @@ impl<T> Mutator<T> for RcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let function = Rc::clone(&self.function);
-        BoxMutator::new(move |t: &mut T| function.borrow_mut()(t))
+        let self_fn = Rc::clone(&self.function);
+        BoxMutator::new(move |t| self_fn.borrow_mut()(t))
     }
 
     fn to_rc(&self) -> RcMutator<T>
@@ -1423,6 +1423,7 @@ where
         self.clone().into_fn()
     }
 }
+
 impl<T> RcConditionalMutator<T>
 where
     T: 'static,
@@ -1717,7 +1718,7 @@ impl<T> Mutator<T> for ArcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t: &mut T| self.function.lock().unwrap()(t)
+        move |t| self.function.lock().unwrap()(t)
     }
 
     fn to_box(&self) -> BoxMutator<T>
@@ -1906,6 +1907,7 @@ where
         self.clone().into_fn()
     }
 }
+
 impl<T> ArcConditionalMutator<T>
 where
     T: Send + 'static,
@@ -2029,7 +2031,8 @@ where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_box()
+        let cloned = self.clone();
+        BoxMutator::new(cloned)
     }
 
     fn to_rc(&self) -> RcMutator<T>
@@ -2037,7 +2040,8 @@ where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_rc()
+        let cloned = self.clone();
+        RcMutator::new(cloned)
     }
 
     fn to_arc(&self) -> ArcMutator<T>
@@ -2045,7 +2049,8 @@ where
         Self: Sized + Clone + Send + 'static,
         T: Send + 'static,
     {
-        self.clone().into_arc()
+        let cloned = self.clone();
+        ArcMutator::new(cloned)
     }
 
     fn to_fn(&self) -> impl FnMut(&mut T)

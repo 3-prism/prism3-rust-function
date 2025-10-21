@@ -309,6 +309,133 @@ mod test_arc_mutator {
         c.mutate(&mut value);
         assert_eq!(value, 10);
     }
+
+    #[test]
+    fn test_to_box() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut boxed = mutator.to_box();
+        let mut value = 5;
+        boxed.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_rc() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut rc = mutator.to_rc();
+        let mut value = 5;
+        rc.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_arc() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let arc = mutator.to_arc();
+        let mut value = 5;
+        let mut m = arc;
+        m.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_fn() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x += 10);
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(mutator.to_fn());
+        assert_eq!(values, vec![11, 12, 13]);
+    }
+
+    #[test]
+    fn test_to_box_preserves_original() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut boxed = mutator.to_box();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m = mutator;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // Boxed version also works
+        let mut value2 = 3;
+        boxed.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_rc_preserves_original() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut rc = mutator.to_rc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = mutator;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_rc version also works
+        let mut value2 = 3;
+        rc.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_arc_preserves_original() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let arc = mutator.to_arc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = mutator;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_arc version also works
+        let mut value2 = 3;
+        let mut m2 = arc;
+        m2.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_fn_preserves_original() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x += 10);
+
+        // to_fn version works
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(mutator.to_fn());
+        assert_eq!(values, vec![11, 12, 13]);
+
+        // Original still usable after to_fn (because ArcMutator is Clone)
+        let mut value1 = 5;
+        let mut m = mutator;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 15);
+    }
+
+    #[test]
+    fn test_to_arc_thread_safe() {
+        use std::thread;
+
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let arc = mutator.to_arc();
+        let clone = arc.clone();
+
+        let handle = thread::spawn(move || {
+            let mut value = 5;
+            let mut m = clone;
+            m.mutate(&mut value);
+            value
+        });
+
+        let mut value = 3;
+        let mut m = arc;
+        m.mutate(&mut value);
+        assert_eq!(value, 6);
+
+        assert_eq!(handle.join().unwrap(), 10);
+    }
 }
 
 // ============================================================================
@@ -423,6 +550,84 @@ mod test_rc_mutator {
 
     // Note: RcMutator cannot be converted to ArcMutator because Rc is not
     // Send. This test has been removed.
+
+    #[test]
+    fn test_to_box() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let mut boxed = mutator.to_box();
+        let mut value = 5;
+        boxed.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_rc() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let rc = mutator.to_rc();
+        let mut value = 5;
+        let mut m = rc;
+        m.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_fn() {
+        let mutator = RcMutator::new(|x: &mut i32| *x += 10);
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(mutator.to_fn());
+        assert_eq!(values, vec![11, 12, 13]);
+    }
+
+    #[test]
+    fn test_to_box_preserves_original() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let mut boxed = mutator.to_box();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m = mutator;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // Boxed version also works
+        let mut value2 = 3;
+        boxed.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_rc_preserves_original() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let rc = mutator.to_rc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = mutator;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_rc version also works
+        let mut value2 = 3;
+        let mut m2 = rc;
+        m2.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_fn_preserves_original() {
+        let mutator = RcMutator::new(|x: &mut i32| *x += 10);
+
+        // to_fn version works
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(mutator.to_fn());
+        assert_eq!(values, vec![11, 12, 13]);
+
+        // Original still usable after to_fn (because RcMutator is Clone)
+        let mut value1 = 5;
+        let mut m = mutator;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 15);
+    }
 }
 
 // ============================================================================
@@ -488,6 +693,112 @@ mod test_fn_mutator_ops {
         let mut value = 5;
         arc.mutate(&mut value);
         assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        // Test non-consuming conversion to RcMutator
+        // Note: Only works with cloneable closures (no mutable captures)
+        let closure = |x: &mut i32| *x *= 2;
+        let mut rc = closure.to_rc();
+        let mut value = 5;
+        rc.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        // Test non-consuming conversion to ArcMutator
+        // Note: Only works with cloneable closures (no mutable captures)
+        let closure = |x: &mut i32| *x *= 2;
+        let mut arc = closure.to_arc();
+        let mut value = 5;
+        arc.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        // Test non-consuming conversion to FnMut
+        // Note: Only works with cloneable closures (no mutable captures)
+        let closure = |x: &mut i32| *x += 10;
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(closure.to_fn());
+        assert_eq!(values, vec![11, 12, 13]);
+    }
+
+    #[test]
+    fn test_closure_to_rc_preserves_original() {
+        let closure = |x: &mut i32| *x *= 2;
+        let mut rc = closure.to_rc();
+
+        // to_rc version works
+        let mut value = 5;
+        rc.mutate(&mut value);
+        assert_eq!(value, 10);
+
+        // Original closure is still usable (was copied, not moved)
+        let mut value2 = 3;
+        let mut closure_copy = closure;
+        closure_copy.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_closure_to_arc_preserves_original() {
+        let closure = |x: &mut i32| *x *= 2;
+        let mut arc = closure.to_arc();
+
+        // to_arc version works
+        let mut value = 5;
+        arc.mutate(&mut value);
+        assert_eq!(value, 10);
+
+        // Original closure is still usable (was copied, not moved)
+        let mut value2 = 3;
+        let mut closure_copy = closure;
+        closure_copy.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_closure_to_fn_preserves_original() {
+        let closure = |x: &mut i32| *x += 10;
+        let fn_mutator = closure.to_fn();
+
+        // to_fn version works
+        let mut values = vec![1, 2, 3];
+        values.iter_mut().for_each(fn_mutator);
+        assert_eq!(values, vec![11, 12, 13]);
+
+        // Original closure is still usable (was copied, not moved)
+        let mut value = 5;
+        let mut closure_copy = closure;
+        closure_copy.mutate(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_closure_to_arc_thread_safe() {
+        use std::thread;
+
+        let closure = |x: &mut i32| *x *= 2;
+        let arc = closure.to_arc();
+        let clone = arc.clone();
+
+        let handle = thread::spawn(move || {
+            let mut value = 5;
+            let mut m = clone;
+            m.mutate(&mut value);
+            value
+        });
+
+        let mut value = 3;
+        let mut m = arc;
+        m.mutate(&mut value);
+        assert_eq!(value, 6);
+
+        assert_eq!(handle.join().unwrap(), 10);
     }
 }
 
@@ -2059,6 +2370,244 @@ mod test_conditional_execution {
         values.iter_mut().for_each(conditional.into_fn());
 
         assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    // ========================================================================
+    // to_xxx tests for RcConditionalMutator
+    // ========================================================================
+
+    #[test]
+    fn test_rc_conditional_to_box() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.to_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        boxed.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_rc() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.to_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        rc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_fn() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut values = vec![-2, -1, 0, 1, 2, 3];
+
+        values.iter_mut().for_each(conditional.to_fn());
+
+        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_box_preserves_original() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.to_box();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m = conditional;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // Boxed version also works
+        let mut value2 = 3;
+        boxed.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_rc_preserves_original() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.to_rc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = conditional;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_rc version also works
+        let mut value2 = 3;
+        rc.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_fn_preserves_original() {
+        let conditional = RcMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+
+        // to_fn version works
+        let mut values = vec![1, 2, -3];
+        values.iter_mut().for_each(conditional.to_fn());
+        assert_eq!(values, vec![11, 12, -3]);
+
+        // Original still usable after to_fn (because RcConditionalMutator is Clone)
+        let mut value1 = 5;
+        let mut m = conditional;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 15);
+    }
+
+    // ========================================================================
+    // to_xxx tests for ArcConditionalMutator
+    // ========================================================================
+
+    #[test]
+    fn test_arc_conditional_to_box() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.to_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        boxed.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_rc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.to_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        rc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut arc = conditional.to_arc();
+
+        let mut positive = 5;
+        arc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        arc.mutate(&mut negative);
+        assert_eq!(negative, -5);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_fn() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut values = vec![-2, -1, 0, 1, 2, 3];
+
+        values.iter_mut().for_each(conditional.to_fn());
+
+        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_box_preserves_original() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut boxed = conditional.to_box();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m = conditional;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // Boxed version also works
+        let mut value2 = 3;
+        boxed.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_rc_preserves_original() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut rc = conditional.to_rc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = conditional;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_rc version also works
+        let mut value2 = 3;
+        rc.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc_preserves_original() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let mut arc = conditional.to_arc();
+
+        // Original still usable
+        let mut value1 = 5;
+        let mut m1 = conditional;
+        m1.mutate(&mut value1);
+        assert_eq!(value1, 10);
+
+        // to_arc version also works
+        let mut value2 = 3;
+        arc.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_fn_preserves_original() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+
+        // to_fn version works
+        let mut values = vec![1, 2, -3];
+        values.iter_mut().for_each(conditional.to_fn());
+        assert_eq!(values, vec![11, 12, -3]);
+
+        // Original still usable after to_fn (because ArcConditionalMutator is Clone)
+        let mut value1 = 5;
+        let mut m = conditional;
+        m.mutate(&mut value1);
+        assert_eq!(value1, 15);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc_thread_safe() {
+        use std::thread;
+
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let arc = conditional.to_arc();
+        let clone = arc.clone();
+
+        let handle = thread::spawn(move || {
+            let mut value = 5;
+            let mut m = clone;
+            m.mutate(&mut value);
+            value
+        });
+
+        let mut value = -5;
+        let mut m = arc;
+        m.mutate(&mut value);
+        assert_eq!(value, -5);
+
+        assert_eq!(handle.join().unwrap(), 10);
     }
 
     // ========================================================================
