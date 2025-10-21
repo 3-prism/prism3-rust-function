@@ -133,7 +133,10 @@ pub trait ReadonlyBiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        BoxReadonlyBiConsumer::new(move |t, u| self.accept(t, u))
+    }
 
     /// Converts to RcReadonlyBiConsumer
     ///
@@ -147,7 +150,10 @@ pub trait ReadonlyBiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        RcReadonlyBiConsumer::new(move |t, u| self.accept(t, u))
+    }
 
     /// Converts to ArcReadonlyBiConsumer
     ///
@@ -161,7 +167,10 @@ pub trait ReadonlyBiConsumer<T, U> {
     where
         Self: Sized + Send + Sync + 'static,
         T: Send + Sync + 'static,
-        U: Send + Sync + 'static;
+        U: Send + Sync + 'static,
+    {
+        ArcReadonlyBiConsumer::new(move |t, u| self.accept(t, u))
+    }
 
     /// Converts readonly bi-consumer to a closure
     ///
@@ -190,7 +199,134 @@ pub trait ReadonlyBiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        move |t, u| self.accept(t, u)
+    }
+
+    /// Converts to BoxReadonlyBiConsumer (without consuming self)
+    ///
+    /// Creates a new `BoxReadonlyBiConsumer` by cloning the current consumer.
+    /// The original consumer remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxReadonlyBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyBiConsumer, RcReadonlyBiConsumer};
+    ///
+    /// let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("Sum: {}", x + y);
+    /// });
+    /// let box_consumer = consumer.to_box();
+    /// box_consumer.accept(&5, &3);
+    /// // Original consumer still usable
+    /// consumer.accept(&10, &20);
+    /// ```
+    fn to_box(&self) -> BoxReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Converts to RcReadonlyBiConsumer (without consuming self)
+    ///
+    /// Creates a new `RcReadonlyBiConsumer` by cloning the current consumer.
+    /// The original consumer remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `RcReadonlyBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyBiConsumer, ArcReadonlyBiConsumer};
+    ///
+    /// let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("Sum: {}", x + y);
+    /// });
+    /// let rc_consumer = consumer.to_rc();
+    /// rc_consumer.accept(&5, &3);
+    /// // Original consumer still usable
+    /// consumer.accept(&10, &20);
+    /// ```
+    fn to_rc(&self) -> RcReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Converts to ArcReadonlyBiConsumer (without consuming self)
+    ///
+    /// Creates a new `ArcReadonlyBiConsumer` by cloning the current consumer.
+    /// The original consumer remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `ArcReadonlyBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyBiConsumer, RcReadonlyBiConsumer};
+    ///
+    /// let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("Sum: {}", x + y);
+    /// });
+    /// // Note: This will only compile if the closure is Send + Sync
+    /// // For demonstration, we use a simple closure
+    /// let arc_consumer = consumer.to_arc();
+    /// arc_consumer.accept(&5, &3);
+    /// ```
+    fn to_arc(&self) -> ArcReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Converts to a closure (without consuming self)
+    ///
+    /// Creates a new closure by cloning the current consumer.
+    /// The original consumer remains usable after this call.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `Fn(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ReadonlyBiConsumer, RcReadonlyBiConsumer};
+    ///
+    /// let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    ///     println!("Sum: {}", x + y);
+    /// });
+    /// let func = consumer.to_fn();
+    /// func(&5, &3);
+    /// // Original consumer still usable
+    /// consumer.accept(&10, &20);
+    /// ```
+    fn to_fn(&self) -> impl Fn(&T, &U)
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // =======================================================================
@@ -272,6 +408,15 @@ where
             function: Box::new(f),
             name: None,
         }
+    }
+
+    /// Creates a no-op readonly bi-consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op readonly bi-consumer
+    pub fn noop() -> Self {
+        BoxReadonlyBiConsumer::new(|_, _| {})
     }
 
     /// Gets the name of the consumer
@@ -359,15 +504,6 @@ where
             second.accept(t, u);
         })
     }
-
-    /// Creates a no-op readonly bi-consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op readonly bi-consumer
-    pub fn noop() -> Self {
-        BoxReadonlyBiConsumer::new(|_, _| {})
-    }
 }
 
 impl<T, U> ReadonlyBiConsumer<T, U> for BoxReadonlyBiConsumer<T, U> {
@@ -388,21 +524,11 @@ impl<T, U> ReadonlyBiConsumer<T, U> for BoxReadonlyBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        RcReadonlyBiConsumer::new(move |t, u| func(t, u))
+        RcReadonlyBiConsumer::new(move |t, u| (self.function)(t, u))
     }
 
-    fn into_arc(self) -> ArcReadonlyBiConsumer<T, U>
-    where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-    {
-        panic!(
-            "Cannot convert BoxReadonlyBiConsumer to \
-                ArcReadonlyBiConsumer: inner function may not be \
-                Send+Sync"
-        )
-    }
+    // do NOT override ReadonlyConsumer::into_arc() because ArcReadonlyBiConsumer is not Send + Sync
+    // and calling ArcReadonlyBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T, &U)
     where
@@ -523,6 +649,15 @@ where
         }
     }
 
+    /// Creates a no-op readonly bi-consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op readonly bi-consumer
+    pub fn noop() -> Self {
+        ArcReadonlyBiConsumer::new(|_, _| {})
+    }
+
     /// Gets the name of the consumer
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -531,37 +666,6 @@ where
     /// Sets the name of the consumer
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
-    }
-
-    /// Converts to a closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function via Arc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `Fn(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ReadonlyBiConsumer, ArcReadonlyBiConsumer};
-    ///
-    /// let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Sum: {}", x + y);
-    /// });
-    ///
-    /// let func = consumer.to_fn();
-    /// func(&5, &3);
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let func = Arc::clone(&self.function);
-        move |t: &T, u: &U| {
-            func(t, u);
-        }
     }
 
     /// Chains another ArcReadonlyBiConsumer in sequence
@@ -625,8 +729,7 @@ impl<T, U> ReadonlyBiConsumer<T, U> for ArcReadonlyBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        BoxReadonlyBiConsumer::new(move |t, u| func(t, u))
+        BoxReadonlyBiConsumer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_rc(self) -> RcReadonlyBiConsumer<T, U>
@@ -634,8 +737,7 @@ impl<T, U> ReadonlyBiConsumer<T, U> for ArcReadonlyBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        RcReadonlyBiConsumer::new(move |t, u| func(t, u))
+        RcReadonlyBiConsumer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_arc(self) -> ArcReadonlyBiConsumer<T, U>
@@ -651,10 +753,42 @@ impl<T, U> ReadonlyBiConsumer<T, U> for ArcReadonlyBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        move |t: &T, u: &U| {
-            func(t, u);
-        }
+        move |t, u| (self.function)(t, u)
+    }
+
+    fn to_box(&self) -> BoxReadonlyBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_rc(&self) -> RcReadonlyBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        RcReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_arc(&self) -> ArcReadonlyBiConsumer<T, U>
+    where
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t, u| self_fn(t, u)
     }
 }
 
@@ -782,6 +916,15 @@ where
         }
     }
 
+    /// Creates a no-op readonly bi-consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op readonly bi-consumer
+    pub fn noop() -> Self {
+        RcReadonlyBiConsumer::new(|_, _| {})
+    }
+
     /// Gets the name of the consumer
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -790,37 +933,6 @@ where
     /// Sets the name of the consumer
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
-    }
-
-    /// Converts to a closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function via Rc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `Fn(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ReadonlyBiConsumer, RcReadonlyBiConsumer};
-    ///
-    /// let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Sum: {}", x + y);
-    /// });
-    ///
-    /// let func = consumer.to_fn();
-    /// func(&5, &3);
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let func = Rc::clone(&self.function);
-        move |t: &T, u: &U| {
-            func(t, u);
-        }
     }
 
     /// Chains another RcReadonlyBiConsumer in sequence
@@ -884,8 +996,7 @@ impl<T, U> ReadonlyBiConsumer<T, U> for RcReadonlyBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        BoxReadonlyBiConsumer::new(move |t, u| func(t, u))
+        BoxReadonlyBiConsumer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_rc(self) -> RcReadonlyBiConsumer<T, U>
@@ -896,26 +1007,44 @@ impl<T, U> ReadonlyBiConsumer<T, U> for RcReadonlyBiConsumer<T, U> {
         self
     }
 
-    fn into_arc(self) -> ArcReadonlyBiConsumer<T, U>
-    where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-    {
-        panic!(
-            "Cannot convert RcReadonlyBiConsumer to \
-                ArcReadonlyBiConsumer (not Send+Sync)"
-        )
-    }
+    // do NOT override ReadonlyBiConsumer::into_arc() because RcReadonlyBiConsumer is not Send + Sync
+    // and calling RcReadonlyBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T, &U)
     where
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        move |t: &T, u: &U| {
-            func(t, u);
-        }
+        move |t, u| (self.function)(t, u)
+    }
+
+    fn to_box(&self) -> BoxReadonlyBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_rc(&self) -> RcReadonlyBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
+    }
+
+    // do NOT override ReadonlyBiConsumer::to_arc() because RcReadonlyBiConsumer is not Send + Sync
+    // and calling RcReadonlyBiConsumer::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl Fn(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t, u| self_fn(t, u)
     }
 }
 
@@ -997,6 +1126,45 @@ where
         U: 'static,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.clone();
+        BoxReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_rc(&self) -> RcReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.clone();
+        RcReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_arc(&self) -> ArcReadonlyBiConsumer<T, U>
+    where
+        Self: Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        let self_fn = self.clone();
+        ArcReadonlyBiConsumer::new(move |t, u| self_fn(t, u))
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U)
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
     }
 }
 

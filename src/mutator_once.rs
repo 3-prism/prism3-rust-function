@@ -96,7 +96,7 @@
 //! ## Initialization Callback
 //!
 //! ```rust
-//! use prism3_function::BoxMutatorOnce;
+//! use prism3_function::{BoxMutatorOnce, MutatorOnce};
 //!
 //! struct Initializer {
 //!     on_complete: Option<BoxMutatorOnce<Vec<i32>>>,
@@ -233,36 +233,71 @@ pub trait MutatorOnce<T> {
     /// ```
     fn mutate(self, value: &mut T);
 
-    /// Converts to BoxMutatorOnce
+    /// Converts to `BoxMutatorOnce` (consuming)
     ///
-    /// **⚠️ Consumes `self`**: The original mutator becomes unavailable
-    /// after calling this method.
+    /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The default
+    /// implementation simply wraps the consuming `mutate(self, &mut T)` call
+    /// in a `Box<dyn FnOnce(&mut T)>`. Types that can provide a cheaper or
+    /// identity conversion (for example `BoxMutatorOnce` itself) should
+    /// override this method.
     ///
-    /// Converts the current mutator to `BoxMutatorOnce<T>`.
+    /// # Note
     ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the mutator (takes ownership of `self`).
-    /// After calling this method, the original mutator is no longer
-    /// available.
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `BoxMutatorOnce<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::MutatorOnce;
-    ///
-    /// let data = vec![1, 2, 3];
-    /// let closure = move |x: &mut Vec<i32>| x.extend(data);
-    /// let box_mutator = closure.into_box();
-    /// ```
+    /// - This method consumes the source value.
+    /// - Implementors may return `self` directly when `Self` is already a
+    ///   `BoxMutatorOnce<T>` to avoid the extra wrapper allocation.
     fn into_box(self) -> BoxMutatorOnce<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxMutatorOnce::new(move |t| self.mutate(t))
+    }
+
+    /// Converts to a consuming closure `FnOnce(&mut T)`
+    ///
+    /// Consumes `self` and returns a closure that, when invoked, calls
+    /// `mutate(self, &mut T)`. This is the default, straightforward
+    /// implementation; types that can produce a more direct function pointer
+    /// or avoid additional captures may override it.
+    fn into_fn(self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        move |t: &mut T| self.mutate(t)
+    }
+
+    /// Non-consuming adapter to `BoxMutatorOnce`
+    ///
+    /// Creates a `BoxMutatorOnce<T>` that does not consume `self`. The default
+    /// implementation requires `Self: Clone` and clones the receiver for the
+    /// stored closure; the clone is consumed when the boxed mutator is invoked.
+    /// Types that can provide a zero-cost adapter (for example clonable
+    /// closures) should override this method to avoid unnecessary allocations.
+    fn to_box(&self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mutator = self.clone();
+        BoxMutatorOnce::new(move |t| mutator.mutate(t))
+    }
+
+    /// Non-consuming adapter to a callable `FnOnce(&mut T)`
+    ///
+    /// Returns a closure that does not consume `self`. The default requires
+    /// `Self: Clone` and clones `self` for the captured closure; the clone is
+    /// consumed when the returned closure is invoked. Implementors may provide
+    /// more efficient adapters for specific types.
+    fn to_fn(&self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mutator = self.clone();
+        move |t| mutator.mutate(t)
+    }
 }
 
 // ============================================================================
@@ -512,6 +547,7 @@ where
     ///
     /// ```rust
     /// use prism3_function::{MutatorOnce, BoxMutatorOnce, RcPredicate};
+    /// use prism3_function::predicate::Predicate;
     ///
     /// let data = vec![1, 2, 3];
     /// let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
@@ -569,6 +605,13 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
         T: 'static,
     {
         self
+    }
+
+    fn into_fn(self) -> impl FnOnce(&mut T)
+    where
+        T: 'static,
+    {
+        move |t: &mut T| (self.func)(t)
     }
 }
 
@@ -678,6 +721,16 @@ where
                 mutator.mutate(t);
             }
         })
+    }
+
+    fn into_fn(self) -> impl FnOnce(&mut T) {
+        let pred = self.predicate;
+        let mutator = self.mutator;
+        move |t: &mut T| {
+            if pred.test(t) {
+                mutator.mutate(t);
+            }
+        }
     }
 }
 
@@ -826,6 +879,34 @@ where
         T: 'static,
     {
         BoxMutatorOnce::new(self)
+    }
+
+    fn into_fn(self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self
+    }
+
+    // Provide specialized non-consuming conversions for closures that
+    // implement `Clone`. Many simple closures are zero-sized and `Clone`,
+    // allowing non-consuming adapters to be cheaply produced.
+    fn to_box(&self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mutator = self.clone();
+        BoxMutatorOnce::new(move |t| mutator.mutate(t))
+    }
+
+    fn to_fn(&self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone()
     }
 }
 

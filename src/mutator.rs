@@ -293,52 +293,56 @@ pub trait Mutator<T> {
     /// ```
     fn mutate(&mut self, value: &mut T);
 
-    /// Converts to BoxMutator
+    /// Convert this mutator into a `BoxMutator<T>`.
     ///
-    /// **⚠️ Consumes `self`**: The original mutator becomes unavailable
-    /// after calling this method.
+    /// This consuming conversion takes ownership of `self` and returns a
+    /// boxed implementation that forwards calls to the original mutator.
+    /// Types that can provide a more efficient conversion may override the
+    /// default implementation.
     ///
-    /// Converts the current mutator to `BoxMutator<T>`.
+    /// # Consumption
     ///
-    /// # Ownership
-    ///
-    /// This method **consumes** the mutator (takes ownership of `self`).
-    /// After calling this method, the original mutator is no longer
-    /// available.
-    ///
-    /// **Tip**: For cloneable mutators ([`ArcMutator`], [`RcMutator`]),
-    /// you can call `.clone()` first if you need to keep the original.
+    /// This method consumes the mutator: the original value will no longer
+    /// be available after the call. For cloneable mutators call `.clone()`
+    /// before converting if you need to retain the original instance.
     ///
     /// # Returns
     ///
-    /// Returns the wrapped `BoxMutator<T>`
+    /// A `BoxMutator<T>` that forwards to the original mutator.
     ///
     /// # Examples
-    ///
-    /// ## Basic Conversion
     ///
     /// ```rust
     /// use prism3_function::Mutator;
     ///
     /// let closure = |x: &mut i32| *x *= 2;
-    /// let mut box_mutator = closure.into_box();
+    /// let mut boxed = closure.into_box();
     /// let mut value = 5;
-    /// box_mutator.mutate(&mut value);
+    /// boxed.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_box(self) -> BoxMutator<T>
+    fn into_box(mut self) -> BoxMutator<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxMutator::new(move |t| self.mutate(t))
+    }
 
-    /// Converts to RcMutator
+    /// Convert this mutator into an `RcMutator<T>`.
     ///
-    /// **⚠️ Consumes `self`**: The original mutator becomes unavailable
-    /// after calling this method.
+    /// This consuming conversion takes ownership of `self` and returns an
+    /// `Rc`-backed mutator that forwards calls to the original. Override to
+    /// provide a more direct or efficient conversion when available.
+    ///
+    /// # Consumption
+    ///
+    /// This method consumes the mutator. If you need to keep the original
+    /// instance, clone it prior to calling this method.
     ///
     /// # Returns
     ///
-    /// Returns the wrapped `RcMutator<T>`
+    /// An `RcMutator<T>` forwarding to the original mutator.
     ///
     /// # Examples
     ///
@@ -346,24 +350,33 @@ pub trait Mutator<T> {
     /// use prism3_function::Mutator;
     ///
     /// let closure = |x: &mut i32| *x *= 2;
-    /// let mut rc_mutator = closure.into_rc();
+    /// let mut rc = closure.into_rc();
     /// let mut value = 5;
-    /// rc_mutator.mutate(&mut value);
+    /// rc.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_rc(self) -> RcMutator<T>
+    fn into_rc(mut self) -> RcMutator<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        RcMutator::new(move |t| self.mutate(t))
+    }
 
-    /// Converts to ArcMutator
+    /// Convert this mutator into an `ArcMutator<T>`.
     ///
-    /// **⚠️ Consumes `self`**: The original mutator becomes unavailable
-    /// after calling this method.
+    /// This consuming conversion takes ownership of `self` and returns an
+    /// `Arc`-wrapped, thread-safe mutator. Types may override the default
+    /// implementation to provide a more efficient conversion.
+    ///
+    /// # Consumption
+    ///
+    /// This method consumes the mutator. Clone the instance first if you
+    /// need to retain the original for further use.
     ///
     /// # Returns
     ///
-    /// Returns the wrapped `ArcMutator<T>`
+    /// An `ArcMutator<T>` that forwards to the original mutator.
     ///
     /// # Examples
     ///
@@ -371,27 +384,33 @@ pub trait Mutator<T> {
     /// use prism3_function::Mutator;
     ///
     /// let closure = |x: &mut i32| *x *= 2;
-    /// let mut arc_mutator = closure.into_arc();
+    /// let mut arc = closure.into_arc();
     /// let mut value = 5;
-    /// arc_mutator.mutate(&mut value);
+    /// arc.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_arc(self) -> ArcMutator<T>
+    fn into_arc(mut self) -> ArcMutator<T>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static;
+        T: Send + 'static,
+    {
+        ArcMutator::new(move |t| self.mutate(t))
+    }
 
-    /// Converts mutator to a closure for use with iterator methods
+    /// Consume the mutator and return an `FnMut(&mut T)` closure.
     ///
-    /// **⚠️ Consumes `self`**: The original mutator becomes unavailable
-    /// after calling this method.
+    /// The returned closure forwards calls to the original mutator and is
+    /// suitable for use with iterator adapters such as `for_each`.
     ///
-    /// This method consumes the mutator and returns a closure that can be
-    /// directly used with iterator methods like `for_each()`.
+    /// # Consumption
+    ///
+    /// This method consumes the mutator. The original instance will not be
+    /// available after calling this method.
     ///
     /// # Returns
     ///
-    /// Returns a closure that implements `FnMut(&mut T)`
+    /// A closure implementing `FnMut(&mut T)` which forwards to the
+    /// original mutator.
     ///
     /// # Examples
     ///
@@ -400,15 +419,89 @@ pub trait Mutator<T> {
     ///
     /// let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
     /// let mut values = vec![1, 2, 3, 4, 5];
-    ///
     /// values.iter_mut().for_each(mutator.into_fn());
-    ///
     /// assert_eq!(values, vec![2, 4, 6, 8, 10]);
     /// ```
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(mut self) -> impl FnMut(&mut T)
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        move |t| self.mutate(t)
+    }
+
+    /// Create a non-consuming `BoxMutator<T>` that forwards to `self`.
+    ///
+    /// The default implementation clones `self` (requires `Clone`) and
+    /// returns a boxed mutator that calls the cloned instance. Override this
+    /// method if a more efficient conversion exists.
+    ///
+    /// # Returns
+    ///
+    /// A `BoxMutator<T>` that forwards to a clone of `self`.
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mut mutator = self.clone();
+        BoxMutator::new(move |t| mutator.mutate(t))
+    }
+
+    /// Create a non-consuming `RcMutator<T>` that forwards to `self`.
+    ///
+    /// The default implementation clones `self` (requires `Clone`) and
+    /// returns an `Rc`-backed mutator that forwards calls to the clone.
+    /// Override to provide a more direct or efficient conversion if needed.
+    ///
+    /// # Returns
+    ///
+    /// An `RcMutator<T>` that forwards to a clone of `self`.
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mut mutator = self.clone();
+        RcMutator::new(move |t| mutator.mutate(t))
+    }
+
+    /// Create a non-consuming `ArcMutator<T>` that forwards to `self`.
+    ///
+    /// The default implementation clones `self` (requires `Clone + Send`) and
+    /// returns an `Arc`-wrapped mutator that forwards calls to the clone.
+    /// Override when a more efficient conversion is available.
+    ///
+    /// # Returns
+    ///
+    /// An `ArcMutator<T>` that forwards to a clone of `self`.
+    fn to_arc(&self) -> ArcMutator<T>
+    where
+        Self: Sized + Clone + Send + 'static,
+        T: Send + 'static,
+    {
+        let mut mutator = self.clone();
+        ArcMutator::new(move |t| mutator.mutate(t))
+    }
+
+    /// Create a boxed `FnMut(&mut T)` closure that forwards to `self`.
+    ///
+    /// The default implementation clones `self` (requires `Clone`) and
+    /// returns a boxed closure that invokes the cloned instance. Override to
+    /// provide a more efficient conversion when possible.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnMut(&mut T)` which forwards to the
+    /// original mutator.
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let mut mutator = self.clone();
+        move |t| mutator.mutate(t)
+    }
 }
 
 // ============================================================================
@@ -470,7 +563,7 @@ type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
 ///
 /// Haixing Hu
 pub struct BoxMutator<T> {
-    func: Box<dyn FnMut(&mut T)>,
+    function: Box<dyn FnMut(&mut T)>,
 }
 
 impl<T> BoxMutator<T>
@@ -501,7 +594,7 @@ where
     where
         F: FnMut(&mut T) + 'static,
     {
-        BoxMutator { func: Box::new(f) }
+        BoxMutator { function: Box::new(f) }
     }
 
     /// Creates a no-op mutator
@@ -588,11 +681,11 @@ where
     where
         C: Mutator<T> + 'static,
     {
-        let mut first = self.func;
-        let mut second = next;
+        let mut first = self.function;
+        let mut second = next.into_fn();
         BoxMutator::new(move |t| {
-            first(t);
-            second.mutate(t);
+            (first)(t);
+            second(t);
         })
     }
 
@@ -682,7 +775,7 @@ where
 
 impl<T> Mutator<T> for BoxMutator<T> {
     fn mutate(&mut self, value: &mut T) {
-        (self.func)(value)
+        (self.function)(value)
     }
 
     fn into_box(self) -> BoxMutator<T>
@@ -696,26 +789,23 @@ impl<T> Mutator<T> for BoxMutator<T> {
     where
         T: 'static,
     {
-        let mut func = self.func;
-        RcMutator::new(move |t| func(t))
+        let mut self_fn = self.function;
+        RcMutator::new(move |t| self_fn(t))
     }
 
-    fn into_arc(self) -> ArcMutator<T>
-    where
-        T: Send + 'static,
-    {
-        panic!(
-            "Cannot convert BoxMutator to ArcMutator: BoxMutator's inner function may not be Send"
-        )
-    }
+    // do NOT override Mutator::into_arc() because BoxMutator is not Send + Sync
+    // and calling BoxMutator::into_arc() will cause a compile error
 
     fn into_fn(mut self) -> impl FnMut(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t: &mut T| (self.func)(t)
+        move |t: &mut T| (self.function)(t)
     }
+
+    // do NOT override Mutator::to_xxx() because BoxMutator is not Clone
+    // and calling BoxMutator::to_xxx() will cause a compile error
 }
 
 // ============================================================================
@@ -781,58 +871,7 @@ pub struct BoxConditionalMutator<T> {
     mutator: BoxMutator<T>,
     predicate: BoxPredicate<T>,
 }
-impl<T> Mutator<T> for BoxConditionalMutator<T>
-where
-    T: 'static,
-{
-    fn mutate(&mut self, value: &mut T) {
-        if self.predicate.test(value) {
-            self.mutator.mutate(value);
-        }
-    }
 
-    fn into_box(self) -> BoxMutator<T> {
-        let pred = self.predicate;
-        let mut mutator = self.mutator;
-        BoxMutator::new(move |t| {
-            if pred.test(t) {
-                mutator.mutate(t);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcMutator<T> {
-        let pred = self.predicate.into_rc();
-        let mutator = self.mutator.into_rc();
-        let pred_fn = pred.to_fn();
-        let mut mutator_fn = mutator;
-        RcMutator::new(move |t| {
-            if pred_fn(t) {
-                mutator_fn.mutate(t);
-            }
-        })
-    }
-
-    fn into_arc(self) -> ArcMutator<T>
-    where
-        T: Send + 'static,
-    {
-        panic!(
-            "Cannot convert BoxConditionalMutator to ArcMutator: \
-             predicate and mutator may not be Send + Sync"
-        )
-    }
-
-    fn into_fn(self) -> impl FnMut(&mut T) {
-        let pred = self.predicate;
-        let mut mutator = self.mutator;
-        move |t: &mut T| {
-            if pred.test(t) {
-                mutator.mutate(t);
-            }
-        }
-    }
-}
 impl<T> BoxConditionalMutator<T>
 where
     T: 'static,
@@ -900,10 +939,10 @@ where
         C: Mutator<T> + 'static,
     {
         let mut first = self;
-        let mut second = next;
+        let mut second = next.into_fn();
         BoxMutator::new(move |t| {
             first.mutate(t);
-            second.mutate(t);
+            second(t);
         })
     }
 
@@ -963,6 +1002,54 @@ where
     }
 }
 
+impl<T> Mutator<T> for BoxConditionalMutator<T>
+where
+    T: 'static,
+{
+    fn mutate(&mut self, value: &mut T) {
+        if self.predicate.test(value) {
+            self.mutator.mutate(value);
+        }
+    }
+
+    fn into_box(self) -> BoxMutator<T> {
+        let pred = self.predicate;
+        let mut mutator = self.mutator;
+        BoxMutator::new(move |t| {
+            if pred.test(t) {
+                mutator.mutate(t);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcMutator<T> {
+        let pred = self.predicate.into_rc();
+        let mutator = self.mutator.into_rc();
+        let mut mutator_fn = mutator;
+        RcMutator::new(move |t| {
+            if pred.test(t) {
+                mutator_fn.mutate(t);
+            }
+        })
+    }
+
+    // do NOT override Mutator::into_arc() because BoxConditionalMutator is not Send + Sync
+    // and calling BoxConditionalMutator::into_arc() will cause a compile error
+
+    fn into_fn(self) -> impl FnMut(&mut T) {
+        let pred = self.predicate;
+        let mut mutator = self.mutator;
+        move |t: &mut T| {
+            if pred.test(t) {
+                mutator.mutate(t);
+            }
+        }
+    }
+
+    // do NOT override Mutator::to_xxx() because BoxConditionalMutator is not Clone
+    // and calling BoxConditionalMutator::to_xxx() will cause a compile error
+}
+
 // ============================================================================
 // 4. RcMutator - Single-Threaded Shared Ownership Implementation
 // ============================================================================
@@ -1007,7 +1094,7 @@ where
 ///
 /// Haixing Hu
 pub struct RcMutator<T> {
-    func: RcMutMutatorFn<T>,
+    function: RcMutMutatorFn<T>,
 }
 
 impl<T> RcMutator<T>
@@ -1040,7 +1127,7 @@ where
         F: FnMut(&mut T) + 'static,
     {
         RcMutator {
-            func: Rc::new(RefCell::new(f)),
+            function: Rc::new(RefCell::new(f)),
         }
     }
 
@@ -1098,14 +1185,12 @@ where
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
     pub fn and_then(&self, next: &RcMutator<T>) -> RcMutator<T> {
-        let first = Rc::clone(&self.func);
-        let second = Rc::clone(&next.func);
-        RcMutator {
-            func: Rc::new(RefCell::new(move |t: &mut T| {
-                first.borrow_mut()(t);
-                second.borrow_mut()(t);
-            })),
-        }
+        let first = self.function.clone();
+        let second = next.function.clone();
+        RcMutator::new(move |t: &mut T| {
+            (first.borrow_mut())(t);
+            (second.borrow_mut())(t);
+        })
     }
 
     /// Creates a conditional mutator (single-threaded shared version)
@@ -1142,12 +1227,12 @@ where
     /// m.mutate(&mut positive);
     /// assert_eq!(positive, 10);
     /// ```
-    pub fn when<P>(self, predicate: P) -> RcConditionalMutator<T>
+    pub fn when<P>(&self, predicate: P) -> RcConditionalMutator<T>
     where
         P: Predicate<T> + 'static,
     {
         RcConditionalMutator {
-            mutator: self,
+            mutator: self.clone(),
             predicate: predicate.into_rc(),
         }
     }
@@ -1155,15 +1240,14 @@ where
 
 impl<T> Mutator<T> for RcMutator<T> {
     fn mutate(&mut self, value: &mut T) {
-        (self.func.borrow_mut())(value)
+        (self.function.borrow_mut())(value)
     }
 
     fn into_box(self) -> BoxMutator<T>
     where
         T: 'static,
     {
-        let func = self.func;
-        BoxMutator::new(move |t| func.borrow_mut()(t))
+        BoxMutator::new(move |t| self.function.borrow_mut()(t))
     }
 
     fn into_rc(self) -> RcMutator<T>
@@ -1173,20 +1257,44 @@ impl<T> Mutator<T> for RcMutator<T> {
         self
     }
 
-    fn into_arc(self) -> ArcMutator<T>
-    where
-        T: Send + 'static,
-    {
-        panic!("Cannot convert RcMutator to ArcMutator (not Send)")
-    }
+    // do NOT override Mutator::into_arc() because RcMutator is not Send + Sync
+    // and calling RcMutator::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        let func = self.func;
-        move |t: &mut T| func.borrow_mut()(t)
+        move |t| self.function.borrow_mut()(t)
+    }
+
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let function = Rc::clone(&self.function);
+        BoxMutator::new(move |t: &mut T| function.borrow_mut()(t))
+    }
+
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone()
+    }
+
+    // do NOT override Mutator::to_arc() because RcMutator is not Send + Sync
+    // and calling RcMutator::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = Rc::clone(&self.function);
+        move |t| self_fn.borrow_mut()(t)
     }
 }
 
@@ -1197,7 +1305,7 @@ impl<T> Clone for RcMutator<T> {
     /// original instance.
     fn clone(&self) -> Self {
         Self {
-            func: Rc::clone(&self.func),
+            function: Rc::clone(&self.function),
         }
     }
 }
@@ -1275,12 +1383,8 @@ where
         })
     }
 
-    fn into_arc(self) -> ArcMutator<T>
-    where
-        T: Send + 'static,
-    {
-        panic!("Cannot convert RcConditionalMutator to ArcMutator: not Send")
-    }
+    // do NOT override Mutator::into_arc() because RcConditionalMutator is not Send + Sync
+    // and calling RcConditionalMutator::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&mut T) {
         let pred = self.predicate;
@@ -1290,6 +1394,33 @@ where
                 mutator.mutate(t);
             }
         }
+    }
+
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    // do NOT override Mutator::to_arc() because RcMutator is not Send + Sync
+    // and calling RcMutator::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_fn()
     }
 }
 impl<T> RcConditionalMutator<T>
@@ -1408,7 +1539,7 @@ impl<T> Clone for RcConditionalMutator<T> {
 ///
 /// Haixing Hu
 pub struct ArcMutator<T> {
-    func: ArcMutMutatorFn<T>,
+    function: ArcMutMutatorFn<T>,
 }
 
 impl<T> ArcMutator<T>
@@ -1441,7 +1572,7 @@ where
         F: FnMut(&mut T) + Send + 'static,
     {
         ArcMutator {
-            func: Arc::new(Mutex::new(f)),
+            function: Arc::new(Mutex::new(f)),
         }
     }
 
@@ -1499,12 +1630,12 @@ where
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
     pub fn and_then(&self, next: &ArcMutator<T>) -> ArcMutator<T> {
-        let first = Arc::clone(&self.func);
-        let second = Arc::clone(&next.func);
+        let first = Arc::clone(&self.function);
+        let second = Arc::clone(&next.function);
         ArcMutator {
-            func: Arc::new(Mutex::new(move |t: &mut T| {
-                first.lock().unwrap()(t);
-                second.lock().unwrap()(t);
+            function: Arc::new(Mutex::new(move |t: &mut T| {
+                (first.lock().unwrap())(t);
+                (second.lock().unwrap())(t);
             })),
         }
     }
@@ -1557,23 +1688,21 @@ where
 
 impl<T> Mutator<T> for ArcMutator<T> {
     fn mutate(&mut self, value: &mut T) {
-        (self.func.lock().unwrap())(value)
+        (self.function.lock().unwrap())(value)
     }
 
     fn into_box(self) -> BoxMutator<T>
     where
         T: 'static,
     {
-        let func = self.func;
-        BoxMutator::new(move |t| func.lock().unwrap()(t))
+        BoxMutator::new(move |t| self.function.lock().unwrap()(t))
     }
 
     fn into_rc(self) -> RcMutator<T>
     where
         T: 'static,
     {
-        let func = self.func;
-        RcMutator::new(move |t| func.lock().unwrap()(t))
+        RcMutator::new(move |t| self.function.lock().unwrap()(t))
     }
 
     fn into_arc(self) -> ArcMutator<T>
@@ -1588,8 +1717,42 @@ impl<T> Mutator<T> for ArcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let func = self.func;
-        move |t: &mut T| func.lock().unwrap()(t)
+        move |t: &mut T| self.function.lock().unwrap()(t)
+    }
+
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = Arc::clone(&self.function);
+        BoxMutator::new(move |t| self_fn.lock().unwrap()(t))
+    }
+
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = Arc::clone(&self.function);
+        RcMutator::new(move |t| self_fn.lock().unwrap()(t))
+    }
+
+    fn to_arc(&self) -> ArcMutator<T>
+    where
+        Self: Sized + Send + 'static,
+        T: Send + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn.lock().unwrap()(t)
     }
 }
 
@@ -1600,7 +1763,7 @@ impl<T> Clone for ArcMutator<T> {
     /// original instance.
     fn clone(&self) -> Self {
         Self {
-            func: Arc::clone(&self.func),
+            function: Arc::clone(&self.function),
         }
     }
 }
@@ -1677,10 +1840,9 @@ where
     {
         let pred = self.predicate.to_rc();
         let mutator = self.mutator.into_rc();
-        let pred_fn = pred.to_fn();
         let mut mutator_fn = mutator;
         RcMutator::new(move |t| {
-            if pred_fn(t) {
+            if pred.test(t) {
                 mutator_fn.mutate(t);
             }
         })
@@ -1710,6 +1872,38 @@ where
                 mutator.mutate(t);
             }
         }
+    }
+
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcMutator<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        self.clone().into_fn()
     }
 }
 impl<T> ArcConditionalMutator<T>
@@ -1755,15 +1949,14 @@ where
     /// mutator.mutate(&mut negative);
     /// assert_eq!(negative, -6);
     /// ```
-    pub fn or_else<C>(self, else_mutator: C) -> ArcMutator<T>
+    pub fn or_else<C>(&self, else_mutator: C) -> ArcMutator<T>
     where
         C: Mutator<T> + Send + 'static,
         T: Send + Sync,
     {
-        let pred = self.predicate;
-        let mut then_mut = self.mutator;
+        let pred = self.predicate.clone();
+        let mut then_mut = self.mutator.clone();
         let mut else_mut = else_mutator;
-
         ArcMutator::new(move |t: &mut T| {
             if pred.test(t) {
                 then_mut.mutate(t);
@@ -1829,6 +2022,38 @@ where
         T: 'static,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxMutator<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcMutator<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcMutator<T>
+    where
+        Self: Sized + Clone + Send + 'static,
+        T: Send + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl FnMut(&mut T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone()
     }
 }
 
@@ -1915,10 +2140,10 @@ pub trait FnMutatorOps<T>: FnMut(&mut T) + Sized {
         T: 'static,
     {
         let mut first = self;
-        let mut second = next;
+        let mut second = next.into_fn();
         BoxMutator::new(move |t| {
-            first(t);
-            second.mutate(t);
+            (first)(t);
+            second(t);
         })
     }
 }
