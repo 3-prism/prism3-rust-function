@@ -177,6 +177,13 @@ mod box_consumer_once_tests {
         assert_eq!(*log.lock().unwrap(), vec![10]);
         // Note: Cannot call func again because it's FnOnce
     }
+
+    #[test]
+    fn test_boxconsumer_to_box_and_to_fn_are_none() {
+        let consumer = BoxConsumerOnce::new(|_x: &i32| {});
+        assert!(consumer.to_box().is_none());
+        assert!(consumer.to_fn().is_none());
+    }
 }
 
 // ============================================================================
@@ -255,6 +262,17 @@ mod closure_tests {
         chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15, 2]);
     }
+
+    #[test]
+    fn test_closure_to_box_and_to_fn_default_none() {
+        let closure = move |x: &i32| {
+            let _ = x;
+        };
+        // Default trait methods operate on &self and for FnOnce closures
+        // we expect None since they cannot be converted without consuming.
+        assert!(closure.to_box().is_none());
+        assert!(closure.to_fn().is_none());
+    }
 }
 
 #[cfg(test)]
@@ -331,5 +349,210 @@ mod debug_display_tests {
         });
         chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+    }
+}
+
+// ============================================================================
+// Custom ConsumerOnce Tests - Testing Default into_xxx() Implementation
+// ============================================================================
+
+#[cfg(test)]
+mod custom_consumer_once_tests {
+    use super::*;
+
+    /// Custom consumer that increments a counter
+    struct CustomConsumer {
+        log: Arc<Mutex<Vec<i32>>>,
+        multiplier: i32,
+    }
+
+    impl CustomConsumer {
+        fn new(log: Arc<Mutex<Vec<i32>>>, multiplier: i32) -> Self {
+            Self { log, multiplier }
+        }
+    }
+
+    impl ConsumerOnce<i32> for CustomConsumer {
+        fn accept(self, value: &i32) {
+            self.log.lock().unwrap().push(*value * self.multiplier);
+        }
+
+        // 注意：我们不重写 into_box() 和 into_fn()，
+        // 而是使用 trait 提供的默认实现
+    }
+
+    #[test]
+    fn test_custom_consumer_accept() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CustomConsumer::new(log.clone(), 3);
+        consumer.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![15]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CustomConsumer::new(log.clone(), 2);
+        let boxed = consumer.into_box();
+        boxed.accept(&7);
+        assert_eq!(*log.lock().unwrap(), vec![14]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CustomConsumer::new(log.clone(), 4);
+        let func = consumer.into_fn();
+        func(&3);
+        assert_eq!(*log.lock().unwrap(), vec![12]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_box_chaining() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+        let consumer = CustomConsumer::new(l1, 2);
+        let boxed = consumer.into_box();
+        let chained = boxed.and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 100);
+        });
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 105]);
+    }
+
+    #[test]
+    fn test_custom_consumer_with_generic_function() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        fn process_with_consumer<C>(consumer: C, value: &i32)
+        where
+            C: ConsumerOnce<i32>,
+        {
+            consumer.accept(value);
+        }
+
+        let consumer = CustomConsumer::new(log.clone(), 5);
+        process_with_consumer(consumer, &6);
+        assert_eq!(*log.lock().unwrap(), vec![30]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_box_with_generic_function() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        fn process_with_box_consumer(consumer: BoxConsumerOnce<i32>, value: &i32) {
+            consumer.accept(value);
+        }
+
+        let consumer = CustomConsumer::new(log.clone(), 3);
+        let boxed = consumer.into_box();
+        process_with_box_consumer(boxed, &8);
+        assert_eq!(*log.lock().unwrap(), vec![24]);
+    }
+
+    /// Custom consumer with String type
+    struct StringLogger {
+        log: Arc<Mutex<Vec<String>>>,
+        prefix: String,
+    }
+
+    impl StringLogger {
+        fn new(log: Arc<Mutex<Vec<String>>>, prefix: impl Into<String>) -> Self {
+            Self {
+                log,
+                prefix: prefix.into(),
+            }
+        }
+    }
+
+    impl ConsumerOnce<String> for StringLogger {
+        fn accept(self, value: &String) {
+            self.log
+                .lock()
+                .unwrap()
+                .push(format!("{}{}", self.prefix, value));
+        }
+    }
+
+    #[test]
+    fn test_custom_string_consumer_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = StringLogger::new(log.clone(), "Log: ");
+        let boxed = consumer.into_box();
+        boxed.accept(&"Hello".to_string());
+        assert_eq!(*log.lock().unwrap(), vec!["Log: Hello".to_string()]);
+    }
+
+    #[test]
+    fn test_custom_string_consumer_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = StringLogger::new(log.clone(), "Info: ");
+        let func = consumer.into_fn();
+        func(&"World".to_string());
+        assert_eq!(*log.lock().unwrap(), vec!["Info: World".to_string()]);
+    }
+
+    /// Custom consumer that counts how many times it was supposed to be called
+    struct CountingConsumer {
+        counter: Arc<Mutex<usize>>,
+        value_log: Arc<Mutex<Vec<i32>>>,
+    }
+
+    impl CountingConsumer {
+        fn new(counter: Arc<Mutex<usize>>, value_log: Arc<Mutex<Vec<i32>>>) -> Self {
+            Self { counter, value_log }
+        }
+    }
+
+    impl ConsumerOnce<i32> for CountingConsumer {
+        fn accept(self, value: &i32) {
+            *self.counter.lock().unwrap() += 1;
+            self.value_log.lock().unwrap().push(*value);
+        }
+    }
+
+    #[test]
+    fn test_counting_consumer_into_box() {
+        let counter = Arc::new(Mutex::new(0));
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CountingConsumer::new(counter.clone(), log.clone());
+        let boxed = consumer.into_box();
+        boxed.accept(&42);
+        assert_eq!(*counter.lock().unwrap(), 1);
+        assert_eq!(*log.lock().unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn test_counting_consumer_into_fn() {
+        let counter = Arc::new(Mutex::new(0));
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CountingConsumer::new(counter.clone(), log.clone());
+        let func = consumer.into_fn();
+        func(&99);
+        assert_eq!(*counter.lock().unwrap(), 1);
+        assert_eq!(*log.lock().unwrap(), vec![99]);
+    }
+
+    #[test]
+    fn test_custom_consumer_to_box_and_to_fn_are_none() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CustomConsumer::new(log.clone(), 2);
+        assert!(consumer.to_box().is_none());
+        assert!(consumer.to_fn().is_none());
+    }
+
+    #[test]
+    fn test_multiple_custom_consumers_chained() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer1 = CustomConsumer::new(l1, 2);
+        let consumer2 = CustomConsumer::new(l2, 3);
+
+        let chained = consumer1.into_box().and_then(consumer2.into_box());
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     }
 }

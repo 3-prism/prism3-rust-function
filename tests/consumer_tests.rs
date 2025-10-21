@@ -1172,3 +1172,266 @@ mod test_edge_cases {
         assert_eq!(*log.borrow(), vec![5, -10]);
     }
 }
+
+// ============================================================================
+// Default Implementation Tests for into_xxx() methods
+// ============================================================================
+
+#[cfg(test)]
+mod test_default_into_implementations {
+    use super::*;
+
+    // 定义一个自定义的 Consumer 实现，用于测试默认的 into_xxx() 方法
+    struct CustomConsumer {
+        log: Arc<Mutex<Vec<i32>>>,
+    }
+
+    impl Consumer<i32> for CustomConsumer {
+        fn accept(&mut self, value: &i32) {
+            self.log.lock().unwrap().push(*value * 10);
+        }
+
+        // 不实现 into_box, into_rc, into_arc, into_fn
+        // 使用默认实现
+    }
+
+    #[test]
+    fn test_custom_consumer_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        let mut box_consumer = custom.into_box();
+        box_consumer.accept(&5);
+        box_consumer.accept(&10);
+
+        assert_eq!(*log.lock().unwrap(), vec![50, 100]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        let mut rc_consumer = custom.into_rc();
+        rc_consumer.accept(&3);
+        rc_consumer.accept(&7);
+
+        assert_eq!(*log.lock().unwrap(), vec![30, 70]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        let mut arc_consumer = custom.into_arc();
+        arc_consumer.accept(&2);
+        arc_consumer.accept(&8);
+
+        assert_eq!(*log.lock().unwrap(), vec![20, 80]);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        let mut func = custom.into_fn();
+        func(&4);
+        func(&6);
+
+        assert_eq!(*log.lock().unwrap(), vec![40, 60]);
+    }
+
+    // 测试自定义 Consumer 与其他 Consumer 的组合
+    #[test]
+    fn test_custom_consumer_chaining_with_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let custom = CustomConsumer { log: l1 };
+        let box_consumer = BoxConsumer::new(move |x: &i32| {
+            l2.lock().unwrap().push(*x + 1);
+        });
+
+        let mut chained = custom.into_box().and_then(box_consumer);
+        chained.accept(&5);
+
+        // custom: 5 * 10 = 50, box: 5 + 1 = 6
+        assert_eq!(*log.lock().unwrap(), vec![50, 6]);
+    }
+
+    #[test]
+    fn test_custom_consumer_cloneable() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        // 转换为 RcConsumer 后可以克隆
+        let rc_consumer = custom.into_rc();
+        let mut clone1 = rc_consumer.clone();
+        let mut clone2 = rc_consumer.clone();
+
+        clone1.accept(&1);
+        clone2.accept(&2);
+
+        let mut result = log.lock().unwrap().clone();
+        result.sort();
+        assert_eq!(result, vec![10, 20]);
+    }
+
+    // 定义一个有状态的自定义 Consumer
+    struct StatefulConsumer {
+        log: Arc<Mutex<Vec<i32>>>,
+        multiplier: i32,
+    }
+
+    impl Consumer<i32> for StatefulConsumer {
+        fn accept(&mut self, value: &i32) {
+            self.log.lock().unwrap().push(*value * self.multiplier);
+            self.multiplier += 1; // 每次调用后增加乘数
+        }
+    }
+
+    #[test]
+    fn test_stateful_consumer_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let stateful = StatefulConsumer {
+            log: log.clone(),
+            multiplier: 2,
+        };
+
+        let mut box_consumer = stateful.into_box();
+        box_consumer.accept(&5); // 5 * 2 = 10
+        box_consumer.accept(&5); // 5 * 3 = 15
+        box_consumer.accept(&5); // 5 * 4 = 20
+
+        assert_eq!(*log.lock().unwrap(), vec![10, 15, 20]);
+    }
+
+    #[test]
+    fn test_stateful_consumer_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let stateful = StatefulConsumer {
+            log: log.clone(),
+            multiplier: 3,
+        };
+
+        let mut rc_consumer = stateful.into_rc();
+        rc_consumer.accept(&4); // 4 * 3 = 12
+        rc_consumer.accept(&4); // 4 * 4 = 16
+
+        assert_eq!(*log.lock().unwrap(), vec![12, 16]);
+    }
+
+    #[test]
+    fn test_stateful_consumer_into_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let stateful = StatefulConsumer {
+            log: log.clone(),
+            multiplier: 5,
+        };
+
+        let mut arc_consumer = stateful.into_arc();
+        arc_consumer.accept(&2); // 2 * 5 = 10
+        arc_consumer.accept(&2); // 2 * 6 = 12
+        arc_consumer.accept(&2); // 2 * 7 = 14
+
+        assert_eq!(*log.lock().unwrap(), vec![10, 12, 14]);
+    }
+
+    #[test]
+    fn test_stateful_consumer_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let stateful = StatefulConsumer {
+            log: log.clone(),
+            multiplier: 1,
+        };
+
+        let mut func = stateful.into_fn();
+        func(&10); // 10 * 1 = 10
+        func(&10); // 10 * 2 = 20
+        func(&10); // 10 * 3 = 30
+
+        assert_eq!(*log.lock().unwrap(), vec![10, 20, 30]);
+    }
+
+    // 测试线程安全的自定义 Consumer
+    #[test]
+    fn test_custom_consumer_thread_safety() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        let arc_consumer = custom.into_arc();
+        let mut c1 = arc_consumer.clone();
+        let mut c2 = arc_consumer.clone();
+
+        let h1 = std::thread::spawn(move || {
+            c1.accept(&1);
+        });
+
+        let h2 = std::thread::spawn(move || {
+            c2.accept(&2);
+        });
+
+        h1.join().unwrap();
+        h2.join().unwrap();
+
+        let mut result = log.lock().unwrap().clone();
+        result.sort();
+        assert_eq!(result, vec![10, 20]);
+    }
+}
+
+#[test]
+fn test_arcconsumer_to_box_rc_arc_and_fn() {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let l = log.clone();
+
+    let consumer = ArcConsumer::new(move |x: &i32| {
+        l.lock().unwrap().push(*x + 1);
+    });
+
+    // to_box()
+    let mut boxed = consumer.to_box();
+    boxed.accept(&5);
+    assert_eq!(*log.lock().unwrap(), vec![6]);
+
+    // to_rc()
+    let mut rc = consumer.to_rc();
+    rc.accept(&7);
+    assert_eq!(*log.lock().unwrap(), vec![6, 8]);
+
+    // to_arc() returns clone
+    let arc_clone = consumer.to_arc();
+    let mut c = arc_clone;
+    c.accept(&1);
+    assert_eq!(*log.lock().unwrap(), vec![6, 8, 2]);
+
+    // to_fn()
+    let mut f = consumer.to_fn();
+    f(&3);
+    assert_eq!(*log.lock().unwrap(), vec![6, 8, 2, 4]);
+}
+
+#[test]
+fn test_rcconsumer_to_box_rc_and_fn() {
+    let log = Rc::new(RefCell::new(Vec::new()));
+    let l = log.clone();
+
+    let consumer = RcConsumer::new(move |x: &i32| {
+        l.borrow_mut().push(*x + 2);
+    });
+
+    let mut boxed = consumer.to_box();
+    boxed.accept(&4);
+    assert_eq!(*log.borrow(), vec![6]);
+
+    let mut rc2 = consumer.to_rc();
+    rc2.accept(&5);
+    assert_eq!(*log.borrow(), vec![6, 7]);
+
+    let mut f = consumer.to_fn();
+    f(&1);
+    assert_eq!(*log.borrow(), vec![6, 7, 3]);
+}

@@ -148,7 +148,11 @@ pub trait Consumer<T> {
     fn into_box(self) -> BoxConsumer<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        let mut consumer = self;
+        BoxConsumer::new(move |t| consumer.accept(t))
+    }
 
     /// Convert to RcConsumer
     ///
@@ -160,7 +164,11 @@ pub trait Consumer<T> {
     fn into_rc(self) -> RcConsumer<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        let mut consumer = self;
+        RcConsumer::new(move |t| consumer.accept(t))
+    }
 
     /// Convert to ArcConsumer
     ///
@@ -172,7 +180,11 @@ pub trait Consumer<T> {
     fn into_arc(self) -> ArcConsumer<T>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static;
+        T: Send + 'static,
+    {
+        let mut consumer = self;
+        ArcConsumer::new(move |t| consumer.accept(t))
+    }
 
     /// Convert to closure
     ///
@@ -202,7 +214,52 @@ pub trait Consumer<T> {
     fn into_fn(self) -> impl FnMut(&T)
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        let mut consumer = self;
+        move |t| consumer.accept(t)
+    }
+
+    /// Non-consuming conversion to `BoxConsumer`.
+    ///
+    /// Default implementation panics. Types that can produce a boxed consumer
+    /// without consuming `self` should override this method.
+    fn to_box(&self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        panic!("to_box is not implemented for this Consumer; use into_box to consume")
+    }
+
+    /// Non-consuming conversion to `RcConsumer`.
+    ///
+    /// Default implementation panics. Types that can produce an `RcConsumer`
+    /// without consuming `self` should override this method.
+    fn to_rc(&self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        panic!("to_rc is not implemented for this Consumer; use into_rc to consume")
+    }
+
+    /// Non-consuming conversion to `ArcConsumer`.
+    ///
+    /// Default implementation panics. Types that can produce an `ArcConsumer`
+    /// without consuming `self` should override this method.
+    fn to_arc(&self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!("to_arc is not implemented for this Consumer; use into_arc to consume")
+    }
+
+    /// Non-consuming conversion to a callable `FnMut(&T)`.
+    ///
+    /// The returned closure borrows `self`. Default implementation panics;
+    /// override when a non-consuming function adapter is possible.
+    fn to_fn<'a>(&'a self) -> Box<dyn FnMut(&T) + 'a> {
+        panic!("to_fn is not implemented for this Consumer; use into_fn to consume")
+    }
 }
 
 // ============================================================================
@@ -578,6 +635,41 @@ impl<T> Consumer<T> for BoxConsumer<T> {
     {
         self.function
     }
+
+    fn to_box(&self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        // to_box is not supported because the inner FnMut cannot be cloned.
+        panic!(
+            "to_box is not supported for BoxConsumer because it would need to\nclone the inner function",
+        )
+    }
+
+    fn to_rc(&self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        // Similar to to_box, cannot clone inner FnMut; advise cloning outer
+        // consumer before converting.
+        panic!("to_rc is not supported for BoxConsumer; consider cloning before converting")
+    }
+
+    fn to_arc(&self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!("to_arc is not supported for BoxConsumer; inner function may not be Send")
+    }
+
+    fn to_fn<'a>(&'a self) -> Box<dyn FnMut(&T) + 'a> {
+        // Cannot produce a non-consuming FnMut that calls a FnMut inside
+        // a Box without interior mutability; hence provide a boxed closure
+        // that panics to signal unsupported operation.
+        Box::new(|_: &T| {
+            panic!("to_fn is not supported for BoxConsumer without consuming it")
+        })
+    }
 }
 
 impl<T> fmt::Debug for BoxConsumer<T> {
@@ -694,10 +786,9 @@ where
     fn into_rc(self) -> RcConsumer<T> {
         let pred = self.predicate.into_rc();
         let consumer = self.consumer.into_rc();
-        let pred_fn = pred.to_fn();
         let mut consumer_fn = consumer;
         RcConsumer::new(move |t| {
-            if pred_fn(t) {
+            if pred.test(t) {
                 consumer_fn.accept(t);
             }
         })
@@ -1179,6 +1270,36 @@ impl<T> Consumer<T> for ArcConsumer<T> {
             func.lock().unwrap()(t);
         }
     }
+
+    fn to_box(&self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = Arc::clone(&self.function);
+        BoxConsumer::new(move |t| func.lock().unwrap()(t))
+    }
+
+    fn to_rc(&self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = Arc::clone(&self.function);
+        RcConsumer::new(move |t| func.lock().unwrap()(t))
+    }
+
+    fn to_arc(&self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn<'a>(&'a self) -> Box<dyn FnMut(&T) + 'a> {
+        let func = Arc::clone(&self.function);
+        Box::new(move |t: &T| {
+            func.lock().unwrap()(t);
+        })
+    }
 }
 
 impl<T> Clone for ArcConsumer<T> {
@@ -1289,10 +1410,9 @@ where
     {
         let pred = self.predicate.to_rc();
         let consumer = self.consumer.into_rc();
-        let pred_fn = pred.to_fn();
         let mut consumer_fn = consumer;
         RcConsumer::new(move |t| {
-            if pred_fn(t) {
+            if pred.test(t) {
                 consumer_fn.accept(t);
             }
         })
@@ -1760,6 +1880,35 @@ impl<T> Consumer<T> for RcConsumer<T> {
         move |t: &T| {
             func.borrow_mut()(t);
         }
+    }
+
+    fn to_box(&self) -> BoxConsumer<T>
+    where
+        T: 'static,
+    {
+        let func = Rc::clone(&self.function);
+        BoxConsumer::new(move |t| func.borrow_mut()(t))
+    }
+
+    fn to_rc(&self) -> RcConsumer<T>
+    where
+        T: 'static,
+    {
+        self.clone()
+    }
+
+    fn to_arc(&self) -> ArcConsumer<T>
+    where
+        T: Send + 'static,
+    {
+        panic!("Cannot convert RcConsumer to ArcConsumer: not Send")
+    }
+
+    fn to_fn<'a>(&'a self) -> Box<dyn FnMut(&T) + 'a> {
+        let func = Rc::clone(&self.function);
+        Box::new(move |t: &T| {
+            func.borrow_mut()(t);
+        })
     }
 }
 

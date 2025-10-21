@@ -104,6 +104,12 @@ pub trait ConsumerOnce<T> {
     ///
     /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
     ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in a `BoxConsumerOnce` by calling
+    /// `accept` on the consumer. Types can override this method to provide more
+    /// efficient conversions.
+    ///
     /// # Returns
     ///
     /// Returns the wrapped `BoxConsumerOnce<T>`
@@ -126,7 +132,10 @@ pub trait ConsumerOnce<T> {
     fn into_box(self) -> BoxConsumerOnce<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxConsumerOnce::new(move |t| self.accept(t))
+    }
 
     /// Convert to closure
     ///
@@ -135,13 +144,66 @@ pub trait ConsumerOnce<T> {
     /// Converts a one-time consumer to a closure that can be used directly in places
     /// where the standard library requires `FnOnce`.
     ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a closure that captures `self` and calls
+    /// its `accept` method. Types can override this method to provide more efficient
+    /// conversions.
+    ///
     /// # Returns
     ///
     /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ConsumerOnce;
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32| {
+    ///     l.lock().unwrap().push(*x * 2);
+    /// };
+    /// let func = closure.into_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10]);
+    /// ```
     fn into_fn(self) -> impl FnOnce(&T)
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        move |t| self.accept(t)
+    }
+
+    /// Try to convert to a non-consuming boxed consumer
+    ///
+    /// Default implementation returns `None` because not all one-time
+    /// consumers can be converted without consuming `self`.
+    ///
+    /// Implementations that can provide a non-consuming conversion should
+    /// override this method to return `Some` boxed function.
+    fn to_box(&self) -> Option<BoxConsumerOnce<T>>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        None
+    }
+
+    /// Try to convert to a non-consuming function-like object
+    ///
+    /// Default implementation returns `None`. Types that can be invoked by
+    /// reference (for example function pointers or cloneable `Fn` closures)
+    /// may override this method to return `Some(Box<dyn Fn(&T)>)`.
+    fn to_fn(&self) -> Option<Box<dyn Fn(&T)>>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        None
+    }
 }
 
 // ============================================================================
@@ -363,6 +425,24 @@ where
             consumer: self,
             predicate: predicate.into_box(),
         }
+    }
+
+    /// Non-consuming conversion: provide a boxed consumer by reference
+    ///
+    /// Since `BoxConsumerOnce` owns a `FnOnce`, it cannot be cloned or called
+    /// multiple times. However, we can provide a reference-based wrapper by
+    /// returning `None` here. Consumers that can be called by reference would
+    /// override `to_box` at their own implementations.
+    pub fn to_box(&self) -> Option<BoxConsumerOnce<T>> {
+        None
+    }
+
+    /// Non-consuming conversion to function by reference
+    ///
+    /// `BoxConsumerOnce` cannot be invoked without consuming, so default to
+    /// `None`.
+    pub fn to_fn(&self) -> Option<Box<dyn Fn(&T)>> {
+        None
     }
 }
 
