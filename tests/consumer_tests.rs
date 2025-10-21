@@ -678,6 +678,115 @@ mod test_fn_consumer_ops {
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
+
+    // 测试闭包的 to_xxx 方法
+    // 注意：只有 Clone 闭包才能使用 to_xxx 方法
+    // 由于标准闭包不实现 Clone,我们使用函数指针(函数指针实现了 Clone)
+
+    #[test]
+    fn test_closure_to_box_with_fn_pointer() {
+        // 使用 Arc<Mutex> 来验证函数被调用
+        let counter = Arc::new(Mutex::new(0));
+        let c1 = counter.clone();
+
+        fn make_consumer(c: Arc<Mutex<i32>>) -> impl FnMut(&i32) + Clone {
+            move |x: &i32| {
+                *c.lock().unwrap() += *x;
+            }
+        }
+
+        let consumer_fn = make_consumer(c1);
+        let mut boxed = consumer_fn.to_box();
+        boxed.accept(&5);
+        boxed.accept(&10);
+
+        assert_eq!(*counter.lock().unwrap(), 15);
+
+        // 验证原始闭包仍然可用
+        let original = consumer_fn;
+        let mut func = original;
+        func(&7);
+        assert_eq!(*counter.lock().unwrap(), 22);
+    }
+
+    #[test]
+    fn test_closure_to_rc_with_fn_pointer() {
+        let counter = Rc::new(RefCell::new(0));
+        let c1 = counter.clone();
+
+        fn make_consumer(c: Rc<RefCell<i32>>) -> impl FnMut(&i32) + Clone {
+            move |x: &i32| {
+                *c.borrow_mut() += *x * 2;
+            }
+        }
+
+        let consumer_fn = make_consumer(c1);
+        let mut rc = consumer_fn.to_rc();
+        rc.accept(&3);
+        rc.accept(&4);
+
+        assert_eq!(*counter.borrow(), 14); // 3*2 + 4*2
+
+        // 验证原始闭包仍然可用
+        let original = consumer_fn;
+        let mut func = original;
+        func(&5);
+        assert_eq!(*counter.borrow(), 24); // 14 + 5*2
+    }
+
+    #[test]
+    fn test_closure_to_arc_with_fn_pointer() {
+        let counter = Arc::new(Mutex::new(0));
+        let c1 = counter.clone();
+
+        fn make_consumer(c: Arc<Mutex<i32>>) -> impl FnMut(&i32) + Clone + Send {
+            move |x: &i32| {
+                *c.lock().unwrap() += *x * 3;
+            }
+        }
+
+        let consumer_fn = make_consumer(c1);
+        let mut arc = consumer_fn.to_arc();
+        arc.accept(&2);
+        arc.accept(&3);
+
+        assert_eq!(*counter.lock().unwrap(), 15); // 2*3 + 3*3
+
+        // 验证原始闭包仍然可用
+        let original = consumer_fn;
+        let mut func = original;
+        func(&4);
+        assert_eq!(*counter.lock().unwrap(), 27); // 15 + 4*3
+    }
+
+    #[test]
+    fn test_closure_to_fn_with_fn_pointer() {
+        let counter = Arc::new(Mutex::new(0));
+        let c1 = counter.clone();
+
+        fn make_consumer(c: Arc<Mutex<i32>>) -> impl FnMut(&i32) + Clone {
+            move |x: &i32| {
+                *c.lock().unwrap() += *x + 10;
+            }
+        }
+
+        // 为 to_fn 和后续测试使用不同的实例
+        let consumer_fn1 = make_consumer(c1.clone());
+        let consumer_fn2 = make_consumer(c1.clone());
+
+        // 测试 to_fn() - 第一个实例
+        let mut func = consumer_fn1.to_fn();
+        func(&5);  // 5 + 10 = 15
+        func(&7);  // 7 + 10 = 17
+
+        // 验证第一部分结果
+        assert_eq!(*counter.lock().unwrap(), 32); // 15 + 17
+
+        // 使用第二个独立实例验证原始闭包仍然可用
+        let mut original_func = consumer_fn2;
+        original_func(&3);  // 3 + 10 = 13
+        assert_eq!(*counter.lock().unwrap(), 45); // 32 + 13
+    }
 }
 
 // ============================================================================
@@ -1434,4 +1543,301 @@ fn test_rcconsumer_to_box_rc_and_fn() {
     let mut f = consumer.to_fn();
     f(&1);
     assert_eq!(*log.borrow(), vec![6, 7, 3]);
+}
+
+// ============================================================================
+// Closure to_xxx Tests - Testing closure's Consumer trait implementation
+// ============================================================================
+
+#[cfg(test)]
+mod test_closure_to_methods {
+    use super::*;
+
+    // 注意:闭包必须实现 Clone 才能使用 to_xxx 方法
+    // 我们需要使用可克隆的闭包或者包装类型
+
+    #[test]
+    fn test_arc_consumer_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 3);
+        });
+
+        // 测试 to_box() - 应该保留原 consumer
+        let mut boxed = consumer.to_box();
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![15]);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&10);
+        assert_eq!(*log.lock().unwrap(), vec![15, 30]);
+    }
+
+    #[test]
+    fn test_arc_consumer_to_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 4);
+        });
+
+        // 测试 to_rc() - 应该保留原 consumer
+        let mut rc = consumer.to_rc();
+        rc.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![20]);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&2);
+        assert_eq!(*log.lock().unwrap(), vec![20, 8]);
+    }
+
+    #[test]
+    fn test_arc_consumer_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 5);
+        });
+
+        // 测试 to_arc() - 应该保留原 consumer
+        let mut arc = consumer.to_arc();
+        arc.accept(&3);
+        assert_eq!(*log.lock().unwrap(), vec![15]);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&4);
+        assert_eq!(*log.lock().unwrap(), vec![15, 20]);
+    }
+
+    #[test]
+    fn test_arc_consumer_to_fn_preserves_original() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 6);
+        });
+
+        // 测试 to_fn() - 应该保留原 consumer
+        let mut func = consumer.to_fn();
+        func(&2);
+        assert_eq!(*log.lock().unwrap(), vec![12]);
+
+        // 因为 to_fn() 借用了 consumer,需要先完成 func 的使用
+        drop(func);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&3);
+        assert_eq!(*log.lock().unwrap(), vec![12, 18]);
+    }
+
+    #[test]
+    fn test_rc_consumer_to_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x * 7);
+        });
+
+        // 测试 to_box() - 应该保留原 consumer
+        let mut boxed = consumer.to_box();
+        boxed.accept(&2);
+        assert_eq!(*log.borrow(), vec![14]);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&3);
+        assert_eq!(*log.borrow(), vec![14, 21]);
+    }
+
+    #[test]
+    fn test_rc_consumer_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x * 8);
+        });
+
+        // 测试 to_rc() - 应该保留原 consumer
+        let mut rc = consumer.to_rc();
+        rc.accept(&2);
+        assert_eq!(*log.borrow(), vec![16]);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&1);
+        assert_eq!(*log.borrow(), vec![16, 8]);
+    }
+
+    #[test]
+    fn test_rc_consumer_to_fn_preserves_original() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x * 9);
+        });
+
+        // 测试 to_fn() - 应该保留原 consumer
+        let mut func = consumer.to_fn();
+        func(&1);
+        assert_eq!(*log.borrow(), vec![9]);
+
+        // 因为 to_fn() 借用了 consumer,需要先完成 func 的使用
+        drop(func);
+
+        // 原 consumer 仍然可用
+        let mut original = consumer;
+        original.accept(&2);
+        assert_eq!(*log.borrow(), vec![9, 18]);
+    }
+
+    #[test]
+    fn test_custom_consumer_to_box() {
+        struct CustomConsumer {
+            log: Arc<Mutex<Vec<i32>>>,
+        }
+
+        impl Consumer<i32> for CustomConsumer {
+            fn accept(&mut self, value: &i32) {
+                self.log.lock().unwrap().push(*value * 10);
+            }
+        }
+
+        impl Clone for CustomConsumer {
+            fn clone(&self) -> Self {
+                CustomConsumer {
+                    log: self.log.clone(),
+                }
+            }
+        }
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        // 测试 to_box() - 使用默认实现
+        let mut boxed = custom.to_box();
+        boxed.accept(&3);
+        assert_eq!(*log.lock().unwrap(), vec![30]);
+
+        // 原 custom consumer 仍然可用
+        let mut original = custom;
+        original.accept(&4);
+        assert_eq!(*log.lock().unwrap(), vec![30, 40]);
+    }
+
+    #[test]
+    fn test_custom_consumer_to_rc() {
+        struct CustomConsumer {
+            log: Rc<RefCell<Vec<i32>>>,
+        }
+
+        impl Consumer<i32> for CustomConsumer {
+            fn accept(&mut self, value: &i32) {
+                self.log.borrow_mut().push(*value * 11);
+            }
+        }
+
+        impl Clone for CustomConsumer {
+            fn clone(&self) -> Self {
+                CustomConsumer {
+                    log: self.log.clone(),
+                }
+            }
+        }
+
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        // 测试 to_rc() - 使用默认实现
+        let mut rc = custom.to_rc();
+        rc.accept(&2);
+        assert_eq!(*log.borrow(), vec![22]);
+
+        // 原 custom consumer 仍然可用
+        let mut original = custom;
+        original.accept(&3);
+        assert_eq!(*log.borrow(), vec![22, 33]);
+    }
+
+    #[test]
+    fn test_custom_consumer_to_arc() {
+        struct CustomConsumer {
+            log: Arc<Mutex<Vec<i32>>>,
+        }
+
+        impl Consumer<i32> for CustomConsumer {
+            fn accept(&mut self, value: &i32) {
+                self.log.lock().unwrap().push(*value * 12);
+            }
+        }
+
+        impl Clone for CustomConsumer {
+            fn clone(&self) -> Self {
+                CustomConsumer {
+                    log: self.log.clone(),
+                }
+            }
+        }
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        // 测试 to_arc() - 使用默认实现
+        let mut arc = custom.to_arc();
+        arc.accept(&2);
+        assert_eq!(*log.lock().unwrap(), vec![24]);
+
+        // 原 custom consumer 仍然可用
+        let mut original = custom;
+        original.accept(&3);
+        assert_eq!(*log.lock().unwrap(), vec![24, 36]);
+    }
+
+    #[test]
+    fn test_custom_consumer_to_fn() {
+        struct CustomConsumer {
+            log: Arc<Mutex<Vec<i32>>>,
+        }
+
+        impl Consumer<i32> for CustomConsumer {
+            fn accept(&mut self, value: &i32) {
+                self.log.lock().unwrap().push(*value * 13);
+            }
+        }
+
+        impl Clone for CustomConsumer {
+            fn clone(&self) -> Self {
+                CustomConsumer {
+                    log: self.log.clone(),
+                }
+            }
+        }
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let custom = CustomConsumer { log: log.clone() };
+
+        // 测试 to_fn() - 使用默认实现
+        let mut func = custom.to_fn();
+        func(&2);
+        assert_eq!(*log.lock().unwrap(), vec![26]);
+
+        // 因为 to_fn() 借用了 custom,需要先完成 func 的使用
+        drop(func);
+
+        // 原 custom consumer 仍然可用
+        let mut original = custom;
+        original.accept(&1);
+        assert_eq!(*log.lock().unwrap(), vec![26, 13]);
+    }
 }

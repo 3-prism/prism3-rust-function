@@ -230,7 +230,7 @@ fn test_box_conditional_mutator_once_into_box() {
 
 #[test]
 fn test_box_conditional_mutator_once_into_fn() {
-    // Test into_fn() conversion
+    // Test into_fn() conversion when condition is true
     let data = vec![9, 10];
     let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         x.extend(data);
@@ -241,6 +241,18 @@ fn test_box_conditional_mutator_once_into_fn() {
     let mut target = vec![0];
     f(&mut target);
     assert_eq!(target, vec![0, 9, 10]);
+
+    // Test into_fn() conversion when condition is false
+    let data2 = vec![11, 12];
+    let mutator2 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
+        x.extend(data2);
+    });
+    let conditional2 = mutator2.when(|x: &Vec<i32>| x.len() > 10);
+    let f2 = conditional2.into_fn();
+
+    let mut target2 = vec![0];
+    f2(&mut target2);
+    assert_eq!(target2, vec![0]); // Should remain unchanged due to condition being false
 }
 
 #[test]

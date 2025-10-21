@@ -177,13 +177,6 @@ mod box_consumer_once_tests {
         assert_eq!(*log.lock().unwrap(), vec![10]);
         // Note: Cannot call func again because it's FnOnce
     }
-
-    #[test]
-    fn test_boxconsumer_to_box_and_to_fn_are_none() {
-        let consumer = BoxConsumerOnce::new(|_x: &i32| {});
-        assert!(consumer.to_box().is_none());
-        assert!(consumer.to_fn().is_none());
-    }
 }
 
 // ============================================================================
@@ -261,17 +254,6 @@ mod closure_tests {
         });
         chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15, 2]);
-    }
-
-    #[test]
-    fn test_closure_to_box_and_to_fn_default_none() {
-        let closure = move |x: &i32| {
-            let _ = x;
-        };
-        // Default trait methods operate on &self and for FnOnce closures
-        // we expect None since they cannot be converted without consuming.
-        assert!(closure.to_box().is_none());
-        assert!(closure.to_fn().is_none());
     }
 }
 
@@ -451,6 +433,20 @@ mod custom_consumer_once_tests {
         assert_eq!(*log.lock().unwrap(), vec![24]);
     }
 
+    #[test]
+    fn test_multiple_custom_consumers_chained() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer1 = CustomConsumer::new(l1, 2);
+        let consumer2 = CustomConsumer::new(l2, 3);
+
+        let chained = consumer1.into_box().and_then(consumer2.into_box());
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    }
+
     /// Custom consumer with String type
     struct StringLogger {
         log: Arc<Mutex<Vec<String>>>,
@@ -533,26 +529,188 @@ mod custom_consumer_once_tests {
         assert_eq!(*counter.lock().unwrap(), 1);
         assert_eq!(*log.lock().unwrap(), vec![99]);
     }
+}
+
+// ============================================================================
+// BoxConditionalConsumerOnce Focused Tests
+// ============================================================================
+
+#[cfg(test)]
+mod box_conditional_consumer_once_tests {
+    use super::*;
+
+    // Tests for accept() method
 
     #[test]
-    fn test_custom_consumer_to_box_and_to_fn_are_none() {
+    fn test_accept_predicate_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let consumer = CustomConsumer::new(log.clone(), 2);
-        assert!(consumer.to_box().is_none());
-        assert!(consumer.to_fn().is_none());
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        conditional.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
     #[test]
-    fn test_multiple_custom_consumers_chained() {
+    fn test_accept_predicate_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let l1 = log.clone();
-        let l2 = log.clone();
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        conditional.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
 
-        let consumer1 = CustomConsumer::new(l1, 2);
-        let consumer2 = CustomConsumer::new(l2, 3);
+    #[test]
+    fn test_accept_predicate_boundary() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        // Test boundary case - predicate checks > 0, so 0 should be false
+        conditional.accept(&0);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
 
-        let chained = consumer1.into_box().and_then(consumer2.into_box());
-        chained.accept(&5);
-        assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    // Tests for into_box() method
+
+    #[test]
+    fn test_into_box_predicate_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_box_predicate_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_into_box_predicate_boundary() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&0);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    // Tests for into_fn() method
+
+    #[test]
+    fn test_into_fn_predicate_true() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_into_fn_predicate_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+        func(&-5);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_into_fn_predicate_boundary() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+        func(&0);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    // Additional tests for into_box() and into_fn() with complex predicates
+
+    #[test]
+    fn test_into_box_complex_predicate() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let conditional = consumer.when(|x: &i32| *x % 2 == 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&4);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_into_box_complex_predicate_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let conditional = consumer.when(|x: &i32| *x % 2 == 0);
+        let boxed = conditional.into_box();
+        boxed.accept(&3);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_into_fn_complex_predicate() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let conditional = consumer.when(|x: &i32| *x % 2 == 0);
+        let func = conditional.into_fn();
+        func(&4);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_into_fn_complex_predicate_false() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+        let conditional = consumer.when(|x: &i32| *x % 2 == 0);
+        let func = conditional.into_fn();
+        func(&3);
+        assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 }
