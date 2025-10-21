@@ -350,8 +350,7 @@ pub trait ReadonlySupplier<T> {
         Self: Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        BoxReadonlySupplier::new(move || cloned.get())
+        self.clone().into_box()
     }
 
     /// Converts to `RcReadonlySupplier` by cloning.
@@ -378,8 +377,7 @@ pub trait ReadonlySupplier<T> {
         Self: Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        RcReadonlySupplier::new(move || cloned.get())
+        self.clone().into_rc()
     }
 
     /// Converts to `ArcReadonlySupplier` by cloning.
@@ -407,8 +405,7 @@ pub trait ReadonlySupplier<T> {
         Self: Clone + Send + Sync + 'static,
         T: Send + 'static,
     {
-        let cloned = self.clone();
-        ArcReadonlySupplier::new(move || cloned.get())
+        self.clone().into_arc()
     }
 
     /// Converts to a closure by cloning.
@@ -435,8 +432,7 @@ pub trait ReadonlySupplier<T> {
     where
         Self: Clone,
     {
-        let cloned = self.clone();
-        move || cloned.get()
+        self.clone().into_fn()
     }
 }
 
@@ -680,8 +676,7 @@ impl<T> ReadonlySupplier<T> for BoxReadonlySupplier<T> {
     // is not Send + Sync and calling BoxReadonlySupplier::to_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut() -> T {
-        let function = self.function;
-        move || function()
+        move || (self.function)()
     }
 
     // Note: to_box, to_rc, to_arc, and to_fn cannot be implemented
@@ -952,16 +947,14 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
     where
         T: 'static,
     {
-        let self_fn = self.function;
-        BoxReadonlySupplier::new(move || self_fn())
+        BoxReadonlySupplier::new(move || (self.function)())
     }
 
     fn into_rc(self) -> RcReadonlySupplier<T>
     where
         T: 'static,
     {
-        let self_fn = self.function;
-        RcReadonlySupplier::new(move || self_fn())
+        RcReadonlySupplier::new(move || (self.function)())
     }
 
     fn into_arc(self) -> ArcReadonlySupplier<T>
@@ -972,8 +965,7 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
     }
 
     fn into_fn(self) -> impl FnMut() -> T {
-        let function = self.function;
-        move || function()
+        move || (self.function)()
     }
 
     // Optimized implementations using Arc::clone instead of
@@ -984,7 +976,7 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
         Self: Clone + 'static,
         T: 'static,
     {
-        let self_fn = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxReadonlySupplier::new(move || self_fn())
     }
 
@@ -993,7 +985,7 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
         Self: Clone + 'static,
         T: 'static,
     {
-        let self_fn = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         RcReadonlySupplier::new(move || self_fn())
     }
 
@@ -1009,7 +1001,7 @@ impl<T> ReadonlySupplier<T> for ArcReadonlySupplier<T> {
     where
         Self: Clone,
     {
-        let self_fn = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         move || self_fn()
     }
 }
@@ -1270,8 +1262,7 @@ impl<T> ReadonlySupplier<T> for RcReadonlySupplier<T> {
     where
         T: 'static,
     {
-        let self_fn = self.function;
-        BoxReadonlySupplier::new(move || self_fn())
+        BoxReadonlySupplier::new(move || (self.function)())
     }
 
     fn into_rc(self) -> RcReadonlySupplier<T>
@@ -1285,8 +1276,7 @@ impl<T> ReadonlySupplier<T> for RcReadonlySupplier<T> {
     // is not Send + Sync and calling RcReadonlySupplier::to_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut() -> T {
-        let function = self.function;
-        move || function()
+        move || (self.function)()
     }
 
     // Optimized implementations using Rc::clone instead of wrapping
@@ -1297,7 +1287,7 @@ impl<T> ReadonlySupplier<T> for RcReadonlySupplier<T> {
         Self: Clone + 'static,
         T: 'static,
     {
-        let self_fn = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxReadonlySupplier::new(move || self_fn())
     }
 
@@ -1322,7 +1312,7 @@ impl<T> ReadonlySupplier<T> for RcReadonlySupplier<T> {
     where
         Self: Clone,
     {
-        let self_fn = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         move || self_fn()
     }
 }
@@ -1383,9 +1373,7 @@ where
     where
         Self: Sized,
     {
-        // For closures, we can directly return a FnMut closure
-        // that captures self
-        move || self()
+        self
     }
 
     // Optimized implementations for to_* methods
@@ -1395,8 +1383,8 @@ where
         Self: Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        BoxReadonlySupplier::new(cloned)
+        let self_fn = self.clone();
+        BoxReadonlySupplier::new(self_fn)
     }
 
     fn to_rc(&self) -> RcReadonlySupplier<T>
@@ -1404,8 +1392,8 @@ where
         Self: Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        RcReadonlySupplier::new(cloned)
+        let self_fn = self.clone();
+        RcReadonlySupplier::new(self_fn)
     }
 
     fn to_arc(&self) -> ArcReadonlySupplier<T>
@@ -1413,16 +1401,15 @@ where
         Self: Clone + Send + Sync + 'static,
         T: Send + 'static,
     {
-        let cloned = self.clone();
-        ArcReadonlySupplier::new(cloned)
+        let self_fn = self.clone();
+        ArcReadonlySupplier::new(self_fn)
     }
 
     fn to_fn(&self) -> impl FnMut() -> T
     where
         Self: Clone,
     {
-        let cloned = self.clone();
-        move || cloned()
+        self.clone()
     }
 }
 

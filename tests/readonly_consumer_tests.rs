@@ -92,6 +92,13 @@ mod box_readonly_consumer_tests {
     }
 
     #[test]
+    fn test_arc_noop() {
+        let noop = ArcReadonlyConsumer::<i32>::noop();
+        noop.accept(&42);
+        // Should not panic
+    }
+
+    #[test]
     fn test_into_box() {
         let closure = |x: &i32| {
             println!("Value: {}", x);
@@ -327,6 +334,13 @@ mod rc_readonly_consumer_tests {
             println!("Value: {}", x);
         });
         consumer.accept(&5);
+    }
+
+    #[test]
+    fn test_rc_noop() {
+        let noop = RcReadonlyConsumer::<i32>::noop();
+        noop.accept(&42);
+        // Should not panic
     }
 
     #[test]
@@ -753,5 +767,411 @@ mod display_debug_tests {
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "RcReadonlyConsumer(test_consumer)");
+    }
+}
+
+#[cfg(test)]
+mod custom_struct_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    struct MyConsumer {
+        counter: Arc<AtomicUsize>,
+    }
+
+    impl MyConsumer {
+        fn new(counter: Arc<AtomicUsize>) -> Self {
+            Self { counter }
+        }
+    }
+
+    impl ReadonlyConsumer<i32> for MyConsumer {
+        fn accept(&self, _value: &i32) {
+            self.counter.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn test_into_variants_from_custom_struct() {
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        // into_box()
+        let my = MyConsumer::new(counter.clone());
+        let box_cons = my.into_box();
+        box_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // into_rc()
+        let my2 = MyConsumer::new(counter.clone());
+        let rc_cons = my2.into_rc();
+        rc_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        // into_arc()
+        let my3 = MyConsumer::new(counter.clone());
+        let arc_cons = my3.into_arc();
+        arc_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+
+        // into_fn()
+        let my4 = MyConsumer::new(counter.clone());
+        let func = my4.into_fn();
+        func(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 4);
+    }
+
+    impl Clone for MyConsumer {
+        fn clone(&self) -> Self {
+            Self {
+                counter: self.counter.clone(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_variants_from_custom_struct() {
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let my = MyConsumer::new(counter.clone());
+
+        // to_box() - 不消耗原始对象
+        let box_cons = my.to_box();
+        box_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // to_rc() - 不消耗原始对象
+        let rc_cons = my.to_rc();
+        rc_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        // to_arc() - 不消耗原始对象
+        let arc_cons = my.to_arc();
+        arc_cons.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+
+        // to_fn() - 不消耗原始对象
+        let func = my.to_fn();
+        func(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 4);
+
+        // 原始对象仍然可用
+        my.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 5);
+    }
+}
+
+// ============================================================================
+// to_xxx Methods Tests - Testing non-consuming conversion methods
+// ============================================================================
+
+#[cfg(test)]
+mod to_xxx_methods_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    // BoxReadonlyConsumer cannot implement Clone because it uses Box<dyn Fn>
+    // So it cannot have to_box, to_rc, to_fn methods
+    // It can only have into_xxx methods
+
+    #[test]
+    fn test_arc_to_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // to_box() 不消耗原始对象
+        let box_consumer = consumer.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_to_rc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // to_rc() 不消耗原始对象
+        let rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_to_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // to_arc() 不消耗原始对象
+        let arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_to_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // to_fn() 不消耗原始对象
+        let func = consumer.to_fn();
+        func(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_rc_to_box() {
+        let counter = Rc::new(std::cell::RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+            *c.borrow_mut() += 1;
+        });
+
+        // to_box() 不消耗原始对象
+        let box_consumer = consumer.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(*counter.borrow(), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(*counter.borrow(), 2);
+    }
+
+    #[test]
+    fn test_rc_to_rc() {
+        let counter = Rc::new(std::cell::RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+            *c.borrow_mut() += 1;
+        });
+
+        // to_rc() 不消耗原始对象
+        let rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&1);
+        assert_eq!(*counter.borrow(), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(*counter.borrow(), 2);
+    }
+
+    #[test]
+    fn test_rc_to_fn() {
+        let counter = Rc::new(std::cell::RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+            *c.borrow_mut() += 1;
+        });
+
+        // to_fn() 不消耗原始对象
+        let func = consumer.to_fn();
+        func(&1);
+        assert_eq!(*counter.borrow(), 1);
+
+        // 原始对象仍然可用
+        consumer.accept(&2);
+        assert_eq!(*counter.borrow(), 2);
+    }
+
+    #[test]
+    fn test_closure_to_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+
+        let closure = move |_x: &i32| {
+            c1.fetch_add(1, Ordering::SeqCst);
+        };
+
+        // to_box() 不消耗原始闭包
+        let box_consumer = closure.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始闭包仍然可用
+        closure.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        // 验证通过 to_box 创建的 consumer 使用独立的闭包副本
+        let another_closure = move |_x: &i32| {
+            c2.fetch_add(1, Ordering::SeqCst);
+        };
+        let box_consumer2 = another_closure.to_box();
+        box_consumer2.accept(&3);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+
+        another_closure.accept(&4);
+        assert_eq!(counter.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        let counter = Rc::new(std::cell::RefCell::new(0));
+        let c = counter.clone();
+
+        let closure = move |_x: &i32| {
+            *c.borrow_mut() += 1;
+        };
+
+        // to_rc() 不消耗原始闭包
+        let rc_consumer = closure.to_rc();
+        rc_consumer.accept(&1);
+        assert_eq!(*counter.borrow(), 1);
+
+        // 原始闭包仍然可用
+        closure.accept(&2);
+        assert_eq!(*counter.borrow(), 2);
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let closure = move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        };
+
+        // to_arc() 不消耗原始闭包
+        let arc_consumer = closure.to_arc();
+        arc_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始闭包仍然可用
+        closure.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let closure = move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        };
+
+        // to_fn() 不消耗原始闭包
+        let func = closure.to_fn();
+        func(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // 原始闭包仍然可用
+        closure.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_to_xxx_all_methods() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        // 连续调用所有 to_xxx 方法，验证原始对象不被消耗
+        let box_consumer = consumer.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        let rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        let arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&3);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+
+        let func = consumer.to_fn();
+        func(&4);
+        assert_eq!(counter.load(Ordering::SeqCst), 4);
+
+        // 最后验证原始对象仍然可用
+        consumer.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 5);
+    }
+
+    #[test]
+    fn test_rc_to_xxx_all_methods() {
+        let counter = Rc::new(std::cell::RefCell::new(0));
+        let c = counter.clone();
+        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+            *c.borrow_mut() += 1;
+        });
+
+        // 连续调用所有 to_xxx 方法，验证原始对象不被消耗
+        let box_consumer = consumer.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(*counter.borrow(), 1);
+
+        let rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&2);
+        assert_eq!(*counter.borrow(), 2);
+
+        let func = consumer.to_fn();
+        func(&3);
+        assert_eq!(*counter.borrow(), 3);
+
+        // 最后验证原始对象仍然可用
+        consumer.accept(&4);
+        assert_eq!(*counter.borrow(), 4);
+    }
+
+    #[test]
+    fn test_closure_to_xxx_all_methods() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let closure = move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        };
+
+        // 连续调用所有 to_xxx 方法，验证原始闭包不被消耗
+        let box_consumer = closure.to_box();
+        box_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        let rc_consumer = closure.to_rc();
+        rc_consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+        let arc_consumer = closure.to_arc();
+        arc_consumer.accept(&3);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+
+        let func = closure.to_fn();
+        func(&4);
+        assert_eq!(counter.load(Ordering::SeqCst), 4);
+
+        // 最后验证原始闭包仍然可用
+        closure.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 5);
     }
 }
