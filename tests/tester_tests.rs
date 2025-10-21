@@ -541,6 +541,41 @@ mod tests {
     }
 
     #[test]
+    fn test_closure_to_box() {
+        let always_true = || true;
+        let boxed = always_true.to_box();
+        assert!(boxed.test());
+        assert!(always_true.test());
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        let always_false = || false;
+        let rc = always_false.to_rc();
+        assert!(!rc.test());
+        assert!(!always_false.test());
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        let always_true = || true;
+        let arc = always_true.to_arc();
+        assert!(arc.test());
+        let arc_clone = arc.clone();
+        let handle = std::thread::spawn(move || arc_clone.test());
+        assert!(handle.join().unwrap());
+        assert!(always_true.test());
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        let toggled = || true;
+        let func = toggled.to_fn();
+        assert!(func());
+        assert!(toggled.test());
+    }
+
+    #[test]
     fn test_closure_into_fn() {
         let closure = || true;
         let func = closure.into_fn();

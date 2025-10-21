@@ -1787,11 +1787,33 @@ where
         self
     }
 
-    // Note: Closures generally do not implement Clone unless they are
-    // empty or only capture Copy types. Therefore, to_box(), to_rc(),
-    // to_arc(), and to_fn() will use the default trait implementation,
-    // which will result in a compile error for most closures due to the
-    // Clone trait bound not being satisfied.
+    fn to_box(&self) -> BoxTester
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcTester
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcTester
+    where
+        Self: Clone + Sized + Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl Fn() -> bool
+    where
+        Self: Clone + Sized,
+    {
+        self.clone()
+    }
 }
 
 // ============================================================================
