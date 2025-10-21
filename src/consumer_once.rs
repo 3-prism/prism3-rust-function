@@ -176,34 +176,6 @@ pub trait ConsumerOnce<T> {
     {
         move |t| self.accept(t)
     }
-
-    /// Try to convert to a non-consuming boxed consumer
-    ///
-    /// Default implementation returns `None` because not all one-time
-    /// consumers can be converted without consuming `self`.
-    ///
-    /// Implementations that can provide a non-consuming conversion should
-    /// override this method to return `Some` boxed function.
-    fn to_box(&self) -> Option<BoxConsumerOnce<T>>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        None
-    }
-
-    /// Try to convert to a non-consuming function-like object
-    ///
-    /// Default implementation returns `None`. Types that can be invoked by
-    /// reference (for example function pointers or cloneable `Fn` closures)
-    /// may override this method to return `Some(Box<dyn Fn(&T)>)`.
-    fn to_fn(&self) -> Option<Box<dyn Fn(&T)>>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        None
-    }
 }
 
 // ============================================================================
@@ -426,24 +398,6 @@ where
             predicate: predicate.into_box(),
         }
     }
-
-    /// Non-consuming conversion: provide a boxed consumer by reference
-    ///
-    /// Since `BoxConsumerOnce` owns a `FnOnce`, it cannot be cloned or called
-    /// multiple times. However, we can provide a reference-based wrapper by
-    /// returning `None` here. Consumers that can be called by reference would
-    /// override `to_box` at their own implementations.
-    pub fn to_box(&self) -> Option<BoxConsumerOnce<T>> {
-        None
-    }
-
-    /// Non-consuming conversion to function by reference
-    ///
-    /// `BoxConsumerOnce` cannot be invoked without consuming, so default to
-    /// `None`.
-    pub fn to_fn(&self) -> Option<Box<dyn Fn(&T)>> {
-        None
-    }
 }
 
 impl<T> ConsumerOnce<T> for BoxConsumerOnce<T> {
@@ -464,6 +418,9 @@ impl<T> ConsumerOnce<T> for BoxConsumerOnce<T> {
     {
         self.function
     }
+
+    // do NOT override Consumer::to_xxxx() because BoxConsumerOnce is not Clone
+    // and calling BoxConsumerOnce::to_xxxx() will cause a compile error
 }
 
 impl<T> fmt::Debug for BoxConsumerOnce<T> {
@@ -580,6 +537,9 @@ where
             }
         }
     }
+
+    // do NOT override ConsumerOnce::to_xxxx() because BoxConditionalConsumerOnce is not Clone
+    // and calling BoxConditionalConsumerOnce::to_xxxx() will cause a compile error
 }
 
 impl<T> BoxConditionalConsumerOnce<T>
