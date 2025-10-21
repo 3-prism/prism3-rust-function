@@ -81,7 +81,8 @@ fn demo_thread_safe() {
     println!("4. Thread-safe usage");
 
     let pred = ArcPredicate::new(|x: &i32| *x > 0);
-    let closure = pred.to_fn();
+    // clone and convert into a 'static closure so it can be moved to another thread
+    let closure = pred.clone().into_fn();
 
     // Closure can be passed between threads
     let handle = std::thread::spawn(move || {
