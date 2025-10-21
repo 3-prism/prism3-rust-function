@@ -65,6 +65,12 @@ pub trait BiTransformer<T, U, R> {
     /// **⚠️ Consumes `self`**: The original bi-transformer becomes unavailable
     /// after calling this method.
     ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in a `Box` and creates a
+    /// `BoxBiTransformer`. Types can override this method to provide more
+    /// efficient conversions.
+    ///
     /// # Returns
     ///
     /// Returns `BoxBiTransformer<T, U, R>`
@@ -73,12 +79,21 @@ pub trait BiTransformer<T, U, R> {
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        BoxBiTransformer::new(move |x, y| self.apply(x, y))
+    }
 
     /// Converts to RcBiTransformer
     ///
     /// **⚠️ Consumes `self`**: The original bi-transformer becomes unavailable
     /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in an `Rc` and creates an
+    /// `RcBiTransformer`. Types can override this method to provide more
+    /// efficient conversions.
     ///
     /// # Returns
     ///
@@ -88,12 +103,21 @@ pub trait BiTransformer<T, U, R> {
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        RcBiTransformer::new(move |x, y| self.apply(x, y))
+    }
 
     /// Converts to ArcBiTransformer
     ///
     /// **⚠️ Consumes `self`**: The original bi-transformer becomes unavailable
     /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in an `Arc` and creates an
+    /// `ArcBiTransformer`. Types can override this method to provide more
+    /// efficient conversions.
     ///
     /// # Returns
     ///
@@ -103,12 +127,21 @@ pub trait BiTransformer<T, U, R> {
         Self: Sized + Send + Sync + 'static,
         T: Send + Sync + 'static,
         U: Send + Sync + 'static,
-        R: Send + Sync + 'static;
+        R: Send + Sync + 'static,
+    {
+        ArcBiTransformer::new(move |x, y| self.apply(x, y))
+    }
 
     /// Converts bi-transformer to a closure
     ///
     /// **⚠️ Consumes `self`**: The original bi-transformer becomes unavailable
     /// after calling this method.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a closure that captures `self`
+    /// and calls its `apply` method. Types can override this method
+    /// to provide more efficient conversions.
     ///
     /// # Returns
     ///
@@ -118,7 +151,64 @@ pub trait BiTransformer<T, U, R> {
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        move |t, u| self.apply(t, u)
+    }
+
+    /// Non-consuming conversion to `BoxBiTransformer` using `&self`.
+    ///
+    /// Default implementation clones `self` and delegates to `into_box`.
+    fn to_box(&self) -> BoxBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Non-consuming conversion to `RcBiTransformer` using `&self`.
+    ///
+    /// Default implementation clones `self` and delegates to `into_rc`.
+    fn to_rc(&self) -> RcBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Non-consuming conversion to `ArcBiTransformer` using `&self`.
+    ///
+    /// Default implementation clones `self` and delegates to `into_arc`.
+    fn to_arc(&self) -> ArcBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Non-consuming conversion to a boxed function using `&self`.
+    ///
+    /// Returns a `Box<dyn Fn(T, U) -> R>` that clones `self` and calls
+    /// `apply` inside the boxed closure.
+    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let s = self.clone();
+        Box::new(move |t, u| s.apply(t, u))
+    }
 }
 
 // ============================================================================
@@ -739,6 +829,45 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
     {
         move |t: T, u: U| self.apply(t, u)
     }
+
+    fn to_box(&self) -> BoxBiTransformer<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = Arc::clone(&self.function);
+        BoxBiTransformer { function: Box::new(move |t, u| f(t, u)) }
+    }
+
+    fn to_rc(&self) -> RcBiTransformer<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = Arc::clone(&self.function);
+        RcBiTransformer { function: Rc::new(move |t, u| f(t, u)) }
+    }
+
+    fn to_arc(&self) -> ArcBiTransformer<T, U, R>
+    where
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = Arc::clone(&self.function);
+        Box::new(move |t: T, u: U| f(t, u))
+    }
 }
 
 impl<T, U, R> Clone for ArcBiTransformer<T, U, R> {
@@ -1123,6 +1252,47 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
     {
         move |t: T, u: U| self.apply(t, u)
     }
+
+    fn to_box(&self) -> BoxBiTransformer<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = Rc::clone(&self.function);
+        BoxBiTransformer { function: Box::new(move |t, u| f(t, u)) }
+    }
+
+    fn to_rc(&self) -> RcBiTransformer<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone()
+    }
+
+    fn to_arc(&self) -> ArcBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        unreachable!(
+            "RcBiTransformer cannot be converted to ArcBiTransformer because Rc is not Send + Sync"
+        )
+    }
+
+    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = Rc::clone(&self.function);
+        Box::new(move |t: T, u: U| f(t, u))
+    }
 }
 
 impl<T, U, R> Clone for RcBiTransformer<T, U, R> {
@@ -1305,6 +1475,47 @@ where
         Self: Sized + 'static,
     {
         move |t: T, u: U| self(t, u)
+    }
+
+    fn to_box(&self) -> BoxBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        BoxBiTransformer::new(self.clone())
+    }
+
+    fn to_rc(&self) -> RcBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        RcBiTransformer::new(self.clone())
+    }
+
+    fn to_arc(&self) -> ArcBiTransformer<T, U, R>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        ArcBiTransformer::new(self.clone())
+    }
+
+    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let f = self.clone();
+        Box::new(move |t: T, u: U| f(t, u))
     }
 }
 

@@ -331,6 +331,22 @@ mod conversion_tests {
     }
 
     #[test]
+    fn test_to_box_to_rc_to_arc_and_to_fn_on_references() {
+        // closure reference conversions
+        let add = |x: i32, y: i32| x + y;
+        let b = add.to_box();
+        assert_eq!(b.apply(1, 2), 3);
+
+        let r = add.to_rc();
+        assert_eq!(r.apply(3, 4), 7);
+
+        // arc requires Send+Sync; use ArcBiTransformer
+        let a = ArcBiTransformer::new(|x: i32, y: i32| x + y);
+        let f = a.to_fn();
+        assert_eq!(f(5, 6), 11);
+    }
+
+    #[test]
     fn test_closure_to_arc() {
         let add = |x: i32, y: i32| x + y;
         let arc = add.into_arc();
@@ -672,5 +688,171 @@ mod closure_bi_transformer_tests {
         let add = |x: i32, y: i32| x + y;
         let arc = add.into_arc();
         assert_eq!(arc.apply(10, 20), 30);
+    }
+}
+
+// ============================================================================
+// Custom BiTransformer Tests - Testing default into_xxx() implementations
+// ============================================================================
+
+#[cfg(test)]
+mod custom_bi_transformer_tests {
+    use super::*;
+
+    /// 自定义 BiTransformer 实现，用于测试默认的 into_xxx() 方法
+    struct CustomBiTransformer {
+        multiplier: i32,
+    }
+
+    impl CustomBiTransformer {
+        fn new(multiplier: i32) -> Self {
+            Self { multiplier }
+        }
+    }
+
+    impl BiTransformer<i32, i32, i32> for CustomBiTransformer {
+        fn apply(&self, first: i32, second: i32) -> i32 {
+            (first + second) * self.multiplier
+        }
+    }
+
+    #[test]
+    fn test_custom_bi_transformer_apply() {
+        let transformer = CustomBiTransformer::new(3);
+        assert_eq!(transformer.apply(5, 10), 45); // (5 + 10) * 3 = 45
+    }
+
+    #[test]
+    fn test_custom_bi_transformer_into_box() {
+        let transformer = CustomBiTransformer::new(2);
+        let boxed = transformer.into_box();
+        assert_eq!(boxed.apply(10, 20), 60); // (10 + 20) * 2 = 60
+        assert_eq!(boxed.apply(5, 5), 20); // (5 + 5) * 2 = 20
+    }
+
+    #[test]
+    fn test_custom_bi_transformer_into_rc() {
+        let transformer = CustomBiTransformer::new(4);
+        let rc = transformer.into_rc();
+        assert_eq!(rc.apply(3, 7), 40); // (3 + 7) * 4 = 40
+
+        // 测试克隆
+        let rc_clone = rc.clone();
+        assert_eq!(rc_clone.apply(2, 3), 20); // (2 + 3) * 4 = 20
+        assert_eq!(rc.apply(1, 1), 8); // (1 + 1) * 4 = 8
+    }
+
+    #[test]
+    fn test_custom_bi_transformer_into_fn() {
+        let transformer = CustomBiTransformer::new(5);
+        let func = transformer.into_fn();
+        assert_eq!(func(4, 6), 50); // (4 + 6) * 5 = 50
+        assert_eq!(func(1, 1), 10); // (1 + 1) * 5 = 10
+    }
+
+    /// 自定义可 Send + Sync 的 BiTransformer 实现
+    struct ThreadSafeBiTransformer {
+        multiplier: i32,
+    }
+
+    impl ThreadSafeBiTransformer {
+        fn new(multiplier: i32) -> Self {
+            Self { multiplier }
+        }
+    }
+
+    impl BiTransformer<i32, i32, i32> for ThreadSafeBiTransformer {
+        fn apply(&self, first: i32, second: i32) -> i32 {
+            (first + second) * self.multiplier
+        }
+    }
+
+    // 手动实现 Send 和 Sync
+    unsafe impl Send for ThreadSafeBiTransformer {}
+    unsafe impl Sync for ThreadSafeBiTransformer {}
+
+    #[test]
+    fn test_custom_bi_transformer_into_arc() {
+        let transformer = ThreadSafeBiTransformer::new(3);
+        let arc = transformer.into_arc();
+        assert_eq!(arc.apply(10, 5), 45); // (10 + 5) * 3 = 45
+
+        // 测试克隆
+        let arc_clone = arc.clone();
+        assert_eq!(arc_clone.apply(2, 8), 30); // (2 + 8) * 3 = 30
+
+        // 测试跨线程使用
+        let arc_thread = arc.clone();
+        let handle = thread::spawn(move || arc_thread.apply(3, 7));
+        assert_eq!(handle.join().unwrap(), 30); // (3 + 7) * 3 = 30
+
+        // 原始 arc 仍可用
+        assert_eq!(arc.apply(1, 1), 6); // (1 + 1) * 3 = 6
+    }
+
+    #[test]
+    fn test_custom_bi_transformer_chaining() {
+        let transformer = CustomBiTransformer::new(2);
+        let boxed = transformer.into_box();
+
+        // 测试多次调用
+        assert_eq!(boxed.apply(5, 10), 30); // (5 + 10) * 2 = 30
+        assert_eq!(boxed.apply(3, 7), 20); // (3 + 7) * 2 = 20
+        assert_eq!(boxed.apply(1, 1), 4); // (1 + 1) * 2 = 4
+    }
+
+    /// 测试自定义 BiTransformer 与不同类型的组合
+    struct StringCombiner {
+        separator: String,
+    }
+
+    impl StringCombiner {
+        fn new(separator: &str) -> Self {
+            Self {
+                separator: separator.to_string(),
+            }
+        }
+    }
+
+    impl BiTransformer<String, String, String> for StringCombiner {
+        fn apply(&self, first: String, second: String) -> String {
+            format!("{}{}{}", first, self.separator, second)
+        }
+    }
+
+    #[test]
+    fn test_custom_string_bi_transformer_into_box() {
+        let combiner = StringCombiner::new(" - ");
+        let boxed = combiner.into_box();
+        assert_eq!(
+            boxed.apply("Hello".to_string(), "World".to_string()),
+            "Hello - World"
+        );
+        assert_eq!(
+            boxed.apply("Rust".to_string(), "Language".to_string()),
+            "Rust - Language"
+        );
+    }
+
+    #[test]
+    fn test_custom_string_bi_transformer_into_rc() {
+        let combiner = StringCombiner::new(" + ");
+        let rc = combiner.into_rc();
+
+        assert_eq!(rc.apply("A".to_string(), "B".to_string()), "A + B");
+
+        // 克隆并使用
+        let rc_clone = rc.clone();
+        assert_eq!(rc_clone.apply("X".to_string(), "Y".to_string()), "X + Y");
+        assert_eq!(rc.apply("1".to_string(), "2".to_string()), "1 + 2");
+    }
+
+    #[test]
+    fn test_custom_string_bi_transformer_into_fn() {
+        let combiner = StringCombiner::new(" & ");
+        let func = combiner.into_fn();
+
+        assert_eq!(func("Cat".to_string(), "Dog".to_string()), "Cat & Dog");
+        assert_eq!(func("One".to_string(), "Two".to_string()), "One & Two");
     }
 }

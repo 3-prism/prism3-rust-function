@@ -113,6 +113,60 @@ fn test_box_mapper_into_box() {
 }
 
 #[test]
+fn test_mapper_to_box_rc_arc_fn_non_consuming() {
+    // Test non-consuming adapters `to_box`, `to_rc`, `to_arc`, `to_fn`
+    // using a Cloneable custom mapper.
+    #[derive(Clone)]
+    struct CloneMapper {
+        counter: i32,
+    }
+
+    impl Mapper<i32, i32> for CloneMapper {
+        fn map(&mut self, input: i32) -> i32 {
+            self.counter += 1;
+            input + self.counter
+        }
+    }
+
+    let mapper = CloneMapper { counter: 0 };
+
+    let mut b = mapper.to_box();
+    assert_eq!(b.map(10), 11);
+    assert_eq!(b.map(10), 12);
+
+    let rc = mapper.to_rc();
+    let mut r1 = rc.clone();
+    let mut r2 = rc.clone();
+    assert_eq!(r1.map(10), 11);
+    assert_eq!(r2.map(10), 12);
+
+    // to_arc requires Send+Sync. Make a trivially Send+Sync cloneable
+    #[derive(Clone)]
+    struct SCloneMapper {
+        counter: i32,
+    }
+
+    impl Mapper<i32, i32> for SCloneMapper {
+        fn map(&mut self, input: i32) -> i32 {
+            self.counter += 1;
+            input * self.counter
+        }
+    }
+
+    unsafe impl Send for SCloneMapper {}
+    unsafe impl Sync for SCloneMapper {}
+
+    let sm = SCloneMapper { counter: 0 };
+    let mut a = sm.to_arc();
+    assert_eq!(a.map(3), 3);
+    assert_eq!(a.map(3), 6);
+
+    let mut f = mapper.to_fn();
+    assert_eq!(f(5), 6);
+    assert_eq!(f(5), 7);
+}
+
+#[test]
 fn test_box_mapper_into_rc() {
     let mut counter = 0;
     let mapper = BoxMapper::new(move |x: i32| {
@@ -699,4 +753,428 @@ fn test_with_rc_predicate() {
     // Predicate still usable
     assert!(predicate.test(&10));
     assert!(!predicate.test(&-10));
+}
+
+// ============================================================================
+// Custom Mapper Default Implementation Tests
+// ============================================================================
+
+/// 自定义 Mapper 结构，用于测试默认的 into_xxx() 方法
+struct CustomMapper {
+    multiplier: i32,
+}
+
+impl Mapper<i32, i32> for CustomMapper {
+    fn map(&mut self, input: i32) -> i32 {
+        self.multiplier += 1;
+        input * self.multiplier
+    }
+}
+
+/// 自定义线程安全的 Mapper 结构
+struct CustomSendMapper {
+    multiplier: i32,
+}
+
+impl Mapper<i32, i32> for CustomSendMapper {
+    fn map(&mut self, input: i32) -> i32 {
+        self.multiplier += 1;
+        input * self.multiplier
+    }
+}
+
+// 为 CustomSendMapper 实现 Send，使其可以转换为 ArcMapper
+unsafe impl Send for CustomSendMapper {}
+
+#[test]
+fn test_custom_mapper_into_box() {
+    let mapper = CustomMapper { multiplier: 0 };
+    let mut boxed = mapper.into_box();
+
+    assert_eq!(boxed.map(10), 10); // 10 * 1
+    assert_eq!(boxed.map(10), 20); // 10 * 2
+    assert_eq!(boxed.map(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_mapper_into_rc() {
+    let mapper = CustomMapper { multiplier: 0 };
+    let mut rc_mapper = mapper.into_rc();
+
+    assert_eq!(rc_mapper.map(10), 10); // 10 * 1
+    assert_eq!(rc_mapper.map(10), 20); // 10 * 2
+    assert_eq!(rc_mapper.map(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_mapper_into_rc_clone() {
+    let mapper = CustomMapper { multiplier: 0 };
+    let rc_mapper = mapper.into_rc();
+
+    let mut mapper1 = rc_mapper.clone();
+    let mut mapper2 = rc_mapper.clone();
+
+    // 共享同一个状态
+    assert_eq!(mapper1.map(10), 10); // 10 * 1
+    assert_eq!(mapper2.map(10), 20); // 10 * 2
+    assert_eq!(mapper1.map(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_send_mapper_into_arc() {
+    let mapper = CustomSendMapper { multiplier: 0 };
+    let mut arc_mapper = mapper.into_arc();
+
+    assert_eq!(arc_mapper.map(10), 10); // 10 * 1
+    assert_eq!(arc_mapper.map(10), 20); // 10 * 2
+    assert_eq!(arc_mapper.map(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_send_mapper_into_arc_clone() {
+    let mapper = CustomSendMapper { multiplier: 0 };
+    let arc_mapper = mapper.into_arc();
+
+    let mut mapper1 = arc_mapper.clone();
+    let mut mapper2 = arc_mapper.clone();
+
+    // 共享同一个状态
+    assert_eq!(mapper1.map(10), 10); // 10 * 1
+    assert_eq!(mapper2.map(10), 20); // 10 * 2
+    assert_eq!(mapper1.map(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_mapper_composition() {
+    let mapper1 = CustomMapper { multiplier: 0 };
+    let boxed1 = mapper1.into_box();
+
+    let mapper2 = CustomMapper { multiplier: 10 };
+    let boxed2 = mapper2.into_box();
+
+    let mut composed = boxed1.and_then(boxed2);
+
+    // (10 * 1) = 10, 然后 10 * 11 = 110
+    assert_eq!(composed.map(10), 110);
+    // (10 * 2) = 20, 然后 20 * 12 = 240
+    assert_eq!(composed.map(10), 240);
+}
+
+#[test]
+fn test_custom_mapper_conditional() {
+    let mapper1 = CustomMapper { multiplier: 1 };
+    let boxed1 = mapper1.into_box();
+
+    let mapper2 = CustomMapper { multiplier: 100 };
+    let boxed2 = mapper2.into_box();
+
+    let mut conditional = boxed1.when(|x: &i32| *x > 10).or_else(boxed2);
+
+    // 15 > 10, 使用 mapper1: 15 * 2 = 30
+    assert_eq!(conditional.map(15), 30);
+    // 5 <= 10, 使用 mapper2: 5 * 101 = 505
+    assert_eq!(conditional.map(5), 505);
+    // 20 > 10, 使用 mapper1: 20 * 3 = 60
+    assert_eq!(conditional.map(20), 60);
+}
+
+/// 测试自定义 Mapper 与字符串类型
+struct StringLengthMapper {
+    total_length: usize,
+}
+
+impl Mapper<String, String> for StringLengthMapper {
+    fn map(&mut self, input: String) -> String {
+        self.total_length += input.len();
+        format!("[{}] {}", self.total_length, input)
+    }
+}
+
+#[test]
+fn test_custom_string_mapper_into_box() {
+    let mapper = StringLengthMapper { total_length: 0 };
+    let mut boxed = mapper.into_box();
+
+    assert_eq!(boxed.map("hello".to_string()), "[5] hello");
+    assert_eq!(boxed.map("world".to_string()), "[10] world");
+    assert_eq!(boxed.map("!".to_string()), "[11] !");
+}
+
+#[test]
+fn test_custom_string_mapper_into_rc() {
+    let mapper = StringLengthMapper { total_length: 0 };
+    let mut rc_mapper = mapper.into_rc();
+
+    assert_eq!(rc_mapper.map("hello".to_string()), "[5] hello");
+    assert_eq!(rc_mapper.map("world".to_string()), "[10] world");
+    assert_eq!(rc_mapper.map("!".to_string()), "[11] !");
+}
+
+/// 测试带复杂状态的自定义 Mapper
+struct StatefulMapper {
+    count: i32,
+    sum: i32,
+    history: Vec<i32>,
+}
+
+impl Mapper<i32, (i32, i32, usize)> for StatefulMapper {
+    fn map(&mut self, input: i32) -> (i32, i32, usize) {
+        self.count += 1;
+        self.sum += input;
+        self.history.push(input);
+        (self.count, self.sum, self.history.len())
+    }
+}
+
+#[test]
+fn test_stateful_mapper_into_box() {
+    let mapper = StatefulMapper {
+        count: 0,
+        sum: 0,
+        history: Vec::new(),
+    };
+    let mut boxed = mapper.into_box();
+
+    assert_eq!(boxed.map(10), (1, 10, 1));
+    assert_eq!(boxed.map(20), (2, 30, 2));
+    assert_eq!(boxed.map(30), (3, 60, 3));
+}
+
+#[test]
+fn test_stateful_mapper_into_rc() {
+    let mapper = StatefulMapper {
+        count: 0,
+        sum: 0,
+        history: Vec::new(),
+    };
+    let rc_mapper = mapper.into_rc();
+
+    let mut mapper1 = rc_mapper.clone();
+    let mut mapper2 = rc_mapper;
+
+    // 共享同一个状态
+    assert_eq!(mapper1.map(10), (1, 10, 1));
+    assert_eq!(mapper2.map(20), (2, 30, 2));
+    assert_eq!(mapper1.map(30), (3, 60, 3));
+}
+
+// ============================================================================
+// into_fn Tests
+// ============================================================================
+
+#[test]
+fn test_box_mapper_into_fn() {
+    let mut counter = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+
+    let mut closure = mapper.into_fn();
+    assert_eq!(closure(10), 11); // 10 + 1
+    assert_eq!(closure(10), 12); // 10 + 2
+    assert_eq!(closure(10), 13); // 10 + 3
+}
+
+#[test]
+fn test_box_mapper_into_fn_identity() {
+    let mapper = BoxMapper::<i32, i32>::identity();
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(42), 42);
+    assert_eq!(closure(100), 100);
+}
+
+#[test]
+fn test_box_mapper_into_fn_constant() {
+    let mapper = BoxMapper::constant("hello");
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(1), "hello");
+    assert_eq!(closure(2), "hello");
+    assert_eq!(closure(3), "hello");
+}
+
+#[test]
+fn test_arc_mapper_into_fn() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let mut closure = mapper.into_fn();
+    assert_eq!(closure(10), 10); // 10 * 1
+    assert_eq!(closure(10), 20); // 10 * 2
+    assert_eq!(closure(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_arc_mapper_into_fn_identity() {
+    let mapper = ArcMapper::<i32, i32>::identity();
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(42), 42);
+    assert_eq!(closure(100), 100);
+}
+
+#[test]
+fn test_arc_mapper_into_fn_constant() {
+    let mapper = ArcMapper::constant("world");
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(1), "world");
+    assert_eq!(closure(2), "world");
+}
+
+#[test]
+fn test_rc_mapper_into_fn() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x - counter
+    });
+
+    let mut closure = mapper.into_fn();
+    assert_eq!(closure(10), 9); // 10 - 1
+    assert_eq!(closure(10), 8); // 10 - 2
+    assert_eq!(closure(10), 7); // 10 - 3
+}
+
+#[test]
+fn test_rc_mapper_into_fn_identity() {
+    let mapper = RcMapper::<i32, i32>::identity();
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(42), 42);
+    assert_eq!(closure(100), 100);
+}
+
+#[test]
+fn test_rc_mapper_into_fn_constant() {
+    let mapper = RcMapper::constant("rust");
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(1), "rust");
+    assert_eq!(closure(2), "rust");
+}
+
+#[test]
+fn test_closure_into_fn() {
+    let mut counter = 0;
+    let mapper = move |x: i32| {
+        counter += 1;
+        x + counter * 10
+    };
+
+    let mut closure = mapper.into_fn();
+    assert_eq!(closure(5), 15); // 5 + 1 * 10
+    assert_eq!(closure(5), 25); // 5 + 2 * 10
+    assert_eq!(closure(5), 35); // 5 + 3 * 10
+}
+
+#[test]
+fn test_closure_into_fn_direct() {
+    let mut counter = 0;
+    let mut closure = (move |x: i32| {
+        counter += 1;
+        x * counter
+    })
+    .into_fn();
+
+    assert_eq!(closure(10), 10); // 10 * 1
+    assert_eq!(closure(10), 20); // 10 * 2
+}
+
+#[test]
+fn test_custom_mapper_into_fn() {
+    let mapper = CustomMapper { multiplier: 0 };
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(10), 10); // 10 * 1
+    assert_eq!(closure(10), 20); // 10 * 2
+    assert_eq!(closure(10), 30); // 10 * 3
+}
+
+#[test]
+fn test_custom_string_mapper_into_fn() {
+    let mapper = StringLengthMapper { total_length: 0 };
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure("hello".to_string()), "[5] hello");
+    assert_eq!(closure("world".to_string()), "[10] world");
+    assert_eq!(closure("!".to_string()), "[11] !");
+}
+
+#[test]
+fn test_stateful_mapper_into_fn() {
+    let mapper = StatefulMapper {
+        count: 0,
+        sum: 0,
+        history: Vec::new(),
+    };
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(10), (1, 10, 1));
+    assert_eq!(closure(20), (2, 30, 2));
+    assert_eq!(closure(30), (3, 60, 3));
+}
+
+#[test]
+fn test_into_fn_composition() {
+    let mut counter1 = 0;
+    let mapper1 = BoxMapper::new(move |x: i32| {
+        counter1 += 1;
+        x + counter1
+    });
+
+    let mapper2 = RcMapper::new(|x: i32| x * 2);
+
+    let composed = mapper1.and_then(mapper2);
+    let mut closure = composed.into_fn();
+
+    assert_eq!(closure(10), 22); // (10 + 1) * 2
+    assert_eq!(closure(10), 24); // (10 + 2) * 2
+}
+
+#[test]
+fn test_into_fn_after_conversion() {
+    let mut counter = 0;
+    let original_closure = move |x: i32| {
+        counter += 1;
+        x + counter
+    };
+
+    // 先转换成 BoxMapper，再转回闭包
+    let boxed = original_closure.into_box();
+    let mut final_closure = boxed.into_fn();
+
+    assert_eq!(final_closure(10), 11);
+    assert_eq!(final_closure(10), 12);
+}
+
+#[test]
+fn test_into_fn_with_string_return() {
+    let mapper = BoxMapper::new(|x: i32| format!("Value: {}", x * 2));
+    let mut closure = mapper.into_fn();
+
+    assert_eq!(closure(5), "Value: 10");
+    assert_eq!(closure(10), "Value: 20");
+}
+
+#[test]
+fn test_into_fn_chained_usage() {
+    // 测试链式调用：Mapper -> into_box -> and_then -> into_fn
+    let mut counter = 0;
+    let mapper1 = move |x: i32| {
+        counter += 1;
+        x + counter
+    };
+
+    let boxed = mapper1.into_box();
+    let composed = boxed.and_then(|x: i32| x * 2);
+    let mut closure = composed.into_fn();
+
+    assert_eq!(closure(10), 22); // (10 + 1) * 2
+    assert_eq!(closure(10), 24); // (10 + 2) * 2
 }

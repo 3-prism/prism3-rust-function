@@ -67,11 +67,43 @@ pub trait Mapper<T, R> {
     /// # Returns
     ///
     /// Returns `BoxMapper<T, R>`
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in a `BoxMapper` by creating
+    /// a new closure that calls `self.map()`. This provides a zero-cost
+    /// abstraction for most use cases.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mapper, BoxMapper};
+    ///
+    /// struct CustomMapper {
+    ///     multiplier: i32,
+    /// }
+    ///
+    /// impl Mapper<i32, i32> for CustomMapper {
+    ///     fn map(&mut self, input: i32) -> i32 {
+    ///         self.multiplier += 1;
+    ///         input * self.multiplier
+    ///     }
+    /// }
+    ///
+    /// let mapper = CustomMapper { multiplier: 0 };
+    /// let mut boxed = mapper.into_box();
+    /// assert_eq!(boxed.map(10), 10);  // 10 * 1
+    /// assert_eq!(boxed.map(10), 20);  // 10 * 2
+    /// ```
     fn into_box(self) -> BoxMapper<T, R>
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        let mut mapper = self;
+        BoxMapper::new(move |t| mapper.map(t))
+    }
 
     /// Converts to RcMapper
     ///
@@ -81,11 +113,43 @@ pub trait Mapper<T, R> {
     /// # Returns
     ///
     /// Returns `RcMapper<T, R>`
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation first converts to `BoxMapper` using
+    /// `into_box()`, then wraps it in `RcMapper`. Specific implementations
+    /// may override this for better efficiency.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mapper, RcMapper};
+    ///
+    /// struct CustomMapper {
+    ///     multiplier: i32,
+    /// }
+    ///
+    /// impl Mapper<i32, i32> for CustomMapper {
+    ///     fn map(&mut self, input: i32) -> i32 {
+    ///         self.multiplier += 1;
+    ///         input * self.multiplier
+    ///     }
+    /// }
+    ///
+    /// let mapper = CustomMapper { multiplier: 0 };
+    /// let mut rc_mapper = mapper.into_rc();
+    /// assert_eq!(rc_mapper.map(10), 10);  // 10 * 1
+    /// assert_eq!(rc_mapper.map(10), 20);  // 10 * 2
+    /// ```
     fn into_rc(self) -> RcMapper<T, R>
     where
         Self: Sized + 'static,
         T: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        let mut mapper = self;
+        RcMapper::new(move |t| mapper.map(t))
+    }
 
     /// Converts to ArcMapper
     ///
@@ -95,11 +159,135 @@ pub trait Mapper<T, R> {
     /// # Returns
     ///
     /// Returns `ArcMapper<T, R>`
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation wraps `self` in an `ArcMapper` by creating
+    /// a new closure that calls `self.map()`. Note that this requires `self`
+    /// to implement `Send` due to Arc's thread-safety requirements.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mapper, ArcMapper};
+    ///
+    /// struct CustomMapper {
+    ///     multiplier: i32,
+    /// }
+    ///
+    /// impl Mapper<i32, i32> for CustomMapper {
+    ///     fn map(&mut self, input: i32) -> i32 {
+    ///         self.multiplier += 1;
+    ///         input * self.multiplier
+    ///     }
+    /// }
+    ///
+    /// let mapper = CustomMapper { multiplier: 0 };
+    /// let mut arc_mapper = mapper.into_arc();
+    /// assert_eq!(arc_mapper.map(10), 10);  // 10 * 1
+    /// assert_eq!(arc_mapper.map(10), 20);  // 10 * 2
+    /// ```
     fn into_arc(self) -> ArcMapper<T, R>
     where
         Self: Sized + Send + 'static,
         T: Send + Sync + 'static,
-        R: Send + 'static;
+        R: Send + 'static,
+    {
+        let mut mapper = self;
+        ArcMapper::new(move |t| mapper.map(t))
+    }
+
+    /// Converts to a closure implementing `FnMut(T) -> R`
+    ///
+    /// **⚠️ Consumes `self`**: The original mapper becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns an implementation of `FnMut(T) -> R`
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation creates a new closure that calls `self.map()`.
+    /// Specific implementations may override this for better efficiency.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mapper, BoxMapper};
+    ///
+    /// let mapper = BoxMapper::new(|x: i32| x * 2);
+    /// let mut closure = mapper.into_fn();
+    /// assert_eq!(closure(10), 20);
+    /// assert_eq!(closure(15), 30);
+    /// ```
+    fn into_fn(self) -> impl FnMut(T) -> R
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let mut mapper = self;
+        move |t| mapper.map(t)
+    }
+
+    /// Non-consuming conversion to `BoxMapper`.
+    ///
+    /// Default implementation requires `Self: Clone` and wraps a cloned
+    /// instance in a `RefCell` so the returned mapper can mutate state
+    /// across calls.
+    fn to_box(&self) -> BoxMapper<T, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let mut mapper = self.clone();
+        BoxMapper::new(move |t| mapper.map(t))
+    }
+
+    /// Non-consuming conversion to `RcMapper`.
+    ///
+    /// Default implementation clones `self` into an `Rc<RefCell<_>>` so the
+    /// resulting mapper can be shared within a single thread.
+    fn to_rc(&self) -> RcMapper<T, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let mut mapper = self.clone();
+        RcMapper::new(move |t| mapper.map(t))
+    }
+
+    /// Non-consuming conversion to `ArcMapper` (thread-safe).
+    ///
+    /// Default implementation requires `Self: Clone + Send + Sync` and wraps
+    /// the cloned instance in `Arc<Mutex<_>>` so it can be used across
+    /// threads.
+    fn to_arc(&self) -> ArcMapper<T, R>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + 'static,
+    {
+        let mut mapper = self.clone();
+        ArcMapper::new(move |t| mapper.map(t))
+    }
+
+    /// Non-consuming conversion to a closure (`FnMut(T) -> R`).
+    ///
+    /// Default implementation clones `self` into a `RefCell` and returns a
+    /// closure that calls `map` on the interior mutable value.
+    fn to_fn(&self) -> impl FnMut(T) -> R
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let mut mapper = self.clone();
+        move |t| mapper.map(t)
+    }
 }
 
 // ============================================================================
@@ -160,6 +348,13 @@ where
             function: Box::new(f),
         }
     }
+
+    // BoxMapper is intentionally not given a `to_*` specialization here
+    // because the boxed `FnMut` is not clonable and we cannot produce a
+    // non-consuming adapter from `&self` without moving ownership or
+    // requiring `Clone` on the inner function. Consumers should use the
+    // blanket `Mapper::to_*` defaults when their mapper type implements
+    // `Clone`.
 
     /// Creates an identity mapper
     ///
@@ -222,14 +417,16 @@ where
     /// assert_eq!(composed.map(10), 11);  // (10 + 1) * 1
     /// assert_eq!(composed.map(10), 24);  // (10 + 2) * 2
     /// ```
-    pub fn and_then<S, F>(mut self, mut after: F) -> BoxMapper<T, S>
+    pub fn and_then<S, F>(self, after: F) -> BoxMapper<T, S>
     where
         S: 'static,
         F: Mapper<R, S> + 'static,
     {
+        let mut self_mapper = self;
+        let mut after_mapper = after;
         BoxMapper::new(move |x: T| {
-            let intermediate = self.map(x);
-            after.map(intermediate)
+            let intermediate = self_mapper.map(x);
+            after_mapper.map(intermediate)
         })
     }
 
@@ -274,14 +471,16 @@ where
     /// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
     /// assert_eq!(composed.map(10), 22); // (10 + 1) * 2
     /// ```
-    pub fn compose<S, F>(mut self, mut before: F) -> BoxMapper<S, R>
+    pub fn compose<S, F>(self, before: F) -> BoxMapper<S, R>
     where
         S: 'static,
         F: Mapper<S, T> + 'static,
     {
+        let mut self_mapper = self;
+        let mut before_mapper = before;
         BoxMapper::new(move |x: S| {
-            let intermediate = before.map(x);
-            self.map(intermediate)
+            let intermediate = before_mapper.map(x);
+            self_mapper.map(intermediate)
         })
     }
 
@@ -374,21 +573,20 @@ impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        RcMapper {
-            function: Rc::new(RefCell::new(self.function)),
-        }
+        let mut self_fn = self.function;
+        RcMapper::new(move |t| self_fn(t))
     }
 
-    fn into_arc(self) -> ArcMapper<T, R>
+    // do NOT override Mapper::into_arc() because BoxMapper is not Send + Sync
+    // and calling BoxMapper::into_arc() will cause a compile error
+
+    fn into_fn(self) -> impl FnMut(T) -> R
     where
-        Self: Send,
-        T: Send + Sync + 'static,
-        R: Send + 'static,
+        T: 'static,
+        R: 'static,
     {
-        unreachable!(
-            "BoxMapper<T, R> does not implement Send, so this method can \
-             never be called"
-        )
+        // Zero-cost: directly return the boxed function
+        self.function
     }
 }
 
@@ -779,6 +977,15 @@ impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
     {
         // Zero-cost: directly return itself
         self
+    }
+
+    fn into_fn(self) -> impl FnMut(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        // Efficient: use Arc cloning to create a closure
+        move |input: T| (self.function.lock().unwrap())(input)
     }
 }
 
@@ -1178,16 +1385,16 @@ impl<T, R> Mapper<T, R> for RcMapper<T, R> {
         self
     }
 
-    fn into_arc(self) -> ArcMapper<T, R>
+    // do NOT override Mapper::into_arc() because RcMapper is not Send + Sync
+    // and calling RcMapper::into_arc() will cause a compile error
+
+    fn into_fn(self) -> impl FnMut(T) -> R
     where
-        Self: Send,
-        T: Send + Sync + 'static,
-        R: Send + 'static,
+        T: 'static,
+        R: 'static,
     {
-        unreachable!(
-            "RcMapper cannot be converted to ArcMapper because Rc is not \
-             Send"
-        )
+        // Efficient: use Rc cloning to create a closure
+        move |input: T| (self.function.borrow_mut())(input)
     }
 }
 
@@ -1366,6 +1573,66 @@ where
         R: Send + 'static,
     {
         ArcMapper::new(self)
+    }
+
+    fn into_fn(self) -> impl FnMut(T) -> R
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself (the closure)
+        self
+    }
+
+    /// Non-consuming conversion to `BoxMapper` for closures.
+    ///
+    /// We can create a `BoxMapper` by boxing the closure and returning a
+    /// new `BoxMapper`. This does not require `Clone` because we consume
+    /// the closure value passed by the caller when they call this
+    /// method. For `&self`-style non-consuming `to_*` adapters, users can
+    /// use the `Mapper::to_*` defaults which clone the closure when
+    /// possible.
+    fn to_box(&self) -> BoxMapper<T, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        // Clone the closure into a RefCell to allow interior mutability
+        // across calls.
+        let cell = RefCell::new(self.clone());
+        BoxMapper::new(move |input: T| cell.borrow_mut().map(input))
+    }
+
+    fn to_rc(&self) -> RcMapper<T, R>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cell = Rc::new(RefCell::new(self.clone()));
+        RcMapper::new(move |input: T| cell.borrow_mut().map(input))
+    }
+
+    fn to_arc(&self) -> ArcMapper<T, R>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + 'static,
+    {
+        let cell = Arc::new(Mutex::new(self.clone()));
+        ArcMapper::new(move |input: T| cell.lock().unwrap().map(input))
+    }
+
+    fn to_fn(&self) -> impl FnMut(T) -> R
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let cell = RefCell::new(self.clone());
+        move |input: T| cell.borrow_mut().map(input)
     }
 }
 
