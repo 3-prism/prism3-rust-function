@@ -1273,7 +1273,7 @@ impl<T> Mutator<T> for RcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let self_fn = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxMutator::new(move |t| self_fn.borrow_mut()(t))
     }
 
@@ -1293,7 +1293,7 @@ impl<T> Mutator<T> for RcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let self_fn = Rc::clone(&self.function);
+        let self_fn = self.function.clone();
         move |t| self_fn.borrow_mut()(t)
     }
 }
@@ -1304,8 +1304,8 @@ impl<T> Clone for RcMutator<T> {
     /// Creates a new RcMutator that shares the underlying function with the
     /// original instance.
     fn clone(&self) -> Self {
-        Self {
-            function: Rc::clone(&self.function),
+        RcMutator {
+            function: self.function.clone(),
         }
     }
 }
@@ -1490,7 +1490,7 @@ impl<T> Clone for RcConditionalMutator<T> {
     /// Creates a new instance that shares the underlying mutator and predicate
     /// with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        RcConditionalMutator {
             mutator: self.mutator.clone(),
             predicate: self.predicate.clone(),
         }
@@ -1675,13 +1675,13 @@ where
     /// m.mutate(&mut positive);
     /// assert_eq!(positive, 10);
     /// ```
-    pub fn when<P>(self, predicate: P) -> ArcConditionalMutator<T>
+    pub fn when<P>(&self, predicate: P) -> ArcConditionalMutator<T>
     where
         P: Predicate<T> + Send + Sync + 'static,
         T: Send + Sync,
     {
         ArcConditionalMutator {
-            mutator: self,
+            mutator: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -1726,7 +1726,7 @@ impl<T> Mutator<T> for ArcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let self_fn = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         BoxMutator::new(move |t| self_fn.lock().unwrap()(t))
     }
 
@@ -1735,7 +1735,7 @@ impl<T> Mutator<T> for ArcMutator<T> {
         Self: Sized + 'static,
         T: 'static,
     {
-        let self_fn = Arc::clone(&self.function);
+        let self_fn = self.function.clone();
         RcMutator::new(move |t| self_fn.lock().unwrap()(t))
     }
 
@@ -1763,8 +1763,8 @@ impl<T> Clone for ArcMutator<T> {
     /// Creates a new ArcMutator that shares the underlying function with the
     /// original instance.
     fn clone(&self) -> Self {
-        Self {
-            function: Arc::clone(&self.function),
+        ArcMutator {
+            function: self.function.clone(),
         }
     }
 }
@@ -1975,7 +1975,7 @@ impl<T> Clone for ArcConditionalMutator<T> {
     /// Creates a new instance that shares the underlying mutator and predicate
     /// with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        ArcConditionalMutator {
             mutator: self.mutator.clone(),
             predicate: self.predicate.clone(),
         }
