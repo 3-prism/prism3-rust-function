@@ -25,9 +25,9 @@ fn main() {
         format!("Item #{}: {}", counter, x)
     });
 
-    println!("  {}", mapper.map(100)); // Item #1: 100
-    println!("  {}", mapper.map(200)); // Item #2: 200
-    println!("  {}", mapper.map(300)); // Item #3: 300
+    println!("  {}", mapper.apply(100)); // Item #1: 100
+    println!("  {}", mapper.apply(200)); // Item #2: 200
+    println!("  {}", mapper.apply(300)); // Item #3: 300
 
     // 2. Composing mappers with and_then
     println!("\n2. Composing mappers with and_then:");
@@ -44,9 +44,9 @@ fn main() {
     });
 
     let mut composed = mapper1.and_then(mapper2);
-    println!("  First call:  {}", composed.map(10)); // (10 + 1) * 1 = 11
-    println!("  Second call: {}", composed.map(10)); // (10 + 2) * 2 = 24
-    println!("  Third call:  {}", composed.map(10)); // (10 + 3) * 3 = 39
+    println!("  First call:  {}", composed.apply(10)); // (10 + 1) * 1 = 11
+    println!("  Second call: {}", composed.apply(10)); // (10 + 2) * 2 = 24
+    println!("  Third call:  {}", composed.apply(10)); // (10 + 3) * 3 = 39
 
     // 3. Conditional mapping with when/or_else
     println!("\n3. Conditional mapping:");
@@ -63,9 +63,9 @@ fn main() {
         format!("Low[{}]: {} + 1 = {}", low_count, x, x + 1)
     });
 
-    println!("  {}", conditional.map(15)); // High[1]: 15 * 2 = 30
-    println!("  {}", conditional.map(5)); // Low[1]: 5 + 1 = 6
-    println!("  {}", conditional.map(20)); // High[2]: 20 * 2 = 40
+    println!("  {}", conditional.apply(15)); // High[1]: 15 * 2 = 30
+    println!("  {}", conditional.apply(5)); // Low[1]: 5 + 1 = 6
+    println!("  {}", conditional.apply(20)); // High[2]: 20 * 2 = 40
 
     // 4. RcMapper for cloneable mappers
     println!("\n4. RcMapper (cloneable, single-threaded):");
@@ -78,9 +78,9 @@ fn main() {
     let mut mapper1 = mapper.clone();
     let mut mapper2 = mapper.clone();
 
-    println!("  mapper1: {}", mapper1.map(10)); // 11
-    println!("  mapper2: {}", mapper2.map(10)); // 12
-    println!("  mapper1: {}", mapper1.map(10)); // 13
+    println!("  mapper1: {}", mapper1.apply(10)); // 11
+    println!("  mapper2: {}", mapper2.apply(10)); // 12
+    println!("  mapper1: {}", mapper1.apply(10)); // 13
 
     // 5. ArcMapper for thread-safe mappers
     println!("\n5. ArcMapper (thread-safe):");
@@ -91,8 +91,8 @@ fn main() {
     });
 
     let mut mapper_clone = mapper.clone();
-    println!("  Original: {}", mapper_clone.map(5)); // Result[1]: 10
-    println!("  Clone:    {}", mapper_clone.map(7)); // Result[2]: 14
+    println!("  Original: {}", mapper_clone.apply(5)); // Result[1]: 10
+    println!("  Clone:    {}", mapper_clone.apply(7)); // Result[2]: 14
 
     // 6. Using FnMapperOps extension trait
     println!("\n6. Using FnMapperOps extension trait:");
@@ -103,8 +103,8 @@ fn main() {
     })
     .and_then(|x| x * 2);
 
-    println!("  {}", mapper.map(10)); // (10 + 1) * 2 = 22
-    println!("  {}", mapper.map(10)); // (10 + 2) * 2 = 24
+    println!("  {}", mapper.apply(10)); // (10 + 1) * 2 = 22
+    println!("  {}", mapper.apply(10)); // (10 + 2) * 2 = 24
 
     // 7. Building a complex pipeline
     println!("\n7. Complex processing pipeline:");
@@ -128,8 +128,8 @@ fn main() {
 
     let mut pipeline = step1.and_then(step2).and_then(step3);
 
-    println!("  {}", pipeline.map(100));
-    println!("  {}", pipeline.map(200));
+    println!("  {}", pipeline.apply(100));
+    println!("  {}", pipeline.apply(200));
 
     println!("\n=== Demo Complete ===");
 }

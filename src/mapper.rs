@@ -48,7 +48,7 @@ use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 ///
 /// Haixing Hu
 pub trait Mapper<T, R> {
-    /// Maps the input value to produce an output value
+    /// Applies the mapping to the input value to produce an output value
     ///
     /// # Parameters
     ///
@@ -57,7 +57,7 @@ pub trait Mapper<T, R> {
     /// # Returns
     ///
     /// The transformed output value
-    fn map(&mut self, input: T) -> R;
+    fn apply(&mut self, input: T) -> R;
 
     /// Converts to BoxMapper
     ///
@@ -71,7 +71,7 @@ pub trait Mapper<T, R> {
     /// # Default Implementation
     ///
     /// The default implementation wraps `self` in a `BoxMapper` by creating
-    /// a new closure that calls `self.map()`. This provides a zero-cost
+    /// a new closure that calls `self.apply()`. This provides a zero-cost
     /// abstraction for most use cases.
     ///
     /// # Examples
@@ -84,7 +84,7 @@ pub trait Mapper<T, R> {
     /// }
     ///
     /// impl Mapper<i32, i32> for CustomMapper {
-    ///     fn map(&mut self, input: i32) -> i32 {
+    ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
@@ -92,8 +92,8 @@ pub trait Mapper<T, R> {
     ///
     /// let mapper = CustomMapper { multiplier: 0 };
     /// let mut boxed = mapper.into_box();
-    /// assert_eq!(boxed.map(10), 10);  // 10 * 1
-    /// assert_eq!(boxed.map(10), 20);  // 10 * 2
+    /// assert_eq!(boxed.apply(10), 10);  // 10 * 1
+    /// assert_eq!(boxed.apply(10), 20);  // 10 * 2
     /// ```
     fn into_box(self) -> BoxMapper<T, R>
     where
@@ -102,7 +102,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self;
-        BoxMapper::new(move |t| mapper.map(t))
+        BoxMapper::new(move |t| mapper.apply(t))
     }
 
     /// Converts to RcMapper
@@ -130,7 +130,7 @@ pub trait Mapper<T, R> {
     /// }
     ///
     /// impl Mapper<i32, i32> for CustomMapper {
-    ///     fn map(&mut self, input: i32) -> i32 {
+    ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
@@ -138,8 +138,8 @@ pub trait Mapper<T, R> {
     ///
     /// let mapper = CustomMapper { multiplier: 0 };
     /// let mut rc_mapper = mapper.into_rc();
-    /// assert_eq!(rc_mapper.map(10), 10);  // 10 * 1
-    /// assert_eq!(rc_mapper.map(10), 20);  // 10 * 2
+    /// assert_eq!(rc_mapper.apply(10), 10);  // 10 * 1
+    /// assert_eq!(rc_mapper.apply(10), 20);  // 10 * 2
     /// ```
     fn into_rc(self) -> RcMapper<T, R>
     where
@@ -148,7 +148,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self;
-        RcMapper::new(move |t| mapper.map(t))
+        RcMapper::new(move |t| mapper.apply(t))
     }
 
     /// Converts to ArcMapper
@@ -163,7 +163,7 @@ pub trait Mapper<T, R> {
     /// # Default Implementation
     ///
     /// The default implementation wraps `self` in an `ArcMapper` by creating
-    /// a new closure that calls `self.map()`. Note that this requires `self`
+    /// a new closure that calls `self.apply()`. Note that this requires `self`
     /// to implement `Send` due to Arc's thread-safety requirements.
     ///
     /// # Examples
@@ -176,7 +176,7 @@ pub trait Mapper<T, R> {
     /// }
     ///
     /// impl Mapper<i32, i32> for CustomMapper {
-    ///     fn map(&mut self, input: i32) -> i32 {
+    ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
@@ -184,8 +184,8 @@ pub trait Mapper<T, R> {
     ///
     /// let mapper = CustomMapper { multiplier: 0 };
     /// let mut arc_mapper = mapper.into_arc();
-    /// assert_eq!(arc_mapper.map(10), 10);  // 10 * 1
-    /// assert_eq!(arc_mapper.map(10), 20);  // 10 * 2
+    /// assert_eq!(arc_mapper.apply(10), 10);  // 10 * 1
+    /// assert_eq!(arc_mapper.apply(10), 20);  // 10 * 2
     /// ```
     fn into_arc(self) -> ArcMapper<T, R>
     where
@@ -194,7 +194,7 @@ pub trait Mapper<T, R> {
         R: Send + 'static,
     {
         let mut mapper = self;
-        ArcMapper::new(move |t| mapper.map(t))
+        ArcMapper::new(move |t| mapper.apply(t))
     }
 
     /// Converts to a closure implementing `FnMut(T) -> R`
@@ -208,7 +208,7 @@ pub trait Mapper<T, R> {
     ///
     /// # Default Implementation
     ///
-    /// The default implementation creates a new closure that calls `self.map()`.
+    /// The default implementation creates a new closure that calls `self.apply()`.
     /// Specific implementations may override this for better efficiency.
     ///
     /// # Examples
@@ -228,7 +228,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self;
-        move |t| mapper.map(t)
+        move |t| mapper.apply(t)
     }
 
     /// Non-consuming conversion to `BoxMapper`.
@@ -243,7 +243,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self.clone();
-        BoxMapper::new(move |t| mapper.map(t))
+        BoxMapper::new(move |t| mapper.apply(t))
     }
 
     /// Non-consuming conversion to `RcMapper`.
@@ -257,7 +257,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self.clone();
-        RcMapper::new(move |t| mapper.map(t))
+        RcMapper::new(move |t| mapper.apply(t))
     }
 
     /// Non-consuming conversion to `ArcMapper` (thread-safe).
@@ -272,13 +272,13 @@ pub trait Mapper<T, R> {
         R: Send + 'static,
     {
         let mut mapper = self.clone();
-        ArcMapper::new(move |t| mapper.map(t))
+        ArcMapper::new(move |t| mapper.apply(t))
     }
 
     /// Non-consuming conversion to a closure (`FnMut(T) -> R`).
     ///
     /// Default implementation clones `self` into a `RefCell` and returns a
-    /// closure that calls `map` on the interior mutable value.
+    /// closure that calls `apply` on the interior mutable value.
     fn to_fn(&self) -> impl FnMut(T) -> R
     where
         Self: Sized + Clone + 'static,
@@ -286,7 +286,7 @@ pub trait Mapper<T, R> {
         R: 'static,
     {
         let mut mapper = self.clone();
-        move |t| mapper.map(t)
+        move |t| mapper.apply(t)
     }
 }
 
@@ -337,8 +337,8 @@ where
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.map(10), 11);
-    /// assert_eq!(mapper.map(10), 12);
+    /// assert_eq!(mapper.apply(10), 11);
+    /// assert_eq!(mapper.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -364,7 +364,7 @@ where
     /// use prism3_function::{BoxMapper, Mapper};
     ///
     /// let mut identity = BoxMapper::<i32, i32>::identity();
-    /// assert_eq!(identity.map(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> BoxMapper<T, T> {
         BoxMapper::new(|x| x)
@@ -414,8 +414,8 @@ where
     /// });
     ///
     /// let mut composed = mapper1.and_then(mapper2);
-    /// assert_eq!(composed.map(10), 11);  // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 24);  // (10 + 2) * 2
+    /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
     /// ```
     pub fn and_then<S, F>(self, after: F) -> BoxMapper<T, S>
     where
@@ -425,8 +425,8 @@ where
         let mut self_mapper = self;
         let mut after_mapper = after;
         BoxMapper::new(move |x: T| {
-            let intermediate = self_mapper.map(x);
-            after_mapper.map(intermediate)
+            let intermediate = self_mapper.apply(x);
+            after_mapper.apply(intermediate)
         })
     }
 
@@ -468,8 +468,8 @@ where
     /// });
     ///
     /// let mut composed = mapper.compose(|x: i32| x + 1);
-    /// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 22); // (10 + 1) * 2
+    /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
     pub fn compose<S, F>(self, before: F) -> BoxMapper<S, R>
     where
@@ -479,8 +479,8 @@ where
         let mut self_mapper = self;
         let mut before_mapper = before;
         BoxMapper::new(move |x: S| {
-            let intermediate = before_mapper.map(x);
-            self_mapper.map(intermediate)
+            let intermediate = before_mapper.apply(x);
+            self_mapper.apply(intermediate)
         })
     }
 
@@ -520,8 +520,8 @@ where
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.map(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.map(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalMapper<T, R>
     where
@@ -547,7 +547,7 @@ where
     /// use prism3_function::{BoxMapper, Mapper};
     ///
     /// let mut constant = BoxMapper::constant("hello");
-    /// assert_eq!(constant.map(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> BoxMapper<T, R> {
         BoxMapper::new(move |_| value.clone())
@@ -555,7 +555,7 @@ where
 }
 
 impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         (self.function)(input)
     }
 
@@ -629,8 +629,8 @@ impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
 ///     x + 1
 /// });
 ///
-/// assert_eq!(mapper.map(15), 30); // when branch executed
-/// assert_eq!(mapper.map(5), 6);   // or_else branch executed
+/// assert_eq!(mapper.apply(15), 30); // when branch executed
+/// assert_eq!(mapper.apply(5), 6);   // or_else branch executed
 /// ```
 ///
 /// # Author
@@ -671,8 +671,8 @@ where
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.map(5), 10);   // Condition satisfied
-    /// assert_eq!(mapper.map(-5), 5);   // Condition not satisfied
+    /// assert_eq!(mapper.apply(5), 10);   // Condition satisfied
+    /// assert_eq!(mapper.apply(-5), 5);   // Condition not satisfied
     /// ```
     pub fn or_else<F>(self, mut else_mapper: F) -> BoxMapper<T, R>
     where
@@ -682,9 +682,9 @@ where
         let mut then_mapper = self.mapper;
         BoxMapper::new(move |t| {
             if pred.test(&t) {
-                then_mapper.map(t)
+                then_mapper.apply(t)
             } else {
-                else_mapper.map(t)
+                else_mapper.apply(t)
             }
         })
     }
@@ -738,8 +738,8 @@ where
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.map(10), 11);
-    /// assert_eq!(mapper.map(10), 12);
+    /// assert_eq!(mapper.apply(10), 11);
+    /// assert_eq!(mapper.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -758,7 +758,7 @@ where
     /// use prism3_function::{ArcMapper, Mapper};
     ///
     /// let mut identity = ArcMapper::<i32, i32>::identity();
-    /// assert_eq!(identity.map(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> ArcMapper<T, T> {
         ArcMapper::new(|x| x)
@@ -807,8 +807,8 @@ where
     ///
     /// let mut composed = mapper1.and_then(mapper2);
     ///
-    /// assert_eq!(composed.map(10), 11);  // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 24);  // (10 + 2) * 2
+    /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> ArcMapper<T, S>
     where
@@ -820,7 +820,7 @@ where
         ArcMapper {
             function: Arc::new(Mutex::new(move |x: T| {
                 let intermediate = self_fn.lock().unwrap()(x);
-                after.lock().unwrap().map(intermediate)
+                after.lock().unwrap().apply(intermediate)
             })),
         }
     }
@@ -861,8 +861,8 @@ where
     /// });
     ///
     /// let mut composed = mapper.compose(|x: i32| x + 1);
-    /// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 22); // (10 + 1) * 2
+    /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
     pub fn compose<S, F>(&self, before: F) -> ArcMapper<S, R>
     where
@@ -873,7 +873,7 @@ where
         let before = Arc::new(Mutex::new(before));
         ArcMapper {
             function: Arc::new(Mutex::new(move |x: S| {
-                let intermediate = before.lock().unwrap().map(x);
+                let intermediate = before.lock().unwrap().apply(x);
                 self_fn.lock().unwrap()(intermediate)
             })),
         }
@@ -909,8 +909,8 @@ where
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.map(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.map(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> ArcConditionalMapper<T, R>
     where
@@ -936,7 +936,7 @@ where
     /// use prism3_function::{ArcMapper, Mapper};
     ///
     /// let mut constant = ArcMapper::constant("hello");
-    /// assert_eq!(constant.map(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> ArcMapper<T, R> {
         ArcMapper::new(move |_| value.clone())
@@ -944,7 +944,7 @@ where
 }
 
 impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         (self.function.lock().unwrap())(input)
     }
 
@@ -1030,8 +1030,8 @@ impl<T, R> Clone for ArcMapper<T, R> {
 ///
 /// let mut mapper_clone = mapper.clone();
 ///
-/// assert_eq!(mapper.map(5), 10);
-/// assert_eq!(mapper_clone.map(-5), 5);
+/// assert_eq!(mapper.apply(5), 10);
+/// assert_eq!(mapper_clone.apply(-5), 5);
 /// ```
 ///
 /// # Author
@@ -1072,8 +1072,8 @@ where
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.map(5), 10);
-    /// assert_eq!(mapper.map(-5), 5);
+    /// assert_eq!(mapper.apply(5), 10);
+    /// assert_eq!(mapper.apply(-5), 5);
     /// ```
     pub fn or_else<F>(self, else_mapper: F) -> ArcMapper<T, R>
     where
@@ -1087,7 +1087,7 @@ where
                 if pred.test(&t) {
                     then_mapper.function.lock().unwrap()(t)
                 } else {
-                    else_mapper.lock().unwrap().map(t)
+                    else_mapper.lock().unwrap().apply(t)
                 }
             })),
         }
@@ -1154,8 +1154,8 @@ where
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.map(10), 11);
-    /// assert_eq!(mapper.map(10), 12);
+    /// assert_eq!(mapper.apply(10), 11);
+    /// assert_eq!(mapper.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -1174,7 +1174,7 @@ where
     /// use prism3_function::{RcMapper, Mapper};
     ///
     /// let mut identity = RcMapper::<i32, i32>::identity();
-    /// assert_eq!(identity.map(42), 42);
+    /// assert_eq!(identity.apply(42), 42);
     /// ```
     pub fn identity() -> RcMapper<T, T> {
         RcMapper::new(|x| x)
@@ -1223,8 +1223,8 @@ where
     ///
     /// let mut composed = mapper1.and_then(mapper2);
     ///
-    /// assert_eq!(composed.map(10), 11);  // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 24);  // (10 + 2) * 2
+    /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
     /// ```
     pub fn and_then<S, F>(&self, after: F) -> RcMapper<T, S>
     where
@@ -1236,7 +1236,7 @@ where
         RcMapper {
             function: Rc::new(RefCell::new(move |x: T| {
                 let intermediate = self_fn.borrow_mut()(x);
-                after.borrow_mut().map(intermediate)
+                after.borrow_mut().apply(intermediate)
             })),
         }
     }
@@ -1277,8 +1277,8 @@ where
     /// });
     ///
     /// let mut composed = mapper.compose(|x: i32| x + 1);
-    /// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    /// assert_eq!(composed.map(10), 22); // (10 + 1) * 2
+    /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
     pub fn compose<S, F>(&self, before: F) -> RcMapper<S, R>
     where
@@ -1289,7 +1289,7 @@ where
         let before = Rc::new(RefCell::new(before));
         RcMapper {
             function: Rc::new(RefCell::new(move |x: S| {
-                let intermediate = before.borrow_mut().map(x);
+                let intermediate = before.borrow_mut().apply(x);
                 self_fn.borrow_mut()(intermediate)
             })),
         }
@@ -1327,8 +1327,8 @@ where
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.map(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.map(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> RcConditionalMapper<T, R>
     where
@@ -1354,7 +1354,7 @@ where
     /// use prism3_function::{RcMapper, Mapper};
     ///
     /// let mut constant = RcMapper::constant("hello");
-    /// assert_eq!(constant.map(123), "hello");
+    /// assert_eq!(constant.apply(123), "hello");
     /// ```
     pub fn constant(value: R) -> RcMapper<T, R> {
         RcMapper::new(move |_| value.clone())
@@ -1362,7 +1362,7 @@ where
 }
 
 impl<T, R> Mapper<T, R> for RcMapper<T, R> {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         (self.function.borrow_mut())(input)
     }
 
@@ -1438,8 +1438,8 @@ impl<T, R> Clone for RcMapper<T, R> {
 ///
 /// let mut mapper_clone = mapper.clone();
 ///
-/// assert_eq!(mapper.map(5), 10);
-/// assert_eq!(mapper_clone.map(-5), 5);
+/// assert_eq!(mapper.apply(5), 10);
+/// assert_eq!(mapper_clone.apply(-5), 5);
 /// ```
 ///
 /// # Author
@@ -1480,8 +1480,8 @@ where
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.map(5), 10);
-    /// assert_eq!(mapper.map(-5), 5);
+    /// assert_eq!(mapper.apply(5), 10);
+    /// assert_eq!(mapper.apply(-5), 5);
     /// ```
     pub fn or_else<F>(self, else_mapper: F) -> RcMapper<T, R>
     where
@@ -1495,7 +1495,7 @@ where
                 if pred.test(&t) {
                     then_mapper.function.borrow_mut()(t)
                 } else {
-                    else_mapper.borrow_mut().map(t)
+                    else_mapper.borrow_mut().apply(t)
                 }
             })),
         }
@@ -1535,8 +1535,8 @@ impl<T, R> Clone for RcConditionalMapper<T, R> {
 ///     x + counter
 /// };
 ///
-/// assert_eq!(mapper.map(10), 11);
-/// assert_eq!(mapper.map(10), 12);
+/// assert_eq!(mapper.apply(10), 11);
+/// assert_eq!(mapper.apply(10), 12);
 /// ```
 ///
 /// # Author
@@ -1548,7 +1548,7 @@ where
     T: 'static,
     R: 'static,
 {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         self(input)
     }
 
@@ -1602,7 +1602,7 @@ where
         // Clone the closure into a RefCell to allow interior mutability
         // across calls.
         let cell = RefCell::new(self.clone());
-        BoxMapper::new(move |input: T| cell.borrow_mut().map(input))
+        BoxMapper::new(move |input: T| cell.borrow_mut().apply(input))
     }
 
     fn to_rc(&self) -> RcMapper<T, R>
@@ -1612,7 +1612,7 @@ where
         R: 'static,
     {
         let cell = Rc::new(RefCell::new(self.clone()));
-        RcMapper::new(move |input: T| cell.borrow_mut().map(input))
+        RcMapper::new(move |input: T| cell.borrow_mut().apply(input))
     }
 
     fn to_arc(&self) -> ArcMapper<T, R>
@@ -1622,7 +1622,7 @@ where
         R: Send + 'static,
     {
         let cell = Arc::new(Mutex::new(self.clone()));
-        ArcMapper::new(move |input: T| cell.lock().unwrap().map(input))
+        ArcMapper::new(move |input: T| cell.lock().unwrap().apply(input))
     }
 
     fn to_fn(&self) -> impl FnMut(T) -> R
@@ -1632,7 +1632,7 @@ where
         R: 'static,
     {
         let cell = RefCell::new(self.clone());
-        move |input: T| cell.borrow_mut().map(input)
+        move |input: T| cell.borrow_mut().apply(input)
     }
 }
 
@@ -1676,7 +1676,7 @@ where
 /// };
 ///
 /// let mut composed = mapper1.and_then(mapper2);
-/// assert_eq!(composed.map(10), 11);  // (10 + 1) * 1
+/// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
 /// ```
 ///
 /// ## Reverse composition with compose
@@ -1691,7 +1691,7 @@ where
 /// };
 ///
 /// let mut composed = mapper.compose(|x: i32| x + 1);
-/// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
+/// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
 /// ```
 ///
 /// ## Conditional mapping with when
@@ -1703,8 +1703,8 @@ where
 ///     .when(|x: &i32| *x > 0)
 ///     .or_else(|x: i32| -x);
 ///
-/// assert_eq!(mapper.map(5), 10);
-/// assert_eq!(mapper.map(-5), 5);
+/// assert_eq!(mapper.apply(5), 10);
+/// assert_eq!(mapper.apply(-5), 5);
 /// ```
 ///
 /// # Author
@@ -1753,7 +1753,7 @@ pub trait FnMapperOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// });
     ///
     /// let mut composed = mapper1.and_then(mapper2);
-    /// assert_eq!(composed.map(10), 11);
+    /// assert_eq!(composed.apply(10), 11);
     /// ```
     fn and_then<S, F>(self, after: F) -> BoxMapper<T, S>
     where
@@ -1803,7 +1803,7 @@ pub trait FnMapperOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// let before = BoxMapper::new(|x: i32| x + 1);
     ///
     /// let mut composed = mapper.compose(before);
-    /// assert_eq!(composed.map(10), 11); // (10 + 1) * 1
+    /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
     /// ```
     fn compose<S, F>(self, before: F) -> BoxMapper<S, R>
     where
@@ -1844,8 +1844,8 @@ pub trait FnMapperOps<T, R>: FnMut(T) -> R + Sized + 'static {
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.map(5), 10);
-    /// assert_eq!(mapper.map(-5), 5);
+    /// assert_eq!(mapper.apply(5), 10);
+    /// assert_eq!(mapper.apply(-5), 5);
     /// ```
     fn when<P>(self, predicate: P) -> BoxConditionalMapper<T, R>
     where

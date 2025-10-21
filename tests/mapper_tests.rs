@@ -24,24 +24,24 @@ fn test_box_mapper_new() {
         x + counter
     });
 
-    assert_eq!(mapper.map(10), 11);
-    assert_eq!(mapper.map(10), 12);
-    assert_eq!(mapper.map(10), 13);
+    assert_eq!(mapper.apply(10), 11);
+    assert_eq!(mapper.apply(10), 12);
+    assert_eq!(mapper.apply(10), 13);
 }
 
 #[test]
 fn test_box_mapper_identity() {
     let mut identity = BoxMapper::<i32, i32>::identity();
-    assert_eq!(identity.map(42), 42);
-    assert_eq!(identity.map(100), 100);
+    assert_eq!(identity.apply(42), 42);
+    assert_eq!(identity.apply(100), 100);
 }
 
 #[test]
 fn test_box_mapper_constant() {
     let mut constant = BoxMapper::constant("hello");
-    assert_eq!(constant.map(1), "hello");
-    assert_eq!(constant.map(2), "hello");
-    assert_eq!(constant.map(3), "hello");
+    assert_eq!(constant.apply(1), "hello");
+    assert_eq!(constant.apply(2), "hello");
+    assert_eq!(constant.apply(3), "hello");
 }
 
 #[test]
@@ -59,9 +59,9 @@ fn test_box_mapper_and_then() {
     });
 
     let mut composed = mapper1.and_then(mapper2);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 24); // (10 + 2) * 2
-    assert_eq!(composed.map(10), 39); // (10 + 3) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 24); // (10 + 2) * 2
+    assert_eq!(composed.apply(10), 39); // (10 + 3) * 3
 }
 
 #[test]
@@ -73,9 +73,9 @@ fn test_box_mapper_compose() {
     });
 
     let mut composed = mapper.compose(|x: i32| x + 1);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 22); // (10 + 1) * 2
-    assert_eq!(composed.map(10), 33); // (10 + 1) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
+    assert_eq!(composed.apply(10), 33); // (10 + 1) * 3
 }
 
 #[test]
@@ -93,10 +93,10 @@ fn test_box_mapper_when_or_else() {
         format!("Low[{}]: {}", low_count, x + 1)
     });
 
-    assert_eq!(mapper.map(15), "High[1]: 30");
-    assert_eq!(mapper.map(5), "Low[1]: 6");
-    assert_eq!(mapper.map(20), "High[2]: 40");
-    assert_eq!(mapper.map(3), "Low[2]: 4");
+    assert_eq!(mapper.apply(15), "High[1]: 30");
+    assert_eq!(mapper.apply(5), "Low[1]: 6");
+    assert_eq!(mapper.apply(20), "High[2]: 40");
+    assert_eq!(mapper.apply(3), "Low[2]: 4");
 }
 
 #[test]
@@ -108,8 +108,8 @@ fn test_box_mapper_into_box() {
     });
 
     let mut boxed = mapper.into_box();
-    assert_eq!(boxed.map(10), 11);
-    assert_eq!(boxed.map(10), 12);
+    assert_eq!(boxed.apply(10), 11);
+    assert_eq!(boxed.apply(10), 12);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
     }
 
     impl Mapper<i32, i32> for CloneMapper {
-        fn map(&mut self, input: i32) -> i32 {
+        fn apply(&mut self, input: i32) -> i32 {
             self.counter += 1;
             input + self.counter
         }
@@ -131,14 +131,14 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
     let mapper = CloneMapper { counter: 0 };
 
     let mut b = mapper.to_box();
-    assert_eq!(b.map(10), 11);
-    assert_eq!(b.map(10), 12);
+        assert_eq!(b.apply(10), 11);
+        assert_eq!(b.apply(10), 12);
 
     let rc = mapper.to_rc();
     let mut r1 = rc.clone();
     let mut r2 = rc.clone();
-    assert_eq!(r1.map(10), 11);
-    assert_eq!(r2.map(10), 12);
+        assert_eq!(r1.apply(10), 11);
+        assert_eq!(r2.apply(10), 12);
 
     // to_arc requires Send+Sync. Make a trivially Send+Sync cloneable
     #[derive(Clone)]
@@ -147,7 +147,7 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
     }
 
     impl Mapper<i32, i32> for SCloneMapper {
-        fn map(&mut self, input: i32) -> i32 {
+        fn apply(&mut self, input: i32) -> i32 {
             self.counter += 1;
             input * self.counter
         }
@@ -158,8 +158,8 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
 
     let sm = SCloneMapper { counter: 0 };
     let mut a = sm.to_arc();
-    assert_eq!(a.map(3), 3);
-    assert_eq!(a.map(3), 6);
+        assert_eq!(a.apply(3), 3);
+        assert_eq!(a.apply(3), 6);
 
     let mut f = mapper.to_fn();
     assert_eq!(f(5), 6);
@@ -175,8 +175,8 @@ fn test_box_mapper_into_rc() {
     });
 
     let mut rc_mapper = mapper.into_rc();
-    assert_eq!(rc_mapper.map(10), 11);
-    assert_eq!(rc_mapper.map(10), 12);
+    assert_eq!(rc_mapper.apply(10), 11);
+    assert_eq!(rc_mapper.apply(10), 12);
 }
 
 // ============================================================================
@@ -191,24 +191,24 @@ fn test_arc_mapper_new() {
         x + counter
     });
 
-    assert_eq!(mapper.map(10), 11);
-    assert_eq!(mapper.map(10), 12);
-    assert_eq!(mapper.map(10), 13);
+    assert_eq!(mapper.apply(10), 11);
+    assert_eq!(mapper.apply(10), 12);
+    assert_eq!(mapper.apply(10), 13);
 }
 
 #[test]
 fn test_arc_mapper_identity() {
     let mut identity = ArcMapper::<i32, i32>::identity();
-    assert_eq!(identity.map(42), 42);
-    assert_eq!(identity.map(100), 100);
+    assert_eq!(identity.apply(42), 42);
+    assert_eq!(identity.apply(100), 100);
 }
 
 #[test]
 fn test_arc_mapper_constant() {
     let mut constant = ArcMapper::constant("hello");
-    assert_eq!(constant.map(1), "hello");
-    assert_eq!(constant.map(2), "hello");
-    assert_eq!(constant.map(3), "hello");
+    assert_eq!(constant.apply(1), "hello");
+    assert_eq!(constant.apply(2), "hello");
+    assert_eq!(constant.apply(3), "hello");
 }
 
 #[test]
@@ -222,9 +222,9 @@ fn test_arc_mapper_clone() {
     let mut mapper1 = mapper.clone();
     let mut mapper2 = mapper.clone();
 
-    assert_eq!(mapper1.map(10), 11);
-    assert_eq!(mapper2.map(10), 12);
-    assert_eq!(mapper1.map(10), 13);
+    assert_eq!(mapper1.apply(10), 11);
+    assert_eq!(mapper2.apply(10), 12);
+    assert_eq!(mapper1.apply(10), 13);
 }
 
 #[test]
@@ -242,9 +242,9 @@ fn test_arc_mapper_and_then() {
     });
 
     let mut composed = mapper1.and_then(mapper2);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 24); // (10 + 2) * 2
-    assert_eq!(composed.map(10), 39); // (10 + 3) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 24); // (10 + 2) * 2
+    assert_eq!(composed.apply(10), 39); // (10 + 3) * 3
 }
 
 #[test]
@@ -256,9 +256,9 @@ fn test_arc_mapper_compose() {
     });
 
     let mut composed = mapper.compose(|x: i32| x + 1);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 22); // (10 + 1) * 2
-    assert_eq!(composed.map(10), 33); // (10 + 1) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
+    assert_eq!(composed.apply(10), 33); // (10 + 1) * 3
 }
 
 #[test]
@@ -276,10 +276,10 @@ fn test_arc_mapper_when_or_else() {
         format!("Low[{}]: {}", low_count, x + 1)
     });
 
-    assert_eq!(mapper.map(15), "High[1]: 30");
-    assert_eq!(mapper.map(5), "Low[1]: 6");
-    assert_eq!(mapper.map(20), "High[2]: 40");
-    assert_eq!(mapper.map(3), "Low[2]: 4");
+    assert_eq!(mapper.apply(15), "High[1]: 30");
+    assert_eq!(mapper.apply(5), "Low[1]: 6");
+    assert_eq!(mapper.apply(20), "High[2]: 40");
+    assert_eq!(mapper.apply(3), "Low[2]: 4");
 }
 
 #[test]
@@ -291,8 +291,8 @@ fn test_arc_mapper_into_box() {
     });
 
     let mut boxed = mapper.into_box();
-    assert_eq!(boxed.map(10), 11);
-    assert_eq!(boxed.map(10), 12);
+    assert_eq!(boxed.apply(10), 11);
+    assert_eq!(boxed.apply(10), 12);
 }
 
 #[test]
@@ -304,8 +304,8 @@ fn test_arc_mapper_into_arc() {
     });
 
     let mut arc_mapper = mapper.into_arc();
-    assert_eq!(arc_mapper.map(10), 11);
-    assert_eq!(arc_mapper.map(10), 12);
+    assert_eq!(arc_mapper.apply(10), 11);
+    assert_eq!(arc_mapper.apply(10), 12);
 }
 
 #[test]
@@ -317,8 +317,8 @@ fn test_arc_mapper_into_rc() {
     });
 
     let mut rc_mapper = mapper.into_rc();
-    assert_eq!(rc_mapper.map(10), 11);
-    assert_eq!(rc_mapper.map(10), 12);
+    assert_eq!(rc_mapper.apply(10), 11);
+    assert_eq!(rc_mapper.apply(10), 12);
 }
 
 // ============================================================================
@@ -333,24 +333,24 @@ fn test_rc_mapper_new() {
         x + counter
     });
 
-    assert_eq!(mapper.map(10), 11);
-    assert_eq!(mapper.map(10), 12);
-    assert_eq!(mapper.map(10), 13);
+    assert_eq!(mapper.apply(10), 11);
+    assert_eq!(mapper.apply(10), 12);
+    assert_eq!(mapper.apply(10), 13);
 }
 
 #[test]
 fn test_rc_mapper_identity() {
     let mut identity = RcMapper::<i32, i32>::identity();
-    assert_eq!(identity.map(42), 42);
-    assert_eq!(identity.map(100), 100);
+    assert_eq!(identity.apply(42), 42);
+    assert_eq!(identity.apply(100), 100);
 }
 
 #[test]
 fn test_rc_mapper_constant() {
     let mut constant = RcMapper::constant("hello");
-    assert_eq!(constant.map(1), "hello");
-    assert_eq!(constant.map(2), "hello");
-    assert_eq!(constant.map(3), "hello");
+    assert_eq!(constant.apply(1), "hello");
+    assert_eq!(constant.apply(2), "hello");
+    assert_eq!(constant.apply(3), "hello");
 }
 
 #[test]
@@ -364,9 +364,9 @@ fn test_rc_mapper_clone() {
     let mut mapper1 = mapper.clone();
     let mut mapper2 = mapper.clone();
 
-    assert_eq!(mapper1.map(10), 11);
-    assert_eq!(mapper2.map(10), 12);
-    assert_eq!(mapper1.map(10), 13);
+    assert_eq!(mapper1.apply(10), 11);
+    assert_eq!(mapper2.apply(10), 12);
+    assert_eq!(mapper1.apply(10), 13);
 }
 
 #[test]
@@ -384,9 +384,9 @@ fn test_rc_mapper_and_then() {
     });
 
     let mut composed = mapper1.and_then(mapper2);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 24); // (10 + 2) * 2
-    assert_eq!(composed.map(10), 39); // (10 + 3) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 24); // (10 + 2) * 2
+    assert_eq!(composed.apply(10), 39); // (10 + 3) * 3
 }
 
 #[test]
@@ -398,9 +398,9 @@ fn test_rc_mapper_compose() {
     });
 
     let mut composed = mapper.compose(|x: i32| x + 1);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 22); // (10 + 1) * 2
-    assert_eq!(composed.map(10), 33); // (10 + 1) * 3
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
+    assert_eq!(composed.apply(10), 33); // (10 + 1) * 3
 }
 
 #[test]
@@ -418,10 +418,10 @@ fn test_rc_mapper_when_or_else() {
         format!("Low[{}]: {}", low_count, x + 1)
     });
 
-    assert_eq!(mapper.map(15), "High[1]: 30");
-    assert_eq!(mapper.map(5), "Low[1]: 6");
-    assert_eq!(mapper.map(20), "High[2]: 40");
-    assert_eq!(mapper.map(3), "Low[2]: 4");
+    assert_eq!(mapper.apply(15), "High[1]: 30");
+    assert_eq!(mapper.apply(5), "Low[1]: 6");
+    assert_eq!(mapper.apply(20), "High[2]: 40");
+    assert_eq!(mapper.apply(3), "Low[2]: 4");
 }
 
 #[test]
@@ -433,8 +433,8 @@ fn test_rc_mapper_into_box() {
     });
 
     let mut boxed = mapper.into_box();
-    assert_eq!(boxed.map(10), 11);
-    assert_eq!(boxed.map(10), 12);
+    assert_eq!(boxed.apply(10), 11);
+    assert_eq!(boxed.apply(10), 12);
 }
 
 #[test]
@@ -446,8 +446,8 @@ fn test_rc_mapper_into_rc() {
     });
 
     let mut rc_mapper = mapper.into_rc();
-    assert_eq!(rc_mapper.map(10), 11);
-    assert_eq!(rc_mapper.map(10), 12);
+    assert_eq!(rc_mapper.apply(10), 11);
+    assert_eq!(rc_mapper.apply(10), 12);
 }
 
 // ============================================================================
@@ -462,9 +462,9 @@ fn test_closure_as_mapper() {
         x + counter
     };
 
-    assert_eq!(mapper.map(10), 11);
-    assert_eq!(mapper.map(10), 12);
-    assert_eq!(mapper.map(10), 13);
+    assert_eq!(mapper.apply(10), 11);
+    assert_eq!(mapper.apply(10), 12);
+    assert_eq!(mapper.apply(10), 13);
 }
 
 #[test]
@@ -476,8 +476,8 @@ fn test_closure_into_box() {
     };
 
     let mut boxed = mapper.into_box();
-    assert_eq!(boxed.map(10), 11);
-    assert_eq!(boxed.map(10), 12);
+    assert_eq!(boxed.apply(10), 11);
+    assert_eq!(boxed.apply(10), 12);
 }
 
 #[test]
@@ -489,8 +489,8 @@ fn test_closure_into_rc() {
     };
 
     let mut rc_mapper = mapper.into_rc();
-    assert_eq!(rc_mapper.map(10), 11);
-    assert_eq!(rc_mapper.map(10), 12);
+    assert_eq!(rc_mapper.apply(10), 11);
+    assert_eq!(rc_mapper.apply(10), 12);
 }
 
 #[test]
@@ -502,8 +502,8 @@ fn test_closure_into_arc() {
     };
 
     let mut arc_mapper = mapper.into_arc();
-    assert_eq!(arc_mapper.map(10), 11);
-    assert_eq!(arc_mapper.map(10), 12);
+    assert_eq!(arc_mapper.apply(10), 11);
+    assert_eq!(arc_mapper.apply(10), 12);
 }
 
 // ============================================================================
@@ -525,8 +525,8 @@ fn test_fn_mapper_ops_and_then() {
     };
 
     let mut composed = mapper1.and_then(mapper2);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 24); // (10 + 2) * 2
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 24); // (10 + 2) * 2
 }
 
 #[test]
@@ -538,16 +538,16 @@ fn test_fn_mapper_ops_compose() {
     };
 
     let mut composed = mapper.compose(|x: i32| x + 1);
-    assert_eq!(composed.map(10), 11); // (10 + 1) * 1
-    assert_eq!(composed.map(10), 22); // (10 + 1) * 2
+    assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
+    assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
 }
 
 #[test]
 fn test_fn_mapper_ops_when() {
     let mut mapper = (|x: i32| x * 2).when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 
-    assert_eq!(mapper.map(5), 10);
-    assert_eq!(mapper.map(-5), 5);
+    assert_eq!(mapper.apply(5), 10);
+    assert_eq!(mapper.apply(-5), 5);
 }
 
 // ============================================================================
@@ -562,8 +562,8 @@ fn test_box_conditional_mapper_with_predicate() {
         .when(predicate)
         .or_else(|x| x + 1);
 
-    assert_eq!(mapper.map(15), 30);
-    assert_eq!(mapper.map(5), 6);
+    assert_eq!(mapper.apply(15), 30);
+    assert_eq!(mapper.apply(5), 6);
 }
 
 #[test]
@@ -577,10 +577,10 @@ fn test_arc_conditional_mapper_clone() {
     let mut mapper2 = conditional_clone.or_else(|x: i32| x + 100);
 
     // Both cloned conditional mappers work correctly
-    assert_eq!(mapper1.map(5), 10); // Condition satisfied: 5 * 2
-    assert_eq!(mapper1.map(-5), 5); // Condition not satisfied: -(-5)
-    assert_eq!(mapper2.map(5), 10); // Condition satisfied: 5 * 2
-    assert_eq!(mapper2.map(-5), 95); // Condition not satisfied: -5 + 100
+    assert_eq!(mapper1.apply(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper1.apply(-5), 5); // Condition not satisfied: -(-5)
+    assert_eq!(mapper2.apply(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper2.apply(-5), 95); // Condition not satisfied: -5 + 100
 }
 
 #[test]
@@ -594,10 +594,10 @@ fn test_rc_conditional_mapper_clone() {
     let mut mapper2 = conditional_clone.or_else(|x: i32| x + 100);
 
     // Both cloned conditional mappers work correctly
-    assert_eq!(mapper1.map(5), 10); // Condition satisfied: 5 * 2
-    assert_eq!(mapper1.map(-5), 5); // Condition not satisfied: -(-5)
-    assert_eq!(mapper2.map(5), 10); // Condition satisfied: 5 * 2
-    assert_eq!(mapper2.map(-5), 95); // Condition not satisfied: -5 + 100
+    assert_eq!(mapper1.apply(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper1.apply(-5), 5); // Condition not satisfied: -(-5)
+    assert_eq!(mapper2.apply(5), 10); // Condition satisfied: 5 * 2
+    assert_eq!(mapper2.apply(-5), 95); // Condition not satisfied: -5 + 100
 }
 
 // ============================================================================
@@ -626,8 +626,8 @@ fn test_complex_pipeline() {
 
     let mut pipeline = step1.and_then(step2).and_then(step3);
 
-    assert_eq!(pipeline.map(10), "Step1[1]: 10 -> Step2[1] -> Step3[1]");
-    assert_eq!(pipeline.map(20), "Step1[2]: 20 -> Step2[2] -> Step3[2]");
+    assert_eq!(pipeline.apply(10), "Step1[1]: 10 -> Step2[1] -> Step3[1]");
+    assert_eq!(pipeline.apply(20), "Step1[2]: 20 -> Step2[2] -> Step3[2]");
 }
 
 #[test]
@@ -651,13 +651,13 @@ fn test_nested_conditional() {
             error_count += 1;
             format!("Error[{}]: {}", error_count, x)
         });
-        sub_mapper.map(x)
+        sub_mapper.apply(x)
     });
 
-    assert_eq!(mapper.map(5), "Valid[1]: 10");
-    assert_eq!(mapper.map(-5), "Invalid[1]: 95");
-    assert_eq!(mapper.map(0), "Error[1]: 0");
-    assert_eq!(mapper.map(10), "Valid[2]: 20");
+    assert_eq!(mapper.apply(5), "Valid[1]: 10");
+    assert_eq!(mapper.apply(-5), "Invalid[1]: 95");
+    assert_eq!(mapper.apply(0), "Error[1]: 0");
+    assert_eq!(mapper.apply(10), "Valid[2]: 20");
 }
 
 // ============================================================================
@@ -672,9 +672,9 @@ fn test_stateful_counting() {
         (x, count)
     });
 
-    assert_eq!(mapper.map(100), (100, 1));
-    assert_eq!(mapper.map(200), (200, 2));
-    assert_eq!(mapper.map(300), (300, 3));
+    assert_eq!(mapper.apply(100), (100, 1));
+    assert_eq!(mapper.apply(200), (200, 2));
+    assert_eq!(mapper.apply(300), (300, 3));
 }
 
 #[test]
@@ -685,9 +685,9 @@ fn test_stateful_accumulation() {
         sum
     });
 
-    assert_eq!(mapper.map(10), 10);
-    assert_eq!(mapper.map(20), 30);
-    assert_eq!(mapper.map(30), 60);
+    assert_eq!(mapper.apply(10), 10);
+    assert_eq!(mapper.apply(20), 30);
+    assert_eq!(mapper.apply(30), 60);
 }
 
 // ============================================================================
@@ -702,8 +702,8 @@ fn test_different_types() {
         format!("Item #{}: {}", counter, x)
     });
 
-    assert_eq!(mapper.map(100), "Item #1: 100");
-    assert_eq!(mapper.map(200), "Item #2: 200");
+    assert_eq!(mapper.apply(100), "Item #1: 100");
+    assert_eq!(mapper.apply(200), "Item #2: 200");
 }
 
 #[test]
@@ -714,9 +714,9 @@ fn test_string_to_length() {
         total_length
     });
 
-    assert_eq!(mapper.map("hello".to_string()), 5);
-    assert_eq!(mapper.map("world".to_string()), 10);
-    assert_eq!(mapper.map("!".to_string()), 11);
+    assert_eq!(mapper.apply("hello".to_string()), 5);
+    assert_eq!(mapper.apply("world".to_string()), 10);
+    assert_eq!(mapper.apply("!".to_string()), 11);
 }
 
 // ============================================================================
@@ -731,8 +731,8 @@ fn test_with_arc_predicate() {
         .when(predicate.clone())
         .or_else(|x: i32| -x);
 
-    assert_eq!(mapper.map(5), 10);
-    assert_eq!(mapper.map(-5), 5);
+    assert_eq!(mapper.apply(5), 10);
+    assert_eq!(mapper.apply(-5), 5);
 
     // Predicate still usable
     assert!(predicate.test(&10));
@@ -747,8 +747,8 @@ fn test_with_rc_predicate() {
         .when(predicate.clone())
         .or_else(|x: i32| -x);
 
-    assert_eq!(mapper.map(5), 10);
-    assert_eq!(mapper.map(-5), 5);
+    assert_eq!(mapper.apply(5), 10);
+    assert_eq!(mapper.apply(-5), 5);
 
     // Predicate still usable
     assert!(predicate.test(&10));
@@ -765,7 +765,7 @@ struct CustomMapper {
 }
 
 impl Mapper<i32, i32> for CustomMapper {
-    fn map(&mut self, input: i32) -> i32 {
+    fn apply(&mut self, input: i32) -> i32 {
         self.multiplier += 1;
         input * self.multiplier
     }
@@ -777,7 +777,7 @@ struct CustomSendMapper {
 }
 
 impl Mapper<i32, i32> for CustomSendMapper {
-    fn map(&mut self, input: i32) -> i32 {
+    fn apply(&mut self, input: i32) -> i32 {
         self.multiplier += 1;
         input * self.multiplier
     }
@@ -791,9 +791,9 @@ fn test_custom_mapper_into_box() {
     let mapper = CustomMapper { multiplier: 0 };
     let mut boxed = mapper.into_box();
 
-    assert_eq!(boxed.map(10), 10); // 10 * 1
-    assert_eq!(boxed.map(10), 20); // 10 * 2
-    assert_eq!(boxed.map(10), 30); // 10 * 3
+    assert_eq!(boxed.apply(10), 10); // 10 * 1
+    assert_eq!(boxed.apply(10), 20); // 10 * 2
+    assert_eq!(boxed.apply(10), 30); // 10 * 3
 }
 
 #[test]
@@ -801,9 +801,9 @@ fn test_custom_mapper_into_rc() {
     let mapper = CustomMapper { multiplier: 0 };
     let mut rc_mapper = mapper.into_rc();
 
-    assert_eq!(rc_mapper.map(10), 10); // 10 * 1
-    assert_eq!(rc_mapper.map(10), 20); // 10 * 2
-    assert_eq!(rc_mapper.map(10), 30); // 10 * 3
+    assert_eq!(rc_mapper.apply(10), 10); // 10 * 1
+    assert_eq!(rc_mapper.apply(10), 20); // 10 * 2
+    assert_eq!(rc_mapper.apply(10), 30); // 10 * 3
 }
 
 #[test]
@@ -815,9 +815,9 @@ fn test_custom_mapper_into_rc_clone() {
     let mut mapper2 = rc_mapper.clone();
 
     // 共享同一个状态
-    assert_eq!(mapper1.map(10), 10); // 10 * 1
-    assert_eq!(mapper2.map(10), 20); // 10 * 2
-    assert_eq!(mapper1.map(10), 30); // 10 * 3
+    assert_eq!(mapper1.apply(10), 10); // 10 * 1
+    assert_eq!(mapper2.apply(10), 20); // 10 * 2
+    assert_eq!(mapper1.apply(10), 30); // 10 * 3
 }
 
 #[test]
@@ -825,9 +825,9 @@ fn test_custom_send_mapper_into_arc() {
     let mapper = CustomSendMapper { multiplier: 0 };
     let mut arc_mapper = mapper.into_arc();
 
-    assert_eq!(arc_mapper.map(10), 10); // 10 * 1
-    assert_eq!(arc_mapper.map(10), 20); // 10 * 2
-    assert_eq!(arc_mapper.map(10), 30); // 10 * 3
+    assert_eq!(arc_mapper.apply(10), 10); // 10 * 1
+    assert_eq!(arc_mapper.apply(10), 20); // 10 * 2
+    assert_eq!(arc_mapper.apply(10), 30); // 10 * 3
 }
 
 #[test]
@@ -839,9 +839,9 @@ fn test_custom_send_mapper_into_arc_clone() {
     let mut mapper2 = arc_mapper.clone();
 
     // 共享同一个状态
-    assert_eq!(mapper1.map(10), 10); // 10 * 1
-    assert_eq!(mapper2.map(10), 20); // 10 * 2
-    assert_eq!(mapper1.map(10), 30); // 10 * 3
+    assert_eq!(mapper1.apply(10), 10); // 10 * 1
+    assert_eq!(mapper2.apply(10), 20); // 10 * 2
+    assert_eq!(mapper1.apply(10), 30); // 10 * 3
 }
 
 #[test]
@@ -855,9 +855,9 @@ fn test_custom_mapper_composition() {
     let mut composed = boxed1.and_then(boxed2);
 
     // (10 * 1) = 10, 然后 10 * 11 = 110
-    assert_eq!(composed.map(10), 110);
+    assert_eq!(composed.apply(10), 110);
     // (10 * 2) = 20, 然后 20 * 12 = 240
-    assert_eq!(composed.map(10), 240);
+    assert_eq!(composed.apply(10), 240);
 }
 
 #[test]
@@ -871,11 +871,11 @@ fn test_custom_mapper_conditional() {
     let mut conditional = boxed1.when(|x: &i32| *x > 10).or_else(boxed2);
 
     // 15 > 10, 使用 mapper1: 15 * 2 = 30
-    assert_eq!(conditional.map(15), 30);
+    assert_eq!(conditional.apply(15), 30);
     // 5 <= 10, 使用 mapper2: 5 * 101 = 505
-    assert_eq!(conditional.map(5), 505);
+    assert_eq!(conditional.apply(5), 505);
     // 20 > 10, 使用 mapper1: 20 * 3 = 60
-    assert_eq!(conditional.map(20), 60);
+    assert_eq!(conditional.apply(20), 60);
 }
 
 /// 测试自定义 Mapper 与字符串类型
@@ -884,7 +884,7 @@ struct StringLengthMapper {
 }
 
 impl Mapper<String, String> for StringLengthMapper {
-    fn map(&mut self, input: String) -> String {
+    fn apply(&mut self, input: String) -> String {
         self.total_length += input.len();
         format!("[{}] {}", self.total_length, input)
     }
@@ -895,9 +895,9 @@ fn test_custom_string_mapper_into_box() {
     let mapper = StringLengthMapper { total_length: 0 };
     let mut boxed = mapper.into_box();
 
-    assert_eq!(boxed.map("hello".to_string()), "[5] hello");
-    assert_eq!(boxed.map("world".to_string()), "[10] world");
-    assert_eq!(boxed.map("!".to_string()), "[11] !");
+    assert_eq!(boxed.apply("hello".to_string()), "[5] hello");
+    assert_eq!(boxed.apply("world".to_string()), "[10] world");
+    assert_eq!(boxed.apply("!".to_string()), "[11] !");
 }
 
 #[test]
@@ -905,9 +905,9 @@ fn test_custom_string_mapper_into_rc() {
     let mapper = StringLengthMapper { total_length: 0 };
     let mut rc_mapper = mapper.into_rc();
 
-    assert_eq!(rc_mapper.map("hello".to_string()), "[5] hello");
-    assert_eq!(rc_mapper.map("world".to_string()), "[10] world");
-    assert_eq!(rc_mapper.map("!".to_string()), "[11] !");
+    assert_eq!(rc_mapper.apply("hello".to_string()), "[5] hello");
+    assert_eq!(rc_mapper.apply("world".to_string()), "[10] world");
+    assert_eq!(rc_mapper.apply("!".to_string()), "[11] !");
 }
 
 /// 测试带复杂状态的自定义 Mapper
@@ -918,7 +918,7 @@ struct StatefulMapper {
 }
 
 impl Mapper<i32, (i32, i32, usize)> for StatefulMapper {
-    fn map(&mut self, input: i32) -> (i32, i32, usize) {
+    fn apply(&mut self, input: i32) -> (i32, i32, usize) {
         self.count += 1;
         self.sum += input;
         self.history.push(input);
@@ -935,9 +935,9 @@ fn test_stateful_mapper_into_box() {
     };
     let mut boxed = mapper.into_box();
 
-    assert_eq!(boxed.map(10), (1, 10, 1));
-    assert_eq!(boxed.map(20), (2, 30, 2));
-    assert_eq!(boxed.map(30), (3, 60, 3));
+    assert_eq!(boxed.apply(10), (1, 10, 1));
+    assert_eq!(boxed.apply(20), (2, 30, 2));
+    assert_eq!(boxed.apply(30), (3, 60, 3));
 }
 
 #[test]
@@ -953,9 +953,9 @@ fn test_stateful_mapper_into_rc() {
     let mut mapper2 = rc_mapper;
 
     // 共享同一个状态
-    assert_eq!(mapper1.map(10), (1, 10, 1));
-    assert_eq!(mapper2.map(20), (2, 30, 2));
-    assert_eq!(mapper1.map(30), (3, 60, 3));
+    assert_eq!(mapper1.apply(10), (1, 10, 1));
+    assert_eq!(mapper2.apply(20), (2, 30, 2));
+    assert_eq!(mapper1.apply(30), (3, 60, 3));
 }
 
 // ============================================================================

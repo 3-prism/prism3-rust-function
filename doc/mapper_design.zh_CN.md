@@ -20,7 +20,7 @@ Mapper 的核心功能是**将一个类型的值转换为另一个类型的值�
 
 ```rust
 pub trait Mapper<T, R> {
-    fn map(&mut self, input: T) -> R;  // 消耗输入，可修改自己
+    fn apply(&mut self, input: T) -> R;  // 消耗输入，可修改自己
 }
 ```
 
@@ -140,8 +140,8 @@ let mut mapper = BoxMapper::new(move |x: i32| {
     format!("Item #{}: {}", counter, x)
 });
 
-assert_eq!(mapper.map(100), "Item #1: 100");
-assert_eq!(mapper.map(200), "Item #2: 200");
+assert_eq!(mapper.apply(100), "Item #1: 100");
+assert_eq!(mapper.apply(200), "Item #2: 200");
 ```
 
 **优点**：
@@ -311,9 +311,9 @@ fn build_validation_mapper() -> BoxMapper<Input, Output> {
 
 // ✅ 使用
 let mut mapper = build_mapper_with_condition(10);
-assert_eq!(mapper.map(15), "High[1]: 15 * 2 = 30");
-assert_eq!(mapper.map(5), "Low[1]: 5 + 1 = 6");
-assert_eq!(mapper.map(20), "High[2]: 20 * 2 = 40");
+assert_eq!(mapper.apply(15), "High[1]: 15 * 2 = 30");
+assert_eq!(mapper.apply(5), "Low[1]: 5 + 1 = 6");
+assert_eq!(mapper.apply(20), "High[2]: 20 * 2 = 40");
 
 let mut supplier = BoxSupplier::new(|| get_input())
     .map(build_validation_mapper());
@@ -335,7 +335,7 @@ impl DataPipeline {
 
     fn process(&mut self, data: Data) -> Data {
         let mapper = self.mappers.get_mut(&self.current_strategy).unwrap();
-        mapper.map(data)
+        mapper.apply(data)
     }
 }
 
@@ -375,7 +375,7 @@ impl<T> BoxSupplier<T> {
         F: Mapper<T, U> + 'static,  // ✅ 使用 Mapper trait
         U: 'static,
     {
-        BoxSupplier::new(move || mapper.map(self.get()))
+        BoxSupplier::new(move || mapper.apply(self.get()))
     }
 }
 ```
@@ -444,8 +444,8 @@ let mut mapper = BoxMapper::new(move |x: i32| {
 });
 
 // 顺序调用
-assert_eq!(mapper.map(10), 11);
-assert_eq!(mapper.map(10), 12);
+assert_eq!(mapper.apply(10), 11);
+assert_eq!(mapper.apply(10), 12);
 ```
 
 | 场景 | 应该使用 | 原因 |
@@ -470,7 +470,7 @@ assert_eq!(mapper.map(10), 12);
 /// 映射器 - 有状态的值转换器（可重复调用）
 pub trait Mapper<T, R> {
     /// 转换输入值（可修改自身状态）
-    fn map(&mut self, input: T) -> R;
+    fn apply(&mut self, input: T) -> R;
 
     // 类型转换方法
     fn into_box(self) -> BoxMapper<T, R>
@@ -490,7 +490,7 @@ impl<T, R, F> Mapper<T, R> for F
 where
     F: FnMut(T) -> R,
 {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         self(input)
     }
 
@@ -576,8 +576,8 @@ where
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.map(15), 30);  // 15 > 10，应用 * 2
-    /// assert_eq!(mapper.map(5), 6);    // 5 <= 10，应用 + 1
+    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10，应用 * 2
+    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10，应用 + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalMapper<T, R>
     where
@@ -591,7 +591,7 @@ where
 }
 
 impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         (self.function)(input)
     }
     // ...
@@ -637,8 +637,8 @@ where
     ///     format!("Odd[{}]: {}", counter, x)
     /// });
     ///
-    /// assert_eq!(mapper.map(10), "Even[1]: 10");
-    /// assert_eq!(mapper.map(11), "Odd[2]: 11");
+    /// assert_eq!(mapper.apply(10), "Even[1]: 10");
+    /// assert_eq!(mapper.apply(11), "Odd[2]: 11");
     /// ```
     pub fn or_else<F>(mut self, mut else_mapper: F) -> BoxMapper<T, R>
     where
@@ -648,9 +648,9 @@ where
         let mut then_mapper = self.mapper;
         BoxMapper::new(move |t: T| {
             if pred.test(&t) {
-                then_mapper.map(t)
+                then_mapper.apply(t)
             } else {
-                else_mapper.map(t)
+                else_mapper.apply(t)
             }
         })
     }
@@ -696,7 +696,7 @@ where
 }
 
 impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         (self.function.lock().unwrap())(input)
     }
     // ...
@@ -730,7 +730,7 @@ impl<T> BoxSupplier<T> {
         F: Mapper<T, U> + 'static,  // ✅ 使用 Mapper trait
         U: 'static,
     {
-        BoxSupplier::new(move || mapper.map(self.get()))
+        BoxSupplier::new(move || mapper.apply(self.get()))
     }
 }
 ```
@@ -749,8 +749,8 @@ let mut mapper = |x: i32| {
 };
 
 // 闭包自动实现 Mapper
-assert_eq!(mapper.map(100), "Item #1: 100");
-assert_eq!(mapper.map(200), "Item #2: 200");
+assert_eq!(mapper.apply(100), "Item #1: 100");
+assert_eq!(mapper.apply(200), "Item #2: 200");
 
 // ============================================================================
 // 2. BoxMapper - 可重复调用，单一所有权
@@ -763,8 +763,8 @@ let mut mapper = BoxMapper::new(move |x: i32| {
 });
 
 // ✅ 可以多次调用
-assert_eq!(mapper.map(100), "Item #1: 100");
-assert_eq!(mapper.map(200), "Item #2: 200");
+assert_eq!(mapper.apply(100), "Item #1: 100");
+assert_eq!(mapper.apply(200), "Item #2: 200");
 
 // 方法链
 let mut pipeline = BoxMapper::new(|x: i32| x * 2)
@@ -853,7 +853,7 @@ fn transform_vec<T, R, F>(mapper: &mut F, vec: Vec<T>) -> Vec<R>
 where
     F: Mapper<T, R>,
 {
-    vec.into_iter().map(|x| mapper.map(x)).collect()
+    vec.into_iter().map(|x| mapper.apply(x)).collect()
 }
 
 let mut counter = 0;
@@ -913,7 +913,7 @@ let mut mapper = BoxMapper::new(move |x: i32| {
     counter += 1;
     x + counter
 });
-mapper.map(10);  // 需要 mut
+mapper.apply(10);  // 需要 mut
 ```
 
 ### 4.3 为什么 Supplier 需要 `&mut self`？
@@ -1157,7 +1157,7 @@ impl PipelineBuilder {
 ```rust
 // 1. 定义 Mapper trait（基于 FnMut）
 pub trait Mapper<T, R> {
-    fn map(&mut self, input: T) -> R;
+    fn apply(&mut self, input: T) -> R;
     // 转换方法...
 }
 
@@ -1166,7 +1166,7 @@ impl<T, R, F> Mapper<T, R> for F
 where
     F: FnMut(T) -> R,
 {
-    fn map(&mut self, input: T) -> R {
+    fn apply(&mut self, input: T) -> R {
         self(input)
     }
 }
@@ -1182,7 +1182,7 @@ impl<T> BoxSupplier<T> {
     where
         F: Mapper<T, U> + 'static,  // ✅ 使用 Mapper
     {
-        BoxSupplier::new(move || mapper.map(self.get()))
+        BoxSupplier::new(move || mapper.apply(self.get()))
     }
 }
 ```
