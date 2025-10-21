@@ -588,6 +588,9 @@ impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
         // Zero-cost: directly return the boxed function
         self.function
     }
+
+    // do NOT override Mapper::to_xxx() because BoxMapper is not Clone
+    // and calling BoxMapper::to_xxx() will cause a compile error
 }
 
 // ============================================================================
@@ -912,12 +915,12 @@ where
     /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
     /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
-    pub fn when<P>(self, predicate: P) -> ArcConditionalMapper<T, R>
+    pub fn when<P>(&self, predicate: P) -> ArcConditionalMapper<T, R>
     where
         P: Predicate<T> + Send + Sync + 'static,
     {
         ArcConditionalMapper {
-            mapper: self,
+            mapper: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -953,9 +956,7 @@ impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        BoxMapper {
-            function: Box::new(move |x| self.function.lock().unwrap()(x)),
-        }
+        BoxMapper::new(move |x| self.function.lock().unwrap()(x))
     }
 
     fn into_rc(self) -> RcMapper<T, R>
@@ -963,11 +964,7 @@ impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        RcMapper {
-            function: Rc::new(RefCell::new(Box::new(move |x| {
-                self.function.lock().unwrap()(x)
-            }))),
-        }
+        RcMapper::new(move |x| self.function.lock().unwrap()(x))
     }
 
     fn into_arc(self) -> ArcMapper<T, R>
@@ -986,6 +983,41 @@ impl<T, R> Mapper<T, R> for ArcMapper<T, R> {
     {
         // Efficient: use Arc cloning to create a closure
         move |input: T| (self.function.lock().unwrap())(input)
+    }
+
+    fn to_box(&self) -> BoxMapper<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxMapper::new(move |x| self_fn.lock().unwrap()(x))
+    }
+
+    fn to_rc(&self) -> RcMapper<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        RcMapper::new(move |x| self_fn.lock().unwrap()(x))
+    }
+
+    fn to_arc(&self) -> ArcMapper<T, R>
+    where
+        T: Send + Sync + 'static,
+        R: Send + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl FnMut(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |input: T| self_fn.lock().unwrap()(input)
     }
 }
 
