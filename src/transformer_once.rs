@@ -608,6 +608,20 @@ where
         // Zero-cost: directly return self since F is already FnOnce(T) -> R
         self
     }
+
+    fn to_box(&self) -> BoxTransformerOnce<T, R>
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_fn(&self) -> impl FnOnce(T) -> R
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone()
+    }
 }
 
 // ============================================================================

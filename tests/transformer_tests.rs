@@ -614,6 +614,52 @@ mod to_conversion_tests {
         assert_eq!(boxed1.apply(21), 42);
         assert_eq!(boxed2.apply(10), 20);
     }
+
+    // ========================================================================
+    // Closure / function-pointer Transformer to_xxx Tests
+    // ========================================================================
+
+    #[test]
+    fn test_fn_ptr_to_box_and_to_fn() {
+        fn double(x: i32) -> i32 {
+            x * 2
+        }
+        let fn_ptr: fn(i32) -> i32 = double;
+
+        // to_box() and to_fn() should work for function pointers
+        let boxed = fn_ptr.to_box();
+        let func = fn_ptr.to_fn();
+
+        assert_eq!(fn_ptr(21), 42);
+        assert_eq!(boxed.apply(21), 42);
+        assert_eq!(func(21), 42);
+    }
+
+    #[test]
+    fn test_non_capturing_closure_coerced_to_fn_to_box() {
+        // Non-capturing closure can be coerced to a fn pointer which is Clone
+        let closure = |x: i32| x * 3;
+        let fn_ptr: fn(i32) -> i32 = closure;
+        let boxed = fn_ptr.to_box();
+
+        assert_eq!(fn_ptr(7), 21);
+        assert_eq!(boxed.apply(7), 21);
+    }
+
+    #[test]
+    fn test_fn_ptr_to_arc_and_rc() {
+        fn add_one(x: i32) -> i32 {
+            x + 1
+        }
+        let fn_ptr: fn(i32) -> i32 = add_one;
+
+        let arc = fn_ptr.to_arc();
+        let rc = fn_ptr.to_rc();
+
+        assert_eq!(fn_ptr(41), 42);
+        assert_eq!(arc.apply(41), 42);
+        assert_eq!(rc.apply(41), 42);
+    }
 }
 
 // ============================================================================

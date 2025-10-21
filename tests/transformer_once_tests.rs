@@ -336,6 +336,28 @@ mod type_conversion_tests {
     }
 
     #[test]
+    fn test_closure_to_box_and_preserve_original() {
+        // to_box borrows &self and requires Clone; non-capturing closures are Clone
+        let double = |x: i32| x * 2;
+        let boxed = double.to_box();
+        assert_eq!(boxed.apply(21), 42);
+
+        // 原始闭包仍然可用（to_box 未消费原对象）
+        assert_eq!(double.apply(10), 20);
+    }
+
+    #[test]
+    fn test_closure_to_fn_and_preserve_original() {
+        // to_fn borrows &self and requires Clone; non-capturing closures are Clone
+        let double = |x: i32| x * 2;
+        let func = double.to_fn();
+        assert_eq!(func(14), 28);
+
+        // 原始闭包仍然可用（to_fn 未消费原对象）
+        assert_eq!(double.apply(7), 14);
+    }
+
+    #[test]
     fn test_function_pointer_into_box() {
         fn triple(x: i32) -> i32 {
             x * 3

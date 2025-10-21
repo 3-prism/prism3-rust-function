@@ -1743,7 +1743,6 @@ where
         self(input)
     }
 
-    // Override with optimized implementation: wrap in BoxTransformer
     fn into_box(self) -> BoxTransformer<T, R>
     where
         Self: Sized + 'static,
@@ -1751,7 +1750,6 @@ where
         BoxTransformer::new(self)
     }
 
-    // Override with optimized implementation: wrap in RcTransformer
     fn into_rc(self) -> RcTransformer<T, R>
     where
         Self: Sized + 'static,
@@ -1759,7 +1757,6 @@ where
         RcTransformer::new(self)
     }
 
-    // Override with optimized implementation: wrap in ArcTransformer
     fn into_arc(self) -> ArcTransformer<T, R>
     where
         Self: Sized + Send + Sync + 'static,
@@ -1769,8 +1766,6 @@ where
         ArcTransformer::new(self)
     }
 
-    // Override with zero-cost implementation: directly return the
-    // closure itself without any wrapper
     fn into_fn(self) -> impl Fn(T) -> R
     where
         Self: Sized + 'static,
@@ -1778,10 +1773,35 @@ where
         self
     }
 
-    // do NOT override FnTransformer::to_box(),
-    // FnTransformer::to_rc(), FnTransformer::to_arc(), FnTransformer::to_fn()
-    // because FnTransformer is not Clone and calling FnTransformer::to_xxx()
-    // will cause a compile error
+    fn to_box(&self) -> BoxTransformer<T, R>
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcTransformer<T, R>
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcTransformer<T, R>
+    where
+        Self: Clone + Sized + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        R: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl Fn(T) -> R
+    where
+        Self: Clone + Sized + 'static,
+    {
+        self.clone()
+    }
 }
 
 // ============================================================================
