@@ -8,19 +8,25 @@
  ******************************************************************************/
 //! # ReadonlyConsumer Types
 //!
-//! Provides implementations of readonly consumer interfaces for executing operations that neither modify their own state nor modify input values.
+//! Provides implementations of readonly consumer interfaces for executing
+//! operations that neither modify their own state nor modify input values.
 //!
-//! This module provides a unified `ReadonlyConsumer` trait and three concrete implementations based on different ownership models:
+//! This module provides a unified `ReadonlyConsumer` trait and three concrete
+//! implementations based on different ownership models:
 //!
 //! - **`BoxReadonlyConsumer<T>`**: Box-based single ownership implementation
-//! - **`ArcReadonlyConsumer<T>`**: Arc-based thread-safe shared ownership implementation
-//! - **`RcReadonlyConsumer<T>`**: Rc-based single-threaded shared ownership implementation
+//! - **`ArcReadonlyConsumer<T>`**: Arc-based thread-safe shared ownership
+//!   implementation
+//! - **`RcReadonlyConsumer<T>`**: Rc-based single-threaded shared ownership
+//!   implementation
 //!
 //! # Design Philosophy
 //!
-//! ReadonlyConsumer uses `Fn(&T)` semantics, neither modifying its own state nor modifying input values.
-//! Suitable for pure observation, logging, notification and other scenarios. Compared to Consumer, ReadonlyConsumer
-//! does not require interior mutability (Mutex/RefCell), making it more efficient and easier to share.
+//! ReadonlyConsumer uses `Fn(&T)` semantics, neither modifying its own state nor
+//! modifying input values.
+//! Suitable for pure observation, logging, notification and other scenarios.
+//! Compared to Consumer, ReadonlyConsumer does not require interior mutability
+//! (Mutex/RefCell), making it more efficient and easier to share.
 //!
 //! # Author
 //!
@@ -36,20 +42,25 @@ use std::sync::Arc;
 
 /// ReadonlyConsumer trait - Unified readonly consumer interface
 ///
-/// Defines the core behavior of all readonly consumer types. Unlike `Consumer`, `ReadonlyConsumer`
-/// neither modifies its own state nor modifies input values, making it a completely immutable operation.
+/// Defines the core behavior of all readonly consumer types. Unlike `Consumer`,
+/// `ReadonlyConsumer` neither modifies its own state nor modifies input values,
+/// making it a completely immutable operation.
 ///
 /// # Auto-implementation
 ///
 /// - All closures implementing `Fn(&T)`
-/// - `BoxReadonlyConsumer<T>`, `ArcReadonlyConsumer<T>`, `RcReadonlyConsumer<T>`
+/// - `BoxReadonlyConsumer<T>`, `ArcReadonlyConsumer<T>`,
+///   `RcReadonlyConsumer<T>`
 ///
 /// # Features
 ///
-/// - **Unified Interface**: All readonly consumer types share the same `accept` method signature
-/// - **Auto-implementation**: Closures automatically implement this trait with zero overhead
+/// - **Unified Interface**: All readonly consumer types share the same `accept`
+///   method signature
+/// - **Auto-implementation**: Closures automatically implement this trait with
+///   zero overhead
 /// - **Type Conversion**: Easy conversion between different ownership models
-/// - **Generic Programming**: Write functions that work with any readonly consumer type
+/// - **Generic Programming**: Write functions that work with any readonly
+///   consumer type
 /// - **No Interior Mutability**: No need for Mutex or RefCell, more efficient
 ///
 /// # Examples
@@ -73,8 +84,9 @@ use std::sync::Arc;
 pub trait ReadonlyConsumer<T> {
     /// Execute readonly consumption operation
     ///
-    /// Performs an operation on the given reference. The operation typically reads input values or produces side effects,
-    /// but neither modifies the input value nor the consumer's own state.
+    /// Performs an operation on the given reference. The operation typically
+    /// reads input values or produces side effects, but neither modifies the
+    /// input value nor the consumer's own state.
     ///
     /// # Parameters
     ///
@@ -92,7 +104,8 @@ pub trait ReadonlyConsumer<T> {
 
     /// Convert to BoxReadonlyConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// # Returns
     ///
@@ -100,11 +113,15 @@ pub trait ReadonlyConsumer<T> {
     fn into_box(self) -> BoxReadonlyConsumer<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        BoxReadonlyConsumer::new(move |t| self.accept(t))
+    }
 
     /// Convert to RcReadonlyConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// # Returns
     ///
@@ -112,11 +129,15 @@ pub trait ReadonlyConsumer<T> {
     fn into_rc(self) -> RcReadonlyConsumer<T>
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        RcReadonlyConsumer::new(move |t| self.accept(t))
+    }
 
     /// Convert to ArcReadonlyConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// # Returns
     ///
@@ -124,13 +145,18 @@ pub trait ReadonlyConsumer<T> {
     fn into_arc(self) -> ArcReadonlyConsumer<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static;
+        T: Send + Sync + 'static,
+    {
+        ArcReadonlyConsumer::new(move |t| self.accept(t))
+    }
 
     /// Convert to closure
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
-    /// Converts a readonly consumer to a closure that can be used directly in places where the standard library requires `Fn`.
+    /// Converts a readonly consumer to a closure that can be used directly in
+    /// places where the standard library requires `Fn`.
     ///
     /// # Returns
     ///
@@ -150,7 +176,78 @@ pub trait ReadonlyConsumer<T> {
     fn into_fn(self) -> impl Fn(&T)
     where
         Self: Sized + 'static,
-        T: 'static;
+        T: 'static,
+    {
+        move |t| self.accept(t)
+    }
+
+    /// Non-consuming conversion to `BoxReadonlyConsumer`
+    ///
+    /// **⚠️ Does NOT consume `self`**: This method clones `self` and returns a
+    /// boxed readonly consumer that calls the cloned consumer. Requires
+    /// `Self: Clone` so it can be called through an immutable reference.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxReadonlyConsumer<T>`
+    fn to_box(&self) -> BoxReadonlyConsumer<T>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Non-consuming conversion to `RcReadonlyConsumer`
+    ///
+    /// **⚠️ Does NOT consume `self`**: Clones `self` and returns an
+    /// `RcReadonlyConsumer` that forwards to the cloned consumer. Requires
+    /// `Self: Clone`.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `RcReadonlyConsumer<T>`
+    fn to_rc(&self) -> RcReadonlyConsumer<T>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Non-consuming conversion to `ArcReadonlyConsumer`
+    ///
+    /// **⚠️ Does NOT consume `self`**: Clones `self` and returns an
+    /// `ArcReadonlyConsumer`. Requires `Self: Clone + Send + Sync` and
+    /// `T: Send + Sync` so the result is thread-safe.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `ArcReadonlyConsumer<T>`
+    fn to_arc(&self) -> ArcReadonlyConsumer<T>
+    where
+        Self: Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Non-consuming conversion to a boxed closure
+    ///
+    /// **⚠️ Does NOT consume `self`**: Returns a closure which calls a cloned
+    /// copy of the consumer. Requires `Self: Clone`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `Fn(&T)` which forwards to the cloned
+    /// consumer.
+    fn to_fn(&self) -> impl Fn(&T)
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // ============================================================================
@@ -159,7 +256,8 @@ pub trait ReadonlyConsumer<T> {
 
 /// BoxReadonlyConsumer struct
 ///
-/// Readonly consumer implementation based on `Box<dyn Fn(&T)>` for single ownership scenarios.
+/// Readonly consumer implementation based on `Box<dyn Fn(&T)>` for single
+/// ownership scenarios.
 ///
 /// # Features
 ///
@@ -232,6 +330,15 @@ where
         }
     }
 
+    /// Create a no-op consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op consumer
+    pub fn noop() -> Self {
+        BoxReadonlyConsumer::new(|_| {})
+    }
+
     /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -244,7 +351,8 @@ where
 
     /// Sequentially chain another readonly consumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation. Consumes self.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Consumes self.
     ///
     /// # Type Parameters
     ///
@@ -289,7 +397,8 @@ where
     /// ## Preserving original with clone
     ///
     /// ```rust
-    /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer, RcReadonlyConsumer};
+    /// use prism3_function::{ReadonlyConsumer, BoxReadonlyConsumer,
+    ///     RcReadonlyConsumer};
     ///
     /// let first = BoxReadonlyConsumer::new(|x: &i32| {
     ///     println!("First: {}", x);
@@ -316,15 +425,6 @@ where
             second.accept(t);
         })
     }
-
-    /// Create a no-op consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op consumer
-    pub fn noop() -> Self {
-        BoxReadonlyConsumer::new(|_| {})
-    }
 }
 
 impl<T> ReadonlyConsumer<T> for BoxReadonlyConsumer<T> {
@@ -347,12 +447,8 @@ impl<T> ReadonlyConsumer<T> for BoxReadonlyConsumer<T> {
         RcReadonlyConsumer::new(move |t| func(t))
     }
 
-    fn into_arc(self) -> ArcReadonlyConsumer<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        panic!("Cannot convert BoxReadonlyConsumer to ArcReadonlyConsumer: inner function may not be Send+Sync")
-    }
+    // do NOT override ReadonlyConsumer::into_arc() because BoxReadonlyConsumer is not Send + Sync
+    // and calling BoxReadonlyConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T)
     where
@@ -387,14 +483,16 @@ impl<T> fmt::Display for BoxReadonlyConsumer<T> {
 /// ArcReadonlyConsumer struct
 ///
 /// Readonly consumer implementation based on `Arc<dyn Fn(&T) + Send + Sync>`,
-/// for thread-safe shared ownership scenarios. No Mutex needed because operations are readonly.
+/// for thread-safe shared ownership scenarios. No Mutex needed because
+/// operations are readonly.
 ///
 /// # Features
 ///
 /// - **Shared Ownership**: Cloneable through `Arc`, allows multiple owners
 /// - **Thread Safe**: Implements `Send + Sync`, can be safely used concurrently
 /// - **Lock-free**: No Mutex protection needed because it's readonly
-/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains usable
+/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains
+///   usable
 ///
 /// # Use Cases
 ///
@@ -468,6 +566,15 @@ where
         }
     }
 
+    /// Create a no-op consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op consumer
+    pub fn noop() -> Self {
+        ArcReadonlyConsumer::new(|_| {})
+    }
+
     /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -478,40 +585,10 @@ where
         self.name = Some(name.into());
     }
 
-    /// Convert to closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function through Arc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `Fn(&T)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ReadonlyConsumer, ArcReadonlyConsumer};
-    ///
-    /// let consumer = ArcReadonlyConsumer::new(|x: &i32| {
-    ///     println!("Value: {}", x);
-    /// });
-    ///
-    /// let func = consumer.to_fn();
-    /// func(&5);
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T)
-    where
-        T: 'static,
-    {
-        let func = Arc::clone(&self.function);
-        move |t: &T| {
-            func(t);
-        }
-    }
-
     /// Sequentially chain another ArcReadonlyConsumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Borrows &self, does not consume the original consumer.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Borrows &self, does not consume the original consumer.
     ///
     /// # Parameters
     ///
@@ -567,16 +644,14 @@ impl<T> ReadonlyConsumer<T> for ArcReadonlyConsumer<T> {
     where
         T: 'static,
     {
-        let func = self.function;
-        BoxReadonlyConsumer::new(move |t| func(t))
+        BoxReadonlyConsumer::new(move |t| (self.function)(t))
     }
 
     fn into_rc(self) -> RcReadonlyConsumer<T>
     where
         T: 'static,
     {
-        let func = self.function;
-        RcReadonlyConsumer::new(move |t| func(t))
+        RcReadonlyConsumer::new(move |t| (self.function)(t))
     }
 
     fn into_arc(self) -> ArcReadonlyConsumer<T>
@@ -590,17 +665,46 @@ impl<T> ReadonlyConsumer<T> for ArcReadonlyConsumer<T> {
     where
         T: 'static,
     {
-        let func = self.function;
-        move |t: &T| {
-            func(t);
-        }
+        move |t| (self.function)(t)
+    }
+
+    fn to_box(&self) -> BoxReadonlyConsumer<T>
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxReadonlyConsumer::new(move |t| self_fn(t))
+    }
+
+    fn to_rc(&self) -> RcReadonlyConsumer<T>
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        RcReadonlyConsumer::new(move |t| self_fn(t))
+    }
+
+    fn to_arc(&self) -> ArcReadonlyConsumer<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T)
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 
 impl<T> Clone for ArcReadonlyConsumer<T> {
     /// Clone ArcReadonlyConsumer
     ///
-    /// Creates a new ArcReadonlyConsumer that shares the underlying function with the original instance.
+    /// Creates a new ArcReadonlyConsumer that shares the underlying function with
+    /// the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Arc::clone(&self.function),
@@ -633,15 +737,17 @@ impl<T> fmt::Display for ArcReadonlyConsumer<T> {
 
 /// RcReadonlyConsumer struct
 ///
-/// Readonly consumer implementation based on `Rc<dyn Fn(&T)>` for single-threaded shared ownership scenarios.
-/// No RefCell needed because operations are readonly.
+/// Readonly consumer implementation based on `Rc<dyn Fn(&T)>` for
+/// single-threaded shared ownership scenarios. No RefCell needed because
+/// operations are readonly.
 ///
 /// # Features
 ///
 /// - **Shared Ownership**: Cloneable through `Rc`, allows multiple owners
 /// - **Single-threaded**: Not thread-safe, cannot be sent across threads
 /// - **No Interior Mutability Overhead**: No RefCell needed because it's readonly
-/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains usable
+/// - **Non-consuming API**: `and_then` borrows `&self`, original object remains
+///   usable
 ///
 /// # Use Cases
 ///
@@ -652,8 +758,9 @@ impl<T> fmt::Display for ArcReadonlyConsumer<T> {
 ///
 /// # Performance Advantages
 ///
-/// `RcReadonlyConsumer` has neither Arc's atomic operation overhead nor RefCell's
-/// runtime borrow checking overhead, making it the most performant of the three readonly consumers.
+/// `RcReadonlyConsumer` has neither Arc's atomic operation overhead nor
+/// RefCell's runtime borrow checking overhead, making it the most performant of
+/// the three readonly consumers.
 ///
 /// # Examples
 ///
@@ -715,6 +822,15 @@ where
         }
     }
 
+    /// Create a no-op consumer
+    ///
+    /// # Returns
+    ///
+    /// Returns a no-op consumer
+    pub fn noop() -> Self {
+        RcReadonlyConsumer::new(|_| {})
+    }
+
     /// Get the consumer's name
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
@@ -725,40 +841,10 @@ where
         self.name = Some(name.into());
     }
 
-    /// Convert to closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function through Rc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `Fn(&T)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ReadonlyConsumer, RcReadonlyConsumer};
-    ///
-    /// let consumer = RcReadonlyConsumer::new(|x: &i32| {
-    ///     println!("Value: {}", x);
-    /// });
-    ///
-    /// let func = consumer.to_fn();
-    /// func(&5);
-    /// ```
-    pub fn to_fn(&self) -> impl Fn(&T)
-    where
-        T: 'static,
-    {
-        let func = Rc::clone(&self.function);
-        move |t: &T| {
-            func(t);
-        }
-    }
-
     /// Sequentially chain another RcReadonlyConsumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Borrows &self, does not consume the original consumer.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Borrows &self, does not consume the original consumer.
     ///
     /// # Parameters
     ///
@@ -814,8 +900,7 @@ impl<T> ReadonlyConsumer<T> for RcReadonlyConsumer<T> {
     where
         T: 'static,
     {
-        let func = self.function;
-        BoxReadonlyConsumer::new(move |t| func(t))
+        BoxReadonlyConsumer::new(move |t| (self.function)(t))
     }
 
     fn into_rc(self) -> RcReadonlyConsumer<T>
@@ -825,28 +910,48 @@ impl<T> ReadonlyConsumer<T> for RcReadonlyConsumer<T> {
         self
     }
 
-    fn into_arc(self) -> ArcReadonlyConsumer<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        panic!("Cannot convert RcReadonlyConsumer to ArcReadonlyConsumer (not Send+Sync)")
-    }
+    // do NOT override ReadonlyConsumer::into_arc() because RcReadonlyConsumer is not Send + Sync
+    // and calling RcReadonlyConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(&T)
     where
         T: 'static,
     {
-        let func = self.function;
-        move |t: &T| {
-            func(t);
-        }
+        move |t| (self.function)(t)
+    }
+
+    fn to_box(&self) -> BoxReadonlyConsumer<T>
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxReadonlyConsumer::new(move |t| self_fn(t))
+    }
+
+    fn to_rc(&self) -> RcReadonlyConsumer<T>
+    where
+        T: 'static,
+    {
+        self.clone()
+    }
+
+    // do NOT override ReadonlyConsumer::to_arc() because RcReadonlyConsumer is not Send + Sync
+    // and calling RcReadonlyConsumer::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl Fn(&T)
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 
 impl<T> Clone for RcReadonlyConsumer<T> {
     /// Clone RcReadonlyConsumer
     ///
-    /// Creates a new RcReadonlyConsumer that shares the underlying function with the original instance.
+    /// Creates a new RcReadonlyConsumer that shares the underlying function with
+    /// the original instance.
     fn clone(&self) -> Self {
         Self {
             function: Rc::clone(&self.function),
@@ -917,6 +1022,41 @@ where
     {
         self
     }
+
+    fn to_box(&self) -> BoxReadonlyConsumer<T>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        let self_fn = self.clone();
+        BoxReadonlyConsumer::new(self_fn)
+    }
+
+    fn to_rc(&self) -> RcReadonlyConsumer<T>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        let self_fn = self.clone();
+        RcReadonlyConsumer::new(self_fn)
+    }
+
+    fn to_arc(&self) -> ArcReadonlyConsumer<T>
+    where
+        Self: Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+    {
+        let self_fn = self.clone();
+        ArcReadonlyConsumer::new(self_fn)
+    }
+
+    fn to_fn(&self) -> impl Fn(&T)
+    where
+        Self: Clone + 'static,
+        T: 'static,
+    {
+        self.clone()
+    }
 }
 
 // ============================================================================
@@ -925,15 +1065,17 @@ where
 
 /// Extension trait providing readonly consumer composition methods for closures
 ///
-/// Provides `and_then` and other composition methods for all closures implementing `Fn(&T)`,
-/// allowing closures to directly chain methods without explicit wrapper types.
+/// Provides `and_then` and other composition methods for all closures
+/// implementing `Fn(&T)`, allowing closures to directly chain methods without
+/// explicit wrapper types.
 ///
 /// # Features
 ///
 /// - **Natural Syntax**: Chain operations directly on closures
 /// - **Returns BoxReadonlyConsumer**: Combined results can continue chaining
 /// - **Zero Cost**: No overhead when composing closures
-/// - **Auto-implementation**: All `Fn(&T)` closures automatically get these methods
+/// - **Auto-implementation**: All `Fn(&T)` closures automatically get these
+///   methods
 ///
 /// # Examples
 ///
@@ -954,8 +1096,9 @@ where
 pub trait FnReadonlyConsumerOps<T>: Fn(&T) + Sized {
     /// Sequentially chain another readonly consumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Consumes the current closure and returns `BoxReadonlyConsumer<T>`.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Consumes the current closure and returns
+    /// `BoxReadonlyConsumer<T>`.
     ///
     /// # Type Parameters
     ///
