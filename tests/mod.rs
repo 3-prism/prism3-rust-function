@@ -18,3 +18,4 @@ mod readonly_consumer_tests;
 mod supplier_once_tests;
 mod supplier_tests;
 mod unary_operator_tests;
+pub mod mutator_once_tests;
