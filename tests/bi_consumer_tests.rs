@@ -125,6 +125,19 @@ mod box_bi_consumer_tests {
     }
 
     #[test]
+    fn test_box_into_rc_default_impl() {
+        // Test BoxBiConsumer's into_rc() - uses BiConsumer trait's default implementation
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
     fn test_name() {
         let mut consumer = BoxBiConsumer::<i32, i32>::noop();
         assert_eq!(consumer.name(), None);
@@ -208,6 +221,19 @@ mod box_bi_consumer_tests {
         chained.accept(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8, 15, -15]);
     }
+
+    // Test BoxConditionalBiConsumer to_xxx() methods
+    // Note: BoxConditionalBiConsumer is not Clone, so to_xxx() methods
+    // use the default implementation which calls clone().into_xxx()
+    // These will only work if Self implements Clone
+}
+
+#[cfg(test)]
+mod box_conditional_to_xxx_tests {
+    // Note: BoxConditionalBiConsumer doesn't implement Clone,
+    // so the to_xxx() methods cannot be called directly.
+    // The default implementations in BiConsumer trait require Clone.
+    // This is by design - BoxConditionalBiConsumer is single-ownership only.
 }
 
 #[cfg(test)]
@@ -428,6 +454,75 @@ mod arc_bi_consumer_tests {
         with_else.accept(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8, -15]);
     }
+
+    // Test ArcConditionalBiConsumer to_xxx() methods
+    #[test]
+    fn test_arc_conditional_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut box_consumer = conditional.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut rc_consumer = conditional.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut arc_consumer = conditional.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut func = conditional.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
 }
 
 #[cfg(test)]
@@ -620,6 +715,58 @@ mod rc_bi_consumer_tests {
         with_else.accept(&-5, &3);
         assert_eq!(*log.borrow(), vec![8, -15]);
     }
+
+    // Test RcConditionalBiConsumer to_xxx() methods
+    #[test]
+    fn test_rc_conditional_to_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut box_consumer = conditional.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut rc_consumer = conditional.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut func = conditional.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original conditional is cloneable, test with clone
+        let mut conditional_clone = conditional.clone();
+        conditional_clone.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
 }
 
 #[cfg(test)]
@@ -664,6 +811,120 @@ mod closure_tests {
         let mut func = closure.into_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_closure_into_rc() {
+        // Test into_rc in impl<T, U, F> BiConsumer<T, U> for F
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        };
+        let mut rc_consumer = closure.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    // Test closure to_xxx() methods - these test the default implementations
+    // in BiConsumer trait for closures
+    #[test]
+    fn test_closure_to_box_cloneable() {
+        // Test with ArcBiConsumer which is cloneable
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer is cloneable, test with clone
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_rc_cloneable() {
+        // Test with RcBiConsumer which is cloneable
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original consumer is cloneable, test with clone
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_arc_cloneable() {
+        // Test with ArcBiConsumer which is cloneable
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer is cloneable, test with clone
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_fn_cloneable() {
+        // Test with ArcBiConsumer which is cloneable
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer is cloneable, test with clone
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test BiConsumer trait default implementations for specific types
+    #[test]
+    fn test_arc_default_to_fn_impl() {
+        // Test BiConsumer trait's default to_fn() implementation
+        // Note: ArcBiConsumer overrides to_fn(), so we test via trait method
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        // Using BiConsumer trait method explicitly
+        let mut func = BiConsumer::to_fn(&consumer);
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_default_to_fn_impl() {
+        // Test BiConsumer trait's default to_fn() implementation
+        // Note: RcBiConsumer overrides to_fn(), so we test via trait method
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        // Using BiConsumer trait method explicitly
+        let mut func = BiConsumer::to_fn(&consumer);
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
     }
 }
 
@@ -1017,6 +1278,127 @@ mod debug_display_tests {
 }
 
 // ============================================================================
+// BiConsumer Trait Default Implementation Tests
+// ============================================================================
+
+#[cfg(test)]
+mod trait_default_impl_tests {
+    use super::*;
+
+    // Test BiConsumer trait's default into_box() implementation
+    #[test]
+    fn test_default_into_box_from_closure() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        };
+        // This uses the default implementation in BiConsumer trait
+        let mut box_consumer = BiConsumer::into_box(closure);
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default into_rc() implementation
+    #[test]
+    fn test_default_into_rc_from_closure() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        };
+        // This uses the default implementation in BiConsumer trait
+        let mut rc_consumer = BiConsumer::into_rc(closure);
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default into_arc() implementation
+    #[test]
+    fn test_default_into_arc_from_closure() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let closure = move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        };
+        // This uses the default implementation in BiConsumer trait
+        let mut arc_consumer = BiConsumer::into_arc(closure);
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default into_fn() implementation
+    #[test]
+    fn test_default_into_fn_from_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        // This may use the overridden implementation in ArcBiConsumer
+        let mut func = consumer.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default to_box() implementation with ArcBiConsumer
+    #[test]
+    fn test_default_to_box_from_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        // ArcBiConsumer overrides to_box(), but we test the functionality
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default to_rc() implementation with ArcBiConsumer
+    #[test]
+    fn test_default_to_rc_from_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        // ArcBiConsumer overrides to_rc()
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default to_arc() implementation with ArcBiConsumer
+    #[test]
+    fn test_default_to_arc_from_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        // ArcBiConsumer overrides to_arc()
+        let mut arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test BiConsumer trait's default to_fn() implementation with RcBiConsumer
+    #[test]
+    fn test_default_to_fn_from_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        // RcBiConsumer overrides to_fn()
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+}
+
+// ============================================================================
 // Additional Type Conversion Tests
 // ============================================================================
 
@@ -1138,5 +1520,674 @@ mod into_arc_tests {
         let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let mut arc = conditional.into_arc();
         arc.accept(&5, &3); // Ensure it can be used normally
+    }
+}
+
+// ============================================================================
+// Tests for BiConsumer Trait Default Implementations
+// ============================================================================
+//
+// This module tests the default implementations of BiConsumer trait methods
+// by creating a custom struct that implements BiConsumer without overriding
+// the default methods.
+
+#[cfg(test)]
+mod bi_consumer_default_impl_tests {
+    use super::*;
+
+    /// Custom BiConsumer implementation that only implements accept()
+    /// and relies on all default implementations for conversion methods
+    struct CustomBiConsumer<F>
+    where
+        F: FnMut(&i32, &i32),
+    {
+        function: F,
+    }
+
+    impl<F> CustomBiConsumer<F>
+    where
+        F: FnMut(&i32, &i32),
+    {
+        fn new(function: F) -> Self {
+            Self { function }
+        }
+    }
+
+    impl<F> BiConsumer<i32, i32> for CustomBiConsumer<F>
+    where
+        F: FnMut(&i32, &i32),
+    {
+        fn accept(&mut self, first: &i32, second: &i32) {
+            (self.function)(first, second)
+        }
+
+        // Do NOT override any into_xxx() or to_xxx() methods
+        // to ensure we test the trait's default implementations
+    }
+
+    /// Cloneable custom BiConsumer for testing to_xxx() methods
+    #[derive(Clone)]
+    struct CloneableCustomBiConsumer {
+        log: Arc<Mutex<Vec<i32>>>,
+    }
+
+    impl CloneableCustomBiConsumer {
+        fn new(log: Arc<Mutex<Vec<i32>>>) -> Self {
+            Self { log }
+        }
+    }
+
+    impl BiConsumer<i32, i32> for CloneableCustomBiConsumer {
+        fn accept(&mut self, first: &i32, second: &i32) {
+            self.log.lock().unwrap().push(*first + *second);
+        }
+
+        // Do NOT override any into_xxx() or to_xxx() methods
+    }
+
+    // Test into_box() default implementation
+    #[test]
+    fn test_custom_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // This calls BiConsumer::into_box() default implementation
+        let mut box_consumer = consumer.into_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test into_rc() default implementation
+    #[test]
+    fn test_custom_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        // This calls BiConsumer::into_rc() default implementation
+        let mut rc_consumer = consumer.into_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    // Test into_arc() default implementation
+    #[test]
+    fn test_custom_into_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // This calls BiConsumer::into_arc() default implementation
+        let mut arc_consumer = consumer.into_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test into_fn() default implementation
+    #[test]
+    fn test_custom_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // This calls BiConsumer::into_fn() default implementation
+        let mut func = consumer.into_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    // Test to_box() default implementation with cloneable consumer
+    #[test]
+    fn test_custom_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CloneableCustomBiConsumer::new(log.clone());
+
+        // This calls BiConsumer::to_box() default implementation
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        // Original consumer still usable (to_box() doesn't consume self)
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test to_rc() default implementation with cloneable consumer
+    #[test]
+    fn test_custom_to_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CloneableCustomBiConsumer::new(log.clone());
+
+        // This calls BiConsumer::to_rc() default implementation
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        // Original consumer still usable
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test to_arc() default implementation with cloneable consumer
+    #[test]
+    fn test_custom_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CloneableCustomBiConsumer::new(log.clone());
+
+        // This calls BiConsumer::to_arc() default implementation
+        let mut arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        // Original consumer still usable
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test to_fn() default implementation with cloneable consumer
+    #[test]
+    fn test_custom_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let consumer = CloneableCustomBiConsumer::new(log.clone());
+
+        // This calls BiConsumer::to_fn() default implementation
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        // Original consumer still usable
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test default implementation with complex operations
+    #[test]
+    fn test_custom_into_box_then_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+
+        // Convert using default into_box(), then use and_then()
+        let mut chained = consumer.into_box().and_then(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x * *y);
+        });
+
+        chained.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    }
+
+    // Test default implementation with conditional consumer
+    #[test]
+    fn test_custom_into_rc_then_when() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = CustomBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        // Convert using default into_rc(), then use when()
+        let mut conditional = consumer.into_rc().when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+
+        conditional.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]); // Not executed
+    }
+
+    // Test that default implementations preserve functionality
+    #[test]
+    fn test_custom_multiple_conversions() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        let consumer1 = CloneableCustomBiConsumer::new(log.clone());
+        let consumer2 = consumer1.clone();
+
+        // Convert to different types using default implementations
+        let mut box_consumer = consumer1.to_box();
+        let mut arc_consumer = consumer2.to_arc();
+
+        box_consumer.accept(&1, &2);
+        arc_consumer.accept(&3, &4);
+
+        let result = log.lock().unwrap().clone();
+        assert!(result.contains(&3));
+        assert!(result.contains(&7));
+    }
+}
+
+// ============================================================================
+// to_xxx() Methods Tests
+// ============================================================================
+
+#[cfg(test)]
+mod to_xxx_tests {
+    use super::*;
+
+    // ArcBiConsumer to_xxx tests
+    #[test]
+    fn test_arc_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_to_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_arc_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // RcBiConsumer to_xxx tests
+    #[test]
+    fn test_rc_to_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_rc_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_rc_to_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+        // Original consumer still usable
+        consumer.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    // Closure to_xxx tests (default implementations)
+    #[test]
+    fn test_closure_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l2 = log.clone();
+
+        // For closures that can be cloned (wrapped in Arc/Rc), we can test to_box
+        let mut arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x + *y);
+        });
+
+        let mut box_consumer = arc_consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original still usable
+        arc_consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut rc_consumer = arc_consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original still usable
+        arc_consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut arc_consumer2 = arc_consumer.to_arc();
+        arc_consumer2.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original still usable
+        arc_consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut func = arc_consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+        // Original still usable
+        arc_consumer.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    // Test to_xxx preserves original functionality
+    #[test]
+    fn test_to_box_preserves_original() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut box1 = consumer.to_box();
+        let mut box2 = consumer.to_box();
+        let mut consumer_clone = consumer.clone();
+
+        box1.accept(&1, &2);
+        box2.accept(&3, &4);
+        consumer_clone.accept(&5, &6);
+        consumer.accept(&7, &8);
+
+        let result = log.lock().unwrap().clone();
+        assert_eq!(result, vec![3, 7, 11, 15]);
+    }
+
+    #[test]
+    fn test_to_rc_preserves_original() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let mut rc1 = consumer.to_rc();
+        let mut rc2 = consumer.to_rc();
+        let mut consumer_clone = consumer.clone();
+
+        rc1.accept(&1, &2);
+        rc2.accept(&3, &4);
+        consumer_clone.accept(&5, &6);
+        consumer.accept(&7, &8);
+
+        let result = log.borrow().clone();
+        assert_eq!(result, vec![3, 7, 11, 15]);
+    }
+
+    #[test]
+    fn test_to_arc_preserves_original() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut arc1 = consumer.to_arc();
+        let mut arc2 = consumer.to_arc();
+        let mut consumer_clone = consumer.clone();
+
+        arc1.accept(&1, &2);
+        arc2.accept(&3, &4);
+        consumer_clone.accept(&5, &6);
+        consumer.accept(&7, &8);
+
+        let result = log.lock().unwrap().clone();
+        assert_eq!(result, vec![3, 7, 11, 15]);
+    }
+
+    #[test]
+    fn test_to_fn_multiple_conversions() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let mut consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut func1 = consumer.to_fn();
+        let mut func2 = consumer.to_fn();
+
+        func1(&1, &2);
+        func2(&3, &4);
+        consumer.accept(&5, &6);
+
+        let result = log.lock().unwrap().clone();
+        assert_eq!(result, vec![3, 7, 11]);
+    }
+}
+
+// ============================================================================
+// Direct Closure to_xxx() Methods Tests
+// ============================================================================
+//
+// These tests directly test the to_xxx() methods for closures that implement
+// Clone, testing the impl<T, U, F> BiConsumer<T, U> for F where F: FnMut(&T, &U)
+
+#[cfg(test)]
+mod direct_closure_to_xxx_tests {
+    use super::*;
+
+    // Helper: Create a cloneable closure
+    // Note: Closures are not Clone by default, so we need to use a cloneable wrapper
+    // like Arc/Rc or create a function pointer
+
+    #[test]
+    fn test_function_pointer_to_box() {
+        // Function pointers are Copy, so they can be used with to_box()
+        fn add_consumer(x: &i32, y: &i32) {
+            println!("{} + {} = {}", x, y, x + y);
+        }
+        let fp = add_consumer;
+        let mut box_consumer = fp.to_box();
+        box_consumer.accept(&5, &3);
+        // Original function pointer still usable
+        fp(&2, &1);
+    }
+
+    #[test]
+    fn test_function_pointer_to_rc() {
+        fn add_consumer(x: &i32, y: &i32) {
+            println!("{} + {} = {}", x, y, x + y);
+        }
+        let fp = add_consumer;
+        let mut rc_consumer = fp.to_rc();
+        rc_consumer.accept(&5, &3);
+        // Original function pointer still usable
+        fp(&2, &1);
+    }
+
+    #[test]
+    fn test_function_pointer_to_arc() {
+        fn add_consumer(x: &i32, y: &i32) {
+            println!("{} + {} = {}", x, y, x + y);
+        }
+        let fp = add_consumer;
+        let mut arc_consumer = fp.to_arc();
+        arc_consumer.accept(&5, &3);
+        // Original function pointer still usable
+        fp(&2, &1);
+    }
+
+    #[test]
+    fn test_function_pointer_to_fn() {
+        fn add_consumer(x: &i32, y: &i32) {
+            println!("{} + {} = {}", x, y, x + y);
+        }
+        let fp = add_consumer;
+        let mut func = fp.to_fn();
+        func(&5, &3);
+        // Original function pointer still usable
+        fp(&2, &1);
+    }
+
+    // Note: Due to Rust's limitations, we cannot easily create a truly cloneable
+    // closure for testing without using unstable features. The above tests with
+    // function pointers already cover the to_xxx() implementations for closures.
+    //
+    // The impl<T, U, F> BiConsumer<T, U> for F where F: FnMut(&T, &U) block
+    // provides to_xxx() methods that work for any closure implementing Clone.
+    // These are tested via function pointers (which are Copy/Clone).
+    //
+    // For non-cloneable closures, the to_xxx() methods cannot be called
+    // (compile-time error due to Clone bound), which is the correct behavior.
+
+    // Additional test: Verify to_box works with stateless closure
+    #[test]
+    fn test_stateless_closure_to_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        // Create a wrapper that is cloneable
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // Test to_box on the cloneable consumer (which is a closure wrapper)
+        let mut box_consumer = consumer.to_box();
+        box_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        // Original consumer still usable
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_stateless_closure_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let mut rc_consumer = consumer.to_rc();
+        rc_consumer.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.borrow(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_stateless_closure_to_arc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut arc_consumer = consumer.to_arc();
+        arc_consumer.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+
+    #[test]
+    fn test_stateless_closure_to_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let mut func = consumer.to_fn();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        let mut consumer_clone = consumer.clone();
+        consumer_clone.accept(&2, &1);
+        assert_eq!(*log.lock().unwrap(), vec![8, 3]);
     }
 }

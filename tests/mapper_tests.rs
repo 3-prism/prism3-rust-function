@@ -131,14 +131,14 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
     let mapper = CloneMapper { counter: 0 };
 
     let mut b = mapper.to_box();
-        assert_eq!(b.apply(10), 11);
-        assert_eq!(b.apply(10), 12);
+    assert_eq!(b.apply(10), 11);
+    assert_eq!(b.apply(10), 12);
 
     let rc = mapper.to_rc();
     let mut r1 = rc.clone();
     let mut r2 = rc.clone();
-        assert_eq!(r1.apply(10), 11);
-        assert_eq!(r2.apply(10), 12);
+    assert_eq!(r1.apply(10), 11);
+    assert_eq!(r2.apply(10), 12);
 
     // to_arc requires Send+Sync. Make a trivially Send+Sync cloneable
     #[derive(Clone)]
@@ -158,8 +158,8 @@ fn test_mapper_to_box_rc_arc_fn_non_consuming() {
 
     let sm = SCloneMapper { counter: 0 };
     let mut a = sm.to_arc();
-        assert_eq!(a.apply(3), 3);
-        assert_eq!(a.apply(3), 6);
+    assert_eq!(a.apply(3), 3);
+    assert_eq!(a.apply(3), 6);
 
     let mut f = mapper.to_fn();
     assert_eq!(f(5), 6);
@@ -380,9 +380,9 @@ fn test_arc_mapper_to_arc() {
     let mut arc2 = arc_mapper.clone();
 
     // 共享状态
-    assert_eq!(arc1.apply(10), 9);  // 10 - 1
-    assert_eq!(arc2.apply(10), 8);  // 10 - 2
-    assert_eq!(arc1.apply(10), 7);  // 10 - 3
+    assert_eq!(arc1.apply(10), 9); // 10 - 1
+    assert_eq!(arc2.apply(10), 8); // 10 - 2
+    assert_eq!(arc1.apply(10), 7); // 10 - 3
 
     // 原始 mapper 也共享同一个状态
     let mut mapper_clone = mapper.clone();
@@ -399,12 +399,12 @@ fn test_arc_mapper_to_fn() {
 
     // 非消费性转换
     let mut closure1 = mapper.to_fn();
-    assert_eq!(closure1(5), 15);  // 5 + 1 * 10
-    assert_eq!(closure1(5), 25);  // 5 + 2 * 10
+    assert_eq!(closure1(5), 15); // 5 + 1 * 10
+    assert_eq!(closure1(5), 25); // 5 + 2 * 10
 
     // 可以多次调用 to_fn()，每次都共享同一个底层状态
     let mut closure2 = mapper.to_fn();
-    assert_eq!(closure2(5), 35);  // 5 + 3 * 10 (共享状态)
+    assert_eq!(closure2(5), 35); // 5 + 3 * 10 (共享状态)
 
     // 原始 mapper 也共享状态
     let mut mapper_clone = mapper.clone();
@@ -462,9 +462,9 @@ fn test_arc_mapper_to_arc_multiple_clones() {
     let mut arc2 = arc_mapper.clone();
 
     // 验证共享状态
-    assert_eq!(arc1.apply(2), 2);   // 1 * 2
-    assert_eq!(arc2.apply(3), 6);   // 2 * 3
-    assert_eq!(arc1.apply(4), 24);  // 6 * 4
+    assert_eq!(arc1.apply(2), 2); // 1 * 2
+    assert_eq!(arc2.apply(3), 6); // 2 * 3
+    assert_eq!(arc1.apply(4), 24); // 6 * 4
 
     // 原始 mapper 也共享状态
     let mut mapper_clone = mapper.clone();
@@ -1492,8 +1492,8 @@ fn test_closure_to_arc_thread_safe() {
     let mut arc2 = arc_mapper.clone();
 
     // 验证共享状态（线程安全）
-    assert_eq!(arc1.apply(2), 2);  // 1 * 2
-    assert_eq!(arc2.apply(3), 6);  // 2 * 3
+    assert_eq!(arc1.apply(2), 2); // 1 * 2
+    assert_eq!(arc2.apply(3), 6); // 2 * 3
     assert_eq!(arc1.apply(4), 24); // 6 * 4
 }
 

@@ -69,6 +69,212 @@ mod trait_tests {
         let f = concat.into_fn();
         assert_eq!(f("hello".to_string(), "world".to_string()), "hello-world");
     }
+
+    #[test]
+    fn test_blanket_impl_to_box() {
+        // Test closure's to_box method (requires Clone)
+        #[derive(Clone)]
+        struct AddOp;
+
+        impl AddOp {
+            fn call(&self, x: i32, y: i32) -> i32 {
+                x + y
+            }
+        }
+
+        let add_op = AddOp;
+        let add = move |x: i32, y: i32| add_op.call(x, y);
+        let boxed = add.to_box();
+        assert_eq!(boxed.apply(20, 22), 42);
+        // Original closure still usable
+        assert_eq!(add(10, 5), 15);
+    }
+
+    #[test]
+    fn test_blanket_impl_to_fn() {
+        // Test closure's to_fn method (requires Clone)
+        #[derive(Clone)]
+        struct MultiplyOp(i32);
+
+        impl MultiplyOp {
+            fn call(&self, x: i32, y: i32) -> i32 {
+                (x + y) * self.0
+            }
+        }
+
+        let op = MultiplyOp(2);
+        let multiply = move |x: i32, y: i32| op.call(x, y);
+        let f = multiply.to_fn();
+        assert_eq!(f(3, 5), 16); // (3 + 5) * 2
+                                 // Original closure still usable
+        assert_eq!(multiply(10, 5), 30); // (10 + 5) * 2
+    }
+
+    #[test]
+    fn test_blanket_impl_to_box_with_string() {
+        // Test closure's to_box method with String
+        #[derive(Clone)]
+        struct ConcatOp {
+            separator: String,
+        }
+
+        impl ConcatOp {
+            fn call(&self, x: String, y: String) -> String {
+                format!("{}{}{}", x, self.separator, y)
+            }
+        }
+
+        let op = ConcatOp {
+            separator: "-".to_string(),
+        };
+        let concat = move |x: String, y: String| op.call(x, y);
+        let boxed = concat.to_box();
+        assert_eq!(
+            boxed.apply("hello".to_string(), "world".to_string()),
+            "hello-world"
+        );
+        // Original closure still usable
+        assert_eq!(concat("foo".to_string(), "bar".to_string()), "foo-bar");
+    }
+
+    #[test]
+    fn test_blanket_impl_to_fn_with_captured_value() {
+        // Test closure's to_fn method with captured value
+        #[derive(Clone)]
+        struct Calculator {
+            base: i32,
+        }
+
+        impl Calculator {
+            fn calculate(&self, x: i32, y: i32) -> i32 {
+                (x + y) + self.base
+            }
+        }
+
+        let calc = Calculator { base: 100 };
+        let add_with_base = move |x: i32, y: i32| calc.calculate(x, y);
+        let f = add_with_base.to_fn();
+        assert_eq!(f(20, 22), 142); // 20 + 22 + 100
+                                    // Original closure still usable
+        assert_eq!(add_with_base(10, 5), 115); // 10 + 5 + 100
+    }
+}
+
+// ============================================================================
+// Tests for BiTransformerOnce trait default implementations (to_box, to_fn)
+// ============================================================================
+
+#[cfg(test)]
+mod trait_default_impl_tests {
+    use super::*;
+
+    // Create a cloneable custom type that implements BiTransformerOnce
+    #[derive(Clone)]
+    struct CustomAddTransformer {
+        offset: i32,
+    }
+
+    impl BiTransformerOnce<i32, i32, i32> for CustomAddTransformer {
+        fn apply(self, first: i32, second: i32) -> i32 {
+            first + second + self.offset
+        }
+    }
+
+    #[test]
+    fn test_trait_default_to_box() {
+        // Test BiTransformerOnce trait's default to_box implementation
+        let transformer = CustomAddTransformer { offset: 10 };
+        let boxed = transformer.to_box();
+        assert_eq!(boxed.apply(20, 22), 52); // 20 + 22 + 10
+                                             // Original transformer still usable
+        assert_eq!(transformer.apply(5, 3), 18); // 5 + 3 + 10
+    }
+
+    #[test]
+    fn test_trait_default_to_fn() {
+        // Test BiTransformerOnce trait's default to_fn implementation
+        let transformer = CustomAddTransformer { offset: 100 };
+        let f = transformer.to_fn();
+        assert_eq!(f(20, 22), 142); // 20 + 22 + 100
+                                    // Original transformer still usable
+        assert_eq!(transformer.apply(10, 5), 115); // 10 + 5 + 100
+    }
+
+    #[derive(Clone)]
+    struct CustomConcatTransformer {
+        separator: String,
+    }
+
+    impl BiTransformerOnce<String, String, String> for CustomConcatTransformer {
+        fn apply(self, first: String, second: String) -> String {
+            format!("{}{}{}", first, self.separator, second)
+        }
+    }
+
+    #[test]
+    fn test_trait_default_to_box_with_string() {
+        // Test BiTransformerOnce trait's default to_box with String type
+        let transformer = CustomConcatTransformer {
+            separator: " | ".to_string(),
+        };
+        let boxed = transformer.to_box();
+        assert_eq!(
+            boxed.apply("hello".to_string(), "world".to_string()),
+            "hello | world"
+        );
+        // Original transformer still usable
+        assert_eq!(
+            transformer.apply("foo".to_string(), "bar".to_string()),
+            "foo | bar"
+        );
+    }
+
+    #[test]
+    fn test_trait_default_to_fn_with_string() {
+        // Test BiTransformerOnce trait's default to_fn with String type
+        let transformer = CustomConcatTransformer {
+            separator: "->".to_string(),
+        };
+        let f = transformer.to_fn();
+        assert_eq!(f("start".to_string(), "end".to_string()), "start->end");
+        // Original transformer still usable
+        assert_eq!(transformer.apply("a".to_string(), "b".to_string()), "a->b");
+    }
+
+    #[derive(Clone)]
+    struct CustomMultiplyTransformer {
+        multiplier: f64,
+    }
+
+    impl BiTransformerOnce<f64, f64, f64> for CustomMultiplyTransformer {
+        fn apply(self, first: f64, second: f64) -> f64 {
+            (first + second) * self.multiplier
+        }
+    }
+
+    #[test]
+    fn test_trait_default_to_box_with_float() {
+        // Test BiTransformerOnce trait's default to_box with float type
+        let transformer = CustomMultiplyTransformer { multiplier: 2.5 };
+        let boxed = transformer.to_box();
+        let result = boxed.apply(3.0, 5.0);
+        assert!((result - 20.0).abs() < 1e-10); // (3.0 + 5.0) * 2.5 = 20.0
+                                                // Original transformer still usable
+        let result2 = transformer.apply(2.0, 4.0);
+        assert!((result2 - 15.0).abs() < 1e-10); // (2.0 + 4.0) * 2.5 = 15.0
+    }
+
+    #[test]
+    fn test_trait_default_to_fn_with_float() {
+        // Test BiTransformerOnce trait's default to_fn with float type
+        let transformer = CustomMultiplyTransformer { multiplier: 3.0 };
+        let f = transformer.to_fn();
+        let result = f(4.0, 6.0);
+        assert!((result - 30.0).abs() < 1e-10); // (4.0 + 6.0) * 3.0 = 30.0
+                                                // Original transformer still usable
+        let result2 = transformer.apply(1.0, 2.0);
+        assert!((result2 - 9.0).abs() < 1e-10); // (1.0 + 2.0) * 3.0 = 9.0
+    }
 }
 
 // ============================================================================

@@ -776,15 +776,15 @@ mod test_fn_consumer_ops {
 
         // 测试 to_fn() - 第一个实例
         let mut func = consumer_fn1.to_fn();
-        func(&5);  // 5 + 10 = 15
-        func(&7);  // 7 + 10 = 17
+        func(&5); // 5 + 10 = 15
+        func(&7); // 7 + 10 = 17
 
         // 验证第一部分结果
         assert_eq!(*counter.lock().unwrap(), 32); // 15 + 17
 
         // 使用第二个独立实例验证原始闭包仍然可用
         let mut original_func = consumer_fn2;
-        original_func(&3);  // 3 + 10 = 13
+        original_func(&3); // 3 + 10 = 13
         assert_eq!(*counter.lock().unwrap(), 45); // 32 + 13
     }
 }

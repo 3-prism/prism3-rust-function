@@ -10,7 +10,7 @@
 //!
 //! Tests the complete functionality of MutatorOnce trait and its implementations.
 
-use prism3_function::{BoxMutatorOnce, MutatorOnce, FnMutatorOnceOps};
+use prism3_function::{BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
 
 // Test closures specialization and default behaviors
 #[test]
@@ -261,12 +261,14 @@ fn test_box_conditional_mutator_once_and_then() {
     let data1 = vec![1, 2];
     let cond1 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         x.extend(data1);
-    }).when(|x: &Vec<i32>| !x.is_empty());
+    })
+    .when(|x: &Vec<i32>| !x.is_empty());
 
     let data2 = vec![3, 4];
     let cond2 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         x.extend(data2);
-    }).when(|x: &Vec<i32>| x.len() < 10);
+    })
+    .when(|x: &Vec<i32>| x.len() < 10);
 
     let chained = cond1.and_then(cond2);
 
@@ -278,12 +280,14 @@ fn test_box_conditional_mutator_once_and_then() {
     let data3 = vec![5, 6];
     let cond3 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         x.extend(data3);
-    }).when(|x: &Vec<i32>| x.is_empty()); // This will fail
+    })
+    .when(|x: &Vec<i32>| x.is_empty()); // This will fail
 
     let data4 = vec![7, 8];
     let cond4 = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         x.extend(data4);
-    }).when(|x: &Vec<i32>| x.len() < 10); // This will pass
+    })
+    .when(|x: &Vec<i32>| x.len() < 10); // This will pass
 
     let chained2 = cond3.and_then(cond4);
 
@@ -347,8 +351,8 @@ fn test_closure_and_then() {
     let data1 = vec![1, 2];
     let data2 = vec![3, 4];
 
-    let chained = (move |x: &mut Vec<i32>| x.extend(data1))
-        .and_then(move |x: &mut Vec<i32>| x.extend(data2));
+    let chained =
+        (move |x: &mut Vec<i32>| x.extend(data1)).and_then(move |x: &mut Vec<i32>| x.extend(data2));
 
     let mut target = vec![0];
     chained.mutate(&mut target);

@@ -52,6 +52,30 @@ mod box_comparator_tests {
     }
 
     #[test]
+    fn test_then_comparing_with_non_equal_greater() {
+        // 测试第一个比较器返回 Greater 的情况
+        let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(cmp2);
+        // 5 > 3, so first comparator returns Greater, second not called
+        assert_eq!(chained.compare(&5, &3), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_then_comparing_with_non_equal_less() {
+        // 测试第一个比较器返回 Less 的情况
+        let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(cmp2);
+        // 3 < 5, so first comparator returns Less, second not called
+        assert_eq!(chained.compare(&3, &5), Ordering::Less);
+    }
+
+    #[test]
     fn test_comparing() {
         #[derive(Debug)]
         struct Person {
@@ -141,6 +165,30 @@ mod arc_comparator_tests {
         // Originals still work
         assert_eq!(cmp1.compare(&4, &2), Ordering::Equal);
         assert_eq!(cmp2.compare(&4, &2), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_then_comparing_with_non_equal_greater() {
+        // 测试第一个比较器返回 Greater 的情况
+        let cmp1 = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = ArcComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(&cmp2);
+        // 5 > 3, so first comparator returns Greater, second not called
+        assert_eq!(chained.compare(&5, &3), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_then_comparing_with_non_equal_less() {
+        // 测试第一个比较器返回 Less 的情况
+        let cmp1 = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = ArcComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(&cmp2);
+        // 3 < 5, so first comparator returns Less, second not called
+        assert_eq!(chained.compare(&3, &5), Ordering::Less);
     }
 
     #[test]
@@ -248,6 +296,30 @@ mod rc_comparator_tests {
         // Originals still work
         assert_eq!(cmp1.compare(&4, &2), Ordering::Equal);
         assert_eq!(cmp2.compare(&4, &2), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_then_comparing_with_non_equal_greater() {
+        // 测试第一个比较器返回 Greater 的情况
+        let cmp1 = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = RcComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(&cmp2);
+        // 5 > 3, so first comparator returns Greater, second not called
+        assert_eq!(chained.compare(&5, &3), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_then_comparing_with_non_equal_less() {
+        // 测试第一个比较器返回 Less 的情况
+        let cmp1 = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
+        let cmp2 = RcComparator::new(|_a: &i32, _b: &i32| {
+            panic!("Second comparator should not be called")
+        });
+        let chained = cmp1.then_comparing(&cmp2);
+        // 3 < 5, so first comparator returns Less, second not called
+        assert_eq!(chained.compare(&3, &5), Ordering::Less);
     }
 
     #[test]
