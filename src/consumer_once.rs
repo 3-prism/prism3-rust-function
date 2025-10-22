@@ -176,6 +176,84 @@ pub trait ConsumerOnce<T> {
     {
         move |t| self.accept(t)
     }
+
+    /// Convert to BoxConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and wraps it in a
+    /// `BoxConsumerOnce`.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation clones `self` and then calls
+    /// `into_box()` on the clone. Types can override this method to
+    /// provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ConsumerOnce;
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// };
+    /// let box_consumer = closure.to_box();
+    /// box_consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn to_box(&self) -> BoxConsumerOnce<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Convert to closure without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and then converts the clone
+    /// to a closure.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default implementation clones `self` and then calls
+    /// `into_fn()` on the clone. Types can override this method to
+    /// provide more efficient conversions.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::ConsumerOnce;
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32| {
+    ///     l.lock().unwrap().push(*x * 2);
+    /// };
+    /// let func = closure.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![10]);
+    /// ```
+    fn to_fn(&self) -> impl FnOnce(&T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // ============================================================================
@@ -272,11 +350,50 @@ where
     }
 
     /// Get the consumer's name
+    ///
+    /// Returns the optional name associated with this consumer.
+    /// Used for debugging and logging purposes.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(&str)` if a name was set, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BoxConsumerOnce;
+    ///
+    /// let mut consumer = BoxConsumerOnce::new(|x: &i32| {
+    ///     println!("{}", x);
+    /// });
+    /// assert_eq!(consumer.name(), None);
+    /// consumer.set_name("my_consumer");
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// ```
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
     /// Set the consumer's name
+    ///
+    /// Assigns a name to this consumer for debugging and logging
+    /// purposes. The name can be any type that converts to `String`.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name to set, can be `&str` or `String`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BoxConsumerOnce;
+    ///
+    /// let mut consumer = BoxConsumerOnce::new(|x: &i32| {
+    ///     println!("{}", x);
+    /// });
+    /// consumer.set_name("my_consumer");
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// ```
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
     }
@@ -684,6 +801,23 @@ where
         T: 'static,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxConsumerOnce<T>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        let cloned = self.clone();
+        BoxConsumerOnce::new(cloned)
+    }
+
+    fn to_fn(&self) -> impl FnOnce(&T)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+    {
+        self.clone()
     }
 }
 

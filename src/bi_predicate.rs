@@ -286,7 +286,7 @@ pub trait BiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+        BoxBiPredicate::new(move |first, second| self.test(first, second))
     }
 
     /// Converts this bi-predicate into an `RcBiPredicate`.
@@ -307,7 +307,7 @@ pub trait BiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        RcBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+        RcBiPredicate::new(move |first, second| self.test(first, second))
     }
 
     /// Converts this bi-predicate into an `ArcBiPredicate`.
@@ -329,7 +329,7 @@ pub trait BiPredicate<T, U> {
         T: Send + Sync + 'static,
         U: Send + Sync + 'static,
     {
-        ArcBiPredicate::new(move |first: &T, second: &U| self.test(first, second))
+        ArcBiPredicate::new(move |first, second| self.test(first, second))
     }
 
     /// Converts this bi-predicate into a closure that can be used
@@ -375,7 +375,43 @@ pub trait BiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        move |first: &T, second: &U| self.test(first, second)
+        move |first, second| self.test(first, second)
+    }
+
+    fn to_box(&self) -> BoxBiPredicate<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    fn to_rc(&self) -> RcBiPredicate<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    fn to_arc(&self) -> ArcBiPredicate<T, U>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U) -> bool
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_fn()
     }
 }
 
@@ -537,12 +573,9 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| {
-                (self.function)(first, second) && other.test(first, second)
-            }),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| {
+            (self.function)(first, second) && other.test(first, second)
+        })
     }
 
     /// Returns a bi-predicate that represents the logical OR of this
@@ -572,12 +605,9 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| {
-                (self.function)(first, second) || other.test(first, second)
-            }),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| {
+            (self.function)(first, second) || other.test(first, second)
+        })
     }
 
     /// Returns a bi-predicate that represents the logical negation of
@@ -594,10 +624,7 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| !(self.function)(first, second)),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| !(self.function)(first, second))
     }
 
     /// Returns a bi-predicate that represents the logical NAND (NOT
@@ -630,12 +657,9 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| {
-                !((self.function)(first, second) && other.test(first, second))
-            }),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| {
+            !((self.function)(first, second) && other.test(first, second))
+        })
     }
 
     /// Returns a bi-predicate that represents the logical XOR
@@ -668,12 +692,9 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| {
-                (self.function)(first, second) ^ other.test(first, second)
-            }),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| {
+            (self.function)(first, second) ^ other.test(first, second)
+        })
     }
 
     /// Returns a bi-predicate that represents the logical NOR (NOT
@@ -706,12 +727,9 @@ impl<T, U> BoxBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| {
-                !((self.function)(first, second) || other.test(first, second))
-            }),
-            name: None,
-        }
+        BoxBiPredicate::new(move |first, second| {
+            !((self.function)(first, second) || other.test(first, second))
+        })
     }
 }
 
@@ -729,40 +747,31 @@ impl<T, U> BiPredicate<T, U> for BoxBiPredicate<T, U> {
         self
     }
 
-    // Use optimized conversion for into_rc that preserves the
-    // existing Box
     fn into_rc(self) -> RcBiPredicate<T, U>
     where
         T: 'static,
         U: 'static,
     {
         RcBiPredicate {
-            function: Rc::from(self.function),
-            name: self.name,
+            function: Rc::new(move |first, second| (self.function)(first, second)),
+            name: self.name.clone(),
         }
     }
 
-    // BoxBiPredicate cannot be converted to ArcBiPredicate
-    // because Box<dyn Fn> is not Send + Sync
-    fn into_arc(self) -> ArcBiPredicate<T, U>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-    {
-        panic!("BoxBiPredicate cannot be converted to ArcBiPredicate - use ArcBiPredicate::new directly")
-    }
+    // do NOT override BoxBiPredicate::into_arc() because BoxBiPredicate is not Send + Sync
+    // and calling BoxBiPredicate::into_arc() will cause a compile error
 
-    // Use optimized conversion for into_fn that preserves the
-    // existing Box
     fn into_fn(self) -> impl Fn(&T, &U) -> bool
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        move |first: &T, second: &U| (self.function)(first, second)
+        move |first, second| (self.function)(first, second)
     }
+
+    // do NOT override BoxBiPredicate::to_xxx() because BoxBiPredicate is not Clone
+    // and calling BoxBiPredicate::to_xxx() will cause a compile error
 }
 
 impl<T, U> Display for BoxBiPredicate<T, U> {
@@ -942,7 +951,7 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| {
+            function: Rc::new(move |first, second| {
                 self_fn(first, second) && other.test(first, second)
             }),
             name: None,
@@ -976,7 +985,7 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| {
+            function: Rc::new(move |first, second| {
                 self_fn(first, second) || other.test(first, second)
             }),
             name: None,
@@ -997,7 +1006,7 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| !self_fn(first, second)),
+            function: Rc::new(move |first, second| !self_fn(first, second)),
             name: None,
         }
     }
@@ -1032,7 +1041,7 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| {
+            function: Rc::new(move |first, second| {
                 !(self_fn(first, second) && other.test(first, second))
             }),
             name: None,
@@ -1069,7 +1078,7 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| {
+            function: Rc::new(move |first, second| {
                 self_fn(first, second) ^ other.test(first, second)
             }),
             name: None,
@@ -1106,48 +1115,11 @@ impl<T, U> RcBiPredicate<T, U> {
     {
         let self_fn = Rc::clone(&self.function);
         RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| {
+            function: Rc::new(move |first, second| {
                 !(self_fn(first, second) || other.test(first, second))
             }),
             name: None,
         }
-    }
-
-    /// Converts this bi-predicate to a `BoxBiPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// A `BoxBiPredicate` wrapping this bi-predicate.
-    pub fn to_box(&self) -> BoxBiPredicate<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = Rc::clone(&self.function);
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| self_fn(first, second)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this bi-predicate to a closure that can be used
-    /// directly with standard library methods.
-    ///
-    /// This method creates a new closure without consuming the
-    /// original bi-predicate, since `RcBiPredicate` uses shared
-    /// ownership. The returned closure has signature
-    /// `Fn(&T, &U) -> bool`.
-    ///
-    /// # Returns
-    ///
-    /// A closure implementing `Fn(&T, &U) -> bool`.
-    pub fn to_fn(&self) -> impl Fn(&T, &U) -> bool
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let function = Rc::clone(&self.function);
-        move |first: &T, second: &U| function(first, second)
     }
 }
 
@@ -1163,9 +1135,8 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        let self_fn = self.function;
         BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| self_fn(first, second)),
+            function: Box::new(move |first, second| (self.function)(first, second)),
             name: self.name,
         }
     }
@@ -1179,27 +1150,48 @@ impl<T, U> BiPredicate<T, U> for RcBiPredicate<T, U> {
         self
     }
 
-    // RcBiPredicate cannot be converted to ArcBiPredicate because
-    // Rc is not Send + Sync
-    fn into_arc(self) -> ArcBiPredicate<T, U>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-    {
-        panic!("RcBiPredicate cannot be converted to ArcBiPredicate - use ArcBiPredicate::new directly")
-    }
+    // do NOT override RcBiPredicate::into_arc() because RcBiPredicate is not Send + Sync
+    // and calling RcBiPredicate::into_arc() will cause a compile error
 
-    // Use optimized conversion for into_fn that preserves the
-    // existing Rc
     fn into_fn(self) -> impl Fn(&T, &U) -> bool
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        let self_fn = self.function;
-        move |first: &T, second: &U| self_fn(first, second)
+        move |first, second| (self.function)(first, second)
+    }
+
+    fn to_box(&self) -> BoxBiPredicate<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxBiPredicate {
+            function: Box::new(move |first, second| self_fn(first, second)),
+            name: self.name.clone(),
+        }
+    }
+
+    // do NOT override RcBiPredicate::to_rc() because RcBiPredicate is not Clone
+    // and calling RcBiPredicate::to_rc() will cause a compile error
+
+    fn to_rc(&self) -> RcBiPredicate<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U) -> bool
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |first, second| self_fn(first, second)
     }
 }
 
@@ -1210,7 +1202,7 @@ impl<T, U> Clone for RcBiPredicate<T, U> {
     /// the original, allowing multiple references to the same
     /// bi-predicate logic.
     fn clone(&self) -> Self {
-        Self {
+        RcBiPredicate {
             function: Rc::clone(&self.function),
             name: self.name.clone(),
         }
@@ -1400,7 +1392,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| {
+            function: Arc::new(move |first, second| {
                 self_fn(first, second) && other.test(first, second)
             }),
             name: None,
@@ -1435,7 +1427,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| {
+            function: Arc::new(move |first, second| {
                 self_fn(first, second) || other.test(first, second)
             }),
             name: None,
@@ -1456,7 +1448,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| !self_fn(first, second)),
+            function: Arc::new(move |first, second| !self_fn(first, second)),
             name: None,
         }
     }
@@ -1492,7 +1484,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| {
+            function: Arc::new(move |first, second| {
                 !(self_fn(first, second) && other.test(first, second))
             }),
             name: None,
@@ -1529,7 +1521,7 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| {
+            function: Arc::new(move |first, second| {
                 self_fn(first, second) ^ other.test(first, second)
             }),
             name: None,
@@ -1567,65 +1559,11 @@ impl<T, U> ArcBiPredicate<T, U> {
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
-            function: Arc::new(move |first: &T, second: &U| {
+            function: Arc::new(move |first, second| {
                 !(self_fn(first, second) || other.test(first, second))
             }),
             name: None,
         }
-    }
-
-    /// Converts this bi-predicate to a `BoxBiPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// A `BoxBiPredicate` wrapping this bi-predicate.
-    pub fn to_box(&self) -> BoxBiPredicate<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = Arc::clone(&self.function);
-        BoxBiPredicate {
-            function: Box::new(move |first: &T, second: &U| self_fn(first, second)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this bi-predicate to an `RcBiPredicate`.
-    ///
-    /// # Returns
-    ///
-    /// An `RcBiPredicate` wrapping this bi-predicate.
-    pub fn to_rc(&self) -> RcBiPredicate<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = Arc::clone(&self.function);
-        RcBiPredicate {
-            function: Rc::new(move |first: &T, second: &U| self_fn(first, second)),
-            name: self.name.clone(),
-        }
-    }
-
-    /// Converts this bi-predicate to a closure that can be used
-    /// directly with standard library methods.
-    ///
-    /// This method creates a new closure without consuming the
-    /// original bi-predicate, since `ArcBiPredicate` uses shared
-    /// ownership. The returned closure has signature
-    /// `Fn(&T, &U) -> bool + Send + Sync` and is thread-safe.
-    ///
-    /// # Returns
-    ///
-    /// A closure implementing `Fn(&T, &U) -> bool + Send + Sync`.
-    pub fn to_fn(&self) -> impl Fn(&T, &U) -> bool + Send + Sync
-    where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-    {
-        let self_fn = Arc::clone(&self.function);
-        move |first: &T, second: &U| self_fn(first, second)
     }
 }
 
@@ -1641,10 +1579,9 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        let name = self.name.clone();
         BoxBiPredicate {
-            function: Box::new(move |first, second| self.test(first, second)),
-            name,
+            function: Box::new(move |first, second| (self.function)(first, second)),
+            name: self.name,
         }
     }
 
@@ -1655,10 +1592,9 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        let name = self.name.clone();
         RcBiPredicate {
-            function: Rc::new(move |first, second| self.test(first, second)),
-            name,
+            function: Rc::new(move |first, second| (self.function)(first, second)),
+            name: self.name,
         }
     }
 
@@ -1679,8 +1615,48 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        let self_fn = self.function;
-        move |first: &T, second: &U| self_fn(first, second)
+        move |first, second| (self.function)(first, second)
+    }
+
+    fn to_box(&self) -> BoxBiPredicate<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxBiPredicate {
+            function: Box::new(move |first, second| self_fn(first, second)),
+            name: self.name.clone(),
+        }
+    }
+
+    fn to_rc(&self) -> RcBiPredicate<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        RcBiPredicate {
+            function: Rc::new(move |first, second| self_fn(first, second)),
+            name: self.name.clone(),
+        }
+    }
+
+    fn to_arc(&self) -> ArcBiPredicate<T, U>
+    where
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U) -> bool
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |first, second| self_fn(first, second)
     }
 }
 
@@ -1691,7 +1667,7 @@ impl<T, U> Clone for ArcBiPredicate<T, U> {
     /// the original, allowing multiple references to the same
     /// bi-predicate logic.
     fn clone(&self) -> Self {
-        Self {
+        ArcBiPredicate {
             function: Arc::clone(&self.function),
             name: self.name.clone(),
         }
@@ -1750,6 +1726,42 @@ where
     // Optimal implementation for closures: return self (zero-cost)
     fn into_fn(self) -> impl Fn(&T, &U) -> bool {
         self
+    }
+
+    fn to_box(&self) -> BoxBiPredicate<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        BoxBiPredicate::new(self.clone())
+    }
+
+    fn to_rc(&self) -> RcBiPredicate<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        RcBiPredicate::new(self.clone())
+    }
+
+    fn to_arc(&self) -> ArcBiPredicate<T, U>
+    where
+        Self: Sized + Clone + Send + Sync + 'static,
+        T: Send + Sync + 'static,
+        U: Send + Sync + 'static,
+    {
+        ArcBiPredicate::new(self.clone())
+    }
+
+    fn to_fn(&self) -> impl Fn(&T, &U) -> bool
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
     }
 }
 

@@ -199,15 +199,14 @@ pub trait BiTransformer<T, U, R> {
     ///
     /// Returns a `Box<dyn Fn(T, U) -> R>` that clones `self` and calls
     /// `apply` inside the boxed closure.
-    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    fn to_fn(&self) -> impl Fn(T, U) -> R
     where
         Self: Sized + Clone + 'static,
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        let s = self.clone();
-        Box::new(move |t, u| s.apply(t, u))
+        self.clone().into_fn()
     }
 }
 
@@ -442,23 +441,11 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        RcBiTransformer {
-            function: Rc::from(self.function),
-        }
+        RcBiTransformer::new(move |t, u| (self.function)(t, u))
     }
 
-    fn into_arc(self) -> ArcBiTransformer<T, U, R>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
-    {
-        unreachable!(
-            "BoxBiTransformer<T, U, R> does not implement Send + Sync, so this \
-             method can never be called"
-        )
-    }
+    // do NOT override BoxBiTransformer::into_arc() because BoxBiTransformer is not Send + Sync
+    // and calling BoxBiTransformer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(T, U) -> R
     where
@@ -466,8 +453,11 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.apply(t, u)
+        move |t: T, u: U| (self.function)(t, u)
     }
+
+    // do NOT override BoxBiTransformer::to_xxx() because BoxBiTransformer is not Clone
+    // and calling BoxBiTransformer::to_xxx() will cause a compile error
 }
 
 // ============================================================================
@@ -749,12 +739,12 @@ where
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
     /// ```
-    pub fn when<P>(self, predicate: P) -> ArcConditionalBiTransformer<T, U, R>
+    pub fn when<P>(&self, predicate: P) -> ArcConditionalBiTransformer<T, U, R>
     where
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         ArcConditionalBiTransformer {
-            transformer: self,
+            transformer: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -795,9 +785,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        BoxBiTransformer {
-            function: Box::new(move |x, y| self.apply(x, y)),
-        }
+        BoxBiTransformer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_rc(self) -> RcBiTransformer<T, U, R>
@@ -806,9 +794,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        RcBiTransformer {
-            function: Rc::new(move |x, y| self.apply(x, y)),
-        }
+        RcBiTransformer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_arc(self) -> ArcBiTransformer<T, U, R>
@@ -827,7 +813,7 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.apply(t, u)
+        move |t: T, u: U| (self.function)(t, u)
     }
 
     fn to_box(&self) -> BoxBiTransformer<T, U, R>
@@ -836,8 +822,8 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        let f = Arc::clone(&self.function);
-        BoxBiTransformer { function: Box::new(move |t, u| f(t, u)) }
+        let self_fn = self.function.clone();
+        BoxBiTransformer::new(move |t, u| self_fn(t, u))
     }
 
     fn to_rc(&self) -> RcBiTransformer<T, U, R>
@@ -846,8 +832,8 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        let f = Arc::clone(&self.function);
-        RcBiTransformer { function: Rc::new(move |t, u| f(t, u)) }
+        let self_fn = self.function.clone();
+        RcBiTransformer::new(move |t, u| self_fn(t, u))
     }
 
     fn to_arc(&self) -> ArcBiTransformer<T, U, R>
@@ -859,14 +845,14 @@ impl<T, U, R> BiTransformer<T, U, R> for ArcBiTransformer<T, U, R> {
         self.clone()
     }
 
-    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    fn to_fn(&self) -> impl Fn(T, U) -> R
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        let f = Arc::clone(&self.function);
-        Box::new(move |t: T, u: U| f(t, u))
+        let self_fn = self.function.clone();
+        move |t: T, u: U| self_fn(t, u)
     }
 }
 
@@ -956,13 +942,13 @@ where
     /// assert_eq!(conditional.apply(5, 3), 8);
     /// assert_eq!(conditional.apply(-5, 3), -15);
     /// ```
-    pub fn or_else<F>(self, else_transformer: F) -> ArcBiTransformer<T, U, R>
+    pub fn or_else<F>(&self, else_transformer: F) -> ArcBiTransformer<T, U, R>
     where
         F: BiTransformer<T, U, R> + Send + Sync + 'static,
         R: Send + Sync,
     {
-        let pred = self.predicate;
-        let then_trans = self.transformer;
+        let pred = self.predicate.clone();
+        let then_trans = self.transformer.clone();
         ArcBiTransformer::new(move |t, u| {
             if pred.test(&t, &u) {
                 then_trans.apply(t, u)
@@ -979,7 +965,7 @@ impl<T, U, R> Clone for ArcConditionalBiTransformer<T, U, R> {
     /// Creates a new instance that shares the underlying bi-transformer and
     /// bi-predicate with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        ArcConditionalBiTransformer {
             transformer: self.transformer.clone(),
             predicate: self.predicate.clone(),
         }
@@ -1173,12 +1159,12 @@ where
     /// // Original bi-predicate still usable
     /// assert!(both_positive.test(&5, &3));
     /// ```
-    pub fn when<P>(self, predicate: P) -> RcConditionalBiTransformer<T, U, R>
+    pub fn when<P>(&self, predicate: P) -> RcConditionalBiTransformer<T, U, R>
     where
         P: BiPredicate<T, U> + 'static,
     {
         RcConditionalBiTransformer {
-            transformer: self,
+            transformer: self.clone(),
             predicate: predicate.into_rc(),
         }
     }
@@ -1216,9 +1202,7 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        BoxBiTransformer {
-            function: Box::new(move |x, y| self.apply(x, y)),
-        }
+        BoxBiTransformer::new(move |t, u| (self.function)(t, u))
     }
 
     fn into_rc(self) -> RcBiTransformer<T, U, R>
@@ -1231,18 +1215,8 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         self
     }
 
-    fn into_arc(self) -> ArcBiTransformer<T, U, R>
-    where
-        Self: Send + Sync,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
-    {
-        unreachable!(
-            "RcBiTransformer cannot be converted to ArcBiTransformer because Rc \
-             is not Send + Sync"
-        )
-    }
+    // do NOT override RcBiTransformer::into_arc() because RcBiTransformer is not Send + Sync
+    // and calling RcBiTransformer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl Fn(T, U) -> R
     where
@@ -1250,7 +1224,7 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        move |t: T, u: U| self.apply(t, u)
+        move |t: T, u: U| (self.function)(t, u)
     }
 
     fn to_box(&self) -> BoxBiTransformer<T, U, R>
@@ -1259,8 +1233,8 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         U: 'static,
         R: 'static,
     {
-        let f = Rc::clone(&self.function);
-        BoxBiTransformer { function: Box::new(move |t, u| f(t, u)) }
+        let self_fn = self.function.clone();
+        BoxBiTransformer::new(move |t, u| self_fn(t, u))
     }
 
     fn to_rc(&self) -> RcBiTransformer<T, U, R>
@@ -1272,26 +1246,17 @@ impl<T, U, R> BiTransformer<T, U, R> for RcBiTransformer<T, U, R> {
         self.clone()
     }
 
-    fn to_arc(&self) -> ArcBiTransformer<T, U, R>
-    where
-        Self: Sized + Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
-    {
-        unreachable!(
-            "RcBiTransformer cannot be converted to ArcBiTransformer because Rc is not Send + Sync"
-        )
-    }
+    // do NOT override RcBiTransformer::to_arc() because RcBiTransformer is not Send + Sync
+    // and calling RcBiTransformer::to_arc() will cause a compile error
 
-    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    fn to_fn(&self) -> impl Fn(T, U) -> R
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        let f = Rc::clone(&self.function);
-        Box::new(move |t: T, u: U| f(t, u))
+        let self_fn = self.function.clone();
+        move |t: T, u: U| self_fn(t, u)
     }
 }
 
@@ -1381,12 +1346,12 @@ where
     /// assert_eq!(conditional.apply(5, 3), 8);
     /// assert_eq!(conditional.apply(-5, 3), -15);
     /// ```
-    pub fn or_else<F>(self, else_transformer: F) -> RcBiTransformer<T, U, R>
+    pub fn or_else<F>(&self, else_transformer: F) -> RcBiTransformer<T, U, R>
     where
         F: BiTransformer<T, U, R> + 'static,
     {
-        let pred = self.predicate;
-        let then_trans = self.transformer;
+        let pred = self.predicate.clone();
+        let then_trans = self.transformer.clone();
         RcBiTransformer::new(move |t, u| {
             if pred.test(&t, &u) {
                 then_trans.apply(t, u)
@@ -1403,7 +1368,7 @@ impl<T, U, R> Clone for RcConditionalBiTransformer<T, U, R> {
     /// Creates a new instance that shares the underlying bi-transformer and
     /// bi-predicate with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        RcConditionalBiTransformer {
             transformer: self.transformer.clone(),
             predicate: self.predicate.clone(),
         }
@@ -1507,15 +1472,14 @@ where
         ArcBiTransformer::new(self.clone())
     }
 
-    fn to_fn(&self) -> Box<dyn Fn(T, U) -> R>
+    fn to_fn(&self) -> impl Fn(T, U) -> R
     where
         Self: Sized + Clone + 'static,
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        let f = self.clone();
-        Box::new(move |t: T, u: U| f(t, u))
+        self.clone()
     }
 }
 

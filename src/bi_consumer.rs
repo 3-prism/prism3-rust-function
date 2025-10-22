@@ -171,7 +171,11 @@ pub trait BiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        let mut consumer = self;
+        BoxBiConsumer::new(move |t, u| consumer.accept(t, u))
+    }
 
     /// Converts to RcBiConsumer
     ///
@@ -185,7 +189,11 @@ pub trait BiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        let mut consumer = self;
+        RcBiConsumer::new(move |t, u| consumer.accept(t, u))
+    }
 
     /// Converts to ArcBiConsumer
     ///
@@ -199,7 +207,11 @@ pub trait BiConsumer<T, U> {
     where
         Self: Sized + Send + 'static,
         T: Send + 'static,
-        U: Send + 'static;
+        U: Send + 'static,
+    {
+        let mut consumer = self;
+        ArcBiConsumer::new(move |t, u| consumer.accept(t, u))
+    }
 
     /// Converts bi-consumer to a closure
     ///
@@ -232,7 +244,189 @@ pub trait BiConsumer<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        let mut consumer = self;
+        move |t, u| consumer.accept(t, u)
+    }
+
+    /// Converts to BoxBiConsumer (non-consuming)
+    ///
+    /// **⚠️ Requires Clone**: Original consumer must implement Clone.
+    ///
+    /// Converts the current bi-consumer to `BoxBiConsumer<T, U>` by cloning
+    /// it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer
+    /// and then converts the clone to `BoxBiConsumer<T, U>`. The original
+    /// consumer remains available after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxBiConsumer<T, U>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let mut box_consumer = consumer.to_box();
+    /// box_consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// // Original consumer still usable
+    /// consumer.accept(&2, &1);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    /// ```
+    fn to_box(&self) -> BoxBiConsumer<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Converts to RcBiConsumer (non-consuming)
+    ///
+    /// **⚠️ Requires Clone**: Original consumer must implement Clone.
+    ///
+    /// Converts the current bi-consumer to `RcBiConsumer<T, U>` by cloning
+    /// it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer
+    /// and then converts the clone to `RcBiConsumer<T, U>`. The original
+    /// consumer remains available after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `RcBiConsumer<T, U>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let mut rc_consumer = consumer.to_rc();
+    /// rc_consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// // Original consumer still usable
+    /// consumer.accept(&2, &1);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    /// ```
+    fn to_rc(&self) -> RcBiConsumer<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_rc()
+    }
+
+    /// Converts to ArcBiConsumer (non-consuming)
+    ///
+    /// **⚠️ Requires Clone + Send**: Original consumer must implement Clone +
+    /// Send.
+    ///
+    /// Converts the current bi-consumer to `ArcBiConsumer<T, U>` by cloning
+    /// it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer
+    /// and then converts the clone to `ArcBiConsumer<T, U>`. The original
+    /// consumer remains available after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `ArcBiConsumer<T, U>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x + *y);
+    /// });
+    /// let mut arc_consumer = consumer.to_arc();
+    /// arc_consumer.accept(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    /// // Original consumer still usable
+    /// consumer.accept(&2, &1);
+    /// assert_eq!(*log.borrow(), vec![8, 3]);
+    /// ```
+    fn to_arc(&self) -> ArcBiConsumer<T, U>
+    where
+        Self: Sized + Clone + Send + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
+    {
+        self.clone().into_arc()
+    }
+
+    /// Converts to closure (non-consuming)
+    ///
+    /// **⚠️ Requires Clone**: Original consumer must implement Clone.
+    ///
+    /// Converts the consumer to a closure that can be used directly in
+    /// standard library functions requiring `FnMut`.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer
+    /// and then converts the clone to a closure. The original consumer
+    /// remains available after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnMut(&T, &U)` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let mut func = consumer.to_fn();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// // Original consumer still usable
+    /// consumer.accept(&2, &1);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    /// ```
+    fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // =======================================================================
@@ -553,16 +747,8 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
         RcBiConsumer::new(move |t, u| func(t, u))
     }
 
-    fn into_arc(self) -> ArcBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        panic!(
-            "Cannot convert BoxBiConsumer to ArcBiConsumer: inner \
-                function may not be Send"
-        )
-    }
+    // do NOT override BiConsumer::into_arc() because BoxBiConsumer is not Send + Sync
+    // and calling BoxBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&T, &U)
     where
@@ -571,6 +757,9 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
     {
         self.function
     }
+
+    // do NOT override BiConsumer::to_xxx() because BoxBiConsumer is not Clone
+    // and calling BoxBiConsumer::to_xxx() will cause a compile error
 }
 
 impl<T, U> fmt::Debug for BoxBiConsumer<T, U> {
@@ -687,25 +876,16 @@ where
     fn into_rc(self) -> RcBiConsumer<T, U> {
         let pred = self.predicate.into_rc();
         let consumer = self.consumer.into_rc();
-        let pred_fn = pred.to_fn();
         let mut consumer_fn = consumer;
         RcBiConsumer::new(move |t, u| {
-            if pred_fn(t, u) {
+            if pred.test(t, u) {
                 consumer_fn.accept(t, u);
             }
         })
     }
 
-    fn into_arc(self) -> ArcBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        panic!(
-            "Cannot convert BoxConditionalBiConsumer to ArcBiConsumer: \
-             predicate and consumer may not be Send + Sync"
-        )
-    }
+    // do NOT override BiConsumer::into_arc() because BoxConditionalBiConsumer is not Send + Sync
+    // and calling BoxConditionalBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&T, &U) {
         let pred = self.predicate;
@@ -716,6 +896,9 @@ where
             }
         }
     }
+
+    // do NOT override BiConsumer::to_xxx() because BoxConditionalBiConsumer is not Clone
+    // and calling BoxConditionalBiConsumer::to_xxx() will cause a compile error
 }
 
 impl<T, U> BoxConditionalBiConsumer<T, U>
@@ -1164,14 +1347,14 @@ where
     /// m.accept(&positive, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    pub fn when<P>(self, predicate: P) -> ArcConditionalBiConsumer<T, U>
+    pub fn when<P>(&self, predicate: P) -> ArcConditionalBiConsumer<T, U>
     where
         P: BiPredicate<T, U> + Send + Sync + 'static,
         T: Send + Sync,
         U: Send + Sync,
     {
         ArcConditionalBiConsumer {
-            consumer: self,
+            consumer: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -1187,8 +1370,8 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        BoxBiConsumer::new(move |t, u| func.lock().unwrap()(t, u))
+        let self_fn = self.function;
+        BoxBiConsumer::new(move |t, u| self_fn.lock().unwrap()(t, u))
     }
 
     fn into_rc(self) -> RcBiConsumer<T, U>
@@ -1196,8 +1379,8 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        RcBiConsumer::new(move |t, u| func.lock().unwrap()(t, u))
+        let self_fn = self.function;
+        RcBiConsumer::new(move |t, u| self_fn.lock().unwrap()(t, u))
     }
 
     fn into_arc(self) -> ArcBiConsumer<T, U>
@@ -1213,10 +1396,43 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        move |t: &T, u: &U| {
-            func.lock().unwrap()(t, u);
-        }
+        let self_fn = self.function;
+        move |t, u| self_fn.lock().unwrap()(t, u)
+    }
+
+    fn to_box(&self) -> BoxBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxBiConsumer::new(move |t, u| self_fn.lock().unwrap()(t, u))
+    }
+
+    fn to_rc(&self) -> RcBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        RcBiConsumer::new(move |t, u| self_fn.lock().unwrap()(t, u))
+    }
+
+    fn to_arc(&self) -> ArcBiConsumer<T, U>
+    where
+        T: Send + 'static,
+        U: Send + 'static,
+    {
+        self.clone()
+    }
+
+    fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t, u| self_fn.lock().unwrap()(t, u)
     }
 }
 
@@ -1226,8 +1442,8 @@ impl<T, U> Clone for ArcBiConsumer<T, U> {
     /// Creates a new ArcBiConsumer sharing the underlying function with
     /// the original instance.
     fn clone(&self) -> Self {
-        Self {
-            function: Arc::clone(&self.function),
+        ArcBiConsumer {
+            function: self.function.clone(),
             name: self.name.clone(),
         }
     }
@@ -1331,10 +1547,9 @@ where
     {
         let pred = self.predicate.to_rc();
         let consumer = self.consumer.into_rc();
-        let pred_fn = pred.to_fn();
         let mut consumer_fn = consumer;
         RcBiConsumer::new(move |t, u| {
-            if pred_fn(t, u) {
+            if pred.test(t, u) {
                 consumer_fn.accept(t, u);
             }
         })
@@ -1367,6 +1582,8 @@ where
             }
         }
     }
+
+    // Use the default implementation of to_xxx() from BiConsumer
 }
 
 impl<T, U> ArcConditionalBiConsumer<T, U>
@@ -1418,14 +1635,14 @@ where
     /// consumer.accept(&-5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, -15]);
     /// ```
-    pub fn or_else<C>(self, else_consumer: C) -> ArcBiConsumer<T, U>
+    pub fn or_else<C>(&self, else_consumer: C) -> ArcBiConsumer<T, U>
     where
         C: BiConsumer<T, U> + Send + 'static,
         T: Send + Sync,
         U: Send + Sync,
     {
-        let pred = self.predicate;
-        let mut then_cons = self.consumer;
+        let pred = self.predicate.clone();
+        let mut then_cons = self.consumer.clone();
         let mut else_cons = else_consumer;
 
         ArcBiConsumer::new(move |t: &T, u: &U| {
@@ -1444,7 +1661,7 @@ impl<T, U> Clone for ArcConditionalBiConsumer<T, U> {
     /// Creates a new instance that shares the underlying consumer and predicate
     /// with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        ArcConditionalBiConsumer {
             consumer: self.consumer.clone(),
             predicate: self.predicate.clone(),
         }
@@ -1758,12 +1975,12 @@ where
     /// m.accept(&positive, &3);
     /// assert_eq!(*log.borrow(), vec![8]);
     /// ```
-    pub fn when<P>(self, predicate: P) -> RcConditionalBiConsumer<T, U>
+    pub fn when<P>(&self, predicate: P) -> RcConditionalBiConsumer<T, U>
     where
         P: BiPredicate<T, U> + 'static,
     {
         RcConditionalBiConsumer {
-            consumer: self,
+            consumer: self.clone(),
             predicate: predicate.into_rc(),
         }
     }
@@ -1779,8 +1996,8 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        BoxBiConsumer::new(move |t, u| func.borrow_mut()(t, u))
+        let self_fn = self.function;
+        BoxBiConsumer::new(move |t, u| self_fn.borrow_mut()(t, u))
     }
 
     fn into_rc(self) -> RcBiConsumer<T, U>
@@ -1791,23 +2008,45 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
         self
     }
 
-    fn into_arc(self) -> ArcBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        panic!("Cannot convert RcBiConsumer to ArcBiConsumer (not Send)")
-    }
+    // do NOT override BiConsumer::into_arc() because RcBiConsumer is not Send + Sync
+    // and calling RcBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&T, &U)
     where
         T: 'static,
         U: 'static,
     {
-        let func = self.function;
-        move |t: &T, u: &U| {
-            func.borrow_mut()(t, u);
-        }
+        let self_fn = self.function;
+        move |t, u| self_fn.borrow_mut()(t, u)
+    }
+
+    fn to_box(&self) -> BoxBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxBiConsumer::new(move |t, u| self_fn.borrow_mut()(t, u))
+    }
+
+    fn to_rc(&self) -> RcBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
+    }
+
+    // do NOT override BiConsumer::to_arc() because RcBiConsumer is not Send + Sync
+    // and calling RcBiConsumer::to_arc() will cause a compile error
+
+    fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t, u| self_fn.borrow_mut()(t, u)
     }
 }
 
@@ -1817,7 +2056,7 @@ impl<T, U> Clone for RcBiConsumer<T, U> {
     /// Creates a new RcBiConsumer sharing the underlying function with the
     /// original instance.
     fn clone(&self) -> Self {
-        Self {
+        RcBiConsumer {
             function: Rc::clone(&self.function),
             name: self.name.clone(),
         }
@@ -1922,13 +2161,8 @@ where
         })
     }
 
-    fn into_arc(self) -> ArcBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        panic!("Cannot convert RcConditionalBiConsumer to ArcBiConsumer: not Send")
-    }
+    // do NOT override BiConsumer::into_arc() because RcConditionalBiConsumer is not Send + Sync
+    // and calling RcConditionalBiConsumer::into_arc() will cause a compile error
 
     fn into_fn(self) -> impl FnMut(&T, &U) {
         let pred = self.predicate;
@@ -1939,6 +2173,8 @@ where
             }
         }
     }
+
+    // Use the default implementation of to_xxx() from BiConsumer
 }
 
 impl<T, U> RcConditionalBiConsumer<T, U>
@@ -1990,12 +2226,12 @@ where
     /// consumer.accept(&-5, &3);
     /// assert_eq!(*log.borrow(), vec![8, -15]);
     /// ```
-    pub fn or_else<C>(self, else_consumer: C) -> RcBiConsumer<T, U>
+    pub fn or_else<C>(&self, else_consumer: C) -> RcBiConsumer<T, U>
     where
         C: BiConsumer<T, U> + 'static,
     {
-        let pred = self.predicate;
-        let mut then_cons = self.consumer;
+        let pred = self.predicate.clone();
+        let mut then_cons = self.consumer.clone();
         let mut else_cons = else_consumer;
 
         RcBiConsumer::new(move |t: &T, u: &U| {
@@ -2014,7 +2250,7 @@ impl<T, U> Clone for RcConditionalBiConsumer<T, U> {
     /// Creates a new instance that shares the underlying consumer and predicate
     /// with the original instance.
     fn clone(&self) -> Self {
-        Self {
+        RcConditionalBiConsumer {
             consumer: self.consumer.clone(),
             predicate: self.predicate.clone(),
         }
@@ -2068,6 +2304,45 @@ where
         U: 'static,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxBiConsumer<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let cloned = self.clone();
+        BoxBiConsumer::new(cloned)
+    }
+
+    fn to_rc(&self) -> RcBiConsumer<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let cloned = self.clone();
+        RcBiConsumer::new(cloned)
+    }
+
+    fn to_arc(&self) -> ArcBiConsumer<T, U>
+    where
+        Self: Sized + Clone + Send + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
+    {
+        let cloned = self.clone();
+        ArcBiConsumer::new(cloned)
+    }
+
+    fn to_fn(&self) -> impl FnMut(&T, &U)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
     }
 }
 

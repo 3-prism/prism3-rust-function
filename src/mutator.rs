@@ -444,8 +444,7 @@ pub trait Mutator<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mut mutator = self.clone();
-        BoxMutator::new(move |t| mutator.mutate(t))
+        self.clone().into_box()
     }
 
     /// Create a non-consuming `RcMutator<T>` that forwards to `self`.
@@ -462,8 +461,7 @@ pub trait Mutator<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mut mutator = self.clone();
-        RcMutator::new(move |t| mutator.mutate(t))
+        self.clone().into_rc()
     }
 
     /// Create a non-consuming `ArcMutator<T>` that forwards to `self`.
@@ -480,8 +478,7 @@ pub trait Mutator<T> {
         Self: Sized + Clone + Send + 'static,
         T: Send + 'static,
     {
-        let mut mutator = self.clone();
-        ArcMutator::new(move |t| mutator.mutate(t))
+        self.clone().into_arc()
     }
 
     /// Create a boxed `FnMut(&mut T)` closure that forwards to `self`.
@@ -499,8 +496,7 @@ pub trait Mutator<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let mut mutator = self.clone();
-        move |t| mutator.mutate(t)
+        self.clone().into_fn()
     }
 }
 
@@ -594,7 +590,9 @@ where
     where
         F: FnMut(&mut T) + 'static,
     {
-        BoxMutator { function: Box::new(f) }
+        BoxMutator {
+            function: Box::new(f),
+        }
     }
 
     /// Creates a no-op mutator

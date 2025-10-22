@@ -151,7 +151,10 @@ pub trait BiConsumerOnce<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+    }
 
     /// Converts to a closure
     ///
@@ -168,7 +171,78 @@ pub trait BiConsumerOnce<T, U> {
     where
         Self: Sized + 'static,
         T: 'static,
-        U: 'static;
+        U: 'static,
+    {
+        move |t, u| self.accept(t, u)
+    }
+
+    /// Convert to BoxBiConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current bi-consumer and then converts the clone
+    /// to a `BoxBiConsumerOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BiConsumerOnce;
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// };
+    /// let box_consumer = closure.to_box();
+    /// box_consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn to_box(&self) -> BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Convert to closure without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current bi-consumer and then converts the clone
+    /// to a closure.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnOnce(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BiConsumerOnce;
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let closure = move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// };
+    /// let func = closure.to_fn();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn to_fn(&self) -> impl FnOnce(&T, &U)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // =======================================================================
@@ -725,6 +799,24 @@ where
         U: 'static,
     {
         self
+    }
+
+    fn to_box(&self) -> BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        BoxBiConsumerOnce::new(self.clone())
+    }
+
+    fn to_fn(&self) -> impl FnOnce(&T, &U)
+    where
+        Self: Sized + Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone()
     }
 }
 

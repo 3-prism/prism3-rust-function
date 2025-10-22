@@ -242,8 +242,7 @@ pub trait Mapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self.clone();
-        BoxMapper::new(move |t| mapper.apply(t))
+        self.clone().into_box()
     }
 
     /// Non-consuming conversion to `RcMapper`.
@@ -256,8 +255,7 @@ pub trait Mapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self.clone();
-        RcMapper::new(move |t| mapper.apply(t))
+        self.clone().into_rc()
     }
 
     /// Non-consuming conversion to `ArcMapper` (thread-safe).
@@ -271,8 +269,7 @@ pub trait Mapper<T, R> {
         T: Send + Sync + 'static,
         R: Send + 'static,
     {
-        let mut mapper = self.clone();
-        ArcMapper::new(move |t| mapper.apply(t))
+        self.clone().into_arc()
     }
 
     /// Non-consuming conversion to a closure (`FnMut(T) -> R`).
@@ -285,8 +282,7 @@ pub trait Mapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self.clone();
-        move |t| mapper.apply(t)
+        self.clone().into_fn()
     }
 }
 
@@ -573,8 +569,8 @@ impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut self_fn = self.function;
-        RcMapper::new(move |t| self_fn(t))
+        let self_fn = self.function;
+        RcMapper::new(self_fn)
     }
 
     // do NOT override Mapper::into_arc() because BoxMapper is not Send + Sync

@@ -68,7 +68,10 @@ pub trait BiTransformerOnce<T, U, R> {
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        BoxBiTransformerOnce::new(move |t: T, u: U| self.apply(t, u))
+    }
 
     /// Converts bi-transformer to a closure
     ///
@@ -83,7 +86,66 @@ pub trait BiTransformerOnce<T, U, R> {
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
-        R: 'static;
+        R: 'static,
+    {
+        move |t: T, u: U| self.apply(t, u)
+    }
+
+    /// Converts bi-transformer to a boxed function pointer
+    ///
+    /// **📌 Borrows `&self`**: The original bi-transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a boxed function pointer that implements `FnOnce(T, U) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BiTransformerOnce;
+    ///
+    /// let add = |x: i32, y: i32| x + y;
+    /// let func = add.to_fn();
+    /// assert_eq!(func(20, 22), 42);
+    /// ```
+    fn to_box(&self) -> BoxBiTransformerOnce<T, U, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone().into_box()
+    }
+
+    /// Converts bi-transformer to a closure
+    ///
+    /// **📌 Borrows `&self`**: The original bi-transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T, U) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::BiTransformerOnce;
+    ///
+    /// let add = |x: i32, y: i32| x + y;
+    /// let func = add.to_fn();
+    /// assert_eq!(func(20, 22), 42);
+    /// ```
+    fn to_fn(&self) -> impl FnOnce(T, U) -> R
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone().into_fn()
+    }
 }
 
 // ============================================================================
@@ -304,6 +366,9 @@ impl<T, U, R> BiTransformerOnce<T, U, R> for BoxBiTransformerOnce<T, U, R> {
     {
         move |t: T, u: U| self.apply(t, u)
     }
+
+    //  do NOT override BoxBiTransformerOnce::to_xxxx() because BoxBiTransformerOnce is not Clone
+    //  and calling BoxBiTransformerOnce::to_xxxx() will cause a compile error
 }
 
 // ============================================================================
@@ -460,6 +525,26 @@ where
         Self: Sized + 'static,
     {
         move |first: T, second: U| -> R { self(first, second) }
+    }
+
+    fn to_box(&self) -> BoxBiTransformerOnce<T, U, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        BoxBiTransformerOnce::new(self.clone())
+    }
+
+    fn to_fn(&self) -> impl FnOnce(T, U) -> R
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        self.clone()
     }
 }
 

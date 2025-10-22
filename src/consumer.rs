@@ -8,18 +8,24 @@
  ******************************************************************************/
 //! # Consumer Types
 //!
-//! Provides implementations of consumer interfaces for executing operations that accept a single input parameter but return no result.
+//! Provides implementations of consumer interfaces for executing operations
+//! that accept a single input parameter but return no result.
 //!
-//! This module provides a unified `Consumer` trait and three concrete implementations based on different ownership models:
+//! This module provides a unified `Consumer` trait and three concrete
+//! implementations based on different ownership models:
 //!
-//! - **`BoxConsumer<T>`**: Box-based single ownership implementation for one-time use scenarios
-//! - **`ArcConsumer<T>`**: Thread-safe shared ownership implementation based on Arc<Mutex<>>
-//! - **`RcConsumer<T>`**: Single-threaded shared ownership implementation based on Rc<RefCell<>>
+//! - **`BoxConsumer<T>`**: Box-based single ownership implementation for
+//!   one-time use scenarios
+//! - **`ArcConsumer<T>`**: Thread-safe shared ownership implementation
+//!   based on Arc<Mutex<>>
+//! - **`RcConsumer<T>`**: Single-threaded shared ownership implementation
+//!   based on Rc<RefCell<>>
 //!
 //! # Design Philosophy
 //!
-//! Consumer uses `FnMut(&T)` semantics, allowing modification of its own state but not the input value. Suitable for
-//! statistics, accumulation, event handling, and other scenarios.
+//! Consumer uses `FnMut(&T)` semantics, allowing modification of its own state
+//! but not the input value. Suitable for statistics, accumulation, event
+//! handling, and other scenarios.
 //!
 //! # Author
 //!
@@ -34,15 +40,15 @@ use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 
 /// Type alias for consumer function to simplify complex types.
 ///
-/// This type alias represents a mutable function that takes a reference and returns nothing.
-/// It is used to reduce type complexity in struct definitions.
+/// This type alias represents a mutable function that takes a reference and
+/// returns nothing. It is used to reduce type complexity in struct definitions.
 type ConsumerFn<T> = dyn FnMut(&T);
 
 /// Type alias for thread-safe consumer function to simplify complex types.
 ///
-/// This type alias represents a mutable function that takes a reference and returns nothing,
-/// with Send bound for thread-safe usage. It is used to reduce type complexity
-/// in Arc-based struct definitions.
+/// This type alias represents a mutable function that takes a reference and
+/// returns nothing, with Send bound for thread-safe usage. It is used to
+/// reduce type complexity in Arc-based struct definitions.
 type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 
 // ============================================================================
@@ -51,10 +57,12 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 
 /// Consumer trait - Unified consumer interface
 ///
-/// Defines the core behavior of all consumer types. Similar to Java's `Consumer<T>` interface,
-/// executes operations that accept a value but return no result (side effects only).
+/// Defines the core behavior of all consumer types. Similar to Java's
+/// `Consumer<T>` interface, executes operations that accept a value but return
+/// no result (side effects only).
 ///
-/// Consumer can modify its own state (such as accumulation, counting), but should not modify the consumed value itself.
+/// Consumer can modify its own state (such as accumulation, counting), but
+/// should not modify the consumed value itself.
 ///
 /// # Automatic Implementation
 ///
@@ -63,8 +71,10 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 ///
 /// # Features
 ///
-/// - **Unified Interface**: All consumer types share the same `accept` method signature
-/// - **Automatic Implementation**: Closures automatically implement this trait with zero overhead
+/// - **Unified Interface**: All consumer types share the same `accept` method
+///   signature
+/// - **Automatic Implementation**: Closures automatically implement this trait
+///   with zero overhead
 /// - **Type Conversion**: Easy conversion between different ownership models
 /// - **Generic Programming**: Write functions that work with any consumer type
 ///
@@ -94,8 +104,9 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 pub trait Consumer<T> {
     /// Execute consumption operation
     ///
-    /// Performs an operation on the given reference. The operation typically reads the input value or produces side effects,
-    /// but does not modify the input value itself. Can modify the consumer's own state.
+    /// Performs an operation on the given reference. The operation typically
+    /// reads the input value or produces side effects, but does not modify the
+    /// input value itself. Can modify the consumer's own state.
     ///
     /// # Parameters
     ///
@@ -114,7 +125,8 @@ pub trait Consumer<T> {
 
     /// Convert to BoxConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// Converts the current consumer to `BoxConsumer<T>`.
     ///
@@ -124,7 +136,8 @@ pub trait Consumer<T> {
     /// After calling this method, the original consumer is no longer available.
     ///
     /// **Tip**: For cloneable consumers ([`ArcConsumer`], [`RcConsumer`]),
-    /// if you need to preserve the original object, you can call `.clone()` first.
+    /// if you need to preserve the original object, you can call `.clone()`
+    /// first.
     ///
     /// # Return Value
     ///
@@ -156,7 +169,8 @@ pub trait Consumer<T> {
 
     /// Convert to RcConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// # Return Value
     ///
@@ -172,7 +186,8 @@ pub trait Consumer<T> {
 
     /// Convert to ArcConsumer
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
     /// # Return Value
     ///
@@ -188,9 +203,11 @@ pub trait Consumer<T> {
 
     /// Convert to closure
     ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
     ///
-    /// Converts the consumer to a closure that can be used directly in standard library functions requiring `FnMut`.
+    /// Converts the consumer to a closure that can be used directly in standard
+    /// library functions requiring `FnMut`.
     ///
     /// # Return Value
     ///
@@ -220,6 +237,40 @@ pub trait Consumer<T> {
         move |t| consumer.accept(t)
     }
 
+    /// Convert to BoxConsumer
+    ///
+    /// **⚠️ Requires Clone**: The original consumer must implement Clone.
+    ///
+    /// Converts the current consumer to `BoxConsumer<T>` by cloning it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer and
+    /// then converts the clone to `BoxConsumer<T>`. The original consumer remains
+    /// available after calling this method.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumer<T>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut box_consumer = consumer.to_box();
+    /// box_consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
+    /// ```
     fn to_box(&self) -> BoxConsumer<T>
     where
         Self: Sized + Clone + 'static,
@@ -228,6 +279,40 @@ pub trait Consumer<T> {
         self.clone().into_box()
     }
 
+    /// Convert to RcConsumer
+    ///
+    /// **⚠️ Requires Clone**: The original consumer must implement Clone.
+    ///
+    /// Converts the current consumer to `RcConsumer<T>` by cloning it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer and
+    /// then converts the clone to `RcConsumer<T>`. The original consumer remains
+    /// available after calling this method.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `RcConsumer<T>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut rc_consumer = consumer.to_rc();
+    /// rc_consumer.accept(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
+    /// ```
     fn to_rc(&self) -> RcConsumer<T>
     where
         Self: Sized + Clone + 'static,
@@ -236,6 +321,42 @@ pub trait Consumer<T> {
         self.clone().into_rc()
     }
 
+    /// Convert to ArcConsumer
+    ///
+    /// **⚠️ Requires Clone + Send**: The original consumer must implement
+    /// Clone + Send.
+    ///
+    /// Converts the current consumer to `ArcConsumer<T>` by cloning it first.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer and
+    /// then converts the clone to `ArcConsumer<T>`. The original consumer remains
+    /// available after calling this method.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `ArcConsumer<T>` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let mut arc_consumer = consumer.to_arc();
+    /// arc_consumer.accept(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.borrow(), vec![5, 3]);
+    /// ```
     fn to_arc(&self) -> ArcConsumer<T>
     where
         Self: Sized + Clone + Send + 'static,
@@ -244,6 +365,41 @@ pub trait Consumer<T> {
         self.clone().into_arc()
     }
 
+    /// Convert to closure
+    ///
+    /// **⚠️ Requires Clone**: The original consumer must implement Clone.
+    ///
+    /// Converts the consumer to a closure that can be used directly in standard
+    /// library functions requiring `FnMut`.
+    ///
+    /// # Ownership
+    ///
+    /// This method does **not consume** the consumer. It clones the consumer and
+    /// then converts the clone to a closure. The original consumer remains
+    /// available after calling this method.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnMut(&T)` from the clone
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let mut func = consumer.to_fn();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
+    /// ```
     fn to_fn(&self) -> impl FnMut(&T)
     where
         Self: Sized + Clone + 'static,
@@ -259,8 +415,9 @@ pub trait Consumer<T> {
 
 /// BoxConsumer struct
 ///
-/// Consumer implementation based on `Box<dyn FnMut(&T)>` for single ownership scenarios.
-/// When sharing is not needed, this is the simplest and most efficient consumer type.
+/// Consumer implementation based on `Box<dyn FnMut(&T)>` for single ownership
+/// scenarios. When sharing is not needed, this is the simplest and most
+/// efficient consumer type.
 ///
 /// # Features
 ///
@@ -431,7 +588,8 @@ where
 
     /// Sequentially chain another consumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation. Consumes self.
+    /// Returns a new consumer that executes the current operation first, then
+    /// the next operation. Consumes self.
     ///
     /// # Type Parameters
     ///
@@ -800,7 +958,8 @@ where
     /// let mut chained = cond1.and_then(cond2);
     ///
     /// chained.accept(&6);
-    /// assert_eq!(*log.lock().unwrap(), vec![12, 106]); // First *2 = 12, then +100 = 106
+    /// assert_eq!(*log.lock().unwrap(), vec![12, 106]);
+    /// // First *2 = 12, then +100 = 106
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxConsumer<T>
     where
@@ -850,10 +1009,12 @@ where
     /// });
     ///
     /// consumer.accept(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]); // Condition satisfied, execute first
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Condition satisfied, execute first
     ///
     /// consumer.accept(&-5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]); // Condition not satisfied, execute else
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]);
+    /// // Condition not satisfied, execute else
     /// ```
     pub fn or_else<C>(self, else_consumer: C) -> BoxConsumer<T>
     where
@@ -878,15 +1039,17 @@ where
 
 /// ArcConsumer struct
 ///
-/// Consumer implementation based on `Arc<Mutex<dyn FnMut(&T) + Send>>` for thread-safe shared ownership scenarios.
-/// This consumer can be safely cloned and shared across multiple threads.
+/// Consumer implementation based on `Arc<Mutex<dyn FnMut(&T) + Send>>` for
+/// thread-safe shared ownership scenarios. This consumer can be safely cloned
+/// and shared across multiple threads.
 ///
 /// # Features
 ///
 /// - **Shared Ownership**: Cloneable through `Arc`, allowing multiple owners
 /// - **Thread Safety**: Implements `Send + Sync`, safe for concurrent use
 /// - **Interior Mutability**: Uses `Mutex` for safe mutable access
-/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains usable
+/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains
+///   usable
 /// - **Cross-Thread Sharing**: Can be sent to other threads and used
 ///
 /// # Use Cases
@@ -904,8 +1067,9 @@ where
 /// - **Mutex Locking**: Each `accept` call requires lock acquisition
 /// - **Lock Contention**: High concurrency may cause contention
 ///
-/// These overheads are necessary for safe concurrent access. If thread safety is not needed,
-/// consider using `RcConsumer` for less single-threaded sharing overhead.
+/// These overheads are necessary for safe concurrent access. If thread safety
+/// is not needed, consider using `RcConsumer` for less single-threaded sharing
+/// overhead.
 ///
 /// # Examples
 ///
@@ -1055,8 +1219,8 @@ where
 
     /// Sequentially chain another ArcConsumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Borrows &self, does not consume the original consumer.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Borrows &self, does not consume the original consumer.
     ///
     /// # Parameters
     ///
@@ -1086,7 +1250,8 @@ where
     ///
     /// // first and second remain usable after chaining
     /// chained.accept(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
+    /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+    /// // (5 * 2), (5 + 10)
     /// ```
     pub fn and_then(&self, next: &ArcConsumer<T>) -> ArcConsumer<T> {
         let first = Arc::clone(&self.function);
@@ -1218,7 +1383,8 @@ impl<T> Consumer<T> for ArcConsumer<T> {
 impl<T> Clone for ArcConsumer<T> {
     /// Clone ArcConsumer
     ///
-    /// Creates a new ArcConsumer that shares the underlying function with the original instance.
+    /// Creates a new ArcConsumer that shares the underlying function with the
+    /// original instance.
     fn clone(&self) -> Self {
         ArcConsumer {
             function: Arc::clone(&self.function),
@@ -1443,16 +1609,19 @@ impl<T> Clone for ArcConditionalConsumer<T> {
 
 /// RcConsumer struct
 ///
-/// Consumer implementation based on `Rc<RefCell<dyn FnMut(&T)>>` for single-threaded shared ownership scenarios.
-/// This consumer provides the benefits of shared ownership without the overhead of thread safety.
+/// Consumer implementation based on `Rc<RefCell<dyn FnMut(&T)>>` for
+/// single-threaded shared ownership scenarios. This consumer provides the
+/// benefits of shared ownership without the overhead of thread safety.
 ///
 /// # Features
 ///
 /// - **Shared Ownership**: Cloneable through `Rc`, allowing multiple owners
 /// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
 /// - **Interior Mutability**: Uses `RefCell` for runtime borrowing checks
-/// - **No Lock Overhead**: More efficient than `ArcConsumer` for single-threaded use
-/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains usable
+/// - **No Lock Overhead**: More efficient than `ArcConsumer` for single-threaded
+///   use
+/// - **Non-Consuming API**: `and_then` borrows `&self`, original object remains
+///   usable
 ///
 /// # Use Cases
 ///
@@ -1468,7 +1637,8 @@ impl<T> Clone for ArcConditionalConsumer<T> {
 /// `RcConsumer` performs better than `ArcConsumer` in single-threaded scenarios:
 /// - **Non-Atomic Counting**: clone/drop is cheaper than `Arc`
 /// - **No Lock Overhead**: `RefCell` uses runtime checks, no locks
-/// - **Better Cache Locality**: No atomic operations means better CPU cache behavior
+/// - **Better Cache Locality**: No atomic operations means better CPU cache
+///   behavior
 ///
 /// But still has slight overhead compared to `BoxConsumer`:
 /// - **Reference Counting**: Non-atomic but still exists
@@ -1631,8 +1801,8 @@ where
 
     /// Sequentially chain another RcConsumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Borrows &self, does not consume the original consumer.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Borrows &self, does not consume the original consumer.
     ///
     /// # Parameters
     ///
@@ -1663,7 +1833,8 @@ where
     ///
     /// // first and second remain usable after chaining
     /// chained.accept(&5);
-    /// assert_eq!(*log.borrow(), vec![10, 15]); // (5 * 2), (5 + 10)
+    /// assert_eq!(*log.borrow(), vec![10, 15]);
+    /// // (5 * 2), (5 + 10)
     /// ```
     pub fn and_then(&self, next: &RcConsumer<T>) -> RcConsumer<T> {
         let first = Rc::clone(&self.function);
@@ -1783,7 +1954,8 @@ impl<T> Consumer<T> for RcConsumer<T> {
 impl<T> Clone for RcConsumer<T> {
     /// Clone RcConsumer
     ///
-    /// Creates a new RcConsumer that shares the underlying function with the original instance.
+    /// Creates a new RcConsumer that shares the underlying function with the
+    /// original instance.
     fn clone(&self) -> Self {
         RcConsumer {
             function: self.function.clone(),
@@ -2070,20 +2242,24 @@ where
 
 /// Extension trait providing consumer composition methods for closures
 ///
-/// Provides `and_then` and other composition methods for all closures implementing `FnMut(&T)`,
-/// allowing direct method chaining on closures without explicit wrapper types.
+/// Provides `and_then` and other composition methods for all closures
+/// implementing `FnMut(&T)`, allowing direct method chaining on closures
+/// without explicit wrapper types.
 ///
 /// # Design Philosophy
 ///
-/// This trait allows closures to be naturally composed using method syntax, similar to iterator combinators.
-/// Composition methods consume the closure and return `BoxConsumer<T>`, which can continue chaining.
+/// This trait allows closures to be naturally composed using method syntax,
+/// similar to iterator combinators. Composition methods consume the closure and
+/// return `BoxConsumer<T>`, which can continue chaining.
 ///
 /// # Features
 ///
 /// - **Natural Syntax**: Direct method chaining on closures
-/// - **Returns BoxConsumer**: Composition results in `BoxConsumer<T>`, can continue chaining
+/// - **Returns BoxConsumer**: Composition results in `BoxConsumer<T>`, can
+///   continue chaining
 /// - **Zero Cost**: No overhead when composing closures
-/// - **Automatic Implementation**: All `FnMut(&T)` closures automatically get these methods
+/// - **Automatic Implementation**: All `FnMut(&T)` closures automatically get
+///   these methods
 ///
 /// # Examples
 ///
@@ -2100,7 +2276,8 @@ where
 ///     l2.lock().unwrap().push(*x + 10);
 /// });
 /// chained.accept(&5);
-/// assert_eq!(*log.lock().unwrap(), vec![10, 15]); // (5 * 2), (5 + 10)
+/// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
+/// // (5 * 2), (5 + 10)
 /// ```
 ///
 /// # Author
@@ -2109,8 +2286,8 @@ where
 pub trait FnConsumerOps<T>: FnMut(&T) + Sized {
     /// Sequentially chain another consumer
     ///
-    /// Returns a new consumer that executes the current operation first, then the next operation.
-    /// Consumes the current closure and returns `BoxConsumer<T>`.
+    /// Returns a new consumer that executes the current operation first, then the
+    /// next operation. Consumes the current closure and returns `BoxConsumer<T>`.
     ///
     /// # Type Parameters
     ///

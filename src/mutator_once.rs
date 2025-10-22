@@ -280,8 +280,7 @@ pub trait MutatorOnce<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        BoxMutatorOnce::new(move |t| cloned.mutate(t))
+        self.clone().into_box()
     }
 
     /// Non-consuming adapter to a callable `FnOnce(&mut T)`
@@ -295,8 +294,7 @@ pub trait MutatorOnce<T> {
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        let cloned = self.clone();
-        move |t| cloned.mutate(t)
+        self.clone().into_fn()
     }
 }
 
@@ -418,7 +416,9 @@ where
     where
         F: FnOnce(&mut T) + 'static,
     {
-        BoxMutatorOnce { function: Box::new(f) }
+        BoxMutatorOnce {
+            function: Box::new(f),
+        }
     }
 
     /// Creates a no-op mutator
