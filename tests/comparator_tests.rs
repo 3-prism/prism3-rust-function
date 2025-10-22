@@ -53,7 +53,7 @@ mod box_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_greater() {
-        // 测试第一个比较器返回 Greater 的情况
+        // Test the case where the first comparator returns Greater
         let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")
@@ -65,7 +65,7 @@ mod box_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_less() {
-        // 测试第一个比较器返回 Less 的情况
+        // Test the case where the first comparator returns Less
         let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")
@@ -169,7 +169,7 @@ mod arc_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_greater() {
-        // 测试第一个比较器返回 Greater 的情况
+        // Test the case where the first comparator returns Greater
         let cmp1 = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = ArcComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")
@@ -181,7 +181,7 @@ mod arc_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_less() {
-        // 测试第一个比较器返回 Less 的情况
+        // Test the case where the first comparator returns Less
         let cmp1 = ArcComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = ArcComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")
@@ -300,7 +300,7 @@ mod rc_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_greater() {
-        // 测试第一个比较器返回 Greater 的情况
+        // Test the case where the first comparator returns Greater
         let cmp1 = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = RcComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")
@@ -312,7 +312,7 @@ mod rc_comparator_tests {
 
     #[test]
     fn test_then_comparing_with_non_equal_less() {
-        // 测试第一个比较器返回 Less 的情况
+        // Test the case where the first comparator returns Less
         let cmp1 = RcComparator::new(|a: &i32, b: &i32| a.cmp(b));
         let cmp2 = RcComparator::new(|_a: &i32, _b: &i32| {
             panic!("Second comparator should not be called")

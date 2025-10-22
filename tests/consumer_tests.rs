@@ -679,13 +679,13 @@ mod test_fn_consumer_ops {
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
-    // 测试闭包的 to_xxx 方法
-    // 注意：只有 Clone 闭包才能使用 to_xxx 方法
-    // 由于标准闭包不实现 Clone,我们使用函数指针(函数指针实现了 Clone)
+    // Test closure's to_xxx methods
+    // Note: Only Clone closures can use to_xxx methods
+    // Since standard closures do not implement Clone, we use function pointers (function pointers implement Clone)
 
     #[test]
     fn test_closure_to_box_with_fn_pointer() {
-        // 使用 Arc<Mutex> 来验证函数被调用
+        // Use Arc<Mutex> to verify function call
         let counter = Arc::new(Mutex::new(0));
         let c1 = counter.clone();
 
@@ -702,7 +702,7 @@ mod test_fn_consumer_ops {
 
         assert_eq!(*counter.lock().unwrap(), 15);
 
-        // 验证原始闭包仍然可用
+        // Verify original closure is still available
         let original = consumer_fn;
         let mut func = original;
         func(&7);
@@ -727,7 +727,7 @@ mod test_fn_consumer_ops {
 
         assert_eq!(*counter.borrow(), 14); // 3*2 + 4*2
 
-        // 验证原始闭包仍然可用
+        // Verify original closure is still available
         let original = consumer_fn;
         let mut func = original;
         func(&5);
@@ -752,7 +752,7 @@ mod test_fn_consumer_ops {
 
         assert_eq!(*counter.lock().unwrap(), 15); // 2*3 + 3*3
 
-        // 验证原始闭包仍然可用
+        // Verify original closure is still available
         let original = consumer_fn;
         let mut func = original;
         func(&4);
@@ -770,19 +770,19 @@ mod test_fn_consumer_ops {
             }
         }
 
-        // 为 to_fn 和后续测试使用不同的实例
+        // Use different instances for to_fn and subsequent tests
         let consumer_fn1 = make_consumer(c1.clone());
         let consumer_fn2 = make_consumer(c1.clone());
 
-        // 测试 to_fn() - 第一个实例
+        // Test to_fn() - first instance
         let mut func = consumer_fn1.to_fn();
         func(&5); // 5 + 10 = 15
         func(&7); // 7 + 10 = 17
 
-        // 验证第一部分结果
+        // Verify first part result
         assert_eq!(*counter.lock().unwrap(), 32); // 15 + 17
 
-        // 使用第二个独立实例验证原始闭包仍然可用
+        // Use second independent instance to verify original closure is still available
         let mut original_func = consumer_fn2;
         original_func(&3); // 3 + 10 = 13
         assert_eq!(*counter.lock().unwrap(), 45); // 32 + 13
@@ -1290,7 +1290,7 @@ mod test_edge_cases {
 mod test_default_into_implementations {
     use super::*;
 
-    // 定义一个自定义的 Consumer 实现，用于测试默认的 into_xxx() 方法
+    // Define a custom Consumer implementation for testing default into_xxx() methods
     struct CustomConsumer {
         log: Arc<Mutex<Vec<i32>>>,
     }
@@ -1300,8 +1300,8 @@ mod test_default_into_implementations {
             self.log.lock().unwrap().push(*value * 10);
         }
 
-        // 不实现 into_box, into_rc, into_arc, into_fn
-        // 使用默认实现
+        // Do not implement into_box, into_rc, into_arc, into_fn
+        // Use default implementations
     }
 
     #[test]
@@ -1352,7 +1352,7 @@ mod test_default_into_implementations {
         assert_eq!(*log.lock().unwrap(), vec![40, 60]);
     }
 
-    // 测试自定义 Consumer 与其他 Consumer 的组合
+    // Test custom Consumer composition with other Consumers
     #[test]
     fn test_custom_consumer_chaining_with_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
@@ -1376,7 +1376,7 @@ mod test_default_into_implementations {
         let log = Arc::new(Mutex::new(Vec::new()));
         let custom = CustomConsumer { log: log.clone() };
 
-        // 转换为 RcConsumer 后可以克隆
+        // Can clone after converting to RcConsumer
         let rc_consumer = custom.into_rc();
         let mut clone1 = rc_consumer.clone();
         let mut clone2 = rc_consumer.clone();
@@ -1389,7 +1389,7 @@ mod test_default_into_implementations {
         assert_eq!(result, vec![10, 20]);
     }
 
-    // 定义一个有状态的自定义 Consumer
+    // Define a stateful custom Consumer
     struct StatefulConsumer {
         log: Arc<Mutex<Vec<i32>>>,
         multiplier: i32,
@@ -1398,7 +1398,7 @@ mod test_default_into_implementations {
     impl Consumer<i32> for StatefulConsumer {
         fn accept(&mut self, value: &i32) {
             self.log.lock().unwrap().push(*value * self.multiplier);
-            self.multiplier += 1; // 每次调用后增加乘数
+            self.multiplier += 1; // Increment multiplier after each call
         }
     }
 
@@ -1465,7 +1465,7 @@ mod test_default_into_implementations {
         assert_eq!(*log.lock().unwrap(), vec![10, 20, 30]);
     }
 
-    // 测试线程安全的自定义 Consumer
+    // Test thread-safe custom Consumer
     #[test]
     fn test_custom_consumer_thread_safety() {
         let log = Arc::new(Mutex::new(Vec::new()));
@@ -1553,8 +1553,8 @@ fn test_rcconsumer_to_box_rc_and_fn() {
 mod test_closure_to_methods {
     use super::*;
 
-    // 注意:闭包必须实现 Clone 才能使用 to_xxx 方法
-    // 我们需要使用可克隆的闭包或者包装类型
+    // Note: closures must implement Clone to use to_xxx methods
+    // We need to use cloneable closures or wrapper types
 
     #[test]
     fn test_arc_consumer_to_box() {
@@ -1565,12 +1565,12 @@ mod test_closure_to_methods {
             l.lock().unwrap().push(*x * 3);
         });
 
-        // 测试 to_box() - 应该保留原 consumer
+        // Test to_box() - should preserve original consumer
         let mut boxed = consumer.to_box();
         boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![15]);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&10);
         assert_eq!(*log.lock().unwrap(), vec![15, 30]);
@@ -1585,12 +1585,12 @@ mod test_closure_to_methods {
             l.lock().unwrap().push(*x * 4);
         });
 
-        // 测试 to_rc() - 应该保留原 consumer
+        // Test to_rc() - should preserve original consumer
         let mut rc = consumer.to_rc();
         rc.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![20]);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&2);
         assert_eq!(*log.lock().unwrap(), vec![20, 8]);
@@ -1605,12 +1605,12 @@ mod test_closure_to_methods {
             l.lock().unwrap().push(*x * 5);
         });
 
-        // 测试 to_arc() - 应该保留原 consumer
+        // Test to_arc() - should preserve original consumer
         let mut arc = consumer.to_arc();
         arc.accept(&3);
         assert_eq!(*log.lock().unwrap(), vec![15]);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&4);
         assert_eq!(*log.lock().unwrap(), vec![15, 20]);
@@ -1625,15 +1625,15 @@ mod test_closure_to_methods {
             l.lock().unwrap().push(*x * 6);
         });
 
-        // 测试 to_fn() - 应该保留原 consumer
+        // Test to_fn() - should preserve original consumer
         let mut func = consumer.to_fn();
         func(&2);
         assert_eq!(*log.lock().unwrap(), vec![12]);
 
-        // 因为 to_fn() 借用了 consumer,需要先完成 func 的使用
+        // Because to_fn() borrows the consumer, it needs to complete func usage first
         drop(func);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&3);
         assert_eq!(*log.lock().unwrap(), vec![12, 18]);
@@ -1648,12 +1648,12 @@ mod test_closure_to_methods {
             l.borrow_mut().push(*x * 7);
         });
 
-        // 测试 to_box() - 应该保留原 consumer
+        // Test to_box() - should preserve original consumer
         let mut boxed = consumer.to_box();
         boxed.accept(&2);
         assert_eq!(*log.borrow(), vec![14]);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&3);
         assert_eq!(*log.borrow(), vec![14, 21]);
@@ -1668,12 +1668,12 @@ mod test_closure_to_methods {
             l.borrow_mut().push(*x * 8);
         });
 
-        // 测试 to_rc() - 应该保留原 consumer
+        // Test to_rc() - should preserve original consumer
         let mut rc = consumer.to_rc();
         rc.accept(&2);
         assert_eq!(*log.borrow(), vec![16]);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&1);
         assert_eq!(*log.borrow(), vec![16, 8]);
@@ -1688,15 +1688,15 @@ mod test_closure_to_methods {
             l.borrow_mut().push(*x * 9);
         });
 
-        // 测试 to_fn() - 应该保留原 consumer
+        // Test to_fn() - should preserve original consumer
         let mut func = consumer.to_fn();
         func(&1);
         assert_eq!(*log.borrow(), vec![9]);
 
-        // 因为 to_fn() 借用了 consumer,需要先完成 func 的使用
+        // Because to_fn() borrows the consumer, it needs to complete func usage first
         drop(func);
 
-        // 原 consumer 仍然可用
+        // Original consumer is still available
         let mut original = consumer;
         original.accept(&2);
         assert_eq!(*log.borrow(), vec![9, 18]);
@@ -1725,12 +1725,12 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let custom = CustomConsumer { log: log.clone() };
 
-        // 测试 to_box() - 使用默认实现
+        // Test to_box() - using default implementation
         let mut boxed = custom.to_box();
         boxed.accept(&3);
         assert_eq!(*log.lock().unwrap(), vec![30]);
 
-        // 原 custom consumer 仍然可用
+        // Original custom consumer is still available
         let mut original = custom;
         original.accept(&4);
         assert_eq!(*log.lock().unwrap(), vec![30, 40]);
@@ -1759,12 +1759,12 @@ mod test_closure_to_methods {
         let log = Rc::new(RefCell::new(Vec::new()));
         let custom = CustomConsumer { log: log.clone() };
 
-        // 测试 to_rc() - 使用默认实现
+        // Test to_rc() - using default implementation
         let mut rc = custom.to_rc();
         rc.accept(&2);
         assert_eq!(*log.borrow(), vec![22]);
 
-        // 原 custom consumer 仍然可用
+        // Original custom consumer is still available
         let mut original = custom;
         original.accept(&3);
         assert_eq!(*log.borrow(), vec![22, 33]);
@@ -1793,12 +1793,12 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let custom = CustomConsumer { log: log.clone() };
 
-        // 测试 to_arc() - 使用默认实现
+        // Test to_arc() - using default implementation
         let mut arc = custom.to_arc();
         arc.accept(&2);
         assert_eq!(*log.lock().unwrap(), vec![24]);
 
-        // 原 custom consumer 仍然可用
+        // Original custom consumer is still available
         let mut original = custom;
         original.accept(&3);
         assert_eq!(*log.lock().unwrap(), vec![24, 36]);
@@ -1827,15 +1827,15 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let custom = CustomConsumer { log: log.clone() };
 
-        // 测试 to_fn() - 使用默认实现
+        // Test to_fn() - using default implementation
         let mut func = custom.to_fn();
         func(&2);
         assert_eq!(*log.lock().unwrap(), vec![26]);
 
-        // 因为 to_fn() 借用了 custom,需要先完成 func 的使用
+        // Because to_fn() borrows the custom, it needs to complete func usage first
         drop(func);
 
-        // 原 custom consumer 仍然可用
+        // Original custom consumer is still available
         let mut original = custom;
         original.accept(&1);
         assert_eq!(*log.lock().unwrap(), vec![26, 13]);

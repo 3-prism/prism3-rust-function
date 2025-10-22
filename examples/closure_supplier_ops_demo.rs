@@ -1,22 +1,17 @@
-/*******************************************************************************
+/**
+ * Demonstrates various operations on closures using Supplier trait.
  *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
- *
- *    All rights reserved.
- *
- ******************************************************************************/
-//! 演示闭包 Supplier 操作的示例
-//!
-//! 本示例展示如何在闭包上直接使用 `map`、`filter`、`zip` 和 `memoize` 操作。
+ * This example showcases how to use the Supplier trait with closures,
+ * including mapping, filtering, zipping, and memoization.
+ */
 
 use prism3_function::{FnSupplierOps, Supplier};
 
 fn main() {
-    println!("=== 闭包 Supplier 操作演示 ===\n");
+    println!("=== Closure Supplier Operations Demo ===\n");
 
-    // 1. FnMut 闭包使用 map
-    println!("1. FnMut 闭包使用 map:");
+    // 1. FnMut closure using map
+    println!("1. FnMut closure using map:");
     let mut counter = 0;
     let mut mapped = (move || {
         counter += 1;
@@ -24,11 +19,11 @@ fn main() {
     })
     .map(|x| x * 2);
 
-    println!("   第一次调用: {}", mapped.get());
-    println!("   第二次调用: {}\n", mapped.get());
+    println!("   First call: {}", mapped.get());
+    println!("   Second call: {}\n", mapped.get());
 
-    // 2. FnMut 闭包使用 filter
-    println!("2. FnMut 闭包使用 filter:");
+    // 2. FnMut closure using filter
+    println!("2. FnMut closure using filter:");
     let mut counter2 = 0;
     let mut filtered = (move || {
         counter2 += 1;
@@ -36,35 +31,35 @@ fn main() {
     })
     .filter(|x| x % 2 == 0);
 
-    println!("   第一次调用 (奇数): {:?}", filtered.get());
-    println!("   第二次调用 (偶数): {:?}\n", filtered.get());
+    println!("   First call (odd number): {:?}", filtered.get());
+    println!("   Second call (even number): {:?}\n", filtered.get());
 
-    // 3. FnMut 闭包使用 memoize
-    println!("3. FnMut 闭包使用 memoize:");
+    // 3. FnMut closure using memoize
+    println!("3. FnMut closure using memoize:");
     let mut call_count = 0;
     let mut memoized = (move || {
         call_count += 1;
-        println!("   底层函数被调用了 {} 次", call_count);
+        println!("   Underlying function called {} times", call_count);
         42
     })
     .memoize();
 
-    println!("   第一次调用: {}", memoized.get());
-    println!("   第二次调用: {}", memoized.get());
-    println!("   第三次调用: {}\n", memoized.get());
+    println!("   First call: {}", memoized.get());
+    println!("   Second call: {}", memoized.get());
+    println!("   Third call: {}\n", memoized.get());
 
-    // 4. Fn 闭包使用 map (Fn 也实现了 FnMut，所以可以使用 FnSupplierOps)
-    println!("4. Fn 闭包使用 map:");
+    // 4. Fn closure using map (Fn also implements FnMut, so can use FnSupplierOps)
+    println!("4. Fn closure using map:");
     let mut mapped_readonly = (|| 10).map(|x| x * 3).map(|x| x + 5);
-    println!("   结果: {}\n", mapped_readonly.get());
+    println!("   Result: {}\n", mapped_readonly.get());
 
-    // 5. Fn 闭包使用 filter (Fn 也实现了 FnMut，所以可以使用 FnSupplierOps)
-    println!("5. Fn 闭包使用 filter:");
+    // 5. Fn closure using filter (Fn also implements FnMut, so can use FnSupplierOps)
+    println!("5. Fn closure using filter:");
     let mut filtered_readonly = (|| 42).filter(|x| x % 2 == 0);
-    println!("   过滤偶数: {:?}\n", filtered_readonly.get());
+    println!("   Filtered even number: {:?}\n", filtered_readonly.get());
 
-    // 6. 链式操作
-    println!("6. 链式操作:");
+    // 6. Chained operations
+    println!("6. Chained operations:");
     let mut counter3 = 0;
     let mut chained = (move || {
         counter3 += 1;
@@ -74,10 +69,10 @@ fn main() {
     .filter(|x| *x > 5)
     .map(|opt: Option<i32>| opt.unwrap_or(0));
 
-    println!("   第一次调用: {}", chained.get()); // 2, filtered out
-    println!("   第二次调用: {}", chained.get()); // 4, filtered out
-    println!("   第三次调用: {}", chained.get()); // 6, passed
-    println!("   第四次调用: {}\n", chained.get()); // 8, passed
+    println!("   First call: {}", chained.get()); // 2, filtered out
+    println!("   Second call: {}", chained.get()); // 4, filtered out
+    println!("   Third call: {}", chained.get()); // 6, passed
+    println!("   Fourth call: {}\n", chained.get()); // 8, passed
 
-    println!("=== 演示完成 ===");
+    println!("=== Demo completed ===");
 }

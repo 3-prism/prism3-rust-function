@@ -207,7 +207,7 @@ mod box_bi_consumer_once_tests {
         });
         let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let boxed = conditional.into_box();
-        // 测试 false 分支：条件不满足时不应该执行
+        // Test false branch: should not execute when condition is not met
         boxed.accept(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![]);
     }
@@ -221,7 +221,7 @@ mod box_bi_consumer_once_tests {
         });
         let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let func = conditional.into_fn();
-        // 测试 false 分支：条件不满足时不应该执行
+        // Test false branch: should not execute when condition is not met
         func(&-5, &3);
         assert_eq!(*log.lock().unwrap(), vec![]);
     }

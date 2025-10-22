@@ -891,7 +891,7 @@ mod test_integration {
 mod test_box_readonly_supplier_map_with_transformer {
     use super::*;
 
-    // 辅助函数指针
+    // Helper function pointers
     fn double(x: i32) -> i32 {
         x * 2
     }
@@ -902,7 +902,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_closure() {
-        // 测试 map 接受闭包
+        // Test map accepts closure
         let supplier = BoxReadonlySupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
@@ -910,7 +910,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_function_pointer() {
-        // 测试 map 接受函数指针
+        // Test map accepts function pointer
         let supplier = BoxReadonlySupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
@@ -918,7 +918,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_box_transformer() {
-        // 测试 map 接受 BoxTransformer 对象
+        // Test map accepts BoxTransformer object
         let supplier = BoxReadonlySupplier::new(|| 10);
         let transformer = BoxTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
@@ -927,17 +927,17 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_chain_with_different_types() {
-        // 测试链式调用，每个 map 使用不同类型的 transformer
+        // Test chained calls, each map uses different type of transformer
         let supplier = BoxReadonlySupplier::new(|| 10);
-        let step1 = supplier.map(|x| x * 2); // 闭包
-        let step2 = step1.map(double); // 函数指针
+        let step1 = supplier.map(|x| x * 2); // closure
+        let step2 = step1.map(double); // function pointer
         let step3 = step2.map(BoxTransformer::new(|x| x + 5)); // BoxTransformer
         assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
     }
 
     #[test]
     fn test_map_with_closure_capturing_variables() {
-        // 测试 map 使用捕获变量的闭包
+        // Test map uses closure capturing variables
         let multiplier = 3;
         let supplier = BoxReadonlySupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
@@ -946,14 +946,14 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_type_conversion() {
-        // 测试 map 进行类型转换
+        // Test map performs type conversion
         let supplier = BoxReadonlySupplier::new(|| 42);
 
-        // 使用闭包转换类型
+        // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
         assert_eq!(mapped1.get(), "42");
 
-        // 使用 BoxTransformer 转换类型
+        // Use BoxTransformer to convert type
         let supplier2 = BoxReadonlySupplier::new(|| 42);
         let transformer = BoxTransformer::new(to_string);
         let mapped2 = supplier2.map(transformer);
@@ -962,7 +962,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_complex_transformer() {
-        // 测试 map 使用复杂的 Transformer
+        // Test map uses complex Transformer
         #[derive(Debug, PartialEq)]
         struct Data {
             value: i32,
@@ -983,7 +983,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 mod test_arc_readonly_supplier_map_with_transformer {
     use super::*;
 
-    // 辅助函数指针
+    // Helper function pointers
     fn double(x: i32) -> i32 {
         x * 2
     }
@@ -994,7 +994,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_closure() {
-        // 测试 map 接受闭包
+        // Test map accepts closure
         let supplier = ArcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
@@ -1002,7 +1002,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_function_pointer() {
-        // 测试 map 接受函数指针
+        // Test map accepts function pointer
         let supplier = ArcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
@@ -1010,7 +1010,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_arc_transformer() {
-        // 测试 map 接受 ArcTransformer 对象
+        // Test map accepts ArcTransformer object
         let supplier = ArcReadonlySupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
@@ -1019,17 +1019,17 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_chain_with_different_types() {
-        // 测试链式调用，每个 map 使用不同类型的 transformer
+        // Test chained calls, each map uses different type of transformer
         let supplier = ArcReadonlySupplier::new(|| 10);
-        let step1 = supplier.map(|x| x * 2); // 闭包
-        let step2 = step1.map(double); // 函数指针
+        let step1 = supplier.map(|x| x * 2); // closure
+        let step2 = step1.map(double); // function pointer
         let step3 = step2.map(ArcTransformer::new(|x| x + 5)); // ArcTransformer
         assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
     }
 
     #[test]
     fn test_map_with_closure_capturing_variables() {
-        // 测试 map 使用捕获变量的闭包
+        // Test map uses closure capturing variables
         let multiplier = 3;
         let supplier = ArcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
@@ -1038,19 +1038,19 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_preserves_original_with_transformer() {
-        // 测试使用 transformer 后原 supplier 仍可用
+        // Test original supplier still usable after using transformer
         let supplier = ArcReadonlySupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
 
-        // 原 supplier 仍然可用
+        // Original supplier still usable
         assert_eq!(supplier.get(), 10);
         assert_eq!(mapped.get(), 20);
     }
 
     #[test]
     fn test_map_thread_safety_with_transformer() {
-        // 测试带 transformer 的 map 在多线程环境下的表现
+        // Test map with transformer in multi-threaded environment
         let supplier = ArcReadonlySupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
@@ -1069,14 +1069,14 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_type_conversion() {
-        // 测试 map 进行类型转换
+        // Test map performs type conversion
         let supplier = ArcReadonlySupplier::new(|| 42);
 
-        // 使用闭包转换类型
+        // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
         assert_eq!(mapped1.get(), "42");
 
-        // 使用 ArcTransformer 转换类型
+        // Use ArcTransformer to convert type
         let transformer = ArcTransformer::new(to_string);
         let mapped2 = supplier.map(transformer);
         assert_eq!(mapped2.get(), "42");
@@ -1084,7 +1084,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_shared_transformer() {
-        // 测试多个 supplier 共享同一个 transformer
+        // Test multiple suppliers sharing the same transformer
         let supplier1 = ArcReadonlySupplier::new(|| 10);
         let supplier2 = ArcReadonlySupplier::new(|| 20);
 
@@ -1105,7 +1105,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 mod test_rc_readonly_supplier_map_with_transformer {
     use super::*;
 
-    // 辅助函数指针
+    // Helper function pointers
     fn double(x: i32) -> i32 {
         x * 2
     }
@@ -1116,7 +1116,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_closure() {
-        // 测试 map 接受闭包
+        // Test map accepts closure
         let supplier = RcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
@@ -1124,7 +1124,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_function_pointer() {
-        // 测试 map 接受函数指针
+        // Test map accepts function pointer
         let supplier = RcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
@@ -1132,7 +1132,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_rc_transformer() {
-        // 测试 map 接受 RcTransformer 对象
+        // Test map accepts RcTransformer object
         let supplier = RcReadonlySupplier::new(|| 10);
         let transformer = RcTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
@@ -1141,17 +1141,17 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_chain_with_different_types() {
-        // 测试链式调用，每个 map 使用不同类型的 transformer
+        // Test chained calls, each map uses different type of transformer
         let supplier = RcReadonlySupplier::new(|| 10);
-        let step1 = supplier.map(|x| x * 2); // 闭包
-        let step2 = step1.map(double); // 函数指针
+        let step1 = supplier.map(|x| x * 2); // closure
+        let step2 = step1.map(double); // function pointer
         let step3 = step2.map(RcTransformer::new(|x| x + 5)); // RcTransformer
         assert_eq!(step3.get(), 45); // (10 * 2) * 2 + 5 = 45
     }
 
     #[test]
     fn test_map_with_closure_capturing_variables() {
-        // 测试 map 使用捕获变量的闭包
+        // Test map uses closure capturing variables
         let multiplier = 3;
         let supplier = RcReadonlySupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
@@ -1160,26 +1160,26 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_preserves_original_with_transformer() {
-        // 测试使用 transformer 后原 supplier 仍可用
+        // Test original supplier still usable after using transformer
         let supplier = RcReadonlySupplier::new(|| 10);
         let transformer = RcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
 
-        // 原 supplier 仍然可用
+        // Original supplier still usable
         assert_eq!(supplier.get(), 10);
         assert_eq!(mapped.get(), 20);
     }
 
     #[test]
     fn test_map_with_type_conversion() {
-        // 测试 map 进行类型转换
+        // Test map performs type conversion
         let supplier = RcReadonlySupplier::new(|| 42);
 
-        // 使用闭包转换类型
+        // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
         assert_eq!(mapped1.get(), "42");
 
-        // 使用 RcTransformer 转换类型
+        // Use RcTransformer to convert type
         let transformer = RcTransformer::new(to_string);
         let mapped2 = supplier.map(transformer);
         assert_eq!(mapped2.get(), "42");
@@ -1187,7 +1187,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
 
     #[test]
     fn test_map_with_shared_transformer() {
-        // 测试多个 supplier 共享同一个 transformer
+        // Test multiple suppliers sharing the same transformer
         let supplier1 = RcReadonlySupplier::new(|| 10);
         let supplier2 = RcReadonlySupplier::new(|| 20);
 
@@ -1210,20 +1210,20 @@ mod test_map_transformer_integration {
 
     #[test]
     fn test_mixed_transformer_types_in_pipeline() {
-        // 测试在管道中混合使用不同类型的 transformer
+        // Test mixing different types of transformers in pipeline
         let supplier = BoxReadonlySupplier::new(|| 5);
 
         let pipeline = supplier
-            .map(|x| x * 2) // 闭包
-            .map(|x: i32| -> i32 { x + 3 }) // 显式类型标注的闭包
-            .map(|x: i32| x.to_string()); // 类型转换闭包
+            .map(|x| x * 2) // closure
+            .map(|x: i32| -> i32 { x + 3 }) // closure with explicit type annotation
+            .map(|x: i32| x.to_string()); // type conversion closure
 
         assert_eq!(pipeline.get(), "13");
     }
 
     #[test]
     fn test_transformer_with_complex_logic() {
-        // 测试包含复杂逻辑的 transformer
+        // Test transformer with complex logic
         #[derive(Debug, PartialEq)]
         struct Result {
             doubled: i32,
@@ -1248,7 +1248,7 @@ mod test_map_transformer_integration {
 
     #[test]
     fn test_function_pointer_with_generic_supplier() {
-        // 测试函数指针与泛型 supplier 的配合
+        // Test function pointer with generic supplier
         fn process(x: i32) -> String {
             format!("Value: {}", x * 2)
         }
@@ -1260,7 +1260,7 @@ mod test_map_transformer_integration {
 
     #[test]
     fn test_transformer_reusability() {
-        // 测试 Transformer 的可重用性
+        // Test reusability of Transformer
         let transformer = ArcTransformer::new(|x: i32| x * 10);
 
         let supplier1 = ArcReadonlySupplier::new(|| 1);

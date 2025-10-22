@@ -1,11 +1,7 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025.
- *    3-Prism Co. Ltd.
- *
- *    All rights reserved.
- *
- ******************************************************************************/
+/// Copyright (c) 2025.
+/// 3-Prism Co. Ltd.
+///
+/// All rights reserved.
 //! # ConsumerOnce Tests
 //!
 //! Unit tests for the ConsumerOnce trait and its implementations.
@@ -359,8 +355,8 @@ mod custom_consumer_once_tests {
             self.log.lock().unwrap().push(*value * self.multiplier);
         }
 
-        // 注意：我们不重写 into_box() 和 into_fn()，
-        // 而是使用 trait 提供的默认实现
+        // Note: We do not override into_box() and into_fn(),
+        // but use the default implementations provided by the trait
     }
 
     #[test]

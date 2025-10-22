@@ -342,7 +342,7 @@ mod type_conversion_tests {
         let boxed = double.to_box();
         assert_eq!(boxed.apply(21), 42);
 
-        // 原始闭包仍然可用（to_box 未消费原对象）
+        // Original closure is still available (to_box does not consume the original object)
         assert_eq!(double.apply(10), 20);
     }
 
@@ -353,7 +353,7 @@ mod type_conversion_tests {
         let func = double.to_fn();
         assert_eq!(func(14), 28);
 
-        // 原始闭包仍然可用（to_fn 未消费原对象）
+        // Original closure is still available (to_fn does not consume the original object)
         assert_eq!(double.apply(7), 14);
     }
 
@@ -384,7 +384,7 @@ mod type_conversion_tests {
 mod default_implementation_tests {
     use super::*;
 
-    // 自定义类型测试默认实现
+    // Custom type test default implementation
     struct CustomTransformer {
         factor: i32,
     }
@@ -393,7 +393,7 @@ mod default_implementation_tests {
         fn apply(self, input: i32) -> i32 {
             input * self.factor
         }
-        // 使用默认的 into_box 和 into_fn 实现
+        // Use default into_box and into_fn implementations
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod zero_cost_specialization_tests {
 
     #[test]
     fn test_box_into_box_is_zero_cost() {
-        // BoxTransformerOnce::into_box() 应该直接返回自己，零成本
+        // BoxTransformerOnce::into_box() should directly return itself, zero cost
         let add = BoxTransformerOnce::new(|x: i32| x + 10);
         let boxed = add.into_box();
         assert_eq!(boxed.apply(20), 30);
@@ -437,7 +437,7 @@ mod zero_cost_specialization_tests {
 
     #[test]
     fn test_box_into_fn_is_zero_cost() {
-        // BoxTransformerOnce::into_fn() 应该直接返回内部函数，零成本
+        // BoxTransformerOnce::into_fn() should directly return the inner function, zero cost
         let add = BoxTransformerOnce::new(|x: i32| x + 10);
         let func = add.into_fn();
         assert_eq!(func(20), 30);
@@ -445,7 +445,7 @@ mod zero_cost_specialization_tests {
 
     #[test]
     fn test_closure_into_fn_is_zero_cost() {
-        // 闭包的 into_fn() 应该直接返回自己，零成本
+        // Closure's into_fn() should directly return itself, zero cost
         let double = |x: i32| x * 2;
         let func = double.into_fn();
         assert_eq!(func(21), 42);
@@ -453,16 +453,16 @@ mod zero_cost_specialization_tests {
 
     #[test]
     fn test_chained_conversions() {
-        // 测试链式转换
+        // Test chained conversions
         let double = |x: i32| x * 2;
-        let boxed = double.into_box(); // 闭包 -> Box
-        let func = boxed.into_fn(); // Box -> Fn (零成本，直接返回内部函数)
+        let boxed = double.into_box(); // closure -> Box
+        let func = boxed.into_fn(); // Box -> Fn (zero cost, directly return inner function)
         assert_eq!(func(21), 42);
     }
 
     #[test]
     fn test_complex_type_conversion() {
-        // 测试复杂类型转换
+        // Test complex type conversions
         let parse = |s: String| s.parse::<i32>().unwrap_or(0);
         let boxed = parse.into_box();
         let composed = boxed.and_then(|x| x * 2);
@@ -479,10 +479,10 @@ mod zero_cost_specialization_tests {
 mod custom_type_default_impl_tests {
     use super::*;
 
-    /// 自定义的可克隆的 TransformerOnce 类型
+    /// Custom cloneable TransformerOnce type
     ///
-    /// 这个类型演示了如何实现 TransformerOnce trait，
-    /// 并且通过实现 Clone，可以使用 to_box() 和 to_fn() 方法
+    /// This type demonstrates how to implement the TransformerOnce trait,
+    /// and by implementing Clone, it can use the to_box() and to_fn() methods
     #[derive(Clone)]
     struct CustomTransformer {
         multiplier: i32,
@@ -496,54 +496,54 @@ mod custom_type_default_impl_tests {
 
     #[test]
     fn test_custom_into_box() {
-        // 测试 into_box 默认实现（消费 self）
+        // Test into_box default implementation (consumes self)
         let transformer = CustomTransformer { multiplier: 3 };
         let boxed = transformer.into_box();
         assert_eq!(boxed.apply(14), 42);
-        // transformer 已经被消费，无法再使用
+        // transformer has been consumed and cannot be used again
     }
 
     #[test]
     fn test_custom_into_fn() {
-        // 测试 into_fn 默认实现（消费 self）
+        // Test into_fn default implementation (consumes self)
         let transformer = CustomTransformer { multiplier: 3 };
         let func = transformer.into_fn();
         assert_eq!(func(14), 42);
-        // transformer 已经被消费，无法再使用
+        // transformer has been consumed and cannot be used again
     }
 
     #[test]
     fn test_custom_to_box() {
-        // 测试 to_box 默认实现（借用 &self，需要 Clone）
+        // Test to_box default implementation (borrows &self, requires Clone)
         let transformer = CustomTransformer { multiplier: 3 };
         let boxed = transformer.to_box();
 
-        // 先使用转换后的 boxed
+        // Use the converted boxed first
         assert_eq!(boxed.apply(14), 42);
 
-        // 原始 transformer 仍然可用（因为 to_box 只是借用）
+        // Original transformer is still available (because to_box just borrows)
         assert_eq!(transformer.apply(10), 30);
     }
 
     #[test]
     fn test_custom_to_fn() {
-        // 测试 to_fn 默认实现（借用 &self，需要 Clone）
+        // Test to_fn default implementation (borrows &self, requires Clone)
         let transformer = CustomTransformer { multiplier: 3 };
         let func = transformer.to_fn();
 
-        // 先使用转换后的函数
+        // Use the converted function first
         assert_eq!(func(14), 42);
 
-        // 原始 transformer 仍然可用（因为 to_fn 只是借用）
+        // Original transformer is still available (because to_fn just borrows)
         assert_eq!(transformer.apply(10), 30);
     }
 
     #[test]
     fn test_custom_multiple_conversions() {
-        // 测试多次转换
+        // Test multiple conversions
         let transformer = CustomTransformer { multiplier: 2 };
 
-        // 使用 to_box 多次（不消费原对象）
+        // Use to_box multiple times (does not consume original object)
         let boxed1 = transformer.to_box();
         let boxed2 = transformer.to_box();
         let func = transformer.to_fn();
@@ -552,39 +552,39 @@ mod custom_type_default_impl_tests {
         assert_eq!(boxed2.apply(10), 20);
         assert_eq!(func(15), 30);
 
-        // 原始 transformer 仍然可用
+        // Original transformer is still available
         assert_eq!(transformer.apply(21), 42);
     }
 
     #[test]
     fn test_custom_composition_with_to_box() {
-        // 测试使用 to_box 进行组合
+        // Test composition using to_box
         let double = CustomTransformer { multiplier: 2 };
         let boxed = double.to_box();
 
-        // 组合其他转换器
+        // Compose with other transformers
         let composed = boxed.and_then(|x| x + 2);
         assert_eq!(composed.apply(20), 42); // 20 * 2 + 2 = 42
 
-        // 原始 transformer 仍然可用
+        // Original transformer is still available
         assert_eq!(double.apply(10), 20);
     }
 
     #[test]
     fn test_custom_composition_with_to_fn() {
-        // 测试使用 to_fn 进行组合
+        // Test composition using to_fn
         let triple = CustomTransformer { multiplier: 3 };
         let func = triple.to_fn();
 
-        // 使用函数进行转换
+        // Use function for transformation
         let result = func(14);
         assert_eq!(result, 42);
 
-        // 原始 transformer 仍然可用（因为 to_fn 只是借用）
+        // Original transformer is still available (because to_fn just borrows)
         assert_eq!(triple.apply(7), 21);
     }
 
-    /// 带有复杂状态的自定义转换器
+    /// Custom transformer with complex state
     #[derive(Clone)]
     struct ComplexTransformer {
         prefix: String,
@@ -599,7 +599,7 @@ mod custom_type_default_impl_tests {
 
     #[test]
     fn test_complex_custom_to_box() {
-        // 测试复杂类型的 to_box
+        // Test to_box for complex types
         let transformer = ComplexTransformer {
             prefix: "Number: ".to_string(),
             suffix: "!".to_string(),
@@ -608,13 +608,13 @@ mod custom_type_default_impl_tests {
         let boxed = transformer.to_box();
         assert_eq!(boxed.apply(42), "Number: 42!");
 
-        // 原始 transformer 仍然可用（因为 to_box 只是借用）
+        // Original transformer is still available (because to_box just borrows)
         assert_eq!(transformer.apply(100), "Number: 100!");
     }
 
     #[test]
     fn test_complex_custom_to_fn() {
-        // 测试复杂类型的 to_fn
+        // Test to_fn for complex types
         let transformer = ComplexTransformer {
             prefix: "Value: ".to_string(),
             suffix: " units".to_string(),
@@ -623,26 +623,26 @@ mod custom_type_default_impl_tests {
         let func = transformer.to_fn();
         assert_eq!(func(42), "Value: 42 units");
 
-        // 原始 transformer 仍然可用（因为 to_fn 只是借用）
+        // Original transformer is still available (because to_fn just borrows)
         assert_eq!(transformer.apply(100), "Value: 100 units");
     }
 
     #[test]
     fn test_complex_custom_chain_conversions() {
-        // 测试复杂链式转换
+        // Test complex chained conversions
         let transformer = ComplexTransformer {
             prefix: "[".to_string(),
             suffix: "]".to_string(),
         };
 
-        // 先用 to_box 创建一个 BoxTransformerOnce
+        // First use to_box to create a BoxTransformerOnce
         let boxed = transformer.to_box();
 
-        // 然后将 BoxTransformerOnce 转换为函数
+        // Then convert BoxTransformerOnce to function
         let func = boxed.into_fn();
         assert_eq!(func(42), "[42]");
 
-        // 原始 transformer 仍然可用（因为使用了 to_box 而不是 into_box）
+        // Original transformer is still available (because to_box was used, not into_box)
         assert_eq!(transformer.apply(100), "[100]");
     }
 }

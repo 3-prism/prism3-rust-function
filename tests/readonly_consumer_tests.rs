@@ -835,27 +835,27 @@ mod custom_struct_tests {
 
         let my = MyConsumer::new(counter.clone());
 
-        // to_box() - 不消耗原始对象
+        // to_box() - Does not consume the original object
         let box_cons = my.to_box();
         box_cons.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // to_rc() - 不消耗原始对象
+        // to_rc() - Does not consume the original object
         let rc_cons = my.to_rc();
         rc_cons.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
 
-        // to_arc() - 不消耗原始对象
+        // to_arc() - Does not consume the original object
         let arc_cons = my.to_arc();
         arc_cons.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 3);
 
-        // to_fn() - 不消耗原始对象
+        // to_fn() - Does not consume the original object
         let func = my.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         my.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 5);
     }
@@ -882,12 +882,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
-        // to_box() 不消耗原始对象
+        // to_box() does not consume the original object
         let box_consumer = consumer.to_box();
         box_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -900,12 +900,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
-        // to_rc() 不消耗原始对象
+        // to_rc() does not consume the original object
         let rc_consumer = consumer.to_rc();
         rc_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -918,12 +918,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
-        // to_arc() 不消耗原始对象
+        // to_arc() does not consume the original object
         let arc_consumer = consumer.to_arc();
         arc_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -936,12 +936,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
-        // to_fn() 不消耗原始对象
+        // to_fn() does not consume the original object
         let func = consumer.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -954,12 +954,12 @@ mod to_xxx_methods_tests {
             *c.borrow_mut() += 1;
         });
 
-        // to_box() 不消耗原始对象
+        // to_box() does not consume the original object
         let box_consumer = consumer.to_box();
         box_consumer.accept(&1);
         assert_eq!(*counter.borrow(), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(*counter.borrow(), 2);
     }
@@ -972,12 +972,12 @@ mod to_xxx_methods_tests {
             *c.borrow_mut() += 1;
         });
 
-        // to_rc() 不消耗原始对象
+        // to_rc() does not consume the original object
         let rc_consumer = consumer.to_rc();
         rc_consumer.accept(&1);
         assert_eq!(*counter.borrow(), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(*counter.borrow(), 2);
     }
@@ -990,12 +990,12 @@ mod to_xxx_methods_tests {
             *c.borrow_mut() += 1;
         });
 
-        // to_fn() 不消耗原始对象
+        // to_fn() does not consume the original object
         let func = consumer.to_fn();
         func(&1);
         assert_eq!(*counter.borrow(), 1);
 
-        // 原始对象仍然可用
+        // Original object remains usable
         consumer.accept(&2);
         assert_eq!(*counter.borrow(), 2);
     }
@@ -1010,16 +1010,16 @@ mod to_xxx_methods_tests {
             c1.fetch_add(1, Ordering::SeqCst);
         };
 
-        // to_box() 不消耗原始闭包
+        // to_box() does not consume the original closure
         let box_consumer = closure.to_box();
         box_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始闭包仍然可用
+        // Original closure remains usable
         closure.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
 
-        // 验证通过 to_box 创建的 consumer 使用独立的闭包副本
+        // Verify that the consumer created by to_box uses an independent closure copy
         let another_closure = move |_x: &i32| {
             c2.fetch_add(1, Ordering::SeqCst);
         };
@@ -1040,12 +1040,12 @@ mod to_xxx_methods_tests {
             *c.borrow_mut() += 1;
         };
 
-        // to_rc() 不消耗原始闭包
+        // to_rc() does not consume the original closure
         let rc_consumer = closure.to_rc();
         rc_consumer.accept(&1);
         assert_eq!(*counter.borrow(), 1);
 
-        // 原始闭包仍然可用
+        // Original closure remains usable
         closure.accept(&2);
         assert_eq!(*counter.borrow(), 2);
     }
@@ -1059,12 +1059,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         };
 
-        // to_arc() 不消耗原始闭包
+        // to_arc() does not consume the original closure
         let arc_consumer = closure.to_arc();
         arc_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始闭包仍然可用
+        // Original closure remains usable
         closure.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -1078,12 +1078,12 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         };
 
-        // to_fn() 不消耗原始闭包
+        // to_fn() does not consume the original closure
         let func = closure.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
-        // 原始闭包仍然可用
+        // Original closure remains usable
         closure.accept(&2);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
@@ -1096,7 +1096,7 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
-        // 连续调用所有 to_xxx 方法，验证原始对象不被消耗
+        // Call all to_xxx methods in sequence to verify the original object is not consumed
         let box_consumer = consumer.to_box();
         box_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
@@ -1113,7 +1113,7 @@ mod to_xxx_methods_tests {
         func(&4);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
-        // 最后验证原始对象仍然可用
+        // Finally verify the original object remains usable
         consumer.accept(&5);
         assert_eq!(counter.load(Ordering::SeqCst), 5);
     }
@@ -1126,7 +1126,7 @@ mod to_xxx_methods_tests {
             *c.borrow_mut() += 1;
         });
 
-        // 连续调用所有 to_xxx 方法，验证原始对象不被消耗
+        // Call all to_xxx methods in sequence to verify the original object is not consumed
         let box_consumer = consumer.to_box();
         box_consumer.accept(&1);
         assert_eq!(*counter.borrow(), 1);
@@ -1139,7 +1139,7 @@ mod to_xxx_methods_tests {
         func(&3);
         assert_eq!(*counter.borrow(), 3);
 
-        // 最后验证原始对象仍然可用
+        // Finally verify the original object remains usable
         consumer.accept(&4);
         assert_eq!(*counter.borrow(), 4);
     }
@@ -1153,7 +1153,7 @@ mod to_xxx_methods_tests {
             c.fetch_add(1, Ordering::SeqCst);
         };
 
-        // 连续调用所有 to_xxx 方法，验证原始闭包不被消耗
+        // Call all to_xxx methods in sequence to verify the original closure is not consumed
         let box_consumer = closure.to_box();
         box_consumer.accept(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
@@ -1170,7 +1170,7 @@ mod to_xxx_methods_tests {
         func(&4);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
-        // 最后验证原始闭包仍然可用
+        // Finally verify the original closure remains usable
         closure.accept(&5);
         assert_eq!(counter.load(Ordering::SeqCst), 5);
     }

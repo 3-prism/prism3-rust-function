@@ -329,16 +329,16 @@ fn test_arc_mapper_to_box() {
         x + counter
     });
 
-    // 非消费性转换：原始 mapper 仍然可用
+    // Non-consuming conversion: the original mapper is still usable
     let mut boxed1 = mapper.to_box();
     assert_eq!(boxed1.apply(10), 11); // 10 + 1
     assert_eq!(boxed1.apply(10), 12); // 10 + 2
 
-    // 可以多次调用 to_box()，每次都共享同一个底层状态
+    // Can call to_box() multiple times, each sharing the same underlying state
     let mut boxed2 = mapper.to_box();
-    assert_eq!(boxed2.apply(10), 13); // 10 + 3 (共享状态)
+    assert_eq!(boxed2.apply(10), 13); // 10 + 3 (shared state)
 
-    // 原始 mapper 也共享状态
+    // Original mapper also shares state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 14); // 10 + 4
 }
@@ -351,17 +351,17 @@ fn test_arc_mapper_to_rc() {
         x * counter
     });
 
-    // 非消费性转换
+    // Non-consuming conversion
     let rc_mapper = mapper.to_rc();
     let mut rc1 = rc_mapper.clone();
     let mut rc2 = rc_mapper.clone();
 
-    // 共享状态
+    // Shared state
     assert_eq!(rc1.apply(10), 10); // 10 * 1
     assert_eq!(rc2.apply(10), 20); // 10 * 2
     assert_eq!(rc1.apply(10), 30); // 10 * 3
 
-    // 原始 mapper 也共享同一个状态
+    // Original mapper also shares the same state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 40); // 10 * 4
 }
@@ -374,17 +374,17 @@ fn test_arc_mapper_to_arc() {
         x - counter
     });
 
-    // 非消费性转换
+    // Non-consuming conversion
     let arc_mapper = mapper.to_arc();
     let mut arc1 = arc_mapper.clone();
     let mut arc2 = arc_mapper.clone();
 
-    // 共享状态
+    // Shared state
     assert_eq!(arc1.apply(10), 9); // 10 - 1
     assert_eq!(arc2.apply(10), 8); // 10 - 2
     assert_eq!(arc1.apply(10), 7); // 10 - 3
 
-    // 原始 mapper 也共享同一个状态
+    // Original mapper also shares the same state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 6); // 10 - 4
 }
@@ -397,16 +397,16 @@ fn test_arc_mapper_to_fn() {
         x + counter * 10
     });
 
-    // 非消费性转换
+    // Non-consuming conversion
     let mut closure1 = mapper.to_fn();
     assert_eq!(closure1(5), 15); // 5 + 1 * 10
     assert_eq!(closure1(5), 25); // 5 + 2 * 10
 
-    // 可以多次调用 to_fn()，每次都共享同一个底层状态
+    // Can call to_fn() multiple times, each sharing the same underlying state
     let mut closure2 = mapper.to_fn();
-    assert_eq!(closure2(5), 35); // 5 + 3 * 10 (共享状态)
+    assert_eq!(closure2(5), 35); // 5 + 3 * 10 (shared state)
 
-    // 原始 mapper 也共享状态
+    // Original mapper also shares state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(5), 45); // 5 + 4 * 10
 }
@@ -424,7 +424,7 @@ fn test_arc_mapper_to_box_with_string() {
     assert_eq!(boxed1.apply("world".to_string()), "[2] world");
 
     let mut boxed2 = mapper.to_box();
-    assert_eq!(boxed2.apply("rust".to_string()), "[3] rust"); // 共享状态
+    assert_eq!(boxed2.apply("rust".to_string()), "[3] rust"); // shared state
 }
 
 #[test]
@@ -439,12 +439,12 @@ fn test_arc_mapper_to_rc_shared_state() {
     let mut rc1 = rc_mapper.clone();
     let mut rc2 = rc_mapper.clone();
 
-    // 验证共享状态
+    // Verify shared state
     assert_eq!(rc1.apply(10), 10);
-    assert_eq!(rc2.apply(20), 30); // 共享同一个 sum
-    assert_eq!(rc1.apply(30), 60); // 继续累加
+    assert_eq!(rc2.apply(20), 30); // sharing the same sum
+    assert_eq!(rc1.apply(30), 60); // continue accumulating
 
-    // 原始 mapper 也共享状态
+    // Original mapper also shares state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(40), 100); // 60 + 40
 }
@@ -461,12 +461,12 @@ fn test_arc_mapper_to_arc_multiple_clones() {
     let mut arc1 = arc_mapper.clone();
     let mut arc2 = arc_mapper.clone();
 
-    // 验证共享状态
+    // Verify shared state
     assert_eq!(arc1.apply(2), 2); // 1 * 2
     assert_eq!(arc2.apply(3), 6); // 2 * 3
     assert_eq!(arc1.apply(4), 24); // 6 * 4
 
-    // 原始 mapper 也共享状态
+    // Original mapper also shares state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(5), 120); // 24 * 5
 }
@@ -484,9 +484,9 @@ fn test_arc_mapper_to_fn_complex_type() {
     assert_eq!(fn1(20), (20, 2));
 
     let mut fn2 = mapper.to_fn();
-    assert_eq!(fn2(30), (30, 3)); // 共享状态
+    assert_eq!(fn2(30), (30, 3)); // shared state
 
-    // 原始 mapper 也共享状态
+    // Original mapper also shares state
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(40), (40, 4));
 }
@@ -929,31 +929,17 @@ fn test_with_rc_predicate() {
 // Custom Mapper Default Implementation Tests
 // ============================================================================
 
-/// 自定义 Mapper 结构，用于测试默认的 into_xxx() 方法
+/// Custom Mapper struct for testing default into_xxx() methods
 struct CustomMapper {
     multiplier: i32,
 }
 
-impl Mapper<i32, i32> for CustomMapper {
-    fn apply(&mut self, input: i32) -> i32 {
-        self.multiplier += 1;
-        input * self.multiplier
-    }
-}
-
-/// 自定义线程安全的 Mapper 结构
+/// Custom thread-safe Mapper struct
 struct CustomSendMapper {
     multiplier: i32,
 }
 
-impl Mapper<i32, i32> for CustomSendMapper {
-    fn apply(&mut self, input: i32) -> i32 {
-        self.multiplier += 1;
-        input * self.multiplier
-    }
-}
-
-// 为 CustomSendMapper 实现 Send，使其可以转换为 ArcMapper
+// Implement Send for CustomSendMapper to allow conversion to ArcMapper
 unsafe impl Send for CustomSendMapper {}
 
 #[test]
@@ -984,7 +970,7 @@ fn test_custom_mapper_into_rc_clone() {
     let mut mapper1 = rc_mapper.clone();
     let mut mapper2 = rc_mapper.clone();
 
-    // 共享同一个状态
+    // Sharing the same state
     assert_eq!(mapper1.apply(10), 10); // 10 * 1
     assert_eq!(mapper2.apply(10), 20); // 10 * 2
     assert_eq!(mapper1.apply(10), 30); // 10 * 3
@@ -1008,7 +994,7 @@ fn test_custom_send_mapper_into_arc_clone() {
     let mut mapper1 = arc_mapper.clone();
     let mut mapper2 = arc_mapper.clone();
 
-    // 共享同一个状态
+    // Sharing the same state
     assert_eq!(mapper1.apply(10), 10); // 10 * 1
     assert_eq!(mapper2.apply(10), 20); // 10 * 2
     assert_eq!(mapper1.apply(10), 30); // 10 * 3
@@ -1024,9 +1010,9 @@ fn test_custom_mapper_composition() {
 
     let mut composed = boxed1.and_then(boxed2);
 
-    // (10 * 1) = 10, 然后 10 * 11 = 110
+    // (10 * 1) = 10, then 10 * 11 = 110
     assert_eq!(composed.apply(10), 110);
-    // (10 * 2) = 20, 然后 20 * 12 = 240
+    // (10 * 2) = 20, then 20 * 12 = 240
     assert_eq!(composed.apply(10), 240);
 }
 
@@ -1040,24 +1026,17 @@ fn test_custom_mapper_conditional() {
 
     let mut conditional = boxed1.when(|x: &i32| *x > 10).or_else(boxed2);
 
-    // 15 > 10, 使用 mapper1: 15 * 2 = 30
+    // 15 > 10, use mapper1: 15 * 2 = 30
     assert_eq!(conditional.apply(15), 30);
-    // 5 <= 10, 使用 mapper2: 5 * 101 = 505
+    // 5 <= 10, use mapper2: 5 * 101 = 505
     assert_eq!(conditional.apply(5), 505);
-    // 20 > 10, 使用 mapper1: 20 * 3 = 60
+    // 20 > 10, use mapper1: 20 * 3 = 60
     assert_eq!(conditional.apply(20), 60);
 }
 
-/// 测试自定义 Mapper 与字符串类型
+/// Test custom Mapper with string types
 struct StringLengthMapper {
     total_length: usize,
-}
-
-impl Mapper<String, String> for StringLengthMapper {
-    fn apply(&mut self, input: String) -> String {
-        self.total_length += input.len();
-        format!("[{}] {}", self.total_length, input)
-    }
 }
 
 #[test]
@@ -1080,20 +1059,11 @@ fn test_custom_string_mapper_into_rc() {
     assert_eq!(rc_mapper.apply("!".to_string()), "[11] !");
 }
 
-/// 测试带复杂状态的自定义 Mapper
+/// Test custom Mapper with complex state
 struct StatefulMapper {
     count: i32,
     sum: i32,
     history: Vec<i32>,
-}
-
-impl Mapper<i32, (i32, i32, usize)> for StatefulMapper {
-    fn apply(&mut self, input: i32) -> (i32, i32, usize) {
-        self.count += 1;
-        self.sum += input;
-        self.history.push(input);
-        (self.count, self.sum, self.history.len())
-    }
 }
 
 #[test]
@@ -1122,7 +1092,7 @@ fn test_stateful_mapper_into_rc() {
     let mut mapper1 = rc_mapper.clone();
     let mut mapper2 = rc_mapper;
 
-    // 共享同一个状态
+    // Sharing the same state
     assert_eq!(mapper1.apply(10), (1, 10, 1));
     assert_eq!(mapper2.apply(20), (2, 30, 2));
     assert_eq!(mapper1.apply(30), (3, 60, 3));
@@ -1315,7 +1285,7 @@ fn test_into_fn_after_conversion() {
         x + counter
     };
 
-    // 先转换成 BoxMapper，再转回闭包
+    // First convert to BoxMapper, then back to closure
     let boxed = original_closure.into_box();
     let mut final_closure = boxed.into_fn();
 
@@ -1334,7 +1304,7 @@ fn test_into_fn_with_string_return() {
 
 #[test]
 fn test_into_fn_chained_usage() {
-    // 测试链式调用：Mapper -> into_box -> and_then -> into_fn
+    // Test chained calls: Mapper -> into_box -> and_then -> into_fn
     let mut counter = 0;
     let mapper1 = move |x: i32| {
         counter += 1;
@@ -1361,17 +1331,17 @@ fn test_closure_to_box() {
         x + counter
     };
 
-    // 非消费性转换：原始闭包仍然可以使用
+    // Non-consuming conversion: original closure still usable
     let mut boxed = mapper.to_box();
     assert_eq!(boxed.apply(10), 11); // 10 + 1
     assert_eq!(boxed.apply(10), 12); // 10 + 2
 
-    // 可以多次调用 to_box()
+    // Can call to_box() multiple times
     let mut boxed2 = mapper.to_box();
-    assert_eq!(boxed2.apply(20), 21); // 20 + 1 (新的状态)
+    assert_eq!(boxed2.apply(20), 21); // 20 + 1 (new state)
     assert_eq!(boxed2.apply(20), 22); // 20 + 2
 
-    // 原始的 boxed 仍然保持自己的状态
+    // Original boxed still maintains its state
     assert_eq!(boxed.apply(10), 13); // 10 + 3
 }
 
@@ -1383,20 +1353,20 @@ fn test_closure_to_rc() {
         x * counter
     };
 
-    // 非消费性转换
+    // Non-consuming conversion
     let rc_mapper = mapper.to_rc();
     let mut rc1 = rc_mapper.clone();
     let mut rc2 = rc_mapper.clone();
 
-    // 共享状态
+    // Shared state
     assert_eq!(rc1.apply(10), 10); // 10 * 1
     assert_eq!(rc2.apply(10), 20); // 10 * 2
     assert_eq!(rc1.apply(10), 30); // 10 * 3
 
-    // 可以再次调用 to_rc()，创建新的独立状态
+    // Can call to_rc() again, creating a new independent state
     let rc_mapper2 = mapper.to_rc();
     let mut rc3 = rc_mapper2.clone();
-    assert_eq!(rc3.apply(10), 10); // 10 * 1 (新的状态)
+    assert_eq!(rc3.apply(10), 10); // 10 * 1 (new state)
 }
 
 #[test]
@@ -1407,20 +1377,20 @@ fn test_closure_to_arc() {
         x - counter
     };
 
-    // 非消费性转换（需要 Clone + Send + Sync）
+    // Non-consuming conversion (requires Clone + Send + Sync)
     let arc_mapper = mapper.to_arc();
     let mut arc1 = arc_mapper.clone();
     let mut arc2 = arc_mapper.clone();
 
-    // 共享状态
+    // Shared state
     assert_eq!(arc1.apply(10), 9); // 10 - 1
     assert_eq!(arc2.apply(10), 8); // 10 - 2
     assert_eq!(arc1.apply(10), 7); // 10 - 3
 
-    // 可以再次调用 to_arc()，创建新的独立状态
+    // Can call to_arc() again, creating a new independent state
     let arc_mapper2 = mapper.to_arc();
     let mut arc3 = arc_mapper2.clone();
-    assert_eq!(arc3.apply(10), 9); // 10 - 1 (新的状态)
+    assert_eq!(arc3.apply(10), 9); // 10 - 1 (new state)
 }
 
 #[test]
@@ -1431,17 +1401,17 @@ fn test_closure_to_fn() {
         x + counter * 10
     };
 
-    // 非消费性转换
+    // Non-consuming conversion
     let mut closure = mapper.to_fn();
     assert_eq!(closure(5), 15); // 5 + 1 * 10
     assert_eq!(closure(5), 25); // 5 + 2 * 10
 
-    // 可以再次调用 to_fn()，创建新的独立状态
+    // Can call to_fn() again, creating a new independent state
     let mut closure2 = mapper.to_fn();
-    assert_eq!(closure2(5), 15); // 5 + 1 * 10 (新的状态)
+    assert_eq!(closure2(5), 15); // 5 + 1 * 10 (new state)
     assert_eq!(closure2(5), 25); // 5 + 2 * 10
 
-    // 原始的 closure 仍然保持自己的状态
+    // Original closure still maintains its state
     assert_eq!(closure(5), 35); // 5 + 3 * 10
 }
 
@@ -1458,7 +1428,7 @@ fn test_closure_to_box_with_string() {
     assert_eq!(boxed1.apply("world".to_string()), "[2] world");
 
     let mut boxed2 = mapper.to_box();
-    assert_eq!(boxed2.apply("rust".to_string()), "[1] rust"); // 新的状态
+    assert_eq!(boxed2.apply("rust".to_string()), "[1] rust"); // new state
 }
 
 #[test]
@@ -1473,10 +1443,10 @@ fn test_closure_to_rc_shared_state() {
     let mut rc1 = rc_mapper.clone();
     let mut rc2 = rc_mapper.clone();
 
-    // 验证共享状态
+    // Verify shared state
     assert_eq!(rc1.apply(10), 10);
-    assert_eq!(rc2.apply(20), 30); // 共享同一个 sum
-    assert_eq!(rc1.apply(30), 60); // 继续累加
+    assert_eq!(rc2.apply(20), 30); // sharing the same sum
+    assert_eq!(rc1.apply(30), 60); // continue accumulating
 }
 
 #[test]
@@ -1491,7 +1461,7 @@ fn test_closure_to_arc_thread_safe() {
     let mut arc1 = arc_mapper.clone();
     let mut arc2 = arc_mapper.clone();
 
-    // 验证共享状态（线程安全）
+    // Verify shared state (thread-safe)
     assert_eq!(arc1.apply(2), 2); // 1 * 2
     assert_eq!(arc2.apply(3), 6); // 2 * 3
     assert_eq!(arc1.apply(4), 24); // 6 * 4
@@ -1519,16 +1489,16 @@ fn test_closure_to_fn_multiple_calls() {
         (x, counter)
     };
 
-    // 第一次调用 to_fn()
+    // First call to to_fn()
     let mut fn1 = mapper.to_fn();
     assert_eq!(fn1(100), (100, 1));
     assert_eq!(fn1(200), (200, 2));
 
-    // 第二次调用 to_fn()，创建独立状态
+    // Second call to to_fn(), creating independent state
     let mut fn2 = mapper.to_fn();
-    assert_eq!(fn2(300), (300, 1)); // 新的计数器从1开始
+    assert_eq!(fn2(300), (300, 1)); // new counter starts from 1
 
-    // 第一个闭包状态不受影响
+    // First closure's state unaffected
     assert_eq!(fn1(400), (400, 3));
 }
 
@@ -1540,17 +1510,17 @@ fn test_closure_to_rc_multiple_conversions() {
         value
     };
 
-    // 第一个 RcMapper
+    // First RcMapper
     let rc1 = mapper.to_rc();
     let mut rc1_ref = rc1.clone();
     assert_eq!(rc1_ref.apply(10), 10);
 
-    // 第二个 RcMapper（独立状态）
+    // Second RcMapper (independent state)
     let rc2 = mapper.to_rc();
     let mut rc2_ref = rc2.clone();
-    assert_eq!(rc2_ref.apply(20), 20); // 独立的状态，从0开始
+    assert_eq!(rc2_ref.apply(20), 20); // independent state, starts from 0
 
-    // 第一个 RcMapper 的状态不受影响
+    // First RcMapper's state unaffected
     assert_eq!(rc1_ref.apply(30), 40); // 10 + 30
 }
 
@@ -1562,16 +1532,16 @@ fn test_closure_to_arc_multiple_conversions() {
         x * count
     };
 
-    // 第一个 ArcMapper
+    // First ArcMapper
     let arc1 = mapper.to_arc();
     let mut arc1_ref = arc1.clone();
     assert_eq!(arc1_ref.apply(10), 10); // 10 * 1
 
-    // 第二个 ArcMapper（独立状态）
+    // Second ArcMapper (independent state)
     let arc2 = mapper.to_arc();
     let mut arc2_ref = arc2.clone();
-    assert_eq!(arc2_ref.apply(10), 10); // 10 * 1 (新的 count)
+    assert_eq!(arc2_ref.apply(10), 10); // 10 * 1 (new count)
 
-    // 第一个 ArcMapper 的状态不受影响
+    // First ArcMapper's state unaffected
     assert_eq!(arc1_ref.apply(10), 20); // 10 * 2
 }

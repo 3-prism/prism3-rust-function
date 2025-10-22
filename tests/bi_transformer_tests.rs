@@ -1564,7 +1564,7 @@ mod conversion_chain_tests {
     fn test_closure_multiple_conversions_chain() {
         let add = |x: i32, y: i32| x + y;
 
-        // 链式转换
+        // Chain conversion
         let boxed = add.into_box();
         let rc = boxed.into_rc();
         let rc_clone = rc.clone();

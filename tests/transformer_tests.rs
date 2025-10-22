@@ -1263,9 +1263,9 @@ mod transformer_default_to_methods_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let boxed = double.to_box();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的 BoxTransformer 也可用
+        // Converted BoxTransformer also usable
         assert_eq!(boxed.apply(21), 42);
     }
 
@@ -1275,7 +1275,7 @@ mod transformer_default_to_methods_tests {
         let boxed1 = triple.to_box();
         let boxed2 = triple.to_box();
 
-        // 多次转换都可以工作
+        // Multiple conversions all work
         assert_eq!(boxed1.apply(7), 21);
         assert_eq!(boxed2.apply(7), 21);
         assert_eq!(triple.apply(7), 21);
@@ -1309,9 +1309,9 @@ mod transformer_default_to_methods_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let rc = double.to_rc();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的 RcTransformer 也可用
+        // Converted RcTransformer also usable
         assert_eq!(rc.apply(21), 42);
     }
 
@@ -1346,9 +1346,9 @@ mod transformer_default_to_methods_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let arc = double.to_arc();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的 ArcTransformer 也可用
+        // Converted ArcTransformer also usable
         assert_eq!(arc.apply(21), 42);
     }
 
@@ -1357,7 +1357,7 @@ mod transformer_default_to_methods_tests {
         let add_one = ArcTransformer::new(|x: i32| x + 1);
         let arc = add_one.to_arc();
 
-        // to_arc() 应该等价于 clone()
+        // to_arc() should be equivalent to clone()
         assert_eq!(add_one.apply(41), 42);
         assert_eq!(arc.apply(41), 42);
     }
@@ -1382,9 +1382,9 @@ mod transformer_default_to_methods_tests {
         let double = ArcTransformer::new(|x: i32| x * 2);
         let func = double.to_fn();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的函数也可用
+        // Converted function also usable
         assert_eq!(func(21), 42);
     }
 
@@ -1417,9 +1417,9 @@ mod transformer_default_to_methods_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let boxed = double.to_box();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的 BoxTransformer 也可用
+        // Converted BoxTransformer also usable
         assert_eq!(boxed.apply(21), 42);
     }
 
@@ -1454,9 +1454,9 @@ mod transformer_default_to_methods_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let rc = double.to_rc();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的 RcTransformer 也可用
+        // Converted RcTransformer also usable
         assert_eq!(rc.apply(21), 42);
     }
 
@@ -1465,7 +1465,7 @@ mod transformer_default_to_methods_tests {
         let add_one = RcTransformer::new(|x: i32| x + 1);
         let rc = add_one.to_rc();
 
-        // to_rc() 应该等价于 clone()
+        // to_rc() should be equivalent to clone()
         assert_eq!(add_one.apply(41), 42);
         assert_eq!(rc.apply(41), 42);
     }
@@ -1492,9 +1492,9 @@ mod transformer_default_to_methods_tests {
         let double = RcTransformer::new(|x: i32| x * 2);
         let func = double.to_fn();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(double.apply(21), 42);
-        // 转换后的函数也可用
+        // Converted function also usable
         assert_eq!(func(21), 42);
     }
 
@@ -1529,7 +1529,7 @@ mod transformer_default_to_methods_tests {
         let func = boxed.into_fn();
 
         assert_eq!(func(21), 42);
-        // 原始 ArcTransformer 仍然可用
+        // Original ArcTransformer still usable
         assert_eq!(double.apply(21), 42);
     }
 
@@ -1643,8 +1643,8 @@ mod custom_transformer_to_methods_tests {
     use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
     use std::thread;
 
-    /// 自定义 Transformer 实现，用于测试默认的 to_xxx 方法
-    /// 这是一个简单的乘法 transformer
+    /// Custom Transformer implementation for testing default to_xxx methods
+    /// This is a simple multiplication transformer
     #[derive(Clone)]
     struct MultiplyTransformer {
         multiplier: i32,
@@ -1656,13 +1656,13 @@ mod custom_transformer_to_methods_tests {
         }
     }
 
-    /// 线程安全的自定义 Transformer 实现
+    /// Thread-safe custom Transformer implementation
     #[derive(Clone)]
     struct ThreadSafeMultiplyTransformer {
         multiplier: i32,
     }
 
-    // 手动实现 Send + Sync
+    // Manual implementation of Send + Sync
     unsafe impl Send for ThreadSafeMultiplyTransformer {}
     unsafe impl Sync for ThreadSafeMultiplyTransformer {}
 
@@ -1681,9 +1681,9 @@ mod custom_transformer_to_methods_tests {
         let multiply = MultiplyTransformer { multiplier: 3 };
         let boxed = multiply.to_box();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(multiply.apply(7), 21);
-        // 转换后的 BoxTransformer 也可用
+        // Converted BoxTransformer also usable
         assert_eq!(boxed.apply(7), 21);
     }
 
@@ -1693,7 +1693,7 @@ mod custom_transformer_to_methods_tests {
         let boxed1 = multiply.to_box();
         let boxed2 = multiply.to_box();
 
-        // 多次转换都可以工作
+        // Multiple conversions all work
         assert_eq!(boxed1.apply(4), 20);
         assert_eq!(boxed2.apply(4), 20);
         assert_eq!(multiply.apply(4), 20);
@@ -1704,7 +1704,7 @@ mod custom_transformer_to_methods_tests {
         let multiply = MultiplyTransformer { multiplier: 2 };
         let boxed = multiply.to_box();
 
-        // 与其他 transformer 组合
+        // Compose with other transformer
         let add_ten = BoxTransformer::new(|x: i32| x + 10);
         let composed = boxed.and_then(add_ten);
 
@@ -1720,9 +1720,9 @@ mod custom_transformer_to_methods_tests {
         let multiply = MultiplyTransformer { multiplier: 4 };
         let rc = multiply.to_rc();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(multiply.apply(5), 20);
-        // 转换后的 RcTransformer 也可用
+        // Converted RcTransformer also usable
         assert_eq!(rc.apply(5), 20);
     }
 
@@ -1753,7 +1753,7 @@ mod custom_transformer_to_methods_tests {
         let multiply = MultiplyTransformer { multiplier: 3 };
         let rc = multiply.to_rc();
 
-        // 与其他 transformer 组合
+        // Compose with other transformer
         let square = RcTransformer::new(|x: i32| x * x);
         let composed = rc.and_then(square);
 
@@ -1769,9 +1769,9 @@ mod custom_transformer_to_methods_tests {
         let multiply = ThreadSafeMultiplyTransformer { multiplier: 5 };
         let arc = multiply.to_arc();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(multiply.apply(8), 40);
-        // 转换后的 ArcTransformer 也可用
+        // Converted ArcTransformer also usable
         assert_eq!(arc.apply(8), 40);
     }
 
@@ -1813,7 +1813,7 @@ mod custom_transformer_to_methods_tests {
         let multiply = ThreadSafeMultiplyTransformer { multiplier: 4 };
         let arc = multiply.to_arc();
 
-        // 与其他 transformer 组合
+        // Compose with other transformer
         let double = ArcTransformer::new(|x: i32| x * 2);
         let composed = arc.and_then(double);
 
@@ -1829,9 +1829,9 @@ mod custom_transformer_to_methods_tests {
         let multiply = MultiplyTransformer { multiplier: 8 };
         let func = multiply.to_fn();
 
-        // 原始 transformer 仍然可用
+        // Original transformer still usable
         assert_eq!(multiply.apply(5), 40);
-        // 转换后的函数也可用
+        // Converted function also usable
         assert_eq!(func(5), 40);
     }
 
@@ -1861,7 +1861,7 @@ mod custom_transformer_to_methods_tests {
         let func1 = multiply.to_fn();
         let func2 = multiply.to_fn();
 
-        // 多次转换都可以工作
+        // Multiple conversions all work
         assert_eq!(func1(5), 45);
         assert_eq!(func2(5), 45);
         assert_eq!(multiply.apply(5), 45);
@@ -1878,7 +1878,7 @@ mod custom_transformer_to_methods_tests {
         let rc = boxed.into_rc();
 
         assert_eq!(rc.apply(7), 21);
-        // 原始自定义 transformer 仍然可用
+        // Original custom transformer still usable
         assert_eq!(multiply.apply(7), 21);
     }
 
@@ -1913,7 +1913,7 @@ mod custom_transformer_to_methods_tests {
         let arc = multiply.to_arc();
         let func = multiply.to_fn();
 
-        // 所有转换后的类型都可以正常工作
+        // All converted types work normally
         assert_eq!(multiply.apply(10), 20);
         assert_eq!(boxed.apply(10), 20);
         assert_eq!(rc.apply(10), 20);
@@ -1925,7 +1925,7 @@ mod custom_transformer_to_methods_tests {
     // Different type transformation tests
     // ========================================================================
 
-    /// 自定义 Transformer: i32 -> String
+    /// Custom Transformer: i32 -> String
     #[derive(Clone)]
     struct IntToStringTransformer {
         prefix: String,
@@ -1974,7 +1974,7 @@ mod custom_transformer_to_methods_tests {
     // Complex state tests
     // ========================================================================
 
-    /// 带有复杂状态的自定义 Transformer
+    /// Custom Transformer with complex state
     #[derive(Clone)]
     struct StatefulTransformer {
         base: i32,
