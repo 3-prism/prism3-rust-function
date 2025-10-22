@@ -934,9 +934,23 @@ struct CustomMapper {
     multiplier: i32,
 }
 
+impl Mapper<i32, i32> for CustomMapper {
+    fn apply(&mut self, input: i32) -> i32 {
+        self.multiplier += 1;
+        input * self.multiplier
+    }
+}
+
 /// Custom thread-safe Mapper struct
 struct CustomSendMapper {
     multiplier: i32,
+}
+
+impl Mapper<i32, i32> for CustomSendMapper {
+    fn apply(&mut self, input: i32) -> i32 {
+        self.multiplier += 1;
+        input * self.multiplier
+    }
 }
 
 // Implement Send for CustomSendMapper to allow conversion to ArcMapper
@@ -1039,6 +1053,13 @@ struct StringLengthMapper {
     total_length: usize,
 }
 
+impl Mapper<String, String> for StringLengthMapper {
+    fn apply(&mut self, input: String) -> String {
+        self.total_length += input.len();
+        format!("[{}] {}", self.total_length, input)
+    }
+}
+
 #[test]
 fn test_custom_string_mapper_into_box() {
     let mapper = StringLengthMapper { total_length: 0 };
@@ -1064,6 +1085,15 @@ struct StatefulMapper {
     count: i32,
     sum: i32,
     history: Vec<i32>,
+}
+
+impl Mapper<i32, (i32, i32, usize)> for StatefulMapper {
+    fn apply(&mut self, input: i32) -> (i32, i32, usize) {
+        self.count += 1;
+        self.sum += input;
+        self.history.push(input);
+        (self.count, self.sum, self.history.len())
+    }
 }
 
 #[test]
