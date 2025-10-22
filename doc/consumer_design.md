@@ -129,7 +129,7 @@ impl Initializer {
     fn run(mut self) {
         let result = self.do_init();
         if let Some(callback) = self.on_complete {
-            callback.accept(&result);  // Only call once
+            callback.accept_once(&result);  // Only call once
         }
     }
 }
@@ -292,7 +292,7 @@ impl<T> Clone for ReadonlyConsumer<T> {
 // Create and call
 let mut consumer = Consumer::new(|x: &i32| println!("{}", x));
 let value = 5;
-consumer.accept(&value);  // Must use .accept()
+consumer.accept_once(&value);  // Must use .accept_once()
 
 // Method chaining
 let mut chained = Consumer::new(|x: &i32| println!("First: {}", x))
@@ -301,8 +301,8 @@ let mut chained = Consumer::new(|x: &i32| println!("First: {}", x))
 // ReadonlyConsumer can be cloned and shared
 let shared = ReadonlyConsumer::new(|x: &i32| println!("{}", x));
 let clone = shared.clone();
-shared.accept(&5);
-clone.accept(&10);
+shared.accept_once(&5);
+clone.accept_once(&10);
 ```
 
 **Advantages**:
@@ -312,7 +312,7 @@ clone.accept(&10);
 - ✅ Rich factory methods
 
 **Disadvantages**:
-- ❌ Cannot call directly (must use `.accept()`)
+- ❌ Cannot call directly (must use `.accept_once()`)
 - ❌ Need to maintain two separate implementations (Consumer and ReadonlyConsumer)
 - ❌ Code duplication (composition methods need separate implementation)
 - ❌ Ownership issues (`and_then` consumes self)
@@ -402,7 +402,7 @@ impl<T> BoxConsumer<T> {
         let mut second = next;
         BoxConsumer::new(move |t| {
             first(t);
-            second.accept(t);
+            second.accept_once(t);
         })
     }
 }
@@ -536,14 +536,14 @@ pub struct RcReadonlyConsumer<T> {
 
 **Usage Example**:
 ```rust
-// 1. Closures automatically have .accept() method
+// 1. Closures automatically have .accept_once() method
 let mut closure = |x: &i32| println!("{}", x);
-closure.accept(&5);  // ✅ Direct use
+closure.accept_once(&5);  // ✅ Direct use
 
 // 2. Closures can be composed, return BoxConsumer
 let mut chained = (|x: &i32| println!("First: {}", x))
     .and_then(|x| println!("Second: {}", x));
-chained.accept(&5);
+chained.accept_once(&5);
 
 // 3. BoxConsumer - one-time use
 let consumer = BoxConsumer::new(|x: &i32| println!("{}", x));
@@ -556,7 +556,7 @@ let combined = shared.and_then(&ArcConsumer::new(|x| println!("Then: {}", x)));
 let clone = shared.clone();
 std::thread::spawn(move || {
     let mut c = clone;
-    c.accept(&5);
+    c.accept_once(&5);
 });
 
 // 5. RcConsumer - single-threaded reuse
@@ -568,7 +568,7 @@ let combined2 = rc.and_then(&RcConsumer::new(|x| println!("B: {}", x)));
 // 6. Unified interface
 fn apply_consumer<C: Consumer<i32>>(consumer: &mut C, value: i32) {
     let val = value;
-    consumer.accept(&val);
+    consumer.accept_once(&val);
 }
 
 let mut box_con = BoxConsumer::new(|x| println!("{}", x));
@@ -589,7 +589,7 @@ apply_consumer(&mut arc_con, 5);
 - ✅ Consistent with Rust standard library design philosophy
 
 **Disadvantages**:
-- ❌ Still cannot call directly (must use `.accept()`)
+- ❌ Still cannot call directly (must use `.accept_once()`)
 - ❌ Slightly higher learning cost (need to understand differences between three implementations)
 - ❌ High implementation cost (need to implement separately for three structs)
 
@@ -599,7 +599,7 @@ apply_consumer(&mut arc_con, 5);
 
 | Feature | Approach 1: Type Aliases | Approach 2: Struct Wrapper | Approach 3: Trait + Multi-impl ⭐ |
 |:---|:---:|:---:|:---:|
-| **Calling Method** | `consumer(&value)` ✅ | `consumer.accept(&value)` | `consumer.accept(&value)` |
+| **Calling Method** | `consumer(&value)` ✅ | `consumer.accept_once(&value)` | `consumer.accept_once(&value)` |
 | **Semantic Clarity** | 🟡 Medium | 🟢 Good | 🟢 **Excellent** ✨ |
 | **Unified Interface** | ❌ None | ❌ Two separate | ✅ **Unified trait** ✨ |
 | **Ownership Model** | Box + Arc (two) | Box + Arc (two) | Box + Arc + Rc (three) ✅ |
@@ -655,7 +655,7 @@ pub trait Mutator<T> {
 
 /// One-time mutator: consumes self, can modify input (not yet implemented)
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 ```
 
@@ -792,7 +792,7 @@ This design provides users with the most flexible, powerful, and clear API, maki
 // Old code
 use prism3_function::{ConsumerMut, BoxConsumerMut};
 let mut consumer = BoxConsumerMut::new(|x: &mut i32| *x *= 2);
-consumer.accept(&mut value);
+consumer.accept_once(&mut value);
 
 // New code
 use prism3_function::{Mutator, BoxMutator};

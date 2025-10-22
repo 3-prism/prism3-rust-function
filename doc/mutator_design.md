@@ -101,7 +101,7 @@ pub trait Mutator<T> {
 
 ```rust
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);  // Consume self
+    fn mutate_once(self, value: &mut T);  // Consume self
 }
 
 // Usage scenario: save FnOnce closure
@@ -122,7 +122,7 @@ impl Initializer {
     fn run(mut self, data: &mut Data) {
         self.do_init(data);
         if let Some(callback) = self.on_complete {
-            callback.mutate(data);  // Call only once
+            callback.mutate_once(data);  // Call only once
         }
     }
 }
@@ -173,7 +173,7 @@ pub trait Mutator<T> {
 
 /// One-time mutator: consume self, can modify input (lower priority)
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 ```
 
@@ -303,7 +303,7 @@ impl<T> BoxMutator<T> {
     {
         BoxConditionalMutator {
             mutator: self,
-            predicate: predicate.into_box(),
+            predicate: predicate.into_box_once(),
         }
     }
 }
@@ -319,9 +319,9 @@ impl<T> BoxConditionalMutator<T> {
         let mut else_mut = else_mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
-                then_mut.mutate(t);
+                then_mut.mutate_once(t);
             } else {
-                else_mut.mutate(t);
+                else_mut.mutate_once(t);
             }
         })
     }
@@ -526,7 +526,7 @@ mutator.mutate(&mut value);  // value = 10, modified in-place
 ```rust
 /// One-time mutator trait
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 
 /// BoxMutatorOnce implementation
@@ -549,7 +549,7 @@ impl<T> BoxMutatorOnce<T> {
         let first = self.func;
         BoxMutatorOnce::new(move |t| {
             first(t);
-            next.mutate(t);
+            next.mutate_once(t);
         })
     }
 }

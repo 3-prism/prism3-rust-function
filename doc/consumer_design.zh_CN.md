@@ -129,7 +129,7 @@ impl Initializer {
     fn run(mut self) {
         let result = self.do_init();
         if let Some(callback) = self.on_complete {
-            callback.accept(&result);  // 只调用一次
+            callback.accept_once(&result);  // 只调用一次
         }
     }
 }
@@ -292,7 +292,7 @@ impl<T> Clone for ReadonlyConsumer<T> {
 // 创建和调用
 let mut consumer = Consumer::new(|x: &i32| println!("{}", x));
 let value = 5;
-consumer.accept(&value);  // 必须使用 .accept()
+consumer.accept_once(&value);  // 必须使用 .accept_once()
 
 // 方法链
 let mut chained = Consumer::new(|x: &i32| println!("First: {}", x))
@@ -301,8 +301,8 @@ let mut chained = Consumer::new(|x: &i32| println!("First: {}", x))
 // ReadonlyConsumer 可以克隆和共享
 let shared = ReadonlyConsumer::new(|x: &i32| println!("{}", x));
 let clone = shared.clone();
-shared.accept(&5);
-clone.accept(&10);
+shared.accept_once(&5);
+clone.accept_once(&10);
 ```
 
 **优点**：
@@ -312,7 +312,7 @@ clone.accept(&10);
 - ✅ 丰富的工厂方法
 
 **缺点**：
-- ❌ 无法直接调用（必须用 `.accept()`）
+- ❌ 无法直接调用（必须用 `.accept_once()`）
 - ❌ 需要维护两套独立实现（Consumer 和 ReadonlyConsumer）
 - ❌ 代码重复（组合方法需要分别实现）
 - ❌ 所有权问题（`and_then` 消耗 self）
@@ -402,7 +402,7 @@ impl<T> BoxConsumer<T> {
         let mut second = next;
         BoxConsumer::new(move |t| {
             first(t);
-            second.accept(t);
+            second.accept_once(t);
         })
     }
 }
@@ -536,14 +536,14 @@ pub struct RcReadonlyConsumer<T> {
 
 **使用示例**：
 ```rust
-// 1. 闭包自动拥有 .accept() 方法
+// 1. 闭包自动拥有 .accept_once() 方法
 let mut closure = |x: &i32| println!("{}", x);
-closure.accept(&5);  // ✅ 直接使用
+closure.accept_once(&5);  // ✅ 直接使用
 
 // 2. 闭包可以组合，返回 BoxConsumer
 let mut chained = (|x: &i32| println!("First: {}", x))
     .and_then(|x| println!("Second: {}", x));
-chained.accept(&5);
+chained.accept_once(&5);
 
 // 3. BoxConsumer - 一次性使用
 let consumer = BoxConsumer::new(|x: &i32| println!("{}", x));
@@ -556,7 +556,7 @@ let combined = shared.and_then(&ArcConsumer::new(|x| println!("Then: {}", x)));
 let clone = shared.clone();
 std::thread::spawn(move || {
     let mut c = clone;
-    c.accept(&5);
+    c.accept_once(&5);
 });
 
 // 5. RcConsumer - 单线程复用
@@ -568,7 +568,7 @@ let combined2 = rc.and_then(&RcConsumer::new(|x| println!("B: {}", x)));
 // 6. 统一的接口
 fn apply_consumer<C: Consumer<i32>>(consumer: &mut C, value: i32) {
     let val = value;
-    consumer.accept(&val);
+    consumer.accept_once(&val);
 }
 
 let mut box_con = BoxConsumer::new(|x| println!("{}", x));
@@ -589,7 +589,7 @@ apply_consumer(&mut arc_con, 5);
 - ✅ 与 Rust 标准库设计哲学一致
 
 **缺点**：
-- ❌ 仍然无法直接调用（必须用 `.accept()`）
+- ❌ 仍然无法直接调用（必须用 `.accept_once()`）
 - ❌ 学习成本略高（需要理解三种实现的区别）
 - ❌ 实现成本高（需要为三个 struct 分别实现）
 
@@ -599,7 +599,7 @@ apply_consumer(&mut arc_con, 5);
 
 | 特性 | 方案一：类型别名 | 方案二：Struct 封装 | 方案三：Trait + 多实现 ⭐ |
 |:---|:---:|:---:|:---:|
-| **调用方式** | `consumer(&value)` ✅ | `consumer.accept(&value)` | `consumer.accept(&value)` |
+| **调用方式** | `consumer(&value)` ✅ | `consumer.accept_once(&value)` | `consumer.accept_once(&value)` |
 | **语义清晰度** | 🟡 中等 | 🟢 好 | 🟢 **极好** ✨ |
 | **统一接口** | ❌ 无 | ❌ 两套独立 | ✅ **统一 trait** ✨ |
 | **所有权模型** | Box + Arc（两种）| Box + Arc（两种）| Box + Arc + Rc（三种）✅ |
@@ -655,7 +655,7 @@ pub trait Mutator<T> {
 
 /// 一次性修改器：消费自己，可修改输入（暂未实现）
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 ```
 
@@ -792,7 +792,7 @@ pub struct RcMutator<T> { func: Rc<RefCell<dyn FnMut(&mut T)>> }
 // 旧代码
 use prism3_function::{ConsumerMut, BoxConsumerMut};
 let mut consumer = BoxConsumerMut::new(|x: &mut i32| *x *= 2);
-consumer.accept(&mut value);
+consumer.accept_once(&mut value);
 
 // 新代码
 use prism3_function::{Mutator, BoxMutator};

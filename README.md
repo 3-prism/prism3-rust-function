@@ -146,7 +146,7 @@ let mut consumer = BoxConsumer::new(|x: &i32| {
 });
 
 let value = 10;
-consumer.accept(&value);
+consumer.accept_once(&value);
 // value is unchanged
 ```
 
@@ -168,7 +168,7 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
     log2.lock().unwrap().push(format!("Second: {}", x));
 });
 
-consumer.accept(&42);
+consumer.accept_once(&42);
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
@@ -187,8 +187,8 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
 })
 .when(|x: &i32| *x > 0);  // Only log positive numbers
 
-consumer.accept(&10);   // Logged
-consumer.accept(&-5);   // Not logged
+consumer.accept_once(&10);   // Logged
+consumer.accept_once(&-5);   // Not logged
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
@@ -211,8 +211,8 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
     log2.lock().unwrap().push(format!("Non-positive: {}", x));
 });
 
-consumer.accept(&10);   // "Positive: 10"
-consumer.accept(&-5);   // "Non-positive: -5"
+consumer.accept_once(&10);   // "Positive: 10"
+consumer.accept_once(&-5);   // "Non-positive: -5"
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
@@ -528,7 +528,7 @@ let mut bi_consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
     println!("Sum: {}", x + y);
 });
 
-bi_consumer.accept(&10, &20);
+bi_consumer.accept_once(&10, &20);
 ```
 
 ##### Chaining with `and_then`
@@ -549,7 +549,7 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     log2.lock().unwrap().push(format!("Product: {}", x * y));
 });
 
-bi_consumer.accept(&3, &4);
+bi_consumer.accept_once(&3, &4);
 assert_eq!(log.lock().unwrap().len(), 2);
 // log contains: ["Sum: 7", "Product: 12"]
 ```
@@ -569,8 +569,8 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
 })
 .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
-bi_consumer.accept(&3, &4);   // Logged
-bi_consumer.accept(&-1, &4);  // Not logged
+bi_consumer.accept_once(&3, &4);   // Logged
+bi_consumer.accept_once(&-1, &4);  // Not logged
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
@@ -593,8 +593,8 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     log2.lock().unwrap().push(format!("Has negative: {} * {} = {}", x, y, x * y));
 });
 
-bi_consumer.accept(&3, &4);   // "Both positive: 3 + 4 = 7"
-bi_consumer.accept(&-1, &4);  // "Has negative: -1 * 4 = -4"
+bi_consumer.accept_once(&3, &4);   // "Both positive: 3 + 4 = 7"
+bi_consumer.accept_once(&-1, &4);  // "Has negative: -1 * 4 = -4"
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 

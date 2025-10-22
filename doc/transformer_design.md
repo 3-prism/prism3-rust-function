@@ -754,7 +754,7 @@ assert_eq!(cached_expensive.apply(5), 25);  // No print (uses cache)
 let transformer = BoxTransformer::new(|x: i32| x * 2);
 
 // Convert to standard closure, can be used directly in map methods
-let func = transformer.into_fn();
+let func = transformer.into_fn_once();
 let results: Vec<_> = vec![1, 2, 3].into_iter().map(func).collect();
 assert_eq!(results, vec![2, 4, 6]);
 
@@ -762,7 +762,7 @@ assert_eq!(results, vec![2, 4, 6]);
 let transformer = BoxTransformer::new(|s: String| s.len());
 let lengths: Vec<_> = vec!["hello".to_string(), "world".to_string()]
     .into_iter()
-    .map(transformer.into_fn())
+    .map(transformer.into_fn_once())
     .collect();
 assert_eq!(lengths, vec![5, 5]);
 
@@ -771,7 +771,7 @@ let once_transformer = BoxTransformerOnce::new(|data: Vec<i32>| {
     data.into_iter().sum::<i32>()
 });
 
-let func_once = once_transformer.into_fn();
+let func_once = once_transformer.into_fn_once();
 let result = func_once(vec![1, 2, 3, 4, 5]);
 assert_eq!(result, 15);
 ```

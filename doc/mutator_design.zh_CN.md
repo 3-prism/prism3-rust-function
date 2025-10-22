@@ -101,7 +101,7 @@ pub trait Mutator<T> {
 
 ```rust
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);  // 消费 self
+    fn mutate_once(self, value: &mut T);  // 消费 self
 }
 
 // 使用场景：保存 FnOnce 闭包
@@ -122,7 +122,7 @@ impl Initializer {
     fn run(mut self, data: &mut Data) {
         self.do_init(data);
         if let Some(callback) = self.on_complete {
-            callback.mutate(data);  // 只调用一次
+            callback.mutate_once(data);  // 只调用一次
         }
     }
 }
@@ -173,7 +173,7 @@ pub trait Mutator<T> {
 
 /// 一次性变异器：消费自己，可修改输入（优先级较低）
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 ```
 
@@ -303,7 +303,7 @@ impl<T> BoxMutator<T> {
     {
         BoxConditionalMutator {
             mutator: self,
-            predicate: predicate.into_box(),
+            predicate: predicate.into_box_once(),
         }
     }
 }
@@ -319,9 +319,9 @@ impl<T> BoxConditionalMutator<T> {
         let mut else_mut = else_mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
-                then_mut.mutate(t);
+                then_mut.mutate_once(t);
             } else {
-                else_mut.mutate(t);
+                else_mut.mutate_once(t);
             }
         })
     }
@@ -526,7 +526,7 @@ mutator.mutate(&mut value);  // value = 10, 就地修改
 ```rust
 /// 一次性变异器 trait
 pub trait MutatorOnce<T> {
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 }
 
 /// BoxMutatorOnce 实现
@@ -549,7 +549,7 @@ impl<T> BoxMutatorOnce<T> {
         let first = self.func;
         BoxMutatorOnce::new(move |t| {
             first(t);
-            next.mutate(t);
+            next.mutate_once(t);
         })
     }
 }

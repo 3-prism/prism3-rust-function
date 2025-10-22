@@ -146,7 +146,7 @@ let mut consumer = BoxConsumer::new(|x: &i32| {
 });
 
 let value = 10;
-consumer.accept(&value);
+consumer.accept_once(&value);
 // value 保持不变
 ```
 
@@ -168,7 +168,7 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
     log2.lock().unwrap().push(format!("第二步: {}", x));
 });
 
-consumer.accept(&42);
+consumer.accept_once(&42);
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
@@ -187,8 +187,8 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
 })
 .when(|x: &i32| *x > 0);  // 只记录正数
 
-consumer.accept(&10);   // 被记录
-consumer.accept(&-5);   // 不被记录
+consumer.accept_once(&10);   // 被记录
+consumer.accept_once(&-5);   // 不被记录
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
@@ -211,8 +211,8 @@ let mut consumer = BoxConsumer::new(move |x: &i32| {
     log2.lock().unwrap().push(format!("非正数: {}", x));
 });
 
-consumer.accept(&10);   // "正数: 10"
-consumer.accept(&-5);   // "非正数: -5"
+consumer.accept_once(&10);   // "正数: 10"
+consumer.accept_once(&-5);   // "非正数: -5"
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
@@ -528,7 +528,7 @@ let mut bi_consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
     println!("和: {}", x + y);
 });
 
-bi_consumer.accept(&10, &20);
+bi_consumer.accept_once(&10, &20);
 ```
 
 ##### 使用 `and_then` 链式调用
@@ -549,7 +549,7 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     log2.lock().unwrap().push(format!("积: {}", x * y));
 });
 
-bi_consumer.accept(&3, &4);
+bi_consumer.accept_once(&3, &4);
 assert_eq!(log.lock().unwrap().len(), 2);
 // log 包含: ["和: 7", "积: 12"]
 ```
@@ -569,8 +569,8 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
 })
 .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 
-bi_consumer.accept(&3, &4);   // 被记录
-bi_consumer.accept(&-1, &4);  // 不被记录
+bi_consumer.accept_once(&3, &4);   // 被记录
+bi_consumer.accept_once(&-1, &4);  // 不被记录
 assert_eq!(log.lock().unwrap().len(), 1);
 ```
 
@@ -593,8 +593,8 @@ let mut bi_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
     log2.lock().unwrap().push(format!("有负数: {} * {} = {}", x, y, x * y));
 });
 
-bi_consumer.accept(&3, &4);   // "都为正: 3 + 4 = 7"
-bi_consumer.accept(&-1, &4);  // "有负数: -1 * 4 = -4"
+bi_consumer.accept_once(&3, &4);   // "都为正: 3 + 4 = 7"
+bi_consumer.accept_once(&-1, &4);  // "有负数: -1 * 4 = -4"
 assert_eq!(log.lock().unwrap().len(), 2);
 ```
 
