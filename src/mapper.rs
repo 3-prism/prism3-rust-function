@@ -26,6 +26,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::mapper_once::{BoxMapperOnce, MapperOnce};
 use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 
 // ============================================================================
@@ -589,6 +590,36 @@ impl<T, R> Mapper<T, R> for BoxMapper<T, R> {
     // and calling BoxMapper::to_xxx() will cause a compile error
 }
 
+impl<T, R> MapperOnce<T, R> for BoxMapper<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    fn apply_once(mut self, input: T) -> R {
+        Mapper::apply(&mut self, input)
+    }
+
+    fn into_box_once(self) -> BoxMapperOnce<T, R>
+    where
+        Self: Sized + 'static,
+    {
+        BoxMapperOnce::new(self.function)
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
+    where
+        Self: Sized + 'static,
+    {
+        let mut f = self.function;
+        move |input: T| f(input)
+    }
+
+    // NOTE: `BoxMapper` is not `Clone`, so it cannot offer
+    // `to_box_once` or `to_fn_once` implementations. Invoking the default
+    // trait methods will not compile because the required `Clone`
+    // bound is not satisfied.
+}
+
 // ============================================================================
 // BoxConditionalMapper - Box-based Conditional Mapper
 // ============================================================================
@@ -1025,6 +1056,54 @@ impl<T, R> Clone for ArcMapper<T, R> {
     }
 }
 
+impl<T, R> MapperOnce<T, R> for ArcMapper<T, R>
+where
+    T: Send + Sync + 'static,
+    R: Send + 'static,
+{
+    fn apply_once(mut self, input: T) -> R {
+        Mapper::apply(&mut self, input)
+    }
+
+    fn into_box_once(self) -> BoxMapperOnce<T, R>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        BoxMapperOnce::new(move |input| self.function.lock().unwrap()(input))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        move |input: T| self.function.lock().unwrap()(input)
+    }
+
+    fn to_box_once(&self) -> BoxMapperOnce<T, R>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxMapperOnce::new(move |input| self_fn.lock().unwrap()(input))
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |input: T| self_fn.lock().unwrap()(input)
+    }
+}
+
 // ============================================================================
 // ArcConditionalMapper - Arc-based Conditional Mapper
 // ============================================================================
@@ -1431,6 +1510,46 @@ impl<T, R> Clone for RcMapper<T, R> {
         RcMapper {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+impl<T, R> MapperOnce<T, R> for RcMapper<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    fn apply_once(mut self, input: T) -> R {
+        Mapper::apply(&mut self, input)
+    }
+
+    fn into_box_once(self) -> BoxMapperOnce<T, R>
+    where
+        Self: Sized + 'static,
+    {
+        BoxMapperOnce::new(move |input| self.function.borrow_mut()(input))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
+    where
+        Self: Sized + 'static,
+    {
+        move |input: T| self.function.borrow_mut()(input)
+    }
+
+    fn to_box_once(&self) -> BoxMapperOnce<T, R>
+    where
+        Self: Clone + 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxMapperOnce::new(move |input| self_fn.borrow_mut()(input))
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
+    where
+        Self: Clone + 'static,
+    {
+        let self_fn = self.function.clone();
+        move |input: T| self_fn.borrow_mut()(input)
     }
 }
 

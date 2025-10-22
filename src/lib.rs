@@ -36,6 +36,7 @@ pub mod comparator;
 pub mod consumer;
 pub mod consumer_once;
 pub mod mapper;
+pub mod mapper_once;
 pub mod mutator;
 pub mod mutator_once;
 pub mod predicate;
@@ -68,6 +69,7 @@ pub use mapper::{
     ArcConditionalMapper, ArcMapper, BoxConditionalMapper, BoxMapper, FnMapperOps, Mapper,
     RcConditionalMapper, RcMapper,
 };
+pub use mapper_once::{BoxConditionalMapperOnce, BoxMapperOnce, FnMapperOnceOps, MapperOnce};
 pub use mutator::{
     ArcConditionalMutator, ArcMutator, BoxConditionalMutator, BoxMutator, FnMutatorOps, Mutator,
     RcConditionalMutator, RcMutator,
