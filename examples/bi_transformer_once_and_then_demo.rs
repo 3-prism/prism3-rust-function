@@ -20,7 +20,7 @@ fn main() {
     let add = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let double = |x: i32| x * 2;
     let composed = add.and_then(double);
-    let result = composed.apply(3, 5);
+    let result = composed.apply_once(3, 5);
     println!("  (3 + 5) * 2 = {}", result);
     assert_eq!(result, 16);
     println!();
@@ -30,7 +30,7 @@ fn main() {
     let add2 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let to_string = |x: i32| x.to_string();
     let composed2 = add2.and_then(to_string);
-    let result2 = composed2.apply(20, 22);
+    let result2 = composed2.apply_once(20, 22);
     println!("  (20 + 22).to_string() = \"{}\"", result2);
     assert_eq!(result2, "42");
     println!();
@@ -41,7 +41,7 @@ fn main() {
     let double3 = |x: i32| x * 2;
     let to_string3 = |x: i32| format!("Result: {}", x);
     let composed3 = add3.and_then(double3).and_then(to_string3);
-    let result3 = composed3.apply(3, 5);
+    let result3 = composed3.apply_once(3, 5);
     println!("  (3 + 5) * 2 -> \"{}\"", result3);
     assert_eq!(result3, "Result: 16");
     println!();
@@ -51,7 +51,7 @@ fn main() {
     let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
     let uppercase = |s: String| s.to_uppercase();
     let composed4 = concat.and_then(uppercase);
-    let result4 = composed4.apply("hello".to_string(), "world".to_string());
+    let result4 = composed4.apply_once("hello".to_string(), "world".to_string());
     println!("  \"hello\" + \"world\" -> uppercase = \"{}\"", result4);
     assert_eq!(result4, "HELLO WORLD");
     println!();
@@ -61,7 +61,7 @@ fn main() {
     let multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y);
     let to_float = |x: i32| x as f64 / 2.0;
     let composed5 = multiply.and_then(to_float);
-    let result5 = composed5.apply(6, 7);
+    let result5 = composed5.apply_once(6, 7);
     println!("  (6 * 7) / 2.0 = {}", result5);
     assert!((result5 - 21.0).abs() < 1e-10);
     println!();
@@ -81,7 +81,7 @@ fn main() {
     let composed6 = calculate_total
         .and_then(apply_discount)
         .and_then(format_price);
-    let result6 = composed6.apply(15.5, 8);
+    let result6 = composed6.apply_once(15.5, 8);
     println!("  Price: $15.5, Quantity: 8");
     println!("  Total price (with discount): {}", result6);
     assert_eq!(result6, "$111.60");

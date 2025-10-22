@@ -7,78 +7,80 @@
  *
  ******************************************************************************/
 
-use prism3_function::{BoxTransformerOnce, TransformerOnce};
+//! # TransformerOnce Demo
+//!
+//! Demonstrates TransformerOnce implementation for BoxTransformer, RcTransformer, and ArcTransformer
+//!
+//! # Author
+//!
+//! Hu Haixing
+
+use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, TransformerOnce};
+use std::sync::Arc;
+use std::thread;
 
 fn main() {
-    println!("=== TransformerOnce Demo - One-Time Transformation ===\n");
+    println!("=== TransformerOnce Demo ===\n");
 
-    // ====================================================================
-    // Part 1: BoxTransformerOnce - One-time use
-    // ====================================================================
-    println!("--- BoxTransformerOnce ---");
-    let parse = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
-    println!(
-        "parse.apply(\"42\".to_string()) = {}",
-        parse.apply("42".to_string())
-    );
-    // parse is consumed and cannot be used again
+    // BoxTransformer TransformerOnce demonstration
+    println!("1. BoxTransformer TransformerOnce demonstration:");
+    let double = BoxTransformer::new(|x: i32| x * 2);
+    let result = double.apply_once(21);
+    println!("   double.apply_once(21) = {}", result);
 
-    // Composition
-    let add_one = BoxTransformerOnce::new(|x: i32| x + 1);
-    let double = BoxTransformerOnce::new(|x: i32| x * 2);
-    let to_string = BoxTransformerOnce::new(|x: i32| x.to_string());
-    let pipeline = add_one.and_then(double).and_then(to_string);
-    println!("pipeline(5) = {} (expected: \"12\")", pipeline.apply(5));
+    // Convert to BoxTransformerOnce
+    let double = BoxTransformer::new(|x: i32| x * 2);
+    let boxed = double.into_box_once();
+    let result = boxed.apply_once(21);
+    println!("   double.into_box_once().apply_once(21) = {}", result);
+
+    // Convert to function
+    let double = BoxTransformer::new(|x: i32| x * 2);
+    let func = double.into_fn_once();
+    let result = func(21);
+    println!("   double.into_fn_once()(21) = {}", result);
+
     println!();
 
-    // ====================================================================
-    // Part 2: Practical Examples
-    // ====================================================================
-    println!("=== Practical Examples ===\n");
+    // RcTransformer TransformerOnce demonstration
+    println!("2. RcTransformer TransformerOnce demonstration:");
+    let uppercase = RcTransformer::new(|s: String| s.to_uppercase());
+    let result = uppercase.apply_once("hello".to_string());
+    println!("   uppercase.apply_once(\"hello\") = {}", result);
 
-    // Example 1: String transformation pipeline
-    println!("--- String Transformation Pipeline ---");
-    let to_upper = BoxTransformerOnce::new(|s: String| s.to_uppercase());
-    println!(
-        "to_upper(\"hello\") = {}",
-        to_upper.apply("hello".to_string())
-    );
+    // Use after cloning
+    let uppercase = RcTransformer::new(|s: String| s.to_uppercase());
+    let uppercase_clone = uppercase.clone();
+    let result1 = uppercase.apply_once("world".to_string());
+    let result2 = uppercase_clone.apply_once("rust".to_string());
+    println!("   uppercase.apply_once(\"world\") = {}", result1);
+    println!("   uppercase_clone.apply_once(\"rust\") = {}", result2);
+
     println!();
 
-    // Example 2: Type conversion with ownership transfer
-    println!("--- Type Conversion ---");
-    let into_bytes = BoxTransformerOnce::new(|s: String| s.into_bytes());
-    let bytes = into_bytes.apply("hello".to_string());
-    println!("into_bytes(\"hello\") = {:?}", bytes);
-    println!();
+    // ArcTransformer TransformerOnce demonstration
+    println!("3. ArcTransformer TransformerOnce demonstration:");
+    let parse_and_double = ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+    let result = parse_and_double.apply_once("21".to_string());
+    println!("   parse_and_double.apply_once(\"21\") = {}", result);
 
-    // Example 3: Complex pipeline
-    println!("--- Complex Pipeline ---");
-    let parser = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
-    let doubler = BoxTransformerOnce::new(|x: i32| x * 2);
-    let formatter = BoxTransformerOnce::new(|x: i32| format!("Result: {}", x));
-    let parse_and_process = parser.and_then(doubler).and_then(formatter);
+    // Thread safety demonstration
+    println!("4. ArcTransformer thread safety demonstration:");
+    let double = ArcTransformer::new(|x: i32| x * 2);
+    let double_arc = Arc::new(double);
+    let _double_clone = Arc::clone(&double_arc);
 
+    let handle = thread::spawn(move || {
+        // Create a new transformer in the thread to demonstrate thread safety
+        let new_double = ArcTransformer::new(|x: i32| x * 2);
+        new_double.apply_once(21)
+    });
+
+    let result = handle.join().unwrap();
     println!(
-        "parse_and_process(\"21\") = {}",
-        parse_and_process.apply("21".to_string())
-    );
-    println!();
-
-    // ====================================================================
-    // Part 3: Trait Usage
-    // ====================================================================
-    println!("=== Trait Usage ===\n");
-
-    fn apply_transformer_once<F: TransformerOnce<String, usize>>(f: F, x: String) -> usize {
-        f.apply(x)
-    }
-
-    let length = BoxTransformerOnce::new(|s: String| s.len());
-    println!(
-        "Via trait once: {}",
-        apply_transformer_once(length, "hello".to_string())
+        "   Executed in thread: new_double.apply_once(21) = {}",
+        result
     );
 
-    println!("\n=== Demo Complete ===");
+    println!("\n=== Demo completed ===");
 }

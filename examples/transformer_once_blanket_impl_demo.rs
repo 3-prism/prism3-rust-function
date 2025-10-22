@@ -21,24 +21,24 @@ fn test_transformer_once() {
     fn parse(s: String) -> i32 {
         s.parse().unwrap_or(0)
     }
-    assert_eq!(parse.apply("42".to_string()), 42);
-    println!("✓ Function pointer test passed: parse.apply(\"42\") = 42");
+    assert_eq!(parse.apply_once("42".to_string()), 42);
+    println!("✓ Function pointer test passed: parse.apply_once(\"42\") = 42");
 
     // Test closure that consumes ownership
     let owned_value = String::from("hello");
     let consume = |s: String| format!("{} world", s);
-    assert_eq!(consume.apply(owned_value), "hello world");
+    assert_eq!(consume.apply_once(owned_value), "hello world");
     println!("✓ Closure that consumes ownership test passed");
 
     // Test conversion to BoxTransformerOnce
     let transform = |s: String| s.to_uppercase();
-    let boxed = transform.into_box();
-    assert_eq!(boxed.apply("hello".to_string()), "HELLO");
-    println!("✓ into_box() test passed");
+    let boxed = transform.into_box_once();
+    assert_eq!(boxed.apply_once("hello".to_string()), "HELLO");
+    println!("✓ into_box_once() test passed");
 
     // Test into_fn
     let transform2 = |s: String| s.len();
-    let func = transform2.into_fn();
+    let func = transform2.into_fn_once();
     assert_eq!(func("hello".to_string()), 5);
-    println!("✓ into_fn() test passed");
+    println!("✓ into_fn_once() test passed");
 }

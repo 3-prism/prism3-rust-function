@@ -24,7 +24,7 @@ fn main() {
     });
 
     let mut target = vec![0];
-    mutator.mutate(&mut target);
+    mutator.mutate_once(&mut target);
     println!("   Result: {:?}\n", target);
 
     // 2. Method chaining: combining multiple operations
@@ -47,7 +47,7 @@ fn main() {
     });
 
     let mut result = vec![0];
-    chained.mutate(&mut result);
+    chained.mutate_once(&mut result);
     println!("   Result: {:?}\n", result);
 
     // 3. Initializer pattern
@@ -75,7 +75,7 @@ fn main() {
 
             if let Some(callback) = self.on_complete.take() {
                 println!("   Executing completion callback");
-                callback.mutate(data);
+                callback.mutate_once(data);
             }
         }
     }
@@ -114,7 +114,7 @@ fn main() {
     });
 
     let mut message = String::new();
-    builder.mutate(&mut message);
+    builder.mutate_once(&mut message);
     println!("   Final message: {}\n", message);
 
     // 5. Direct closure usage
@@ -136,7 +136,7 @@ fn main() {
     });
 
     let mut values = vec![0];
-    chained_closure.mutate(&mut values);
+    chained_closure.mutate_once(&mut values);
     println!("   Result: {:?}\n", values);
 
     // 6. Resource transfer scenario
@@ -153,7 +153,7 @@ fn main() {
     });
 
     let mut container = Vec::new();
-    mutator.mutate(&mut container);
+    mutator.mutate_once(&mut container);
     println!("   Data length in container: {}\n", container.len());
 
     // 7. Generic function usage
@@ -161,7 +161,7 @@ fn main() {
 
     fn apply_transformation<M: MutatorOnce<Vec<i32>>>(mutator: M, initial: Vec<i32>) -> Vec<i32> {
         let mut val = initial;
-        mutator.mutate(&mut val);
+        mutator.mutate_once(&mut val);
         val
     }
 
@@ -201,7 +201,7 @@ fn main() {
             F: FnOnce(&mut Vec<String>) + 'static,
         {
             println!("   Applying custom configuration");
-            customizer.mutate(&mut self.options);
+            customizer.mutate_once(&mut self.options);
             self
         }
 

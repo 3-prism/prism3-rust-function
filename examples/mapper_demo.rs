@@ -150,7 +150,10 @@ fn main() {
     });
     let rc_clone = rc_mapper.clone(); // Clone before consuming
     println!("  RcMapper consumed once: {}", rc_mapper.apply_once(10)); // 10 + 1 = 11
-    println!("  RcMapper clone still works: {}", rc_clone.clone().apply(10)); // 10 + 2 = 12
+    println!(
+        "  RcMapper clone still works: {}",
+        rc_clone.clone().apply(10)
+    ); // 10 + 2 = 12
 
     // ArcMapper can be consumed as MapperOnce
     let mut counter = 0;
