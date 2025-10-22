@@ -424,9 +424,7 @@ impl<T: 'static> BoxComparator<T> {
     /// assert_eq!(rev.compare(&5, &3), Ordering::Less);
     /// ```
     pub fn reversed(self) -> Self {
-        Self {
-            function: Box::new(move |a: &T, b: &T| (self.function)(b, a)),
-        }
+        BoxComparator::new(move |a, b| (self.function)(b, a))
     }
 
     /// Returns a comparator that uses this comparator first, then another
@@ -475,12 +473,10 @@ impl<T: 'static> BoxComparator<T> {
     /// // by_age.compare(&p1, &p2); // Would not compile - moved
     /// ```
     pub fn then_comparing(self, other: Self) -> Self {
-        Self {
-            function: Box::new(move |a: &T, b: &T| match (self.function)(a, b) {
-                Ordering::Equal => (other.function)(a, b),
-                ord => ord,
-            }),
-        }
+        BoxComparator::new(move |a, b| match (self.function)(a, b) {
+            Ordering::Equal => (other.function)(a, b),
+            ord => ord,
+        })
     }
 
     /// Returns a comparator that compares values by a key extracted by the
@@ -516,7 +512,7 @@ impl<T: 'static> BoxComparator<T> {
         K: Ord,
         F: Fn(&T) -> &K + 'static,
     {
-        Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
+        BoxComparator::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
     }
 
     /// Converts this comparator into a closure.
@@ -621,10 +617,8 @@ impl<T: 'static> ArcComparator<T> {
     /// assert_eq!(cmp.compare(&5, &3), Ordering::Greater); // cmp still works
     /// ```
     pub fn reversed(&self) -> Self {
-        let function = self.function.clone();
-        Self {
-            function: Arc::new(move |a: &T, b: &T| function(b, a)),
-        }
+        let self_fn = self.function.clone();
+        ArcComparator::new(move |a, b| self_fn(b, a))
     }
 
     /// Returns a comparator that uses this comparator first, then another
@@ -654,12 +648,10 @@ impl<T: 'static> ArcComparator<T> {
     pub fn then_comparing(&self, other: &Self) -> Self {
         let first = self.function.clone();
         let second = other.function.clone();
-        Self {
-            function: Arc::new(move |a: &T, b: &T| match first(a, b) {
-                Ordering::Equal => second(a, b),
-                ord => ord,
-            }),
-        }
+        ArcComparator::new(move |a, b| match first(a, b) {
+            Ordering::Equal => second(a, b),
+            ord => ord,
+        })
     }
 
     /// Returns a comparator that compares values by a key extracted by the
@@ -695,7 +687,7 @@ impl<T: 'static> ArcComparator<T> {
         K: Ord,
         F: Fn(&T) -> &K + Send + Sync + 'static,
     {
-        Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
+        ArcComparator::new(move |a, b| key_fn(a).cmp(key_fn(b)))
     }
 
     /// Converts this comparator into a closure.
@@ -800,10 +792,8 @@ impl<T: 'static> RcComparator<T> {
     /// assert_eq!(cmp.compare(&5, &3), Ordering::Greater); // cmp still works
     /// ```
     pub fn reversed(&self) -> Self {
-        let function = self.function.clone();
-        Self {
-            function: Rc::new(move |a: &T, b: &T| function(b, a)),
-        }
+        let self_fn = self.function.clone();
+        RcComparator::new(move |a, b| self_fn(b, a))
     }
 
     /// Returns a comparator that uses this comparator first, then another
@@ -833,12 +823,10 @@ impl<T: 'static> RcComparator<T> {
     pub fn then_comparing(&self, other: &Self) -> Self {
         let first = self.function.clone();
         let second = other.function.clone();
-        Self {
-            function: Rc::new(move |a: &T, b: &T| match first(a, b) {
-                Ordering::Equal => second(a, b),
-                ord => ord,
-            }),
-        }
+        RcComparator::new(move |a, b| match first(a, b) {
+            Ordering::Equal => second(a, b),
+            ord => ord,
+        })
     }
 
     /// Returns a comparator that compares values by a key extracted by the
@@ -874,7 +862,7 @@ impl<T: 'static> RcComparator<T> {
         K: Ord,
         F: Fn(&T) -> &K + 'static,
     {
-        Self::new(move |a: &T, b: &T| key_fn(a).cmp(key_fn(b)))
+        RcComparator::new(move |a, b| key_fn(a).cmp(key_fn(b)))
     }
 
     /// Converts this comparator into a closure.
