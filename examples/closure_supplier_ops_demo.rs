@@ -1,10 +1,18 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
+
 /**
  * Demonstrates various operations on closures using Supplier trait.
  *
  * This example showcases how to use the Supplier trait with closures,
  * including mapping, filtering, zipping, and memoization.
  */
-
 use prism3_function::{FnSupplierOps, Supplier};
 
 fn main() {

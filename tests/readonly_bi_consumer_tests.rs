@@ -1,3 +1,11 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
 /// Tests for ReadonlyBiConsumer types
 use prism3_function::{
     ArcReadonlyBiConsumer, BoxReadonlyBiConsumer, FnReadonlyBiConsumerOps, RcReadonlyBiConsumer,
