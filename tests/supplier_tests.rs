@@ -341,7 +341,7 @@ mod test_box_supplier {
                 counter += 1;
                 counter
             })
-            .filter(|x| x % 2 == 0);
+            .filter(|x: &i32| x % 2 == 0);
 
             assert_eq!(filtered.get(), None); // 1 is odd
             assert_eq!(filtered.get(), Some(2)); // 2 is even
@@ -351,7 +351,7 @@ mod test_box_supplier {
 
         #[test]
         fn test_with_constant_supplier() {
-            let mut filtered = BoxSupplier::constant(5).filter(|x| x % 2 == 0);
+            let mut filtered = BoxSupplier::constant(5).filter(|x: &i32| x % 2 == 0);
             assert_eq!(filtered.get(), None); // 5 is odd
             assert_eq!(filtered.get(), None);
         }
@@ -734,7 +734,7 @@ mod test_arc_supplier {
                 *c += 1;
                 *c
             });
-            let filtered = source.filter(|x| x % 2 == 0);
+            let filtered = source.filter(|x: &i32| x % 2 == 0);
 
             let mut s = filtered;
             assert_eq!(s.get(), None); // 1 is odd
@@ -749,7 +749,7 @@ mod test_arc_supplier {
         fn test_combines_two_suppliers() {
             let first = ArcSupplier::new(|| 42);
             let second = ArcSupplier::new(|| "hello");
-            let zipped = first.zip(&second);
+            let zipped = first.zip(second.clone());
 
             let mut z = zipped;
             assert_eq!(z.get(), (42, "hello"));
@@ -759,7 +759,7 @@ mod test_arc_supplier {
         fn test_originals_remain_usable() {
             let first = ArcSupplier::new(|| 42);
             let second = ArcSupplier::new(|| "hello");
-            let _zipped = first.zip(&second);
+            let _zipped = first.zip(second.clone());
 
             // Both originals still usable
             let mut f = first;
@@ -1242,7 +1242,7 @@ mod test_rc_supplier {
                 *c += 1;
                 *c
             });
-            let filtered = source.filter(|x| x % 2 == 0);
+            let filtered = source.filter(|x: &i32| x % 2 == 0);
 
             let mut s = filtered;
             assert_eq!(s.get(), None); // 1 is odd
@@ -1257,7 +1257,7 @@ mod test_rc_supplier {
         fn test_combines_two_suppliers() {
             let first = RcSupplier::new(|| 42);
             let second = RcSupplier::new(|| "hello");
-            let zipped = first.zip(&second);
+            let zipped = first.zip(second.clone());
 
             let mut z = zipped;
             assert_eq!(z.get(), (42, "hello"));
@@ -1267,7 +1267,7 @@ mod test_rc_supplier {
         fn test_originals_remain_usable() {
             let first = RcSupplier::new(|| 42);
             let second = RcSupplier::new(|| "hello");
-            let _zipped = first.zip(&second);
+            let _zipped = first.zip(second.clone());
 
             // Both originals still usable
             let mut f = first;
@@ -1401,6 +1401,591 @@ mod test_rc_supplier {
     // Note: RcSupplier cannot be converted to ArcSupplier because
     // Rc is not Send. This is prevented at compile time by the
     // trait bound, so we don't test it.
+}
+
+// ==========================================================================
+// SupplierOnce Implementation Tests for BoxSupplier
+// ==========================================================================
+
+#[cfg(test)]
+mod test_box_supplier_once {
+    use super::*;
+    use prism3_function::SupplierOnce;
+
+    mod test_get {
+        use super::*;
+
+        #[test]
+        fn test_consumes_supplier() {
+            let supplier = BoxSupplier::new(|| 42);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 42);
+            // supplier is consumed, cannot be used again
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = BoxSupplier::new(|| String::from("hello"));
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, "hello");
+        }
+
+        #[test]
+        fn test_with_vec() {
+            let supplier = BoxSupplier::new(|| vec![1, 2, 3]);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn test_moves_captured_value() {
+            let data = String::from("captured");
+            let supplier = BoxSupplier::new(move || data.clone());
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, "captured");
+        }
+
+        #[test]
+        fn test_with_stateful_closure() {
+            let mut counter = 0;
+            let supplier = BoxSupplier::new(move || {
+                counter += 1;
+                counter
+            });
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 1);
+        }
+    }
+
+    mod test_into_box {
+        use super::*;
+        use prism3_function::BoxSupplierOnce;
+
+        #[test]
+        fn test_converts_to_box_supplier_once() {
+            let supplier = BoxSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = BoxSupplier::new(|| String::from("test"));
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), "test");
+        }
+
+        #[test]
+        fn test_with_moved_value() {
+            let data = vec![1, 2, 3];
+            let supplier = BoxSupplier::new(move || data.clone());
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), vec![1, 2, 3]);
+        }
+    }
+
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn_once() {
+            let supplier = BoxSupplier::new(|| 42);
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = BoxSupplier::new(|| String::from("hello"));
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_with_moved_value() {
+            let data = String::from("captured");
+            let supplier = BoxSupplier::new(move || data.clone());
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), "captured");
+        }
+
+        #[test]
+        fn test_fn_once_closure_can_be_called() {
+            let supplier = BoxSupplier::new(|| 100);
+            let f = SupplierOnce::into_fn_once(supplier);
+            let result = f();
+            assert_eq!(result, 100);
+        }
+
+        #[test]
+        fn test_with_stateful_closure() {
+            let mut counter = 0;
+            let supplier = BoxSupplier::new(move || {
+                counter += 1;
+                counter
+            });
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 1);
+        }
+    }
+
+    // Note: BoxSupplier does not implement Clone, so it cannot have
+    // to_box and to_fn implementations that borrow &self. Attempting
+    // to call these methods will result in a compiler error.
+}
+
+// ==========================================================================
+// SupplierOnce Implementation Tests for ArcSupplier
+// ==========================================================================
+
+#[cfg(test)]
+mod test_arc_supplier_once {
+    use super::*;
+    use prism3_function::SupplierOnce;
+
+    mod test_get {
+        use super::*;
+
+        #[test]
+        fn test_consumes_supplier() {
+            let supplier = ArcSupplier::new(|| 42);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 42);
+            // supplier is consumed, cannot be used again
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = ArcSupplier::new(|| String::from("hello"));
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, "hello");
+        }
+
+        #[test]
+        fn test_with_vec() {
+            let supplier = ArcSupplier::new(|| vec![1, 2, 3]);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 1);
+            assert_eq!(*counter.lock().unwrap(), 1);
+        }
+
+        #[test]
+        fn test_cloned_suppliers_share_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone1 = Arc::clone(&counter);
+
+            let supplier1 = ArcSupplier::new(move || {
+                let mut c = counter_clone1.lock().unwrap();
+                *c += 1;
+                *c
+            });
+
+            let supplier2 = supplier1.clone();
+
+            let value1 = SupplierOnce::get_once(supplier1);
+            let value2 = SupplierOnce::get_once(supplier2);
+
+            // Both should increment the same counter
+            assert_eq!(value1 + value2, 3); // 1 + 2
+            assert_eq!(*counter.lock().unwrap(), 2);
+        }
+    }
+
+    mod test_into_box {
+        use super::*;
+        use prism3_function::BoxSupplierOnce;
+
+        #[test]
+        fn test_converts_to_box_supplier_once() {
+            let supplier = ArcSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = ArcSupplier::new(|| String::from("test"));
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), "test");
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), 1);
+            assert_eq!(*counter.lock().unwrap(), 1);
+        }
+    }
+
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn_once() {
+            let supplier = ArcSupplier::new(|| 42);
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = ArcSupplier::new(|| String::from("hello"));
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 1);
+            assert_eq!(*counter.lock().unwrap(), 1);
+        }
+
+        #[test]
+        fn test_fn_once_with_thread_safety() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 1);
+        }
+    }
+
+    mod test_to_box {
+        use super::*;
+        use prism3_function::BoxSupplierOnce;
+
+        #[test]
+        fn test_creates_box_supplier_once() {
+            let supplier = ArcSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = SupplierOnce::to_box_once(&supplier);
+            assert_eq!(once.get_once(), 42);
+        }
+
+        #[test]
+        fn test_original_remains_usable() {
+            let supplier = ArcSupplier::new(|| 42);
+            let _once = SupplierOnce::to_box_once(&supplier);
+            // Original supplier still usable
+            let s = supplier;
+            assert_eq!(s.clone().get(), 42);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+
+            let once = SupplierOnce::to_box_once(&supplier);
+            assert_eq!(once.get_once(), 1);
+
+            // Can still use original
+            assert_eq!(supplier.clone().get(), 2);
+            assert_eq!(*counter.lock().unwrap(), 2);
+        }
+    }
+
+    mod test_to_fn {
+        use super::*;
+
+        #[test]
+        fn test_creates_fn_once() {
+            let supplier = ArcSupplier::new(|| 42);
+            let f = SupplierOnce::to_fn_once(&supplier);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_original_remains_usable() {
+            let supplier = ArcSupplier::new(|| 42);
+            let f = SupplierOnce::to_fn_once(&supplier);
+            // Original supplier still usable
+            assert_eq!(supplier.clone().get(), 42);
+            // Call the function we created
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Arc::new(Mutex::new(0));
+            let counter_clone = Arc::clone(&counter);
+            let supplier = ArcSupplier::new(move || {
+                let mut c = counter_clone.lock().unwrap();
+                *c += 1;
+                *c
+            });
+
+            let f = SupplierOnce::to_fn_once(&supplier);
+            assert_eq!(f(), 1);
+
+            // Can still use original
+            assert_eq!(supplier.clone().get(), 2);
+            assert_eq!(*counter.lock().unwrap(), 2);
+        }
+    }
+}
+
+// ==========================================================================
+// SupplierOnce Implementation Tests for RcSupplier
+// ==========================================================================
+
+#[cfg(test)]
+mod test_rc_supplier_once {
+    use super::*;
+    use prism3_function::SupplierOnce;
+
+    mod test_get {
+        use super::*;
+
+        #[test]
+        fn test_consumes_supplier() {
+            let supplier = RcSupplier::new(|| 42);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 42);
+            // supplier is consumed, cannot be used again
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = RcSupplier::new(|| String::from("hello"));
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, "hello");
+        }
+
+        #[test]
+        fn test_with_vec() {
+            let supplier = RcSupplier::new(|| vec![1, 2, 3]);
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+            let value = SupplierOnce::get_once(supplier);
+            assert_eq!(value, 1);
+            assert_eq!(*counter.borrow(), 1);
+        }
+
+        #[test]
+        fn test_cloned_suppliers_share_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone1 = Rc::clone(&counter);
+
+            let supplier1 = RcSupplier::new(move || {
+                let mut c = counter_clone1.borrow_mut();
+                *c += 1;
+                *c
+            });
+
+            let supplier2 = supplier1.clone();
+
+            let value1 = SupplierOnce::get_once(supplier1);
+            let value2 = SupplierOnce::get_once(supplier2);
+
+            // Both should increment the same counter
+            assert_eq!(value1 + value2, 3); // 1 + 2
+            assert_eq!(*counter.borrow(), 2);
+        }
+    }
+
+    mod test_into_box {
+        use super::*;
+        use prism3_function::BoxSupplierOnce;
+
+        #[test]
+        fn test_converts_to_box_supplier_once() {
+            let supplier = RcSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = RcSupplier::new(|| String::from("test"));
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), "test");
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+            let once = SupplierOnce::into_box_once(supplier);
+            assert_eq!(once.get_once(), 1);
+            assert_eq!(*counter.borrow(), 1);
+        }
+    }
+
+    mod test_into_fn {
+        use super::*;
+
+        #[test]
+        fn test_converts_to_fn_once() {
+            let supplier = RcSupplier::new(|| 42);
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_with_string() {
+            let supplier = RcSupplier::new(|| String::from("hello"));
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), "hello");
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 1);
+            assert_eq!(*counter.borrow(), 1);
+        }
+
+        #[test]
+        fn test_fn_once_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+            let f = SupplierOnce::into_fn_once(supplier);
+            assert_eq!(f(), 1);
+        }
+    }
+
+    mod test_to_box {
+        use super::*;
+        use prism3_function::BoxSupplierOnce;
+
+        #[test]
+        fn test_creates_box_supplier_once() {
+            let supplier = RcSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = SupplierOnce::to_box_once(&supplier);
+            assert_eq!(once.get_once(), 42);
+        }
+
+        #[test]
+        fn test_original_remains_usable() {
+            let supplier = RcSupplier::new(|| 42);
+            let _once = SupplierOnce::to_box_once(&supplier);
+            // Original supplier still usable
+            let s = supplier;
+            assert_eq!(s.clone().get(), 42);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+
+            let once = SupplierOnce::to_box_once(&supplier);
+            assert_eq!(once.get_once(), 1);
+
+            // Can still use original
+            assert_eq!(supplier.clone().get(), 2);
+            assert_eq!(*counter.borrow(), 2);
+        }
+    }
+
+    mod test_to_fn {
+        use super::*;
+
+        #[test]
+        fn test_creates_fn_once() {
+            let supplier = RcSupplier::new(|| 42);
+            let f = SupplierOnce::to_fn_once(&supplier);
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_original_remains_usable() {
+            let supplier = RcSupplier::new(|| 42);
+            let f = SupplierOnce::to_fn_once(&supplier);
+            // Original supplier still usable
+            assert_eq!(supplier.clone().get(), 42);
+            // Call the function we created
+            assert_eq!(f(), 42);
+        }
+
+        #[test]
+        fn test_with_shared_state() {
+            let counter = Rc::new(RefCell::new(0));
+            let counter_clone = Rc::clone(&counter);
+            let supplier = RcSupplier::new(move || {
+                let mut c = counter_clone.borrow_mut();
+                *c += 1;
+                *c
+            });
+
+            let f = SupplierOnce::to_fn_once(&supplier);
+            assert_eq!(f(), 1);
+
+            // Can still use original
+            assert_eq!(supplier.clone().get(), 2);
+            assert_eq!(*counter.borrow(), 2);
+        }
+    }
 }
 
 // ==========================================================================
@@ -1720,7 +2305,7 @@ mod test_fn_supplier_ops {
             counter += 1;
             counter
         })
-        .filter(|x| x % 2 == 0);
+        .filter(|x: &i32| x % 2 == 0);
 
         assert_eq!(filtered.get(), None); // 1 is odd
         assert_eq!(filtered.get(), Some(2)); // 2 is even
@@ -1731,7 +2316,7 @@ mod test_fn_supplier_ops {
     #[test]
     fn test_closure_filter_always_pass() {
         // Test filter that always passes
-        let mut filtered = (|| 42).filter(|_| true);
+        let mut filtered = (|| 42).filter(|_: &i32| true);
         assert_eq!(filtered.get(), Some(42));
         assert_eq!(filtered.get(), Some(42));
     }
@@ -1739,7 +2324,7 @@ mod test_fn_supplier_ops {
     #[test]
     fn test_closure_filter_always_fail() {
         // Test filter that always fails
-        let mut filtered = (|| 42).filter(|_| false);
+        let mut filtered = (|| 42).filter(|_: &i32| false);
         assert_eq!(filtered.get(), None);
         assert_eq!(filtered.get(), None);
     }
@@ -1752,7 +2337,7 @@ mod test_fn_supplier_ops {
             counter += 1;
             counter
         })
-        .filter(|x| x % 2 == 0)
+        .filter(|x: &i32| x % 2 == 0)
         .map(|opt: Option<i32>| opt.map(|x| x * 10));
 
         assert_eq!(pipeline.get(), None); // 1 is odd
@@ -1837,7 +2422,7 @@ mod test_fn_supplier_ops {
             counter
         })
         .map(|x| x * 2)
-        .filter(|x| x % 4 == 0)
+        .filter(|x: &i32| x % 4 == 0)
         .map(|opt: Option<i32>| opt.unwrap_or(0));
 
         assert_eq!(pipeline.get(), 0); // 1*2=2, 2%4!=0, filtered out
@@ -1864,7 +2449,7 @@ mod test_fn_supplier_ops {
             counter += 1;
             counter
         })
-        .filter(|x| x % 2 == 0);
+        .filter(|x: &i32| x % 2 == 0);
 
         let second = BoxSupplier::new(|| "test");
         let mut zipped = filtered.zip(second);
@@ -1882,7 +2467,7 @@ mod test_fn_supplier_ops {
             counter
         })
         .map(|x| x * 2) // Double the counter
-        .filter(|x| x % 4 == 0) // Keep only multiples of 4
+        .filter(|x: &i32| x % 4 == 0) // Keep only multiples of 4
         .map(|opt| match opt {
             Some(x) => x / 2, // Convert back
             None => 0,

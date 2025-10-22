@@ -8,8 +8,8 @@
  ******************************************************************************/
 
 use prism3_function::{
-    ArcMapper, ArcPredicate, BoxMapper, BoxPredicate, FnMapperOps, Mapper, Predicate, RcMapper,
-    RcPredicate,
+    ArcMapper, ArcPredicate, BoxMapper, BoxPredicate, FnMapperOps, Mapper, MapperOnce, Predicate,
+    RcMapper, RcPredicate,
 };
 
 // ============================================================================
@@ -1574,4 +1574,336 @@ fn test_closure_to_arc_multiple_conversions() {
 
     // First ArcMapper's state unaffected
     assert_eq!(arc1_ref.apply(10), 20); // 10 * 2
+}
+
+// ============================================================================
+// MapperOnce Implementation Tests
+// ============================================================================
+
+/// Test BoxMapper implements MapperOnce trait
+#[test]
+fn test_box_mapper_apply_once() {
+    let mut counter = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+
+    // BoxMapper can be consumed as MapperOnce
+    assert_eq!(mapper.apply_once(10), 11); // 10 + 1
+}
+
+/// Test BoxMapper::into_box_once conversion
+#[test]
+fn test_box_mapper_into_box_once() {
+    let mut counter = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let once_mapper = mapper.into_box_once();
+    assert_eq!(once_mapper.apply_once(10), 10); // 10 * 1
+}
+
+/// Test BoxMapper::into_fn_once conversion
+#[test]
+fn test_box_mapper_into_fn_once() {
+    let mut counter = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let fn_once = mapper.into_fn_once();
+    assert_eq!(fn_once(10), 10); // 10 * 1
+}
+
+/// Test BoxMapper with stateful transformation consumed once
+#[test]
+fn test_box_mapper_stateful_apply_once() {
+    let mut accumulator = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        accumulator += x;
+        accumulator
+    });
+
+    // First and only call
+    assert_eq!(mapper.apply_once(5), 5); // 0 + 5 = 5
+    // mapper is now consumed and cannot be used again
+}
+
+/// Test RcMapper implements MapperOnce trait
+#[test]
+fn test_rc_mapper_apply_once() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+
+    // RcMapper can be consumed as MapperOnce
+    assert_eq!(mapper.apply_once(10), 11); // 10 + 1
+}
+
+/// Test RcMapper::into_box_once conversion
+#[test]
+fn test_rc_mapper_into_box_once() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let once_mapper = mapper.into_box_once();
+    assert_eq!(once_mapper.apply_once(10), 10); // 10 * 1
+}
+
+/// Test RcMapper::into_fn_once conversion
+#[test]
+fn test_rc_mapper_into_fn_once() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let fn_once = mapper.into_fn_once();
+    assert_eq!(fn_once(10), 10); // 10 * 1
+}
+
+/// Test RcMapper::to_box_once (non-consuming)
+#[test]
+fn test_rc_mapper_to_box_once() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    // Non-consuming conversion
+    let once_mapper = mapper.to_box_once();
+    assert_eq!(once_mapper.apply_once(10), 10); // 10 * 1
+
+    // Original mapper still usable
+    let mut mapper_ref = mapper.clone();
+    assert_eq!(mapper_ref.apply(20), 40); // 20 * 2 (state continues)
+}
+
+/// Test RcMapper::to_fn_once (non-consuming)
+#[test]
+fn test_rc_mapper_to_fn_once() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    // Non-consuming conversion
+    let fn_once = mapper.to_fn_once();
+    assert_eq!(fn_once(10), 10); // 10 * 1
+
+    // Original mapper still usable
+    let mut mapper_ref = mapper.clone();
+    assert_eq!(mapper_ref.apply(20), 40); // 20 * 2 (state continues)
+}
+
+/// Test ArcMapper implements MapperOnce trait
+#[test]
+fn test_arc_mapper_apply_once() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+
+    // ArcMapper can be consumed as MapperOnce
+    assert_eq!(mapper.apply_once(10), 11); // 10 + 1
+}
+
+/// Test ArcMapper::into_box_once conversion
+#[test]
+fn test_arc_mapper_into_box_once() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let once_mapper = mapper.into_box_once();
+    assert_eq!(once_mapper.apply_once(10), 10); // 10 * 1
+}
+
+/// Test ArcMapper::into_fn_once conversion
+#[test]
+fn test_arc_mapper_into_fn_once() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let fn_once = mapper.into_fn_once();
+    assert_eq!(fn_once(10), 10); // 10 * 1
+}
+
+/// Test ArcMapper::to_box_once (non-consuming)
+#[test]
+fn test_arc_mapper_to_box_once() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    // Non-consuming conversion
+    let once_mapper = mapper.to_box_once();
+    assert_eq!(once_mapper.apply_once(10), 10); // 10 * 1
+
+    // Original mapper still usable
+    let mut mapper_ref = mapper.clone();
+    assert_eq!(mapper_ref.apply(20), 40); // 20 * 2 (state continues)
+}
+
+/// Test ArcMapper::to_fn_once (non-consuming)
+#[test]
+fn test_arc_mapper_to_fn_once() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    // Non-consuming conversion
+    let fn_once = mapper.to_fn_once();
+    assert_eq!(fn_once(10), 10); // 10 * 1
+
+    // Original mapper still usable
+    let mut mapper_ref = mapper.clone();
+    assert_eq!(mapper_ref.apply(20), 40); // 20 * 2 (state continues)
+}
+
+/// Test BoxMapper consumed as MapperOnce with complex state
+#[test]
+fn test_box_mapper_complex_state_apply_once() {
+    let data = [1, 2, 3, 4, 5];
+    let mapper = BoxMapper::new(move |multiplier: i32| {
+        data.iter().map(|x| x * multiplier).sum::<i32>()
+    });
+
+    // Consume the mapper once
+    assert_eq!(mapper.apply_once(2), 30); // (1+2+3+4+5) * 2 = 30
+}
+
+/// Test RcMapper shared state with apply_once
+#[test]
+fn test_rc_mapper_shared_state_apply_once() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let shared_counter = Rc::new(RefCell::new(0));
+    let counter_clone = Rc::clone(&shared_counter);
+
+    let mapper = RcMapper::new(move |x: i32| {
+        let mut count = counter_clone.borrow_mut();
+        *count += 1;
+        x * *count
+    });
+
+    // Clone before consuming
+    let mut mapper_clone = mapper.clone();
+
+    // Consume one instance
+    assert_eq!(mapper.apply_once(10), 10); // 10 * 1
+
+    // Use the cloned instance
+    assert_eq!(mapper_clone.apply(10), 20); // 10 * 2 (shared state)
+
+    // Verify shared counter
+    assert_eq!(*shared_counter.borrow(), 2);
+}
+
+/// Test ArcMapper thread-safe with apply_once
+#[test]
+fn test_arc_mapper_thread_safe_apply_once() {
+    use std::sync::{Arc, Mutex};
+
+    let shared_counter = Arc::new(Mutex::new(0));
+    let counter_clone = Arc::clone(&shared_counter);
+
+    let mapper = ArcMapper::new(move |x: i32| {
+        let mut count = counter_clone.lock().unwrap();
+        *count += 1;
+        x * *count
+    });
+
+    // Clone before consuming
+    let mut mapper_clone = mapper.clone();
+
+    // Consume one instance
+    assert_eq!(mapper.apply_once(10), 10); // 10 * 1
+
+    // Use the cloned instance
+    assert_eq!(mapper_clone.apply(10), 20); // 10 * 2 (shared state)
+
+    // Verify shared counter
+    assert_eq!(*shared_counter.lock().unwrap(), 2);
+}
+
+/// Test composition: BoxMapper -> BoxMapperOnce chain
+#[test]
+fn test_box_mapper_to_box_mapper_once_composition() {
+    let mapper1 = BoxMapper::new(|x: i32| x + 1);
+    let once_mapper1 = mapper1.into_box_once();
+
+    let mapper2 = BoxMapper::new(|x: i32| x * 2);
+    let once_mapper2 = mapper2.into_box_once();
+
+    // Compose using and_then
+    let composed = once_mapper1.and_then(once_mapper2);
+    assert_eq!(composed.apply_once(5), 12); // (5 + 1) * 2 = 12
+}
+
+/// Test RcMapper multiple clones with one consumed as MapperOnce
+#[test]
+fn test_rc_mapper_multiple_clones_one_consumed() {
+    let mut counter = 0;
+    let mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let clone1 = mapper.clone();
+    let mut clone2 = mapper.clone();
+
+    // Consume original
+    assert_eq!(mapper.apply_once(10), 10); // 10 * 1
+
+    // Use clones
+    assert_eq!(clone2.apply(10), 20); // 10 * 2
+
+    let mut clone1_mut = clone1.clone();
+    assert_eq!(clone1_mut.apply(10), 30); // 10 * 3
+}
+
+/// Test ArcMapper multiple clones with one consumed as MapperOnce
+#[test]
+fn test_arc_mapper_multiple_clones_one_consumed() {
+    let mut counter = 0;
+    let mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    let clone1 = mapper.clone();
+    let mut clone2 = mapper.clone();
+
+    // Consume original
+    assert_eq!(mapper.apply_once(10), 10); // 10 * 1
+
+    // Use clones
+    assert_eq!(clone2.apply(10), 20); // 10 * 2
+
+    let mut clone1_mut = clone1.clone();
+    assert_eq!(clone1_mut.apply(10), 30); // 10 * 3
 }
