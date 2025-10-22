@@ -27,6 +27,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+use crate::transformer_once::BoxTransformerOnce;
 
 // ============================================================================
 // Core Trait
@@ -642,6 +643,45 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
 }
 
 // ============================================================================
+// BoxTransformer TransformerOnce implementation
+// ============================================================================
+
+use crate::transformer_once::TransformerOnce;
+
+impl<T, R> TransformerOnce<T, R> for BoxTransformer<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    /// Transforms the input value, consuming both self and input
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - The input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BoxTransformer, TransformerOnce};
+    ///
+    /// let double = BoxTransformer::new(|x: i32| x * 2);
+    /// let result = double.apply_once(21);
+    /// assert_eq!(result, 42);
+    /// ```
+    ///
+    /// # Author
+    ///
+    /// Hu Haixing
+    fn apply_once(self, input: T) -> R {
+        (self.function)(input)
+    }
+}
+
+// ============================================================================
 // BoxConditionalTransformer - Box-based Conditional Transformer
 // ============================================================================
 
@@ -1113,6 +1153,155 @@ impl<T, R> Clone for ArcTransformer<T, R> {
         ArcTransformer {
             function: Arc::clone(&self.function),
         }
+    }
+}
+
+// ============================================================================
+// ArcTransformer TransformerOnce implementation
+// ============================================================================
+
+impl<T, R> TransformerOnce<T, R> for ArcTransformer<T, R>
+where
+    T: Send + Sync + 'static,
+    R: 'static,
+{
+    /// Transforms the input value, consuming both self and input
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - The input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, TransformerOnce};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let result = double.apply_once(21);
+    /// assert_eq!(result, 42);
+    /// ```
+    ///
+    /// # Author
+    ///
+    /// Hu Haixing
+    fn apply_once(self, input: T) -> R {
+        (self.function)(input)
+    }
+
+    /// Converts to BoxTransformerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, TransformerOnce};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let boxed = double.into_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
+    /// ```
+    fn into_box_once(self) -> BoxTransformerOnce<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformerOnce::new(move |t| (self.function)(t))
+    }
+
+    /// Converts transformer to a closure
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, TransformerOnce};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let func = double.into_fn_once();
+    /// assert_eq!(func(21), 42);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t| (self.function)(t)
+    }
+
+    /// Converts to BoxTransformerOnce without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, TransformerOnce};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let boxed = double.to_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.apply(21), 42);
+    /// ```
+    fn to_box_once(&self) -> BoxTransformerOnce<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxTransformerOnce::new(move |t| self_fn(t))
+    }
+
+    /// Converts transformer to a closure without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ArcTransformer, TransformerOnce};
+    ///
+    /// let double = ArcTransformer::new(|x: i32| x * 2);
+    /// let func = double.to_fn_once();
+    /// assert_eq!(func(21), 42);
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.apply(21), 42);
+    /// ```
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 
@@ -1599,6 +1788,155 @@ impl<T, R> Clone for RcTransformer<T, R> {
         RcTransformer {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+// ============================================================================
+// RcTransformer TransformerOnce implementation
+// ============================================================================
+
+impl<T, R> TransformerOnce<T, R> for RcTransformer<T, R>
+where
+    T: 'static,
+    R: 'static,
+{
+    /// Transforms the input value, consuming both self and input
+    ///
+    /// # Parameters
+    ///
+    /// * `input` - The input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, TransformerOnce};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let result = double.apply_once(21);
+    /// assert_eq!(result, 42);
+    /// ```
+    ///
+    /// # Author
+    ///
+    /// Hu Haixing
+    fn apply_once(self, input: T) -> R {
+        (self.function)(input)
+    }
+
+    /// Converts to BoxTransformerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, TransformerOnce};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let boxed = double.into_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
+    /// ```
+    fn into_box_once(self) -> BoxTransformerOnce<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        BoxTransformerOnce::new(move |t| (self.function)(t))
+    }
+
+    /// Converts transformer to a closure
+    ///
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, TransformerOnce};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let func = double.into_fn_once();
+    /// assert_eq!(func(21), 42);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        move |t| (self.function)(t)
+    }
+
+    /// Converts to BoxTransformerOnce without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns `BoxTransformerOnce<T, R>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, TransformerOnce};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let boxed = double.to_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.apply(21), 42);
+    /// ```
+    fn to_box_once(&self) -> BoxTransformerOnce<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxTransformerOnce::new(move |t| self_fn(t))
+    }
+
+    /// Converts transformer to a closure without consuming self
+    ///
+    /// **📌 Borrows `&self`**: The original transformer remains usable
+    /// after calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure that implements `FnOnce(T) -> R`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{RcTransformer, TransformerOnce};
+    ///
+    /// let double = RcTransformer::new(|x: i32| x * 2);
+    /// let func = double.to_fn_once();
+    /// assert_eq!(func(21), 42);
+    ///
+    /// // Original transformer still usable
+    /// assert_eq!(double.apply(21), 42);
+    /// ```
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
+    where
+        T: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn(t)
     }
 }
 

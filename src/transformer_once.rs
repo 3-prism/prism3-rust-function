@@ -51,7 +51,7 @@ pub trait TransformerOnce<T, R> {
     /// # Returns
     ///
     /// The transformed output value
-    fn apply(self, input: T) -> R;
+    fn apply_once(self, input: T) -> R;
 
     /// Converts to BoxTransformerOnce
     ///
@@ -68,16 +68,16 @@ pub trait TransformerOnce<T, R> {
     /// use prism3_function::TransformerOnce;
     ///
     /// let double = |x: i32| x * 2;
-    /// let boxed = double.into_box();
-    /// assert_eq!(boxed.apply(21), 42);
+    /// let boxed = double.into_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
     /// ```
-    fn into_box(self) -> BoxTransformerOnce<T, R>
+    fn into_box_once(self) -> BoxTransformerOnce<T, R>
     where
         Self: Sized + 'static,
         T: 'static,
         R: 'static,
     {
-        BoxTransformerOnce::new(move |input: T| self.apply(input))
+        BoxTransformerOnce::new(move |input: T| self.apply_once(input))
     }
 
     /// Converts transformer to a closure
@@ -95,16 +95,16 @@ pub trait TransformerOnce<T, R> {
     /// use prism3_function::TransformerOnce;
     ///
     /// let double = |x: i32| x * 2;
-    /// let func = double.into_fn();
+    /// let func = double.into_fn_once();
     /// assert_eq!(func(21), 42);
     /// ```
-    fn into_fn(self) -> impl FnOnce(T) -> R
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
     where
         Self: Sized + 'static,
         T: 'static,
         R: 'static,
     {
-        move |input: T| self.apply(input)
+        move |input: T| self.apply_once(input)
     }
 
     /// Converts to BoxTransformerOnce without consuming self
@@ -128,16 +128,16 @@ pub trait TransformerOnce<T, R> {
     /// use prism3_function::TransformerOnce;
     ///
     /// let double = |x: i32| x * 2;
-    /// let boxed = double.to_box();
-    /// assert_eq!(boxed.apply(21), 42);
+    /// let boxed = double.to_box_once();
+    /// assert_eq!(boxed.apply_once(21), 42);
     /// ```
-    fn to_box(&self) -> BoxTransformerOnce<T, R>
+    fn to_box_once(&self) -> BoxTransformerOnce<T, R>
     where
         Self: Clone + 'static,
         T: 'static,
         R: 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
     /// Converts transformer to a closure without consuming self
@@ -161,16 +161,16 @@ pub trait TransformerOnce<T, R> {
     /// use prism3_function::TransformerOnce;
     ///
     /// let double = |x: i32| x * 2;
-    /// let func = double.to_fn();
+    /// let func = double.to_fn_once();
     /// assert_eq!(func(21), 42);
     /// ```
-    fn to_fn(&self) -> impl FnOnce(T) -> R
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
     where
         Self: Clone + 'static,
         T: 'static,
         R: 'static,
     {
-        self.clone().into_fn()
+        self.clone().into_fn_once()
     }
 }
 
@@ -218,7 +218,7 @@ where
     ///     s.parse::<i32>().unwrap_or(0)
     /// });
     ///
-    /// assert_eq!(parse.apply("42".to_string()), 42);
+    /// assert_eq!(parse.apply_once("42".to_string()), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -237,7 +237,7 @@ where
     /// use prism3_function::{BoxTransformerOnce, TransformerOnce};
     ///
     /// let identity = BoxTransformerOnce::<i32, i32>::identity();
-    /// assert_eq!(identity.apply(42), 42);
+    /// assert_eq!(identity.apply_once(42), 42);
     /// ```
     pub fn identity() -> BoxTransformerOnce<T, T> {
         BoxTransformerOnce::new(|x| x)
@@ -276,9 +276,9 @@ where
     ///
     /// // Both add_one and double are moved and consumed
     /// let composed = add_one.and_then(double);
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// // add_one.apply(3); // Would not compile - moved
-    /// // double.apply(4);  // Would not compile - moved
+    /// assert_eq!(composed.apply_once(5), 12); // (5 + 1) * 2
+    /// // add_one.apply_once(3); // Would not compile - moved
+    /// // double.apply_once(4);  // Would not compile - moved
     /// ```
     pub fn and_then<S, G>(self, after: G) -> BoxTransformerOnce<T, S>
     where
@@ -287,7 +287,7 @@ where
     {
         BoxTransformerOnce::new(move |x| {
             let intermediate = (self.function)(x);
-            after.apply(intermediate)
+            after.apply_once(intermediate)
         })
     }
 
@@ -324,9 +324,9 @@ where
     ///
     /// // Both double and add_one are moved and consumed
     /// let composed = double.compose(add_one);
-    /// assert_eq!(composed.apply(5), 12); // (5 + 1) * 2
-    /// // double.apply(3); // Would not compile - moved
-    /// // add_one.apply(4); // Would not compile - moved
+    /// assert_eq!(composed.apply_once(5), 12); // (5 + 1) * 2
+    /// // double.apply_once(3); // Would not compile - moved
+    /// // add_one.apply_once(4); // Would not compile - moved
     /// ```
     pub fn compose<S, G>(self, before: G) -> BoxTransformerOnce<S, R>
     where
@@ -334,7 +334,7 @@ where
         G: TransformerOnce<S, T> + 'static,
     {
         BoxTransformerOnce::new(move |x| {
-            let intermediate = before.apply(x);
+            let intermediate = before.apply_once(x);
             (self.function)(intermediate)
         })
     }
@@ -370,12 +370,12 @@ where
     /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
     /// let identity = BoxTransformerOnce::<i32, i32>::identity();
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(identity);
-    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply_once(5), 10);
     ///
     /// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
     /// let identity2 = BoxTransformerOnce::<i32, i32>::identity();
     /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(identity2);
-    /// assert_eq!(conditional2.apply(-5), -5);
+    /// assert_eq!(conditional2.apply_once(-5), -5);
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -390,7 +390,7 @@ where
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(BoxTransformerOnce::identity());
     ///
-    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply_once(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -419,7 +419,7 @@ where
     /// use prism3_function::{BoxTransformerOnce, TransformerOnce};
     ///
     /// let constant = BoxTransformerOnce::constant("hello");
-    /// assert_eq!(constant.apply(123), "hello");
+    /// assert_eq!(constant.apply_once(123), "hello");
     /// ```
     pub fn constant(value: R) -> BoxTransformerOnce<T, R> {
         BoxTransformerOnce::new(move |_| value.clone())
@@ -427,11 +427,11 @@ where
 }
 
 impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
-    fn apply(self, input: T) -> R {
+    fn apply_once(self, input: T) -> R {
         (self.function)(input)
     }
 
-    fn into_box(self) -> BoxTransformerOnce<T, R>
+    fn into_box_once(self) -> BoxTransformerOnce<T, R>
     where
         T: 'static,
         R: 'static,
@@ -440,7 +440,7 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
         self
     }
 
-    fn into_fn(self) -> impl FnOnce(T) -> R
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
     where
         T: 'static,
         R: 'static,
@@ -449,9 +449,9 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
         self.function
     }
 
-    // do NOT override BoxTransformer::to_box() and BoxTransformer::to_fn()
-    // because BoxTransformer is not Clone and calling BoxTransformer::to_box()
-    // or BoxTransformer::to_fn() will cause a compile error
+    // do NOT override BoxTransformer::to_box_once() and BoxTransformer::to_fn_once()
+    // because BoxTransformer is not Clone and calling BoxTransformer::to_box_once()
+    // or BoxTransformer::to_fn_once() will cause a compile error
 }
 
 // ============================================================================
@@ -485,12 +485,12 @@ impl<T, R> TransformerOnce<T, R> for BoxTransformerOnce<T, R> {
 /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
 /// let negate = BoxTransformerOnce::new(|x: i32| -x);
 /// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
-/// assert_eq!(conditional.apply(5), 10); // when branch executed
+/// assert_eq!(conditional.apply_once(5), 10); // when branch executed
 ///
 /// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
 /// let negate2 = BoxTransformerOnce::new(|x: i32| -x);
 /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(negate2);
-/// assert_eq!(conditional2.apply(-5), 5); // or_else branch executed
+/// assert_eq!(conditional2.apply_once(-5), 5); // or_else branch executed
 /// ```
 ///
 /// # Author
@@ -531,11 +531,11 @@ where
     ///
     /// let double = BoxTransformerOnce::new(|x: i32| x * 2);
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
-    /// assert_eq!(conditional.apply(5), 10); // Condition satisfied, execute double
+    /// assert_eq!(conditional.apply_once(5), 10); // Condition satisfied, execute double
     ///
     /// let double2 = BoxTransformerOnce::new(|x: i32| x * 2);
     /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
-    /// assert_eq!(conditional2.apply(-5), 5); // Condition not satisfied, execute negate
+    /// assert_eq!(conditional2.apply_once(-5), 5); // Condition not satisfied, execute negate
     /// ```
     pub fn or_else<F>(self, else_transformer: F) -> BoxTransformerOnce<T, R>
     where
@@ -545,9 +545,9 @@ where
         let then_trans = self.transformer;
         BoxTransformerOnce::new(move |t| {
             if pred.test(&t) {
-                then_trans.apply(t)
+                then_trans.apply_once(t)
             } else {
-                else_transformer.apply(t)
+                else_transformer.apply_once(t)
             }
         })
     }
@@ -572,13 +572,13 @@ where
 ///     s.parse().unwrap_or(0)
 /// }
 ///
-/// assert_eq!(parse.apply("42".to_string()), 42);
+/// assert_eq!(parse.apply_once("42".to_string()), 42);
 ///
 /// let owned_value = String::from("hello");
 /// let consume = |s: String| {
 ///     format!("{} world", s)
 /// };
-/// assert_eq!(consume.apply(owned_value), "hello world");
+/// assert_eq!(consume.apply_once(owned_value), "hello world");
 /// ```
 ///
 /// # Author
@@ -590,18 +590,18 @@ where
     T: 'static,
     R: 'static,
 {
-    fn apply(self, input: T) -> R {
+    fn apply_once(self, input: T) -> R {
         self(input)
     }
 
-    fn into_box(self) -> BoxTransformerOnce<T, R>
+    fn into_box_once(self) -> BoxTransformerOnce<T, R>
     where
         Self: Sized + 'static,
     {
         BoxTransformerOnce::new(self)
     }
 
-    fn into_fn(self) -> impl FnOnce(T) -> R
+    fn into_fn_once(self) -> impl FnOnce(T) -> R
     where
         Self: Sized + 'static,
     {
@@ -609,14 +609,14 @@ where
         self
     }
 
-    fn to_box(&self) -> BoxTransformerOnce<T, R>
+    fn to_box_once(&self) -> BoxTransformerOnce<T, R>
     where
         Self: Clone + Sized + 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
-    fn to_fn(&self) -> impl FnOnce(T) -> R
+    fn to_fn_once(&self) -> impl FnOnce(T) -> R
     where
         Self: Clone + Sized + 'static,
     {
@@ -655,7 +655,7 @@ where
 /// let double = |x: i32| x * 2;
 ///
 /// let composed = parse.and_then(double);
-/// assert_eq!(composed.apply("21".to_string()), 42);
+/// assert_eq!(composed.apply_once("21".to_string()), 42);
 /// ```
 ///
 /// ## Reverse composition with compose
@@ -667,7 +667,7 @@ where
 /// let to_string = |x: i32| x.to_string();
 ///
 /// let composed = to_string.compose(double);
-/// assert_eq!(composed.apply(21), "42");
+/// assert_eq!(composed.apply_once(21), "42");
 /// ```
 ///
 /// ## Conditional transformation with when
@@ -678,7 +678,7 @@ where
 /// let double = |x: i32| x * 2;
 /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
 ///
-/// assert_eq!(conditional.apply(5), 10);
+/// assert_eq!(conditional.apply_once(5), 10);
 /// ```
 ///
 /// # Author
@@ -722,8 +722,8 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     ///
     /// // double is moved and consumed
     /// let composed = parse.and_then(double);
-    /// assert_eq!(composed.apply("21".to_string()), 42);
-    /// // double.apply(5); // Would not compile - moved
+    /// assert_eq!(composed.apply_once("21".to_string()), 42);
+    /// // double.apply_once(5); // Would not compile - moved
     /// ```
     fn and_then<S, G>(self, after: G) -> BoxTransformerOnce<T, S>
     where
@@ -734,7 +734,7 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     {
         BoxTransformerOnce::new(move |x: T| {
             let intermediate = self(x);
-            after.apply(intermediate)
+            after.apply_once(intermediate)
         })
     }
 
@@ -775,8 +775,8 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     ///
     /// // double is moved and consumed
     /// let composed = to_string.compose(double);
-    /// assert_eq!(composed.apply(21), "42");
-    /// // double.apply(5); // Would not compile - moved
+    /// assert_eq!(composed.apply_once(21), "42");
+    /// // double.apply_once(5); // Would not compile - moved
     /// ```
     fn compose<S, G>(self, before: G) -> BoxTransformerOnce<S, R>
     where
@@ -786,7 +786,7 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
         R: 'static,
     {
         BoxTransformerOnce::new(move |x: S| {
-            let intermediate = before.apply(x);
+            let intermediate = before.apply_once(x);
             self(intermediate)
         })
     }
@@ -823,7 +823,7 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     /// let double = |x: i32| x * 2;
     /// let conditional = double.when(|x: &i32| *x > 0).or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply_once(5), 10);
     /// ```
     ///
     /// ## Preserving predicate with clone
@@ -839,7 +839,7 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     /// let conditional = double.when(is_positive.clone())
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(conditional.apply(5), 10);
+    /// assert_eq!(conditional.apply_once(5), 10);
     ///
     /// // Original predicate still usable
     /// assert!(is_positive.test(&3));
@@ -896,7 +896,7 @@ impl<T, R, F> FnTransformerOnceOps<T, R> for F where F: FnOnce(T) -> R + 'static
 /// where
 ///     O: UnaryOperatorOnce<T>,
 /// {
-///     op.apply(value)
+///     op.apply_once(value)
 /// }
 ///
 /// let double = |x: i32| x * 2;
@@ -940,7 +940,7 @@ where
 /// use prism3_function::{BoxUnaryOperatorOnce, TransformerOnce};
 ///
 /// let increment: BoxUnaryOperatorOnce<i32> = BoxUnaryOperatorOnce::new(|x| x + 1);
-/// assert_eq!(increment.apply(41), 42);
+/// assert_eq!(increment.apply_once(41), 42);
 /// ```
 ///
 /// # Author

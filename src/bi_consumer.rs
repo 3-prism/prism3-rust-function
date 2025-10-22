@@ -35,6 +35,7 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::bi_consumer_once::BiConsumerOnce;
 use crate::bi_predicate::{ArcBiPredicate, BiPredicate, BoxBiPredicate, RcBiPredicate};
 
 /// Type alias for bi-consumer function to simplify complex types.
@@ -780,6 +781,110 @@ impl<T, U> fmt::Display for BoxBiConsumer<T, U> {
     }
 }
 
+impl<T, U> BiConsumerOnce<T, U> for BoxBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    /// Performs the one-time consumption operation
+    ///
+    /// Executes the underlying function once and consumes the consumer.
+    /// After calling this method, the consumer is no longer available.
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - Reference to the first value to consume
+    /// * `second` - Reference to the second value to consume
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// consumer.accept_once(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn accept_once(self, first: &T, second: &U) {
+        let mut function = self.function;
+        function(first, second)
+    }
+
+    /// Converts to BoxBiConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let box_once = consumer.into_box_once();
+    /// box_once.accept_once(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self.accept_once(t, u))
+    }
+
+    /// Converts to a closure
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// Converts the bi-consumer to a closure usable with standard library
+    /// methods requiring `FnOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnOnce(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, BoxBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.function
+    }
+}
+
 // =======================================================================
 // 3. BoxConditionalBiConsumer - Box-based Conditional BiConsumer
 // =======================================================================
@@ -1467,6 +1572,111 @@ impl<T, U> fmt::Display for ArcBiConsumer<T, U> {
     }
 }
 
+impl<T, U> BiConsumerOnce<T, U> for ArcBiConsumer<T, U>
+where
+    T: Send + 'static,
+    U: Send + 'static,
+{
+    /// Performs the one-time consumption operation
+    ///
+    /// Executes the underlying function once and consumes the consumer.
+    /// After calling this method, the consumer is no longer available.
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - Reference to the first value to consume
+    /// * `second` - Reference to the second value to consume
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// consumer.accept_once(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn accept_once(self, first: &T, second: &U) {
+        (self.function.lock().unwrap())(first, second)
+    }
+
+    /// Converts to BoxBiConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let box_once = consumer.into_box_once();
+    /// box_once.accept_once(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function;
+        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self_fn.lock().unwrap()(t, u))
+    }
+
+    /// Converts to a closure
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// Converts the bi-consumer to a closure usable with standard library
+    /// methods requiring `FnOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnOnce(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, ArcBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.lock().unwrap().push(*x + *y);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function;
+        move |t, u| self_fn.lock().unwrap()(t, u)
+    }
+}
+
 // =======================================================================
 // 5. ArcConditionalBiConsumer - Arc-based Conditional BiConsumer
 // =======================================================================
@@ -2078,6 +2288,114 @@ impl<T, U> fmt::Display for RcBiConsumer<T, U> {
             Some(name) => write!(f, "RcBiConsumer({})", name),
             None => write!(f, "RcBiConsumer"),
         }
+    }
+}
+
+impl<T, U> BiConsumerOnce<T, U> for RcBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    /// Performs the one-time consumption operation
+    ///
+    /// Executes the underlying function once and consumes the consumer.
+    /// After calling this method, the consumer is no longer available.
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - Reference to the first value to consume
+    /// * `second` - Reference to the second value to consume
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x + *y);
+    /// });
+    /// consumer.accept_once(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    /// ```
+    fn accept_once(self, first: &T, second: &U) {
+        (self.function.borrow_mut())(first, second)
+    }
+
+    /// Converts to BoxBiConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// # Returns
+    ///
+    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x + *y);
+    /// });
+    /// let box_once = consumer.into_box_once();
+    /// box_once.accept_once(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    /// ```
+    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function;
+        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self_fn.borrow_mut()(t, u))
+    }
+
+    /// Converts to a closure
+    ///
+    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
+    /// calling this method.
+    ///
+    /// Converts the bi-consumer to a closure usable with standard library
+    /// methods requiring `FnOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a closure implementing `FnOnce(&T, &U)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumerOnce, RcBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l.borrow_mut().push(*x + *y);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        let self_fn = self.function;
+        move |t, u| self_fn.borrow_mut()(t, u)
     }
 }
 

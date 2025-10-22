@@ -69,7 +69,7 @@
 //! });
 //!
 //! let mut target = vec![0];
-//! mutator.mutate(&mut target);
+//! mutator.mutate_once(&mut target);
 //! assert_eq!(target, vec![0, 1, 2, 3]);
 //! ```
 //!
@@ -89,7 +89,7 @@
 //! });
 //!
 //! let mut target = vec![0];
-//! chained.mutate(&mut target);
+//! chained.mutate_once(&mut target);
 //! assert_eq!(target, vec![0, 1, 2, 3, 4]);
 //! ```
 //!
@@ -118,7 +118,7 @@
 //!
 //!         // Call callback
 //!         if let Some(callback) = self.on_complete.take() {
-//!             callback.mutate(data);
+//!             callback.mutate_once(data);
 //!         }
 //!     }
 //! }
@@ -181,7 +181,7 @@ use crate::predicate::{BoxPredicate, Predicate};
 ///     initial: Vec<i32>
 /// ) -> Vec<i32> {
 ///     let mut val = initial;
-///     mutator.mutate(&mut val);
+///     mutator.mutate_once(&mut val);
 ///     val
 /// }
 ///
@@ -200,7 +200,7 @@ use crate::predicate::{BoxPredicate, Predicate};
 ///
 /// let data = vec![1, 2, 3];
 /// let closure = move |x: &mut Vec<i32>| x.extend(data);
-/// let box_mutator = closure.into_box();
+/// let box_mutator = closure.into_box_once();
 /// ```
 ///
 /// # Author
@@ -228,15 +228,15 @@ pub trait MutatorOnce<T> {
     /// });
     ///
     /// let mut target = vec![0];
-    /// mutator.mutate(&mut target);
+    /// mutator.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]);
     /// ```
-    fn mutate(self, value: &mut T);
+    fn mutate_once(self, value: &mut T);
 
     /// Converts to `BoxMutatorOnce` (consuming)
     ///
     /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The default
-    /// implementation simply wraps the consuming `mutate(self, &mut T)` call
+    /// implementation simply wraps the consuming `mutate_once(self, &mut T)` call
     /// in a `Box<dyn FnOnce(&mut T)>`. Types that can provide a cheaper or
     /// identity conversion (for example `BoxMutatorOnce` itself) should
     /// override this method.
@@ -246,26 +246,26 @@ pub trait MutatorOnce<T> {
     /// - This method consumes the source value.
     /// - Implementors may return `self` directly when `Self` is already a
     ///   `BoxMutatorOnce<T>` to avoid the extra wrapper allocation.
-    fn into_box(self) -> BoxMutatorOnce<T>
+    fn into_box_once(self) -> BoxMutatorOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxMutatorOnce::new(move |t| self.mutate(t))
+        BoxMutatorOnce::new(move |t| self.mutate_once(t))
     }
 
     /// Converts to a consuming closure `FnOnce(&mut T)`
     ///
     /// Consumes `self` and returns a closure that, when invoked, calls
-    /// `mutate(self, &mut T)`. This is the default, straightforward
+    /// `mutate_once(self, &mut T)`. This is the default, straightforward
     /// implementation; types that can produce a more direct function pointer
     /// or avoid additional captures may override it.
-    fn into_fn(self) -> impl FnOnce(&mut T)
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.mutate(t)
+        move |t| self.mutate_once(t)
     }
 
     /// Non-consuming adapter to `BoxMutatorOnce`
@@ -275,12 +275,12 @@ pub trait MutatorOnce<T> {
     /// stored closure; the clone is consumed when the boxed mutator is invoked.
     /// Types that can provide a zero-cost adapter (for example clonable
     /// closures) should override this method to avoid unnecessary allocations.
-    fn to_box(&self) -> BoxMutatorOnce<T>
+    fn to_box_once(&self) -> BoxMutatorOnce<T>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
     /// Non-consuming adapter to a callable `FnOnce(&mut T)`
@@ -289,12 +289,12 @@ pub trait MutatorOnce<T> {
     /// `Self: Clone` and clones `self` for the captured closure; the clone is
     /// consumed when the returned closure is invoked. Implementors may provide
     /// more efficient adapters for specific types.
-    fn to_fn(&self) -> impl FnOnce(&mut T)
+    fn to_fn_once(&self) -> impl FnOnce(&mut T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_fn()
+        self.clone().into_fn_once()
     }
 }
 
@@ -352,7 +352,7 @@ pub trait MutatorOnce<T> {
 /// });
 ///
 /// let mut target = vec![0];
-/// mutator.mutate(&mut target);
+/// mutator.mutate_once(&mut target);
 /// assert_eq!(target, vec![0, 1, 2, 3]);
 /// ```
 ///
@@ -372,7 +372,7 @@ pub trait MutatorOnce<T> {
 /// });
 ///
 /// let mut target = vec![0];
-/// chained.mutate(&mut target);
+/// chained.mutate_once(&mut target);
 /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
 /// ```
 ///
@@ -409,7 +409,7 @@ where
     /// });
     ///
     /// let mut target = String::from("hello");
-    /// mutator.mutate(&mut target);
+    /// mutator.mutate_once(&mut target);
     /// assert_eq!(target, "hello world");
     /// ```
     pub fn new<F>(f: F) -> Self
@@ -436,7 +436,7 @@ where
     ///
     /// let noop = BoxMutatorOnce::<i32>::noop();
     /// let mut value = 42;
-    /// noop.mutate(&mut value);
+    /// noop.mutate_once(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
     /// ```
     pub fn noop() -> Self {
@@ -482,7 +482,7 @@ where
     /// });
     ///
     /// let mut target = vec![0];
-    /// chained.mutate(&mut target);
+    /// chained.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3, 4, 5, 6]);
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
@@ -492,7 +492,7 @@ where
         let first = self.function;
         BoxMutatorOnce::new(move |t| {
             first(t);
-            next.mutate(t);
+            next.mutate_once(t);
         })
     }
 
@@ -530,7 +530,7 @@ where
     /// let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
     ///
     /// let mut target = vec![0];
-    /// conditional.mutate(&mut target);
+    /// conditional.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]);
     ///
     /// let mut empty = Vec::new();
@@ -539,7 +539,7 @@ where
     ///     x.extend(data2);
     /// });
     /// let conditional2 = mutator2.when(|x: &Vec<i32>| x.len() > 5);
-    /// conditional2.mutate(&mut empty);
+    /// conditional2.mutate_once(&mut empty);
     /// assert_eq!(empty, Vec::<i32>::new()); // Unchanged
     /// ```
     ///
@@ -559,7 +559,7 @@ where
     /// let conditional = mutator.when(predicate.clone());
     ///
     /// let mut target = vec![0];
-    /// conditional.mutate(&mut target);
+    /// conditional.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]);
     ///
     /// // Original predicate still usable
@@ -581,7 +581,7 @@ where
     /// let conditional = mutator.when(pred);
     ///
     /// let mut target = vec![0];
-    /// conditional.mutate(&mut target);
+    /// conditional.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]);
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalMutatorOnce<T>
@@ -596,18 +596,18 @@ where
 }
 
 impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
-    fn mutate(self, value: &mut T) {
+    fn mutate_once(self, value: &mut T) {
         (self.function)(value)
     }
 
-    fn into_box(self) -> BoxMutatorOnce<T>
+    fn into_box_once(self) -> BoxMutatorOnce<T>
     where
         T: 'static,
     {
         self
     }
 
-    fn into_fn(self) -> impl FnOnce(&mut T)
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
     where
         T: 'static,
     {
@@ -648,7 +648,7 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
 /// let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
 ///
 /// let mut target = vec![0];
-/// conditional.mutate(&mut target);
+/// conditional.mutate_once(&mut target);
 /// assert_eq!(target, vec![0, 1, 2, 3]); // Executed
 ///
 /// let mut empty = Vec::new();
@@ -657,7 +657,7 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
 ///     x.extend(data2);
 /// });
 /// let conditional2 = mutator2.when(|x: &Vec<i32>| x.len() > 5);
-/// conditional2.mutate(&mut empty);
+/// conditional2.mutate_once(&mut empty);
 /// assert_eq!(empty, Vec::<i32>::new()); // Not executed
 /// ```
 ///
@@ -677,7 +677,7 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
 /// });
 ///
 /// let mut target = vec![0];
-/// mutator.mutate(&mut target);
+/// mutator.mutate_once(&mut target);
 /// assert_eq!(target, vec![0, 1, 2, 3]); // when branch executed
 ///
 /// let data3 = vec![4, 5];
@@ -691,7 +691,7 @@ impl<T> MutatorOnce<T> for BoxMutatorOnce<T> {
 /// });
 ///
 /// let mut target2 = vec![0];
-/// mutator2.mutate(&mut target2);
+/// mutator2.mutate_once(&mut target2);
 /// assert_eq!(target2, vec![0, 99]); // or_else branch executed
 /// ```
 ///
@@ -707,28 +707,28 @@ impl<T> MutatorOnce<T> for BoxConditionalMutatorOnce<T>
 where
     T: 'static,
 {
-    fn mutate(self, value: &mut T) {
+    fn mutate_once(self, value: &mut T) {
         if self.predicate.test(value) {
-            self.mutator.mutate(value);
+            self.mutator.mutate_once(value);
         }
     }
 
-    fn into_box(self) -> BoxMutatorOnce<T> {
+    fn into_box_once(self) -> BoxMutatorOnce<T> {
         let pred = self.predicate;
         let mutator = self.mutator;
         BoxMutatorOnce::new(move |t| {
             if pred.test(t) {
-                mutator.mutate(t);
+                mutator.mutate_once(t);
             }
         })
     }
 
-    fn into_fn(self) -> impl FnOnce(&mut T) {
+    fn into_fn_once(self) -> impl FnOnce(&mut T) {
         let pred = self.predicate;
         let mutator = self.mutator;
         move |t: &mut T| {
             if pred.test(t) {
-                mutator.mutate(t);
+                mutator.mutate_once(t);
             }
         }
     }
@@ -776,10 +776,10 @@ where
     /// let chained = cond1.and_then(cond2);
     ///
     /// let mut target = vec![0];
-    /// chained.mutate(&mut target);
+    /// chained.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
-    /// // cond1.mutate(&mut target); // Would not compile - moved
-    /// // cond2.mutate(&mut target); // Would not compile - moved
+    /// // cond1.mutate_once(&mut target); // Would not compile - moved
+    /// // cond2.mutate_once(&mut target); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxMutatorOnce<T>
     where
@@ -787,8 +787,8 @@ where
     {
         let first = self;
         BoxMutatorOnce::new(move |t| {
-            first.mutate(t);
-            next.mutate(t);
+            first.mutate_once(t);
+            next.mutate_once(t);
         })
     }
 
@@ -828,7 +828,7 @@ where
     /// });
     ///
     /// let mut target = vec![0];
-    /// mutator.mutate(&mut target);
+    /// mutator.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3]); // Condition satisfied, execute when branch
     ///
     /// let data3 = vec![4, 5];
@@ -842,7 +842,7 @@ where
     /// });
     ///
     /// let mut target2 = vec![0];
-    /// mutator2.mutate(&mut target2);
+    /// mutator2.mutate_once(&mut target2);
     /// assert_eq!(target2, vec![0, 99]); // Condition not satisfied, execute or_else branch
     /// ```
     pub fn or_else<C>(self, else_mutator: C) -> BoxMutatorOnce<T>
@@ -853,9 +853,9 @@ where
         let then_mut = self.mutator;
         BoxMutatorOnce::new(move |t| {
             if pred.test(t) {
-                then_mut.mutate(t);
+                then_mut.mutate_once(t);
             } else {
-                else_mutator.mutate(t);
+                else_mutator.mutate_once(t);
             }
         })
     }
@@ -869,11 +869,11 @@ impl<T, F> MutatorOnce<T> for F
 where
     F: FnOnce(&mut T),
 {
-    fn mutate(self, value: &mut T) {
+    fn mutate_once(self, value: &mut T) {
         self(value)
     }
 
-    fn into_box(self) -> BoxMutatorOnce<T>
+    fn into_box_once(self) -> BoxMutatorOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -881,7 +881,7 @@ where
         BoxMutatorOnce::new(self)
     }
 
-    fn into_fn(self) -> impl FnOnce(&mut T)
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -892,16 +892,16 @@ where
     // Provide specialized non-consuming conversions for closures that
     // implement `Clone`. Many simple closures are zero-sized and `Clone`,
     // allowing non-consuming adapters to be cheaply produced.
-    fn to_box(&self) -> BoxMutatorOnce<T>
+    fn to_box_once(&self) -> BoxMutatorOnce<T>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
         let cloned = self.clone();
-        BoxMutatorOnce::new(move |t| cloned.mutate(t))
+        BoxMutatorOnce::new(move |t| cloned.mutate_once(t))
     }
 
-    fn to_fn(&self) -> impl FnOnce(&mut T)
+    fn to_fn_once(&self) -> impl FnOnce(&mut T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -941,7 +941,7 @@ where
 ///     .and_then(move |x: &mut Vec<i32>| x.extend(data2));
 ///
 /// let mut target = vec![0];
-/// chained.mutate(&mut target);
+/// chained.mutate_once(&mut target);
 /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
 /// ```
 ///
@@ -982,7 +982,7 @@ pub trait FnMutatorOnceOps<T>: FnOnce(&mut T) + Sized {
     ///     .and_then(move |x: &mut Vec<i32>| x.extend(data2));
     ///
     /// let mut target = vec![0];
-    /// chained.mutate(&mut target);
+    /// chained.mutate_once(&mut target);
     /// assert_eq!(target, vec![0, 1, 2, 3, 4]);
     /// // The original closures are consumed and no longer usable
     /// ```
@@ -994,7 +994,7 @@ pub trait FnMutatorOnceOps<T>: FnOnce(&mut T) + Sized {
     {
         BoxMutatorOnce::new(move |t| {
             self(t);
-            next.mutate(t);
+            next.mutate_once(t);
         })
     }
 }

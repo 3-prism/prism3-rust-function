@@ -64,7 +64,7 @@ use crate::predicate::{BoxPredicate, Predicate};
 /// use std::sync::{Arc, Mutex};
 ///
 /// fn apply_consumer<C: ConsumerOnce<i32>>(consumer: C, value: &i32) {
-///     consumer.accept(value);
+///     consumer.accept_once(value);
 /// }
 ///
 /// let log = Arc::new(Mutex::new(Vec::new()));
@@ -96,9 +96,9 @@ pub trait ConsumerOnce<T> {
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
     ///
     /// let consumer = BoxConsumerOnce::new(|x: &i32| println!("{}", x));
-    /// consumer.accept(&5);
+    /// consumer.accept_once(&5);
     /// ```
-    fn accept(self, value: &T);
+    fn accept_once(self, value: &T);
 
     /// Convert to BoxConsumerOnce
     ///
@@ -107,7 +107,7 @@ pub trait ConsumerOnce<T> {
     /// # Default Implementation
     ///
     /// The default implementation wraps `self` in a `BoxConsumerOnce` by calling
-    /// `accept` on the consumer. Types can override this method to provide more
+    /// `accept_once` on the consumer. Types can override this method to provide more
     /// efficient conversions.
     ///
     /// # Returns
@@ -125,16 +125,16 @@ pub trait ConsumerOnce<T> {
     /// let closure = move |x: &i32| {
     ///     l.lock().unwrap().push(*x);
     /// };
-    /// let box_consumer = closure.into_box();
-    /// box_consumer.accept(&5);
+    /// let box_consumer = closure.into_box_once();
+    /// box_consumer.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    fn into_box(self) -> BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxConsumerOnce::new(move |t| self.accept(t))
+        BoxConsumerOnce::new(move |t| self.accept_once(t))
     }
 
     /// Convert to closure
@@ -147,7 +147,7 @@ pub trait ConsumerOnce<T> {
     /// # Default Implementation
     ///
     /// The default implementation creates a closure that captures `self` and calls
-    /// its `accept` method. Types can override this method to provide more efficient
+    /// its `accept_once` method. Types can override this method to provide more efficient
     /// conversions.
     ///
     /// # Returns
@@ -165,16 +165,16 @@ pub trait ConsumerOnce<T> {
     /// let closure = move |x: &i32| {
     ///     l.lock().unwrap().push(*x * 2);
     /// };
-    /// let func = closure.into_fn();
+    /// let func = closure.into_fn_once();
     /// func(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10]);
     /// ```
-    fn into_fn(self) -> impl FnOnce(&T)
+    fn into_fn_once(self) -> impl FnOnce(&T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.accept(t)
+        move |t| self.accept_once(t)
     }
 
     /// Convert to BoxConsumerOnce without consuming self
@@ -186,7 +186,7 @@ pub trait ConsumerOnce<T> {
     /// # Default Implementation
     ///
     /// The default implementation clones `self` and then calls
-    /// `into_box()` on the clone. Types can override this method to
+    /// `into_box_once()` on the clone. Types can override this method to
     /// provide more efficient conversions.
     ///
     /// # Returns
@@ -204,16 +204,16 @@ pub trait ConsumerOnce<T> {
     /// let closure = move |x: &i32| {
     ///     l.lock().unwrap().push(*x);
     /// };
-    /// let box_consumer = closure.to_box();
-    /// box_consumer.accept(&5);
+    /// let box_consumer = closure.to_box_once();
+    /// box_consumer.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    fn to_box(&self) -> BoxConsumerOnce<T>
+    fn to_box_once(&self) -> BoxConsumerOnce<T>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
     /// Convert to closure without consuming self
@@ -225,7 +225,7 @@ pub trait ConsumerOnce<T> {
     /// # Default Implementation
     ///
     /// The default implementation clones `self` and then calls
-    /// `into_fn()` on the clone. Types can override this method to
+    /// `into_fn_once()` on the clone. Types can override this method to
     /// provide more efficient conversions.
     ///
     /// # Returns
@@ -243,16 +243,16 @@ pub trait ConsumerOnce<T> {
     /// let closure = move |x: &i32| {
     ///     l.lock().unwrap().push(*x * 2);
     /// };
-    /// let func = closure.to_fn();
+    /// let func = closure.to_fn_once();
     /// func(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10]);
     /// ```
-    fn to_fn(&self) -> impl FnOnce(&T)
+    fn to_fn_once(&self) -> impl FnOnce(&T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
     {
-        self.clone().into_fn()
+        self.clone().into_fn_once()
     }
 }
 
@@ -296,7 +296,7 @@ pub trait ConsumerOnce<T> {
 /// let consumer = BoxConsumerOnce::new(|x: &i32| {
 ///     println!("Value: {}", x);
 /// });
-/// consumer.accept(&5);
+/// consumer.accept_once(&5);
 /// ```
 ///
 /// # Author
@@ -336,7 +336,7 @@ where
     /// let consumer = BoxConsumerOnce::new(move |x: &i32| {
     ///     l.lock().unwrap().push(*x + 1);
     /// });
-    /// consumer.accept(&5);
+    /// consumer.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![6]);
     /// ```
     pub fn new<F>(f: F) -> Self
@@ -438,10 +438,10 @@ where
     ///
     /// // Both first and second are moved and consumed
     /// let chained = first.and_then(second);
-    /// chained.accept(&5);
+    /// chained.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
-    /// // first.accept(&3); // Would not compile - moved
-    /// // second.accept(&3); // Would not compile - moved
+    /// // first.accept_once(&3); // Would not compile - moved
+    /// // second.accept_once(&3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> Self
     where
@@ -451,7 +451,7 @@ where
         let second = next;
         BoxConsumerOnce::new(move |t| {
             first(t);
-            second.accept(t);
+            second.accept_once(t);
         })
     }
 
@@ -467,7 +467,7 @@ where
     /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
     ///
     /// let noop = BoxConsumerOnce::<i32>::noop();
-    /// noop.accept(&42);
+    /// noop.accept_once(&42);
     /// // Value unchanged
     /// ```
     pub fn noop() -> Self {
@@ -503,7 +503,7 @@ where
     /// });
     /// let conditional = consumer.when(|x: &i32| *x > 0);
     ///
-    /// conditional.accept(&5);
+    /// conditional.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalConsumerOnce<T>
@@ -518,18 +518,18 @@ where
 }
 
 impl<T> ConsumerOnce<T> for BoxConsumerOnce<T> {
-    fn accept(self, value: &T) {
+    fn accept_once(self, value: &T) {
         (self.function)(value)
     }
 
-    fn into_box(self) -> BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         self
     }
 
-    fn into_fn(self) -> impl FnOnce(&T)
+    fn into_fn_once(self) -> impl FnOnce(&T)
     where
         T: 'static,
     {
@@ -592,7 +592,7 @@ impl<T> fmt::Display for BoxConsumerOnce<T> {
 /// });
 /// let conditional = consumer.when(|x: &i32| *x > 0);
 ///
-/// conditional.accept(&5);
+/// conditional.accept_once(&5);
 /// assert_eq!(*log.lock().unwrap(), vec![5]); // Executed
 /// ```
 ///
@@ -613,7 +613,7 @@ impl<T> fmt::Display for BoxConsumerOnce<T> {
 ///     l2.lock().unwrap().push(-*x);
 /// });
 ///
-/// consumer.accept(&5);
+/// consumer.accept_once(&5);
 /// assert_eq!(*log.lock().unwrap(), vec![5]); // when branch executed
 /// ```
 ///
@@ -629,28 +629,28 @@ impl<T> ConsumerOnce<T> for BoxConditionalConsumerOnce<T>
 where
     T: 'static,
 {
-    fn accept(self, value: &T) {
+    fn accept_once(self, value: &T) {
         if self.predicate.test(value) {
-            self.consumer.accept(value);
+            self.consumer.accept_once(value);
         }
     }
 
-    fn into_box(self) -> BoxConsumerOnce<T> {
+    fn into_box_once(self) -> BoxConsumerOnce<T> {
         let pred = self.predicate;
         let consumer = self.consumer;
         BoxConsumerOnce::new(move |t| {
             if pred.test(t) {
-                consumer.accept(t);
+                consumer.accept_once(t);
             }
         })
     }
 
-    fn into_fn(self) -> impl FnOnce(&T) {
+    fn into_fn_once(self) -> impl FnOnce(&T) {
         let pred = self.predicate;
         let consumer = self.consumer;
         move |t: &T| {
             if pred.test(t) {
-                consumer.accept(t);
+                consumer.accept_once(t);
             }
         }
     }
@@ -700,10 +700,10 @@ where
     ///
     /// // Both cond1 and cond2 are moved and consumed
     /// let chained = cond1.and_then(cond2);
-    /// chained.accept(&6);
+    /// chained.accept_once(&6);
     /// assert_eq!(*log.lock().unwrap(), vec![12, 106]); // First *2 = 12, then +100 = 106
-    /// // cond1.accept(&3); // Would not compile - moved
-    /// // cond2.accept(&3); // Would not compile - moved
+    /// // cond1.accept_once(&3); // Would not compile - moved
+    /// // cond2.accept_once(&3); // Would not compile - moved
     /// ```
     pub fn and_then<C>(self, next: C) -> BoxConsumerOnce<T>
     where
@@ -712,8 +712,8 @@ where
         let first = self;
         let second = next;
         BoxConsumerOnce::new(move |t| {
-            first.accept(t);
-            second.accept(t);
+            first.accept_once(t);
+            second.accept_once(t);
         })
     }
 
@@ -754,7 +754,7 @@ where
     ///     l2.lock().unwrap().push(-*x);
     /// });
     ///
-    /// consumer.accept(&5);
+    /// consumer.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]); // Condition satisfied, execute first
     /// ```
     pub fn or_else<C>(self, else_consumer: C) -> BoxConsumerOnce<T>
@@ -766,9 +766,9 @@ where
         let else_cons = else_consumer;
         BoxConsumerOnce::new(move |t| {
             if pred.test(t) {
-                then_cons.accept(t);
+                then_cons.accept_once(t);
             } else {
-                else_cons.accept(t);
+                else_cons.accept_once(t);
             }
         })
     }
@@ -783,11 +783,11 @@ impl<T, F> ConsumerOnce<T> for F
 where
     F: FnOnce(&T),
 {
-    fn accept(self, value: &T) {
+    fn accept_once(self, value: &T) {
         self(value)
     }
 
-    fn into_box(self) -> BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -795,7 +795,7 @@ where
         BoxConsumerOnce::new(self)
     }
 
-    fn into_fn(self) -> impl FnOnce(&T)
+    fn into_fn_once(self) -> impl FnOnce(&T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -803,7 +803,7 @@ where
         self
     }
 
-    fn to_box(&self) -> BoxConsumerOnce<T>
+    fn to_box_once(&self) -> BoxConsumerOnce<T>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -812,7 +812,7 @@ where
         BoxConsumerOnce::new(cloned)
     }
 
-    fn to_fn(&self) -> impl FnOnce(&T)
+    fn to_fn_once(&self) -> impl FnOnce(&T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -851,7 +851,7 @@ where
 /// }).and_then(move |x: &i32| {
 ///     l2.lock().unwrap().push(*x + 10);
 /// });
-/// chained.accept(&5);
+/// chained.accept_once(&5);
 /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
 /// ```
 ///
@@ -897,7 +897,7 @@ pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
     ///     l2.lock().unwrap().push(*x + 10);
     /// }).and_then(|x: &i32| println!("Result: {}", x));
     ///
-    /// chained.accept(&5);
+    /// chained.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     /// ```
     fn and_then<C>(self, next: C) -> BoxConsumerOnce<T>
@@ -910,7 +910,7 @@ pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
         let second = next;
         BoxConsumerOnce::new(move |t| {
             first(t);
-            second.accept(t);
+            second.accept_once(t);
         })
     }
 }

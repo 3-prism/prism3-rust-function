@@ -461,6 +461,55 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
 }
 
 // ============================================================================
+// BoxBiTransformer BiTransformerOnce Implementation
+// ============================================================================
+
+impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for BoxBiTransformer<T, U, R>
+where
+    T: 'static,
+    U: 'static,
+    R: 'static,
+{
+    /// Transforms two input values, consuming self and both inputs
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - The first input value (consumed)
+    /// * `second` - The second input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    fn apply_once(self, first: T, second: U) -> R {
+        (self.function)(first, second)
+    }
+
+    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        // Zero-cost: directly return itself
+        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+            (self.function)(t, u)
+        })
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T, U) -> R
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        move |t: T, u: U| (self.function)(t, u)
+    }
+
+    // do NOT override BoxBiTransformer::to_xxxx() because BoxBiTransformer is not Clone
+    // and calling BoxBiTransformer::to_xxxx() will cause a compile error
+}
+
+// ============================================================================
 // BoxConditionalBiTransformer - Box-based Conditional BiTransformer
 // ============================================================================
 
@@ -865,6 +914,71 @@ impl<T, U, R> Clone for ArcBiTransformer<T, U, R> {
 }
 
 // ============================================================================
+// ArcBiTransformer BiTransformerOnce Implementation
+// ============================================================================
+
+impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for ArcBiTransformer<T, U, R>
+where
+    T: 'static,
+    U: 'static,
+    R: 'static,
+{
+    /// Transforms two input values, consuming self and both inputs
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - The first input value (consumed)
+    /// * `second` - The second input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    fn apply_once(self, first: T, second: U) -> R {
+        (self.function)(first, second)
+    }
+
+    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+            (self.function)(t, u)
+        })
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T, U) -> R
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        move |t: T, u: U| (self.function)(t, u)
+    }
+
+    fn to_box_once(&self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce(T, U) -> R
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t: T, u: U| self_fn(t, u)
+    }
+}
+
+// ============================================================================
 // ArcConditionalBiTransformer - Arc-based Conditional BiTransformer
 // ============================================================================
 
@@ -1265,6 +1379,71 @@ impl<T, U, R> Clone for RcBiTransformer<T, U, R> {
         RcBiTransformer {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+// ============================================================================
+// RcBiTransformer BiTransformerOnce Implementation
+// ============================================================================
+
+impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for RcBiTransformer<T, U, R>
+where
+    T: 'static,
+    U: 'static,
+    R: 'static,
+{
+    /// Transforms two input values, consuming self and both inputs
+    ///
+    /// # Parameters
+    ///
+    /// * `first` - The first input value (consumed)
+    /// * `second` - The second input value (consumed)
+    ///
+    /// # Returns
+    ///
+    /// The transformed output value
+    fn apply_once(self, first: T, second: U) -> R {
+        (self.function)(first, second)
+    }
+
+    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+            (self.function)(t, u)
+        })
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(T, U) -> R
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        move |t: T, u: U| (self.function)(t, u)
+    }
+
+    fn to_box_once(&self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce(T, U) -> R
+    where
+        T: 'static,
+        U: 'static,
+        R: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t: T, u: U| self_fn(t, u)
     }
 }
 

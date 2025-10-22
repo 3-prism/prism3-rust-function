@@ -84,7 +84,7 @@ type BiConsumerOnceFn<T, U> = dyn FnOnce(&T, &U);
 ///     a: &i32,
 ///     b: &i32
 /// ) {
-///     consumer.accept(a, b);
+///     consumer.accept_once(a, b);
 /// }
 ///
 /// let log = Arc::new(Mutex::new(Vec::new()));
@@ -119,9 +119,9 @@ pub trait BiConsumerOnce<T, U> {
     /// let consumer = BoxBiConsumerOnce::new(|x: &i32, y: &i32| {
     ///     println!("Sum: {}", x + y);
     /// });
-    /// consumer.accept(&5, &3);
+    /// consumer.accept_once(&5, &3);
     /// ```
-    fn accept(self, first: &T, second: &U);
+    fn accept_once(self, first: &T, second: &U);
 
     /// Converts to BoxBiConsumerOnce
     ///
@@ -143,17 +143,17 @@ pub trait BiConsumerOnce<T, U> {
     /// let closure = move |x: &i32, y: &i32| {
     ///     l.lock().unwrap().push(*x + *y);
     /// };
-    /// let box_consumer = closure.into_box();
-    /// box_consumer.accept(&5, &3);
+    /// let box_consumer = closure.into_box_once();
+    /// box_consumer.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn into_box(self) -> BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+        BoxBiConsumerOnce::new(move |t, u| self.accept_once(t, u))
     }
 
     /// Converts to a closure
@@ -167,13 +167,13 @@ pub trait BiConsumerOnce<T, U> {
     /// # Returns
     ///
     /// Returns a closure implementing `FnOnce(&T, &U)`
-    fn into_fn(self) -> impl FnOnce(&T, &U)
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        move |t, u| self.accept(t, u)
+        move |t, u| self.accept_once(t, u)
     }
 
     /// Convert to BoxBiConsumerOnce without consuming self
@@ -197,17 +197,17 @@ pub trait BiConsumerOnce<T, U> {
     /// let closure = move |x: &i32, y: &i32| {
     ///     l.lock().unwrap().push(*x + *y);
     /// };
-    /// let box_consumer = closure.to_box();
-    /// box_consumer.accept(&5, &3);
+    /// let box_consumer = closure.to_box_once();
+    /// box_consumer.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn to_box(&self) -> BoxBiConsumerOnce<T, U>
+    fn to_box_once(&self) -> BoxBiConsumerOnce<T, U>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
         U: 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
     /// Convert to closure without consuming self
@@ -231,17 +231,17 @@ pub trait BiConsumerOnce<T, U> {
     /// let closure = move |x: &i32, y: &i32| {
     ///     l.lock().unwrap().push(*x + *y);
     /// };
-    /// let func = closure.to_fn();
+    /// let func = closure.to_fn_once();
     /// func(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn to_fn(&self) -> impl FnOnce(&T, &U)
+    fn to_fn_once(&self) -> impl FnOnce(&T, &U)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
         U: 'static,
     {
-        self.clone().into_fn()
+        self.clone().into_fn_once()
     }
 }
 
@@ -286,7 +286,7 @@ pub trait BiConsumerOnce<T, U> {
 /// let consumer = BoxBiConsumerOnce::new(|x: &i32, y: &i32| {
 ///     println!("Sum: {}", x + y);
 /// });
-/// consumer.accept(&5, &3);
+/// consumer.accept_once(&5, &3);
 /// ```
 ///
 /// # Author
@@ -327,7 +327,7 @@ where
     /// let consumer = BoxBiConsumerOnce::new(move |x: &i32, y: &i32| {
     ///     l.lock().unwrap().push(*x * 2 + *y);
     /// });
-    /// consumer.accept(&5, &3);
+    /// consumer.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![13]);
     /// ```
     pub fn new<F>(f: F) -> Self
@@ -367,7 +367,7 @@ where
     ///     l.lock().unwrap().push(*x + *y);
     /// });
     /// assert_eq!(consumer.name(), Some("sum_logger"));
-    /// consumer.accept(&5, &3);
+    /// consumer.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
     pub fn new_with_name<F>(name: &str, f: F) -> Self
@@ -402,7 +402,7 @@ where
     /// use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
     ///
     /// let noop = BoxBiConsumerOnce::<i32, i32>::noop();
-    /// noop.accept(&42, &10);
+    /// noop.accept_once(&42, &10);
     /// // Values unchanged
     /// ```
     pub fn noop() -> Self {
@@ -450,7 +450,7 @@ where
     ///
     /// // Both first and second are moved and consumed
     /// let chained = first.and_then(second);
-    /// chained.accept(&5, &3);
+    /// chained.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// // first.accept(&2, &3); // Would not compile - moved
     /// // second.accept(&2, &3); // Would not compile - moved
@@ -463,7 +463,7 @@ where
         let second = next;
         BoxBiConsumerOnce::new(move |t, u| {
             first(t, u);
-            second.accept(t, u);
+            second.accept_once(t, u);
         })
     }
 
@@ -502,7 +502,7 @@ where
     /// });
     /// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
     ///
-    /// conditional.accept(&5, &3);
+    /// conditional.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalBiConsumerOnce<T, U>
@@ -517,11 +517,11 @@ where
 }
 
 impl<T, U> BiConsumerOnce<T, U> for BoxBiConsumerOnce<T, U> {
-    fn accept(self, first: &T, second: &U) {
+    fn accept_once(self, first: &T, second: &U) {
         (self.function)(first, second)
     }
 
-    fn into_box(self) -> BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U>
     where
         T: 'static,
         U: 'static,
@@ -529,7 +529,7 @@ impl<T, U> BiConsumerOnce<T, U> for BoxBiConsumerOnce<T, U> {
         self
     }
 
-    fn into_fn(self) -> impl FnOnce(&T, &U)
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
     where
         T: 'static,
         U: 'static,
@@ -590,7 +590,7 @@ impl<T, U> fmt::Display for BoxBiConsumerOnce<T, U> {
 /// });
 /// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
 ///
-/// conditional.accept(&5, &3);
+/// conditional.accept_once(&5, &3);
 /// assert_eq!(*log.lock().unwrap(), vec![8]); // Executed
 /// ```
 ///
@@ -610,7 +610,7 @@ impl<T, U> fmt::Display for BoxBiConsumerOnce<T, U> {
 ///     l2.lock().unwrap().push(*x * *y);
 /// });
 ///
-/// consumer.accept(&5, &3);
+/// consumer.accept_once(&5, &3);
 /// assert_eq!(*log.lock().unwrap(), vec![8]); // when branch executed
 /// ```
 ///
@@ -627,28 +627,28 @@ where
     T: 'static,
     U: 'static,
 {
-    fn accept(self, first: &T, second: &U) {
+    fn accept_once(self, first: &T, second: &U) {
         if self.predicate.test(first, second) {
-            self.consumer.accept(first, second);
+            self.consumer.accept_once(first, second);
         }
     }
 
-    fn into_box(self) -> BoxBiConsumerOnce<T, U> {
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
         let pred = self.predicate;
         let consumer = self.consumer;
         BoxBiConsumerOnce::new(move |t, u| {
             if pred.test(t, u) {
-                consumer.accept(t, u);
+                consumer.accept_once(t, u);
             }
         })
     }
 
-    fn into_fn(self) -> impl FnOnce(&T, &U) {
+    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
         let pred = self.predicate;
         let consumer = self.consumer;
         move |t: &T, u: &U| {
             if pred.test(t, u) {
-                consumer.accept(t, u);
+                consumer.accept_once(t, u);
             }
         }
     }
@@ -696,7 +696,7 @@ where
     ///
     /// // Both cond and second are moved and consumed
     /// let chained = cond.and_then(second);
-    /// chained.accept(&5, &3);
+    /// chained.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// // cond.accept(&2, &3); // Would not compile - moved
     /// // second.accept(&2, &3); // Would not compile - moved
@@ -708,8 +708,8 @@ where
         let first = self;
         let second = next;
         BoxBiConsumerOnce::new(move |t, u| {
-            first.accept(t, u);
-            second.accept(t, u);
+            first.accept_once(t, u);
+            second.accept_once(t, u);
         })
     }
 
@@ -750,7 +750,7 @@ where
     ///     l2.lock().unwrap().push(*x * *y);
     /// });
     ///
-    /// consumer.accept(&5, &3);
+    /// consumer.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]); // Condition satisfied
     /// ```
     pub fn or_else<C>(self, else_consumer: C) -> BoxBiConsumerOnce<T, U>
@@ -762,9 +762,9 @@ where
         let else_cons = else_consumer;
         BoxBiConsumerOnce::new(move |t, u| {
             if pred.test(t, u) {
-                then_cons.accept(t, u);
+                then_cons.accept_once(t, u);
             } else {
-                else_cons.accept(t, u);
+                else_cons.accept_once(t, u);
             }
         })
     }
@@ -779,11 +779,11 @@ impl<T, U, F> BiConsumerOnce<T, U> for F
 where
     F: FnOnce(&T, &U),
 {
-    fn accept(self, first: &T, second: &U) {
+    fn accept_once(self, first: &T, second: &U) {
         self(first, second)
     }
 
-    fn into_box(self) -> BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -792,7 +792,7 @@ where
         BoxBiConsumerOnce::new(self)
     }
 
-    fn into_fn(self) -> impl FnOnce(&T, &U)
+    fn into_fn_once(self) -> impl FnOnce(&T, &U)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -801,7 +801,7 @@ where
         self
     }
 
-    fn to_box(&self) -> BoxBiConsumerOnce<T, U>
+    fn to_box_once(&self) -> BoxBiConsumerOnce<T, U>
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -810,7 +810,7 @@ where
         BoxBiConsumerOnce::new(self.clone())
     }
 
-    fn to_fn(&self) -> impl FnOnce(&T, &U)
+    fn to_fn_once(&self) -> impl FnOnce(&T, &U)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -854,7 +854,7 @@ where
 /// }).and_then(move |x: &i32, y: &i32| {
 ///     l2.lock().unwrap().push(*x * *y);
 /// });
-/// chained.accept(&5, &3);
+/// chained.accept_once(&5, &3);
 /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
 /// ```
 ///
@@ -903,7 +903,7 @@ pub trait FnBiConsumerOnceOps<T, U>: FnOnce(&T, &U) + Sized {
     ///     println!("Result: {}, {}", x, y);
     /// });
     ///
-    /// chained.accept(&5, &3);
+    /// chained.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// ```
     fn and_then<C>(self, next: C) -> BoxBiConsumerOnce<T, U>
@@ -917,7 +917,7 @@ pub trait FnBiConsumerOnceOps<T, U>: FnOnce(&T, &U) + Sized {
         let second = next;
         BoxBiConsumerOnce::new(move |t, u| {
             first(t, u);
-            second.accept(t, u);
+            second.accept_once(t, u);
         })
     }
 }

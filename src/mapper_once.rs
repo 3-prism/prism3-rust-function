@@ -483,16 +483,16 @@ impl<T, R> MapperOnce<T, R> for BoxMapperOnce<T, R> {
 /// ```rust
 /// use prism3_function::{MapperOnce, BoxMapperOnce};
 ///
-    /// let double = BoxMapperOnce::new(|x: i32| x * 2);
-    /// let negate = BoxMapperOnce::new(|x: i32| -x);
-    /// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
-    /// assert_eq!(conditional.apply_once(5), 10); // when branch executed
-    ///
-    /// let double2 = BoxMapperOnce::new(|x: i32| x * 2);
-    /// let negate2 = BoxMapperOnce::new(|x: i32| -x);
-    /// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(negate2);
-    /// assert_eq!(conditional2.apply_once(-5), 5); // or_else branch executed
-    /// ```
+/// let double = BoxMapperOnce::new(|x: i32| x * 2);
+/// let negate = BoxMapperOnce::new(|x: i32| -x);
+/// let conditional = double.when(|x: &i32| *x > 0).or_else(negate);
+/// assert_eq!(conditional.apply_once(5), 10); // when branch executed
+///
+/// let double2 = BoxMapperOnce::new(|x: i32| x * 2);
+/// let negate2 = BoxMapperOnce::new(|x: i32| -x);
+/// let conditional2 = double2.when(|x: &i32| *x > 0).or_else(negate2);
+/// assert_eq!(conditional2.apply_once(-5), 5); // or_else branch executed
+/// ```
 ///
 /// # Author
 ///

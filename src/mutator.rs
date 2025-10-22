@@ -196,6 +196,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::mutator_once::{BoxMutatorOnce, MutatorOnce};
 use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
 
 // ============================================================================
@@ -806,6 +807,73 @@ impl<T> Mutator<T> for BoxMutator<T> {
     // and calling BoxMutator::to_xxx() will cause a compile error
 }
 
+impl<T> MutatorOnce<T> for BoxMutator<T>
+where
+    T: 'static,
+{
+    /// Performs the one-time mutation operation
+    ///
+    /// Consumes self and executes the mutation operation on the given mutable
+    /// reference. This is a one-time operation that cannot be called again.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - A mutable reference to the value to be mutated
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mutator, MutatorOnce, BoxMutator};
+    ///
+    /// let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+    /// let mut value = 5;
+    /// mutator.mutate_once(&mut value);
+    /// assert_eq!(value, 10);
+    /// ```
+    fn mutate_once(mut self, value: &mut T) {
+        (self.function)(value)
+    }
+
+    /// Converts to `BoxMutatorOnce` (consuming)
+    ///
+    /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. This is an
+    /// identity conversion since `BoxMutator` already uses `Box<dyn FnMut>`.
+    ///
+    /// # Returns
+    ///
+    /// Returns `self` as `BoxMutatorOnce<T>`
+    fn into_box_once(mut self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxMutatorOnce::new(move |t| (self.function)(t))
+    }
+
+    /// Converts to a consuming closure `FnOnce(&mut T)`
+    ///
+    /// Consumes `self` and returns a closure that, when invoked, calls the
+    /// mutation operation.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnOnce(&mut T)` which forwards to the original
+    /// mutator.
+    fn into_fn_once(mut self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        move |t| (self.function)(t)
+    }
+
+    // do NOT override MutatorOnce::to_box_once() because BoxMutator is not
+    // Clone and calling BoxMutator::to_box_once() will cause a compile error
+
+    // do NOT override MutatorOnce::to_fn_once() because BoxMutator is not
+    // Clone and calling BoxMutator::to_fn_once() will cause a compile error
+}
+
 // ============================================================================
 // 3. BoxConditionalMutator - Box-based Conditional Mutator
 // ============================================================================
@@ -1308,6 +1376,102 @@ impl<T> Clone for RcMutator<T> {
     }
 }
 
+impl<T> MutatorOnce<T> for RcMutator<T>
+where
+    T: 'static,
+{
+    /// Performs the one-time mutation operation
+    ///
+    /// Consumes self and executes the mutation operation on the given mutable
+    /// reference. This is a one-time operation that cannot be called again.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - A mutable reference to the value to be mutated
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mutator, MutatorOnce, RcMutator};
+    ///
+    /// let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+    /// let mut value = 5;
+    /// mutator.mutate_once(&mut value);
+    /// assert_eq!(value, 10);
+    /// ```
+    fn mutate_once(self, value: &mut T) {
+        (self.function.borrow_mut())(value)
+    }
+
+    /// Converts to `BoxMutatorOnce` (consuming)
+    ///
+    /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The underlying
+    /// function is extracted from the `Rc<RefCell<>>` wrapper.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxMutatorOnce<T>` that forwards to the original mutator.
+    fn into_box_once(self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxMutatorOnce::new(move |t| self.function.borrow_mut()(t))
+    }
+
+    /// Converts to a consuming closure `FnOnce(&mut T)`
+    ///
+    /// Consumes `self` and returns a closure that, when invoked, calls the
+    /// mutation operation.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnOnce(&mut T)` which forwards to the original
+    /// mutator.
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        move |t| self.function.borrow_mut()(t)
+    }
+
+    /// Non-consuming adapter to `BoxMutatorOnce`
+    ///
+    /// Creates a `BoxMutatorOnce<T>` that does not consume `self`. This method
+    /// clones the underlying `Rc` reference and creates a new boxed mutator.
+    ///
+    /// # Returns
+    ///
+    /// A `BoxMutatorOnce<T>` that forwards to a clone of `self`.
+    fn to_box_once(&self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxMutatorOnce::new(move |t| self_fn.borrow_mut()(t))
+    }
+
+    /// Non-consuming adapter to a callable `FnOnce(&mut T)`
+    ///
+    /// Returns a closure that does not consume `self`. This method clones the
+    /// underlying `Rc` reference for the captured closure.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnOnce(&mut T)` which forwards to a clone of
+    /// the original mutator.
+    fn to_fn_once(&self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn.borrow_mut()(t)
+    }
+}
+
 // ============================================================================
 // 5. RcConditionalMutator - Rc-based Conditional Mutator
 // ============================================================================
@@ -1764,6 +1928,102 @@ impl<T> Clone for ArcMutator<T> {
         ArcMutator {
             function: self.function.clone(),
         }
+    }
+}
+
+impl<T> MutatorOnce<T> for ArcMutator<T>
+where
+    T: Send + 'static,
+{
+    /// Performs the one-time mutation operation
+    ///
+    /// Consumes self and executes the mutation operation on the given mutable
+    /// reference. This is a one-time operation that cannot be called again.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - A mutable reference to the value to be mutated
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Mutator, MutatorOnce, ArcMutator};
+    ///
+    /// let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+    /// let mut value = 5;
+    /// mutator.mutate_once(&mut value);
+    /// assert_eq!(value, 10);
+    /// ```
+    fn mutate_once(self, value: &mut T) {
+        (self.function.lock().unwrap())(value)
+    }
+
+    /// Converts to `BoxMutatorOnce` (consuming)
+    ///
+    /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The underlying
+    /// function is extracted from the `Arc<Mutex<>>` wrapper.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxMutatorOnce<T>` that forwards to the original mutator.
+    fn into_box_once(self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxMutatorOnce::new(move |t| self.function.lock().unwrap()(t))
+    }
+
+    /// Converts to a consuming closure `FnOnce(&mut T)`
+    ///
+    /// Consumes `self` and returns a closure that, when invoked, calls the
+    /// mutation operation.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnOnce(&mut T)` which forwards to the original
+    /// mutator.
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        move |t| self.function.lock().unwrap()(t)
+    }
+
+    /// Non-consuming adapter to `BoxMutatorOnce`
+    ///
+    /// Creates a `BoxMutatorOnce<T>` that does not consume `self`. This method
+    /// clones the underlying `Arc` reference and creates a new boxed mutator.
+    ///
+    /// # Returns
+    ///
+    /// A `BoxMutatorOnce<T>` that forwards to a clone of `self`.
+    fn to_box_once(&self) -> BoxMutatorOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        BoxMutatorOnce::new(move |t| self_fn.lock().unwrap()(t))
+    }
+
+    /// Non-consuming adapter to a callable `FnOnce(&mut T)`
+    ///
+    /// Returns a closure that does not consume `self`. This method clones the
+    /// underlying `Arc` reference for the captured closure.
+    ///
+    /// # Returns
+    ///
+    /// A closure implementing `FnOnce(&mut T)` which forwards to a clone of
+    /// the original mutator.
+    fn to_fn_once(&self) -> impl FnOnce(&mut T)
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn.lock().unwrap()(t)
     }
 }
 

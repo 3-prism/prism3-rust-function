@@ -802,6 +802,118 @@ impl<T> fmt::Display for BoxConsumer<T> {
 }
 
 // ============================================================================
+// 9. BoxConsumer ConsumerOnce Implementation
+// ============================================================================
+
+impl<T> crate::consumer_once::ConsumerOnce<T> for BoxConsumer<T> {
+    /// Execute one-time consumption operation
+    ///
+    /// Executes the consumer operation once and consumes self. This method
+    /// provides a bridge between the reusable Consumer interface and the
+    /// one-time ConsumerOnce interface.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Reference to the value to be consumed
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// consumer.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn accept_once(mut self, value: &T) {
+        self.accept(value);
+    }
+
+    /// Convert to BoxConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the current consumer to `BoxConsumerOnce<T>` by wrapping the
+    /// consumer's accept method in a FnOnce closure.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let box_consumer_once = consumer.into_box_once();
+    /// box_consumer_once.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+            consumer.accept(t);
+        })
+    }
+
+    /// Convert to closure
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the consumer to a closure that can be used directly in places
+    /// where the standard library requires `FnOnce`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, BoxConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T)
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        move |t| consumer.accept(t)
+    }
+
+    // do NOT override ConsumerOnce::to_box_once() because BoxConsumer is not Clone
+    // and calling BoxConsumer::to_box_once() will cause a compile error
+
+    // do NOT override ConsumerOnce::to_fn_once() because BoxConsumer is not Clone
+    // and calling BoxConsumer::to_fn_once() will cause a compile error
+}
+
+// ============================================================================
 // 3. BoxConditionalConsumer - Box-based Conditional Consumer
 // ============================================================================
 
@@ -1412,6 +1524,186 @@ impl<T> fmt::Display for ArcConsumer<T> {
 }
 
 // ============================================================================
+// 11. ArcConsumer ConsumerOnce Implementation
+// ============================================================================
+
+impl<T> crate::consumer_once::ConsumerOnce<T> for ArcConsumer<T> {
+    /// Execute one-time consumption operation
+    ///
+    /// Executes the consumer operation once and consumes self. This method
+    /// provides a bridge between the reusable Consumer interface and the
+    /// one-time ConsumerOnce interface.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Reference to the value to be consumed
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// consumer.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn accept_once(mut self, value: &T) {
+        self.accept(value);
+    }
+
+    /// Convert to BoxConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the current consumer to `BoxConsumerOnce<T>` by wrapping the
+    /// consumer's accept method in a FnOnce closure.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let box_consumer_once = consumer.into_box_once();
+    /// box_consumer_once.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+            consumer.accept(t);
+        })
+    }
+
+    /// Convert to closure
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the consumer to a closure that can be used directly in places
+    /// where the standard library requires `FnOnce`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T)
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        move |t| consumer.accept(t)
+    }
+
+    /// Convert to BoxConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and wraps it in a
+    /// `BoxConsumerOnce`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let box_consumer_once = consumer.to_box_once();
+    /// box_consumer_once.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
+    /// ```
+    fn to_box_once(&self) -> crate::consumer_once::BoxConsumerOnce<T>
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+            self_fn.lock().unwrap()(t);
+        })
+    }
+
+    /// Convert to closure without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and then converts the clone
+    /// to a closure.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, ArcConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = ArcConsumer::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x);
+    /// });
+    /// let func = consumer.to_fn_once();
+    /// func(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
+    /// ```
+    fn to_fn_once(&self) -> impl FnOnce(&T)
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn.lock().unwrap()(t)
+    }
+}
+
+// ============================================================================
 // 5. ArcConditionalConsumer - Arc-based Conditional Consumer
 // ============================================================================
 
@@ -1979,6 +2271,191 @@ impl<T> fmt::Display for RcConsumer<T> {
             Some(name) => write!(f, "RcConsumer({})", name),
             None => write!(f, "RcConsumer"),
         }
+    }
+}
+
+// ============================================================================
+// 10. RcConsumer ConsumerOnce Implementation
+// ============================================================================
+
+impl<T> crate::consumer_once::ConsumerOnce<T> for RcConsumer<T> {
+    /// Execute one-time consumption operation
+    ///
+    /// Executes the consumer operation once and consumes self. This method
+    /// provides a bridge between the reusable Consumer interface and the
+    /// one-time ConsumerOnce interface.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` - Reference to the value to be consumed
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// consumer.accept_once(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    fn accept_once(mut self, value: &T) {
+        self.accept(value);
+    }
+
+    /// Convert to BoxConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the current consumer to `BoxConsumerOnce<T>` by wrapping the
+    /// consumer's accept method in a FnOnce closure.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let box_consumer_once = consumer.into_box_once();
+    /// box_consumer_once.accept_once(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+            consumer.accept(t);
+        })
+    }
+
+    /// Convert to closure
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after
+    /// calling this method.
+    ///
+    /// Converts the consumer to a closure that can be used directly in places
+    /// where the standard library requires `FnOnce`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let func = consumer.into_fn_once();
+    /// func(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// ```
+    fn into_fn_once(self) -> impl FnOnce(&T)
+    where
+        T: 'static,
+    {
+        let mut consumer = self;
+        move |t| consumer.accept(t)
+    }
+
+    /// Convert to BoxConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and wraps it in a
+    /// `BoxConsumerOnce`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns the wrapped `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let box_consumer_once = consumer.to_box_once();
+    /// box_consumer_once.accept_once(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.borrow(), vec![5, 3]);
+    /// ```
+    fn to_box_once(&self) -> crate::consumer_once::BoxConsumerOnce<T>
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+            self_fn.borrow_mut()(t);
+        })
+    }
+
+    /// Convert to closure without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement
+    /// `Clone`. Clones the current consumer and then converts the clone
+    /// to a closure.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a closure implementing `FnOnce(&T)`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{Consumer, ConsumerOnce, RcConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = RcConsumer::new(move |x: &i32| {
+    ///     l.borrow_mut().push(*x);
+    /// });
+    /// let func = consumer.to_fn_once();
+    /// func(&5);
+    /// assert_eq!(*log.borrow(), vec![5]);
+    /// // Original consumer still usable
+    /// consumer.accept(&3);
+    /// assert_eq!(*log.borrow(), vec![5, 3]);
+    /// ```
+    fn to_fn_once(&self) -> impl FnOnce(&T)
+    where
+        T: 'static,
+    {
+        let self_fn = self.function.clone();
+        move |t| self_fn.borrow_mut()(t)
     }
 }
 
