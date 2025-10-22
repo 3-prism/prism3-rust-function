@@ -47,7 +47,7 @@
 //!     42
 //! });
 //!
-//! let value = once.get(); // Only initializes once
+//! let value = once.get_once(); // Only initializes once
 //! assert_eq!(value, 42);
 //! ```
 //!
@@ -59,7 +59,7 @@
 //! let resource = String::from("data");
 //! let once = BoxSupplierOnce::new(move || resource);
 //!
-//! let value = once.get();
+//! let value = once.get_once();
 //! assert_eq!(value, "data");
 //! ```
 //!
@@ -73,12 +73,12 @@
 
 /// One-time supplier trait: generates a value consuming self.
 ///
-/// Similar to `Supplier`, but can only be called once. The `get()`
+/// Similar to `Supplier`, but can only be called once. The `get_once()`
 /// method consumes `self`, ensuring the supplier cannot be reused.
 ///
 /// # Key Characteristics
 ///
-/// - **Single use**: Can only call `get()` once
+/// - **Single use**: Can only call `get_once()` once
 /// - **Consumes self**: The method takes ownership of `self`
 /// - **Holds `FnOnce`**: Can capture and move non-cloneable values
 /// - **Type-system guaranteed**: Prevents multiple calls at compile
@@ -105,7 +105,7 @@
 ///     42
 /// });
 ///
-/// let value = once.get(); // Prints: Expensive computation
+/// let value = once.get_once(); // Prints: Expensive computation
 /// assert_eq!(value, 42);
 /// // once is now consumed and cannot be used again
 /// ```
@@ -120,7 +120,7 @@
 ///     resource // Move the resource
 /// });
 ///
-/// let value = once.get();
+/// let value = once.get_once();
 /// assert_eq!(value, "data");
 /// ```
 ///
@@ -144,10 +144,10 @@ pub trait SupplierOnce<T> {
     /// use prism3_function::{BoxSupplierOnce, SupplierOnce};
     ///
     /// let once = BoxSupplierOnce::new(|| 42);
-    /// assert_eq!(once.get(), 42);
+    /// assert_eq!(once.get_once(), 42);
     /// // once is consumed here
     /// ```
-    fn get(self) -> T;
+    fn get_once(self) -> T;
 
     /// Converts to `BoxSupplierOnce`.
     ///
@@ -162,14 +162,14 @@ pub trait SupplierOnce<T> {
     ///
     /// let closure = || 42;
     /// let boxed = closure.into_box_once();
-    /// assert_eq!(boxed.get(), 42);
+    /// assert_eq!(boxed.get_once(), 42);
     /// ```
-    fn into_box(self) -> BoxSupplierOnce<T>
+    fn into_box_once(self) -> BoxSupplierOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxSupplierOnce::new(move || self.get())
+        BoxSupplierOnce::new(move || self.get_once())
     }
 
     /// Converts the supplier to a `Box<dyn FnOnce() -> T>`.
@@ -188,15 +188,15 @@ pub trait SupplierOnce<T> {
     /// use prism3_function::SupplierOnce;
     ///
     /// let closure = || 42;
-    /// let fn_once = closure.into_fn();
+    /// let fn_once = closure.into_fn_once();
     /// assert_eq!(fn_once(), 42);
     /// ```
-    fn into_fn(self) -> impl FnOnce() -> T
+    fn into_fn_once(self) -> impl FnOnce() -> T
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move || self.get()
+        move || self.get_once()
     }
 
     /// Converts the supplier to a `BoxSupplierOnce`.
@@ -214,12 +214,12 @@ pub trait SupplierOnce<T> {
     /// This requires the `SupplierOnce` to be `Clone` because it only
     /// borrows `&self` but must create a new owned `BoxSupplierOnce`. The
     /// clone provides the owned value needed for the new instance.
-    fn to_box(&self) -> BoxSupplierOnce<T>
+    fn to_box_once(&self) -> BoxSupplierOnce<T>
     where
         Self: Clone + Sized + 'static,
         T: 'static,
     {
-        self.clone().into_box()
+        self.clone().into_box_once()
     }
 
     /// Converts the supplier to a `Box<dyn FnOnce() -> T>`.
@@ -234,16 +234,16 @@ pub trait SupplierOnce<T> {
     ///
     /// # Note
     ///
-    /// This requires the `SupplierOnce` to be `Clone` since `to_fn` only
+    /// This requires the `SupplierOnce` to be `Clone` since `to_fn_once` only
     /// borrows `&self` but needs to produce a `FnOnce` which will be
     /// consumed. The underlying supplier is cloned to provide an owned value
     /// that the returned closure can consume.
-    fn to_fn(&self) -> impl FnOnce() -> T
+    fn to_fn_once(&self) -> impl FnOnce() -> T
     where
         Self: Clone + Sized + 'static,
         T: 'static,
     {
-        self.clone().into_fn()
+        self.clone().into_fn_once()
     }
 }
 
@@ -254,7 +254,7 @@ pub trait SupplierOnce<T> {
 /// Box-based one-time supplier.
 ///
 /// Uses `Box<dyn FnOnce() -> T>` for one-time value generation.
-/// Can only call `get()` once, consuming the supplier.
+/// Can only call `get_once()` once, consuming the supplier.
 ///
 /// # Examples
 ///
@@ -268,7 +268,7 @@ pub trait SupplierOnce<T> {
 ///     42
 /// });
 ///
-/// let value = once.get(); // Prints: Expensive initialization
+/// let value = once.get_once(); // Prints: Expensive initialization
 /// assert_eq!(value, 42);
 /// ```
 ///
@@ -280,7 +280,7 @@ pub trait SupplierOnce<T> {
 /// let resource = String::from("data");
 /// let once = BoxSupplierOnce::new(move || resource);
 ///
-/// let value = once.get();
+/// let value = once.get_once();
 /// assert_eq!(value, "data");
 /// ```
 ///
@@ -308,7 +308,7 @@ impl<T> BoxSupplierOnce<T> {
     /// use prism3_function::{BoxSupplierOnce, SupplierOnce};
     ///
     /// let once = BoxSupplierOnce::new(|| 42);
-    /// assert_eq!(once.get(), 42);
+    /// assert_eq!(once.get_once(), 42);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -325,11 +325,11 @@ impl<T> BoxSupplierOnce<T> {
 // ==========================================================================
 
 impl<T> SupplierOnce<T> for BoxSupplierOnce<T> {
-    fn get(self) -> T {
+    fn get_once(self) -> T {
         (self.function)()
     }
 
-    fn into_box(self) -> BoxSupplierOnce<T>
+    fn into_box_once(self) -> BoxSupplierOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -337,7 +337,7 @@ impl<T> SupplierOnce<T> for BoxSupplierOnce<T> {
         self
     }
 
-    fn into_fn(self) -> impl FnOnce() -> T
+    fn into_fn_once(self) -> impl FnOnce() -> T
     where
         Self: Sized + 'static,
         T: 'static,
@@ -345,14 +345,14 @@ impl<T> SupplierOnce<T> for BoxSupplierOnce<T> {
         self.function
     }
 
-    // The `to_box` method cannot be implemented for `BoxSupplierOnce`.
-    // The default implementation of `to_box` requires `Self: Clone`, but
+    // The `to_box_once` method cannot be implemented for `BoxSupplierOnce`.
+    // The default implementation of `to_box_once` requires `Self: Clone`, but
     // `BoxSupplierOnce` cannot be cloned because it contains a
-    // `Box<dyn FnOnce() -> T>`, which is not cloneable. Calling `to_box()` on a
+    // `Box<dyn FnOnce() -> T>`, which is not cloneable. Calling `to_box_once()` on a
     // `BoxSupplierOnce` instance will result in a compile-time error, as it
     // does not satisfy the `Clone` trait bound.
 
-    // The `to_fn` method cannot be implemented for `BoxSupplierOnce` for the
+    // The `to_fn_once` method cannot be implemented for `BoxSupplierOnce` for the
     // same reason. It also requires `Self: Clone`, which `BoxSupplierOnce`
     // does not implement. This limitation is inherent to any `FnOnce`-based
     // supplier that takes ownership of a non-cloneable resource.
@@ -366,11 +366,11 @@ impl<T, F> SupplierOnce<T> for F
 where
     F: FnOnce() -> T,
 {
-    fn get(self) -> T {
+    fn get_once(self) -> T {
         self()
     }
 
-    fn into_box(self) -> BoxSupplierOnce<T>
+    fn into_box_once(self) -> BoxSupplierOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -378,7 +378,7 @@ where
         BoxSupplierOnce::new(self)
     }
 
-    fn into_fn(self) -> impl FnOnce() -> T
+    fn into_fn_once(self) -> impl FnOnce() -> T
     where
         Self: Sized + 'static,
         T: 'static,
@@ -386,7 +386,7 @@ where
         self
     }
 
-    fn to_box(&self) -> BoxSupplierOnce<T>
+    fn to_box_once(&self) -> BoxSupplierOnce<T>
     where
         Self: Clone + Sized + 'static,
         T: 'static,
@@ -394,7 +394,7 @@ where
         BoxSupplierOnce::new(self.clone())
     }
 
-    fn to_fn(&self) -> impl FnOnce() -> T
+    fn to_fn_once(&self) -> impl FnOnce() -> T
     where
         Self: Clone + Sized + 'static,
         T: 'static,

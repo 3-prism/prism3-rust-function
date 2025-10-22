@@ -122,6 +122,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::mapper::Mapper;
+use crate::supplier_once::{BoxSupplierOnce, SupplierOnce};
 
 // ==========================================================================
 // Supplier Trait
@@ -543,7 +544,7 @@ where
         F: Mapper<T, U> + 'static,
         U: 'static,
     {
-        BoxSupplier::new(move || mapper.apply(self.get()))
+        BoxSupplier::new(move || mapper.apply(Supplier::get(&mut self)))
     }
 
     /// Filters output based on a predicate.
@@ -578,7 +579,7 @@ where
         P: FnMut(&T) -> bool + 'static,
     {
         BoxSupplier::new(move || {
-            let value = self.get();
+            let value = Supplier::get(&mut self);
             if predicate(&value) {
                 Some(value)
             } else {
@@ -594,7 +595,8 @@ where
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with
+    /// * `other` - The other supplier to combine with. Can be any type
+    ///   implementing `Supplier<U>`
     ///
     /// # Returns
     ///
@@ -611,11 +613,12 @@ where
     ///
     /// assert_eq!(zipped.get(), (42, "hello"));
     /// ```
-    pub fn zip<U>(mut self, mut other: BoxSupplier<U>) -> BoxSupplier<(T, U)>
+    pub fn zip<S, U>(mut self, mut other: S) -> BoxSupplier<(T, U)>
     where
+        S: Supplier<U> + 'static,
         U: 'static,
     {
-        BoxSupplier::new(move || (self.get(), other.get()))
+        BoxSupplier::new(move || (Supplier::get(&mut self), Supplier::get(&mut other)))
     }
 
     /// Creates a memoizing supplier.
@@ -650,7 +653,7 @@ where
             if let Some(ref cached) = cache {
                 cached.clone()
             } else {
-                let value = self.get();
+                let value = Supplier::get(&mut self);
                 cache = Some(value.clone());
                 value
             }
@@ -690,6 +693,35 @@ impl<T> Supplier<T> for BoxSupplier<T> {
     // `to_box`, `to_rc`, `to_arc`, or `to_fn` implementations. Invoking
     // the default trait methods will not compile because the required
     // `Clone` bound is not satisfied.
+}
+
+impl<T> SupplierOnce<T> for BoxSupplier<T>
+where
+    T: 'static,
+{
+    fn get_once(mut self) -> T {
+        Supplier::get(&mut self)
+    }
+
+    fn into_box_once(self) -> BoxSupplierOnce<T>
+    where
+        Self: Sized + 'static,
+    {
+        BoxSupplierOnce::new(self.function)
+    }
+
+    fn into_fn_once(self) -> impl FnOnce() -> T
+    where
+        Self: Sized + 'static,
+    {
+        let mut f = self.function;
+        move || f()
+    }
+
+    // NOTE: `BoxSupplier` is not `Clone`, so it cannot offer
+    // `to_box_once` or `to_fn_once` implementations. Invoking the default
+    // trait methods will not compile because the required `Clone`
+    // bound is not satisfied.
 }
 
 // ==========================================================================
@@ -933,11 +965,8 @@ where
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with. **Note: This parameter
-    ///   is passed by reference, so the original supplier remains usable.**
-    ///   Can be:
-    ///   - An `ArcSupplier<U>` (passed by reference)
-    ///   - Any type implementing `Supplier<U> + Send`
+    /// * `other` - The other supplier to combine with. Can be any type
+    ///   implementing `Supplier<U> + Send`. The supplier is consumed.
     ///
     /// # Returns
     ///
@@ -951,28 +980,23 @@ where
     /// let first = ArcSupplier::new(|| 42);
     /// let second = ArcSupplier::new(|| "hello");
     ///
-    /// // second is passed by reference, so it remains usable
-    /// let zipped = first.zip(&second);
+    /// let zipped = first.zip(second.clone());
     ///
     /// let mut z = zipped;
     /// assert_eq!(z.get(), (42, "hello"));
     ///
-    /// // Both first and second still usable
-    /// let mut f = first;
+    /// // second is still usable because it was cloned
     /// let mut s = second;
-    /// assert_eq!(f.get(), 42);
     /// assert_eq!(s.get(), "hello");
     /// ```
-    pub fn zip<U>(&self, other: &ArcSupplier<U>) -> ArcSupplier<(T, U)>
+    pub fn zip<S, U>(&self, mut other: S) -> ArcSupplier<(T, U)>
     where
+        S: Supplier<U> + Send + 'static,
         U: Send + 'static,
     {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&other.function);
         ArcSupplier {
-            function: Arc::new(Mutex::new(move || {
-                (first.lock().unwrap()(), second.lock().unwrap()())
-            })),
+            function: Arc::new(Mutex::new(move || (first.lock().unwrap()(), other.get()))),
         }
     }
 
@@ -1100,6 +1124,47 @@ impl<T> Clone for ArcSupplier<T> {
         Self {
             function: Arc::clone(&self.function),
         }
+    }
+}
+
+impl<T> SupplierOnce<T> for ArcSupplier<T>
+where
+    T: Send + 'static,
+{
+    fn get_once(mut self) -> T {
+        Supplier::get(&mut self)
+    }
+
+    fn into_box_once(self) -> BoxSupplierOnce<T>
+    where
+        Self: Sized + 'static,
+    {
+        let f = self.function;
+        BoxSupplierOnce::new(move || f.lock().unwrap()())
+    }
+
+    fn into_fn_once(self) -> impl FnOnce() -> T
+    where
+        Self: Sized + 'static,
+    {
+        let f = self.function;
+        move || f.lock().unwrap()()
+    }
+
+    fn to_box_once(&self) -> BoxSupplierOnce<T>
+    where
+        Self: Clone + Sized + 'static,
+    {
+        let f = Arc::clone(&self.function);
+        BoxSupplierOnce::new(move || f.lock().unwrap()())
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce() -> T
+    where
+        Self: Clone + Sized + 'static,
+    {
+        let f = Arc::clone(&self.function);
+        move || f.lock().unwrap()()
     }
 }
 
@@ -1339,11 +1404,8 @@ where
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with. **Note: This parameter
-    ///   is passed by reference, so the original supplier remains usable.**
-    ///   Can be:
-    ///   - An `RcSupplier<U>` (passed by reference)
-    ///   - Any type implementing `Supplier<U>`
+    /// * `other` - The other supplier to combine with. Can be any type
+    ///   implementing `Supplier<U>`. The supplier is consumed.
     ///
     /// # Returns
     ///
@@ -1357,28 +1419,23 @@ where
     /// let first = RcSupplier::new(|| 42);
     /// let second = RcSupplier::new(|| "hello");
     ///
-    /// // second is passed by reference, so it remains usable
-    /// let zipped = first.zip(&second);
+    /// let zipped = first.zip(second.clone());
     ///
     /// let mut z = zipped;
     /// assert_eq!(z.get(), (42, "hello"));
     ///
-    /// // Both first and second still usable
-    /// let mut f = first;
+    /// // second is still usable because it was cloned
     /// let mut s = second;
-    /// assert_eq!(f.get(), 42);
     /// assert_eq!(s.get(), "hello");
     /// ```
-    pub fn zip<U>(&self, other: &RcSupplier<U>) -> RcSupplier<(T, U)>
+    pub fn zip<S, U>(&self, mut other: S) -> RcSupplier<(T, U)>
     where
+        S: Supplier<U> + 'static,
         U: 'static,
     {
         let first = Rc::clone(&self.function);
-        let second = Rc::clone(&other.function);
         RcSupplier {
-            function: Rc::new(RefCell::new(move || {
-                (first.borrow_mut()(), second.borrow_mut()())
-            })),
+            function: Rc::new(RefCell::new(move || (first.borrow_mut()(), other.get()))),
         }
     }
 
@@ -1499,6 +1556,47 @@ impl<T> Clone for RcSupplier<T> {
         Self {
             function: Rc::clone(&self.function),
         }
+    }
+}
+
+impl<T> SupplierOnce<T> for RcSupplier<T>
+where
+    T: 'static,
+{
+    fn get_once(mut self) -> T {
+        Supplier::get(&mut self)
+    }
+
+    fn into_box_once(self) -> BoxSupplierOnce<T>
+    where
+        Self: Sized + 'static,
+    {
+        let f = self.function;
+        BoxSupplierOnce::new(move || f.borrow_mut()())
+    }
+
+    fn into_fn_once(self) -> impl FnOnce() -> T
+    where
+        Self: Sized + 'static,
+    {
+        let f = self.function;
+        move || f.borrow_mut()()
+    }
+
+    fn to_box_once(&self) -> BoxSupplierOnce<T>
+    where
+        Self: Clone + Sized + 'static,
+    {
+        let f = Rc::clone(&self.function);
+        BoxSupplierOnce::new(move || f.borrow_mut()())
+    }
+
+    fn to_fn_once(&self) -> impl FnOnce() -> T
+    where
+        Self: Clone + Sized + 'static,
+    {
+        let f = Rc::clone(&self.function);
+        move || f.borrow_mut()()
     }
 }
 
@@ -1719,7 +1817,8 @@ pub trait FnSupplierOps<T>: FnMut() -> T + Sized + 'static {
     ///
     /// # Parameters
     ///
-    /// * `other` - The other supplier to combine with
+    /// * `other` - The other supplier to combine with. Can be any type
+    ///   implementing `Supplier<U>`
     ///
     /// # Returns
     ///
@@ -1736,8 +1835,9 @@ pub trait FnSupplierOps<T>: FnMut() -> T + Sized + 'static {
     ///
     /// assert_eq!(zipped.get(), (42, "hello"));
     /// ```
-    fn zip<U>(self, other: BoxSupplier<U>) -> BoxSupplier<(T, U)>
+    fn zip<S, U>(self, other: S) -> BoxSupplier<(T, U)>
     where
+        S: Supplier<U> + 'static,
         U: 'static,
         T: 'static,
     {
