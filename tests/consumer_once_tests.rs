@@ -1,11 +1,18 @@
+/*******************************************************************************
+ *
+ *    Copyright (c) 2025.
+ *    3-Prism Co. Ltd.
+ *
+ *    All rights reserved.
+ *
+ ******************************************************************************/
 /// Copyright (c) 2025.
 /// 3-Prism Co. Ltd.
 ///
 /// All rights reserved.
-//! # ConsumerOnce Tests
-//!
-//! Unit tests for the ConsumerOnce trait and its implementations.
-
+/// # ConsumerOnce Tests
+///
+/// Unit tests for the ConsumerOnce trait and its implementations.
 use prism3_function::{BoxConsumerOnce, ConsumerOnce, FnConsumerOnceOps};
 use std::sync::{Arc, Mutex};
 
@@ -834,9 +841,11 @@ mod box_conditional_consumer_once_tests {
         })
         .when(|x: &i32| *x % 2 == 0);
 
-        let chained = conditional1.and_then(conditional2).and_then(move |x: &i32| {
-            l3.lock().unwrap().push(*x + 100);
-        });
+        let chained = conditional1
+            .and_then(conditional2)
+            .and_then(move |x: &i32| {
+                l3.lock().unwrap().push(*x + 100);
+            });
 
         // Test with 6: positive (first passes), even (second passes), third always executes
         chained.accept(&6);
