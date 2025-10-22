@@ -119,12 +119,12 @@ fn demo_box_supplier_once() {
         println!("  Expensive initialization");
         42
     });
-    println!("Value: {}", once.get());
+    println!("Value: {}", once.get_once());
 
     // Moving captured values
     let data = String::from("Hello, World!");
     let once = BoxSupplierOnce::new(move || data);
-    println!("Moved data: {}", once.get());
+    println!("Moved data: {}", once.get_once());
     println!();
 }
 

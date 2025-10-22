@@ -12,7 +12,7 @@
 //! This example shows how to use BoxMapper, RcMapper, and ArcMapper
 //! for stateful value transformation.
 
-use prism3_function::{ArcMapper, BoxMapper, FnMapperOps, Mapper, RcMapper};
+use prism3_function::{ArcMapper, BoxMapper, FnMapperOps, Mapper, MapperOnce, RcMapper};
 
 fn main() {
     println!("=== Mapper Demo ===\n");
@@ -130,6 +130,64 @@ fn main() {
 
     println!("  {}", pipeline.apply(100));
     println!("  {}", pipeline.apply(200));
+
+    // 7. MapperOnce implementation - consuming mappers
+    println!("\n7. MapperOnce implementation - consuming Mappers:");
+
+    // BoxMapper can be consumed as MapperOnce
+    let mut counter = 0;
+    let box_mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+    println!("  BoxMapper consumed once: {}", box_mapper.apply_once(10)); // 10 * 1 = 10
+
+    // RcMapper can be consumed as MapperOnce
+    let mut counter = 0;
+    let rc_mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x + counter
+    });
+    let rc_clone = rc_mapper.clone(); // Clone before consuming
+    println!("  RcMapper consumed once: {}", rc_mapper.apply_once(10)); // 10 + 1 = 11
+    println!("  RcMapper clone still works: {}", rc_clone.clone().apply(10)); // 10 + 2 = 12
+
+    // ArcMapper can be consumed as MapperOnce
+    let mut counter = 0;
+    let arc_mapper = ArcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+    let arc_clone = arc_mapper.clone(); // Clone before consuming
+    println!("  ArcMapper consumed once: {}", arc_mapper.apply_once(10)); // 10 * 1 = 10
+    println!(
+        "  ArcMapper clone still works: {}",
+        arc_clone.clone().apply(10)
+    ); // 10 * 2 = 20
+
+    // 8. Converting to BoxMapperOnce
+    println!("\n8. Converting Mappers to BoxMapperOnce:");
+
+    let mut counter = 0;
+    let mapper = BoxMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+    let once_mapper = mapper.into_box_once();
+    println!("  BoxMapper->BoxMapperOnce: {}", once_mapper.apply_once(5)); // 5 * 1 = 5
+
+    // RcMapper can use to_box_once() to preserve original
+    let mut counter = 0;
+    let rc_mapper = RcMapper::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+    let once_mapper = rc_mapper.to_box_once();
+    println!("  RcMapper->BoxMapperOnce: {}", once_mapper.apply_once(5)); // 5 * 1 = 5
+    println!(
+        "  Original RcMapper still works: {}",
+        rc_mapper.clone().apply(5)
+    ); // 5 * 2 = 10
 
     println!("\n=== Demo Complete ===");
 }
