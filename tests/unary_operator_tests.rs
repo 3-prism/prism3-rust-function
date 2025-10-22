@@ -58,5 +58,5 @@ fn test_rc_unary_operator_clone() {
 #[test]
 fn test_box_unary_operator_once() {
     let double: BoxUnaryOperatorOnce<i32> = BoxUnaryOperatorOnce::new(|x| x * 2);
-    assert_eq!(double.apply(21), 42);
+    assert_eq!(double.apply_once(21), 42);
 }

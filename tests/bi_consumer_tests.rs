@@ -9,7 +9,9 @@
 
 //! Tests for BiConsumer types
 
-use prism3_function::{ArcBiConsumer, BiConsumer, BoxBiConsumer, FnBiConsumerOps, RcBiConsumer};
+use prism3_function::{
+    ArcBiConsumer, BiConsumer, BiConsumerOnce, BoxBiConsumer, FnBiConsumerOps, RcBiConsumer,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -2189,5 +2191,329 @@ mod direct_closure_to_xxx_tests {
         let mut consumer_clone = consumer.clone();
         consumer_clone.accept(&2, &1);
         assert_eq!(*log.lock().unwrap(), vec![8, 3]);
+    }
+}
+
+// ============================================================================
+// BiConsumerOnce Implementation Tests
+// ============================================================================
+
+#[cfg(test)]
+mod bi_consumer_once_tests {
+    use super::*;
+
+    #[test]
+    fn test_box_bi_consumer_accept_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_into_box_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let box_once = consumer.into_box_once();
+        box_once.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_into_fn_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let func = consumer.into_fn_once();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_accept_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_into_box_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let box_once = consumer.into_box_once();
+        box_once.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_into_fn_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        let func = consumer.into_fn_once();
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_accept_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_into_box_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let box_once = consumer.into_box_once();
+        box_once.accept_once(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_into_fn_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        let func = consumer.into_fn_once();
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_with_different_types() {
+        let log = Arc::new(Mutex::new(String::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |s: &String, n: &i32| {
+            *l.lock().unwrap() = format!("{}: {}", s, n);
+        });
+        consumer.accept_once(&"Count".to_string(), &42);
+        assert_eq!(*log.lock().unwrap(), "Count: 42");
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_with_different_types() {
+        let log = Arc::new(Mutex::new(String::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |s: &String, n: &i32| {
+            *l.lock().unwrap() = format!("{}: {}", s, n);
+        });
+        consumer.accept_once(&"Count".to_string(), &42);
+        assert_eq!(*log.lock().unwrap(), "Count: 42");
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_with_different_types() {
+        let log = Rc::new(RefCell::new(String::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |s: &String, n: &i32| {
+            *l.borrow_mut() = format!("{}: {}", s, n);
+        });
+        consumer.accept_once(&"Count".to_string(), &42);
+        assert_eq!(*log.borrow(), "Count: 42");
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_complex_operation() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            let sum = *x + *y;
+            let product = *x * *y;
+            l.lock().unwrap().push(sum);
+            l.lock().unwrap().push(product);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_complex_operation() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            let sum = *x + *y;
+            let product = *x * *y;
+            l.lock().unwrap().push(sum);
+            l.lock().unwrap().push(product);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_complex_operation() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            let sum = *x + *y;
+            let product = *x * *y;
+            l.borrow_mut().push(sum);
+            l.borrow_mut().push(product);
+        });
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.borrow(), vec![8, 15]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_noop() {
+        let consumer = BoxBiConsumer::<i32, i32>::noop();
+        consumer.accept_once(&42, &10);
+        // Should not panic, values unchanged
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_noop() {
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.accept_once(&42, &10);
+        // Should not panic, values unchanged
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_noop() {
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
+        consumer.accept_once(&42, &10);
+        // Should not panic, values unchanged
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_with_name() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept_once(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_edge_cases() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // Test with zero values
+        consumer.accept_once(&0, &0);
+        assert_eq!(*log.lock().unwrap(), vec![0]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_edge_cases() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // Test with zero values
+        consumer.accept_once(&0, &0);
+        assert_eq!(*log.lock().unwrap(), vec![0]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_edge_cases() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        // Test with zero values
+        consumer.accept_once(&0, &0);
+        assert_eq!(*log.borrow(), vec![0]);
+    }
+
+    #[test]
+    fn test_box_bi_consumer_once_negative_values() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // Test with negative values
+        consumer.accept_once(&-5, &-3);
+        assert_eq!(*log.lock().unwrap(), vec![-8]);
+    }
+
+    #[test]
+    fn test_arc_bi_consumer_once_negative_values() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        // Test with negative values
+        consumer.accept_once(&-5, &-3);
+        assert_eq!(*log.lock().unwrap(), vec![-8]);
+    }
+
+    #[test]
+    fn test_rc_bi_consumer_once_negative_values() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        // Test with negative values
+        consumer.accept_once(&-5, &-3);
+        assert_eq!(*log.borrow(), vec![-8]);
     }
 }

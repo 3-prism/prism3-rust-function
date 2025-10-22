@@ -2050,3 +2050,481 @@ mod custom_transformer_to_methods_tests {
         assert_eq!(func(6), expected);
     }
 }
+
+// ============================================================================
+// TransformerOnce Tests for BoxTransformer, RcTransformer, ArcTransformer
+// ============================================================================
+
+#[cfg(test)]
+mod transformer_once_tests {
+    use prism3_function::{
+        ArcTransformer, BoxTransformer, RcTransformer, Transformer, TransformerOnce,
+    };
+    use std::sync::Arc;
+    use std::thread;
+
+    // BoxTransformer TransformerOnce Tests
+    #[cfg(test)]
+    mod box_transformer_once_tests {
+        use super::*;
+
+        #[test]
+        fn test_box_transformer_apply_once() {
+            let double = BoxTransformer::new(|x: i32| x * 2);
+            let result = double.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_box_transformer_into_box_once() {
+            let double = BoxTransformer::new(|x: i32| x * 2);
+            let boxed = double.into_box_once();
+            let result = boxed.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_box_transformer_into_fn_once() {
+            let double = BoxTransformer::new(|x: i32| x * 2);
+            let func = double.into_fn_once();
+            let result = func(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_box_transformer_string_transformation() {
+            let uppercase = BoxTransformer::new(|s: String| s.to_uppercase());
+            let result = uppercase.apply_once("hello".to_string());
+            assert_eq!(result, "HELLO");
+        }
+
+        #[test]
+        fn test_box_transformer_complex_transformation() {
+            let parse_and_double =
+                BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+            let result = parse_and_double.apply_once("21".to_string());
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_box_transformer_regular_and_once() {
+            let double = BoxTransformer::new(|x: i32| x * 2);
+
+            // Regular apply can be called multiple times
+            assert_eq!(double.apply(10), 20);
+            assert_eq!(double.apply(15), 30);
+
+            // But apply_once consumes the transformer
+            let double = BoxTransformer::new(|x: i32| x * 2);
+            let result = double.apply_once(21);
+            assert_eq!(result, 42);
+        }
+    }
+
+    // RcTransformer TransformerOnce Tests
+    #[cfg(test)]
+    mod rc_transformer_once_tests {
+        use super::*;
+
+        #[test]
+        fn test_rc_transformer_apply_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let result = double.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_into_box_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let boxed = double.into_box_once();
+            let result = boxed.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_into_fn_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let func = double.into_fn_once();
+            let result = func(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_string_transformation() {
+            let uppercase = RcTransformer::new(|s: String| s.to_uppercase());
+            let result = uppercase.apply_once("hello".to_string());
+            assert_eq!(result, "HELLO");
+        }
+
+        #[test]
+        fn test_rc_transformer_complex_transformation() {
+            let parse_and_double =
+                RcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+            let result = parse_and_double.apply_once("21".to_string());
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_clone_before_apply_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let double_clone = double.clone();
+
+            // Both should work
+            assert_eq!(double.apply_once(21), 42);
+            assert_eq!(double_clone.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_regular_and_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+
+            // Regular apply can be called multiple times
+            assert_eq!(double.apply(10), 20);
+            assert_eq!(double.apply(15), 30);
+
+            // Clone before using apply_once
+            let double_clone = double.clone();
+            let result = double_clone.apply_once(21);
+            assert_eq!(result, 42);
+
+            // Original is still usable
+            assert_eq!(double.apply(5), 10);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_box_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let boxed = double.to_box_once();
+
+            // Original transformer still usable
+            assert_eq!(double.apply(21), 42);
+            // Converted BoxTransformerOnce also usable
+            assert_eq!(boxed.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_fn_once() {
+            let double = RcTransformer::new(|x: i32| x * 2);
+            let func = double.to_fn_once();
+
+            // Original transformer still usable
+            assert_eq!(double.apply(21), 42);
+            // Converted function also usable
+            assert_eq!(func(21), 42);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_box_once_multiple_conversions() {
+            let triple = RcTransformer::new(|x: i32| x * 3);
+            let boxed1 = triple.to_box_once();
+            let boxed2 = triple.to_box_once();
+
+            // Multiple conversions all work
+            assert_eq!(boxed1.apply_once(7), 21);
+            assert_eq!(boxed2.apply_once(7), 21);
+            assert_eq!(triple.apply(7), 21);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_fn_once_multiple_conversions() {
+            let square = RcTransformer::new(|x: i32| x * x);
+            let func1 = square.to_fn_once();
+            let func2 = square.to_fn_once();
+
+            assert_eq!(func1(5), 25);
+            assert_eq!(func2(5), 25);
+            assert_eq!(square.apply(5), 25);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_box_once_with_string() {
+            let length = RcTransformer::new(|s: String| s.len());
+            let boxed = length.to_box_once();
+
+            assert_eq!(length.apply("hello".to_string()), 5);
+            assert_eq!(boxed.apply_once("world".to_string()), 5);
+        }
+
+        #[test]
+        fn test_rc_transformer_to_fn_once_with_string() {
+            let uppercase = RcTransformer::new(|s: String| s.to_uppercase());
+            let func = uppercase.to_fn_once();
+
+            assert_eq!(uppercase.apply("hello".to_string()), "HELLO");
+            assert_eq!(func("world".to_string()), "WORLD");
+        }
+    }
+
+    // ArcTransformer TransformerOnce Tests
+    #[cfg(test)]
+    mod arc_transformer_once_tests {
+        use super::*;
+
+        #[test]
+        fn test_arc_transformer_apply_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let result = double.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_into_box_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let boxed = double.into_box_once();
+            let result = boxed.apply_once(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_into_fn_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let func = double.into_fn_once();
+            let result = func(21);
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_box_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let boxed = double.to_box_once();
+
+            // Original transformer still usable
+            assert_eq!(double.apply(21), 42);
+            // Converted BoxTransformerOnce also usable
+            assert_eq!(boxed.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_fn_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let func = double.to_fn_once();
+
+            // Original transformer still usable
+            assert_eq!(double.apply(21), 42);
+            // Converted function also usable
+            assert_eq!(func(21), 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_box_once_multiple_conversions() {
+            let triple = ArcTransformer::new(|x: i32| x * 3);
+            let boxed1 = triple.to_box_once();
+            let boxed2 = triple.to_box_once();
+
+            // Multiple conversions all work
+            assert_eq!(boxed1.apply_once(7), 21);
+            assert_eq!(boxed2.apply_once(7), 21);
+            assert_eq!(triple.apply(7), 21);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_fn_once_multiple_conversions() {
+            let square = ArcTransformer::new(|x: i32| x * x);
+            let func1 = square.to_fn_once();
+            let func2 = square.to_fn_once();
+
+            assert_eq!(func1(5), 25);
+            assert_eq!(func2(5), 25);
+            assert_eq!(square.apply(5), 25);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_box_once_with_string() {
+            let length = ArcTransformer::new(|s: String| s.len());
+            let boxed = length.to_box_once();
+
+            assert_eq!(length.apply("hello".to_string()), 5);
+            assert_eq!(boxed.apply_once("world".to_string()), 5);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_fn_once_with_string() {
+            let uppercase = ArcTransformer::new(|s: String| s.to_uppercase());
+            let func = uppercase.to_fn_once();
+
+            assert_eq!(uppercase.apply("hello".to_string()), "HELLO");
+            assert_eq!(func("world".to_string()), "WORLD");
+        }
+
+        #[test]
+        fn test_arc_transformer_to_box_once_thread_safety() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let double_arc = Arc::new(double);
+            let _double_clone = Arc::clone(&double_arc);
+
+            let handle = thread::spawn(move || {
+                // Create a new transformer in the thread
+                let new_double = ArcTransformer::new(|x: i32| x * 2);
+                let boxed = new_double.to_box_once();
+                boxed.apply_once(21)
+            });
+
+            let result = handle.join().unwrap();
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_to_fn_once_thread_safety() {
+            let square = ArcTransformer::new(|x: i32| x * x);
+            let square_arc = Arc::new(square);
+            let _square_clone = Arc::clone(&square_arc);
+
+            let handle = thread::spawn(move || {
+                // Create a new transformer in the thread
+                let new_square = ArcTransformer::new(|x: i32| x * x);
+                let func = new_square.to_fn_once();
+                func(7)
+            });
+
+            let result = handle.join().unwrap();
+            assert_eq!(result, 49);
+        }
+
+        #[test]
+        fn test_arc_transformer_string_transformation() {
+            let uppercase = ArcTransformer::new(|s: String| s.to_uppercase());
+            let result = uppercase.apply_once("hello".to_string());
+            assert_eq!(result, "HELLO");
+        }
+
+        #[test]
+        fn test_arc_transformer_complex_transformation() {
+            let parse_and_double =
+                ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+            let result = parse_and_double.apply_once("21".to_string());
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_clone_before_apply_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let double_clone = double.clone();
+
+            // Both should work
+            assert_eq!(double.apply_once(21), 42);
+            assert_eq!(double_clone.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_regular_and_once() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+
+            // Regular apply can be called multiple times
+            assert_eq!(double.apply(10), 20);
+            assert_eq!(double.apply(15), 30);
+
+            // Clone before using apply_once
+            let double_clone = double.clone();
+            let result = double_clone.apply_once(21);
+            assert_eq!(result, 42);
+
+            // Original is still usable
+            assert_eq!(double.apply(5), 10);
+        }
+
+        #[test]
+        fn test_arc_transformer_thread_safety() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let double_arc = Arc::new(double);
+            let _double_clone = Arc::clone(&double_arc);
+
+            let handle = thread::spawn(move || {
+                // Create a new transformer in the thread to demonstrate thread safety
+                let new_double = ArcTransformer::new(|x: i32| x * 2);
+                new_double.apply_once(21)
+            });
+
+            let result = handle.join().unwrap();
+            assert_eq!(result, 42);
+        }
+
+        #[test]
+        fn test_arc_transformer_into_box_once_thread_safety() {
+            let double = ArcTransformer::new(|x: i32| x * 2);
+            let double_arc = Arc::new(double);
+            let _double_clone = Arc::clone(&double_arc);
+
+            let handle = thread::spawn(move || {
+                // Create a new transformer in the thread
+                let new_double = ArcTransformer::new(|x: i32| x * 2);
+                let boxed = new_double.into_box_once();
+                boxed.apply_once(21)
+            });
+
+            let result = handle.join().unwrap();
+            assert_eq!(result, 42);
+        }
+    }
+
+    // Cross-type TransformerOnce Tests
+    #[cfg(test)]
+    mod cross_type_transformer_once_tests {
+        use super::*;
+
+        #[test]
+        fn test_all_types_apply_once() {
+            let box_double = BoxTransformer::new(|x: i32| x * 2);
+            let rc_double = RcTransformer::new(|x: i32| x * 2);
+            let arc_double = ArcTransformer::new(|x: i32| x * 2);
+
+            assert_eq!(box_double.apply_once(21), 42);
+            assert_eq!(rc_double.apply_once(21), 42);
+            assert_eq!(arc_double.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_all_types_into_box_once() {
+            let box_double = BoxTransformer::new(|x: i32| x * 2);
+            let rc_double = RcTransformer::new(|x: i32| x * 2);
+            let arc_double = ArcTransformer::new(|x: i32| x * 2);
+
+            let box_boxed = box_double.into_box_once();
+            let rc_boxed = rc_double.into_box_once();
+            let arc_boxed = arc_double.into_box_once();
+
+            assert_eq!(box_boxed.apply_once(21), 42);
+            assert_eq!(rc_boxed.apply_once(21), 42);
+            assert_eq!(arc_boxed.apply_once(21), 42);
+        }
+
+        #[test]
+        fn test_all_types_into_fn_once() {
+            let box_double = BoxTransformer::new(|x: i32| x * 2);
+            let rc_double = RcTransformer::new(|x: i32| x * 2);
+            let arc_double = ArcTransformer::new(|x: i32| x * 2);
+
+            let box_func = box_double.into_fn_once();
+            let rc_func = rc_double.into_fn_once();
+            let arc_func = arc_double.into_fn_once();
+
+            assert_eq!(box_func(21), 42);
+            assert_eq!(rc_func(21), 42);
+            assert_eq!(arc_func(21), 42);
+        }
+
+        #[test]
+        fn test_mixed_regular_and_once_usage() {
+            // Test that regular apply and apply_once work together
+            let box_transformer = BoxTransformer::new(|x: i32| x * 2);
+            let rc_transformer = RcTransformer::new(|x: i32| x * 2);
+            let arc_transformer = ArcTransformer::new(|x: i32| x * 2);
+
+            // Regular apply (multiple calls)
+            assert_eq!(box_transformer.apply(10), 20);
+            assert_eq!(rc_transformer.apply(10), 20);
+            assert_eq!(arc_transformer.apply(10), 20);
+
+            // Clone for apply_once
+            let rc_clone = rc_transformer.clone();
+            let arc_clone = arc_transformer.clone();
+
+            // Apply once (consuming)
+            assert_eq!(rc_clone.apply_once(21), 42);
+            assert_eq!(arc_clone.apply_once(21), 42);
+
+            // Original transformers still work
+            assert_eq!(rc_transformer.apply(5), 10);
+            assert_eq!(arc_transformer.apply(5), 10);
+        }
+    }
+}

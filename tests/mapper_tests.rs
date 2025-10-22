@@ -1630,7 +1630,7 @@ fn test_box_mapper_stateful_apply_once() {
 
     // First and only call
     assert_eq!(mapper.apply_once(5), 5); // 0 + 5 = 5
-    // mapper is now consumed and cannot be used again
+                                         // mapper is now consumed and cannot be used again
 }
 
 /// Test RcMapper implements MapperOnce trait
@@ -1787,9 +1787,8 @@ fn test_arc_mapper_to_fn_once() {
 #[test]
 fn test_box_mapper_complex_state_apply_once() {
     let data = [1, 2, 3, 4, 5];
-    let mapper = BoxMapper::new(move |multiplier: i32| {
-        data.iter().map(|x| x * multiplier).sum::<i32>()
-    });
+    let mapper =
+        BoxMapper::new(move |multiplier: i32| data.iter().map(|x| x * multiplier).sum::<i32>());
 
     // Consume the mapper once
     assert_eq!(mapper.apply_once(2), 30); // (1+2+3+4+5) * 2 = 30

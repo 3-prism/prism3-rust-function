@@ -9,7 +9,7 @@
 
 //! Unit tests for Mutator types
 
-use prism3_function::{ArcMutator, BoxMutator, FnMutatorOps, Mutator, RcMutator};
+use prism3_function::{ArcMutator, BoxMutator, FnMutatorOps, Mutator, MutatorOnce, RcMutator};
 
 // ============================================================================
 // BoxMutator Tests
@@ -2675,5 +2675,262 @@ mod test_conditional_execution {
         let mut too_large = 150;
         mutator.mutate(&mut too_large);
         assert_eq!(too_large, 150); // Not doubled
+    }
+}
+
+// ============================================================================
+// MutatorOnce Tests for BoxMutator, RcMutator, ArcMutator
+// ============================================================================
+
+#[cfg(test)]
+mod test_mutator_once_implementations {
+    use super::*;
+
+    // ========================================================================
+    // BoxMutator MutatorOnce Tests
+    // ========================================================================
+
+    #[test]
+    fn test_box_mutator_mutate_once() {
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_box_mutator_into_box_once() {
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 10);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_box_mutator_into_fn_once() {
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 3);
+        let closure = mutator.into_fn_once();
+        let mut value = 4;
+        closure(&mut value);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_box_mutator_with_different_types() {
+        // String
+        let mutator = BoxMutator::new(|s: &mut String| s.push_str(" world"));
+        let mut text = String::from("hello");
+        mutator.mutate_once(&mut text);
+        assert_eq!(text, "hello world");
+
+        // Vec
+        let mutator = BoxMutator::new(|v: &mut Vec<i32>| v.extend(vec![4, 5, 6]));
+        let mut numbers = vec![1, 2, 3];
+        mutator.mutate_once(&mut numbers);
+        assert_eq!(numbers, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    // ========================================================================
+    // RcMutator MutatorOnce Tests
+    // ========================================================================
+
+    #[test]
+    fn test_rc_mutator_mutate_once() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_rc_mutator_into_box_once() {
+        let mutator = RcMutator::new(|x: &mut i32| *x += 10);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_rc_mutator_into_fn_once() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 3);
+        let closure = mutator.into_fn_once();
+        let mut value = 4;
+        closure(&mut value);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_rc_mutator_to_box_once() {
+        let mutator = RcMutator::new(|x: &mut i32| *x += 5);
+        let box_once = mutator.to_box_once();
+        let mut value = 10;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_rc_mutator_to_fn_once() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let closure = mutator.to_fn_once();
+        let mut value = 7;
+        closure(&mut value);
+        assert_eq!(value, 14);
+    }
+
+    #[test]
+    fn test_rc_mutator_with_different_types() {
+        // String
+        let mutator = RcMutator::new(|s: &mut String| s.push('!'));
+        let mut text = String::from("hello");
+        mutator.mutate_once(&mut text);
+        assert_eq!(text, "hello!");
+
+        // Vec
+        let mutator = RcMutator::new(|v: &mut Vec<i32>| v.push(99));
+        let mut numbers = vec![1, 2, 3];
+        mutator.mutate_once(&mut numbers);
+        assert_eq!(numbers, vec![1, 2, 3, 99]);
+    }
+
+    // ========================================================================
+    // ArcMutator MutatorOnce Tests
+    // ========================================================================
+
+    #[test]
+    fn test_arc_mutator_mutate_once() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_arc_mutator_into_box_once() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x += 10);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_arc_mutator_into_fn_once() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 3);
+        let closure = mutator.into_fn_once();
+        let mut value = 4;
+        closure(&mut value);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_arc_mutator_to_box_once() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x += 5);
+        let box_once = mutator.to_box_once();
+        let mut value = 10;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 15);
+    }
+
+    #[test]
+    fn test_arc_mutator_to_fn_once() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let closure = mutator.to_fn_once();
+        let mut value = 7;
+        closure(&mut value);
+        assert_eq!(value, 14);
+    }
+
+    #[test]
+    fn test_arc_mutator_with_different_types() {
+        // String
+        let mutator = ArcMutator::new(|s: &mut String| s.push('!'));
+        let mut text = String::from("hello");
+        mutator.mutate_once(&mut text);
+        assert_eq!(text, "hello!");
+
+        // Vec
+        let mutator = ArcMutator::new(|v: &mut Vec<i32>| v.push(99));
+        let mut numbers = vec![1, 2, 3];
+        mutator.mutate_once(&mut numbers);
+        assert_eq!(numbers, vec![1, 2, 3, 99]);
+    }
+
+    // ========================================================================
+    // Cross-type conversion tests
+    // ========================================================================
+
+    #[test]
+    fn test_box_to_rc_mutator_once() {
+        let box_mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        let rc_mutator = box_mutator.into_rc();
+        let mut value = 5;
+        rc_mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_rc_to_arc_mutator_once() {
+        let rc_mutator = RcMutator::new(|x: &mut i32| *x += 3);
+        // Note: RcMutator cannot be converted to ArcMutator due to Send requirement
+        // This test demonstrates the limitation
+        let mut value = 7;
+        rc_mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_arc_to_box_mutator_once() {
+        let arc_mutator = ArcMutator::new(|x: &mut i32| *x -= 2);
+        let box_mutator = arc_mutator.into_box();
+        let mut value = 8;
+        box_mutator.mutate_once(&mut value);
+        assert_eq!(value, 6);
+    }
+
+    // ========================================================================
+    // Complex mutation tests
+    // ========================================================================
+
+    #[test]
+    fn test_complex_mutation_with_move() {
+        let mutator = BoxMutator::new(|x: &mut Vec<i32>| {
+            x.extend(vec![1, 2, 3, 4, 5]);
+            x.sort();
+        });
+
+        let mut target = vec![0];
+        mutator.mutate_once(&mut target);
+        assert_eq!(target, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let suffix = String::from(" world");
+        let mutator = RcMutator::new(move |s: &mut String| {
+            s.push_str(&suffix);
+        });
+
+        let mut text = String::from("hello");
+        mutator.mutate_once(&mut text);
+        assert_eq!(text, "hello world");
+    }
+
+    #[test]
+    fn test_thread_safe_mutation() {
+        use std::thread;
+
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+
+        // Test that ArcMutator can be used in thread-safe context
+        let handle = thread::spawn(move || {
+            mutator.mutate_once(&mut value);
+            value
+        });
+
+        let result = handle.join().unwrap();
+        assert_eq!(result, 10);
     }
 }

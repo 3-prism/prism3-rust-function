@@ -217,7 +217,10 @@ mod complex_pipeline_tests {
         let to_string = |opt: Option<i32>| opt.map(|x| x.to_string());
 
         let pipeline = parse.and_then(double).and_then(to_string);
-        assert_eq!(pipeline.apply_once("21".to_string()), Some("42".to_string()));
+        assert_eq!(
+            pipeline.apply_once("21".to_string()),
+            Some("42".to_string())
+        );
     }
 }
 

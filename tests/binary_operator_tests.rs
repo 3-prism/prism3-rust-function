@@ -59,7 +59,7 @@ fn test_rc_binary_operator_clone() {
 #[test]
 fn test_box_binary_operator_once() {
     let add: BoxBinaryOperatorOnce<i32> = BoxBinaryOperatorOnce::new(|a, b| a + b);
-    assert_eq!(add.apply(20, 22), 42);
+    assert_eq!(add.apply_once(20, 22), 42);
 }
 
 #[test]

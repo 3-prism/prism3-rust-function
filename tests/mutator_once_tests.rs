@@ -18,23 +18,23 @@ fn test_closure_into_and_to_variants() {
     let data = vec![1, 2, 3];
     let closure = move |x: &mut Vec<i32>| x.extend(data);
 
-    // into_box consumes the closure and returns BoxMutatorOnce
-    let boxed = closure.into_box();
+    // into_box_once consumes the closure and returns BoxMutatorOnce
+    let boxed = closure.into_box_once();
     let mut v = vec![0];
-    boxed.mutate(&mut v);
+    boxed.mutate_once(&mut v);
     assert_eq!(v, vec![0, 1, 2, 3]);
 
     // Note: closure was moved - create another closure for to_box/to_fn
     let closure2 = move |x: &mut Vec<i32>| x.push(99);
-    // to_box uses Clone; simple closure is zero-sized and Clone, so to_box exists
-    let boxed2 = closure2.to_box();
+    // to_box_once uses Clone; simple closure is zero-sized and Clone, so to_box_once exists
+    let boxed2 = closure2.to_box_once();
     let mut v2 = vec![0];
-    boxed2.mutate(&mut v2);
+    boxed2.mutate_once(&mut v2);
     assert_eq!(v2, vec![0, 99]);
 
-    // to_fn for cloneable closure
+    // to_fn_once for cloneable closure
     let closure3 = move |x: &mut Vec<i32>| x.push(7);
-    let f = closure3.to_fn();
+    let f = closure3.to_fn_once();
     let mut v3 = vec![0];
     f(&mut v3);
     assert_eq!(v3, vec![0, 7]);
@@ -44,9 +44,9 @@ fn test_closure_into_and_to_variants() {
 fn test_box_mutator_once_identity_and_chain() {
     // identity: into_box should be identity for BoxMutatorOnce
     let m = BoxMutatorOnce::new(|x: &mut Vec<i32>| x.push(1));
-    let m2 = m.into_box();
+    let m2 = m.into_box_once();
     let mut v = Vec::new();
-    m2.mutate(&mut v);
+    m2.mutate_once(&mut v);
     assert_eq!(v, vec![1]);
 
     // chain
@@ -54,7 +54,7 @@ fn test_box_mutator_once_identity_and_chain() {
     let m2 = BoxMutatorOnce::new(|x: &mut Vec<i32>| x.push(3));
     let chained = m1.and_then(m2);
     let mut v2 = Vec::new();
-    chained.mutate(&mut v2);
+    chained.mutate_once(&mut v2);
     assert_eq!(v2, vec![2, 3]);
 }
 
@@ -64,7 +64,7 @@ struct MyMutatorOnce {
 }
 
 impl MutatorOnce<Vec<i32>> for MyMutatorOnce {
-    fn mutate(self, value: &mut Vec<i32>) {
+    fn mutate_once(self, value: &mut Vec<i32>) {
         value.extend(self.data);
     }
 }
@@ -72,9 +72,9 @@ impl MutatorOnce<Vec<i32>> for MyMutatorOnce {
 #[test]
 fn test_custom_mutator_default_adapters() {
     let my = MyMutatorOnce { data: vec![4, 5] };
-    let boxed = my.into_box();
+    let boxed = my.into_box_once();
     let mut v = vec![0];
-    boxed.mutate(&mut v);
+    boxed.mutate_once(&mut v);
     assert_eq!(v, vec![0, 4, 5]);
 
     // to test to_box/to_fn we need a cloneable type
@@ -83,19 +83,19 @@ fn test_custom_mutator_default_adapters() {
         data: Vec<i32>,
     }
     impl MutatorOnce<Vec<i32>> for CloneMutator {
-        fn mutate(self, value: &mut Vec<i32>) {
+        fn mutate_once(self, value: &mut Vec<i32>) {
             value.extend(self.data);
         }
     }
 
     let c = CloneMutator { data: vec![6] };
-    let boxed_c = c.to_box();
+    let boxed_c = c.to_box_once();
     let mut v2 = vec![0];
-    boxed_c.mutate(&mut v2);
+    boxed_c.mutate_once(&mut v2);
     assert_eq!(v2, vec![0, 6]);
 
     let c2 = CloneMutator { data: vec![8] };
-    let f = c2.to_fn();
+    let f = c2.to_fn_once();
     let mut v3 = vec![0];
     f(&mut v3);
     assert_eq!(v3, vec![0, 8]);
@@ -109,7 +109,7 @@ fn test_custom_mutator_default_adapters() {
 fn test_mutator_once_default_into_fn() {
     // Test the default implementation of into_fn() for custom MutatorOnce types
     let my = MyMutatorOnce { data: vec![10, 20] };
-    let f = my.into_fn();
+    let f = my.into_fn_once();
     let mut v = vec![0];
     f(&mut v);
     assert_eq!(v, vec![0, 10, 20]);
@@ -124,13 +124,13 @@ fn test_box_mutator_once_noop() {
     // Test that noop() creates a mutator that does nothing
     let noop = BoxMutatorOnce::<i32>::noop();
     let mut value = 42;
-    noop.mutate(&mut value);
+    noop.mutate_once(&mut value);
     assert_eq!(value, 42); // Value should remain unchanged
 
     // Test with Vec
     let noop_vec = BoxMutatorOnce::<Vec<i32>>::noop();
     let mut vec = vec![1, 2, 3];
-    noop_vec.mutate(&mut vec);
+    noop_vec.mutate_once(&mut vec);
     assert_eq!(vec, vec![1, 2, 3]); // Vec should remain unchanged
 }
 
@@ -144,7 +144,7 @@ fn test_box_mutator_once_when() {
     let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
 
     let mut target = vec![0];
-    conditional.mutate(&mut target);
+    conditional.mutate_once(&mut target);
     assert_eq!(target, vec![0, 1, 2, 3]); // Should execute
 
     // Test when() with condition that fails
@@ -155,7 +155,7 @@ fn test_box_mutator_once_when() {
     let conditional2 = mutator2.when(|x: &Vec<i32>| x.is_empty());
 
     let mut target2 = vec![0];
-    conditional2.mutate(&mut target2);
+    conditional2.mutate_once(&mut target2);
     assert_eq!(target2, vec![0]); // Should not execute
 }
 
@@ -165,7 +165,7 @@ fn test_box_mutator_once_into_fn() {
     let mutator = BoxMutatorOnce::new(|x: &mut Vec<i32>| {
         x.push(100);
     });
-    let f = mutator.into_fn();
+    let f = mutator.into_fn_once();
 
     let mut v = vec![0];
     f(&mut v);
@@ -186,7 +186,7 @@ fn test_box_conditional_mutator_once_mutate() {
     let conditional = mutator.when(|x: &Vec<i32>| x.len() < 5);
 
     let mut target = vec![0];
-    conditional.mutate(&mut target);
+    conditional.mutate_once(&mut target);
     assert_eq!(target, vec![0, 1, 2]);
 
     // Test mutate() when condition is false
@@ -197,7 +197,7 @@ fn test_box_conditional_mutator_once_mutate() {
     let conditional2 = mutator2.when(|x: &Vec<i32>| x.len() > 10);
 
     let mut target2 = vec![0];
-    conditional2.mutate(&mut target2);
+    conditional2.mutate_once(&mut target2);
     assert_eq!(target2, vec![0]); // Should remain unchanged
 }
 
@@ -209,10 +209,10 @@ fn test_box_conditional_mutator_once_into_box() {
         x.extend(data);
     });
     let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
-    let boxed = conditional.into_box();
+    let boxed = conditional.into_box_once();
 
     let mut target = vec![0];
-    boxed.mutate(&mut target);
+    boxed.mutate_once(&mut target);
     assert_eq!(target, vec![0, 5, 6]);
 
     // Test with failing condition
@@ -221,10 +221,10 @@ fn test_box_conditional_mutator_once_into_box() {
         x.extend(data2);
     });
     let conditional2 = mutator2.when(|x: &Vec<i32>| x.is_empty());
-    let boxed2 = conditional2.into_box();
+    let boxed2 = conditional2.into_box_once();
 
     let mut target2 = vec![0];
-    boxed2.mutate(&mut target2);
+    boxed2.mutate_once(&mut target2);
     assert_eq!(target2, vec![0]); // Should remain unchanged
 }
 
@@ -236,7 +236,7 @@ fn test_box_conditional_mutator_once_into_fn() {
         x.extend(data);
     });
     let conditional = mutator.when(|x: &Vec<i32>| x.len() < 10);
-    let f = conditional.into_fn();
+    let f = conditional.into_fn_once();
 
     let mut target = vec![0];
     f(&mut target);
@@ -248,7 +248,7 @@ fn test_box_conditional_mutator_once_into_fn() {
         x.extend(data2);
     });
     let conditional2 = mutator2.when(|x: &Vec<i32>| x.len() > 10);
-    let f2 = conditional2.into_fn();
+    let f2 = conditional2.into_fn_once();
 
     let mut target2 = vec![0];
     f2(&mut target2);
@@ -273,7 +273,7 @@ fn test_box_conditional_mutator_once_and_then() {
     let chained = cond1.and_then(cond2);
 
     let mut target = vec![0];
-    chained.mutate(&mut target);
+    chained.mutate_once(&mut target);
     assert_eq!(target, vec![0, 1, 2, 3, 4]);
 
     // Test with one condition failing
@@ -292,7 +292,7 @@ fn test_box_conditional_mutator_once_and_then() {
     let chained2 = cond3.and_then(cond4);
 
     let mut target2 = vec![0];
-    chained2.mutate(&mut target2);
+    chained2.mutate_once(&mut target2);
     assert_eq!(target2, vec![0, 7, 8]); // Only second mutator executes
 }
 
@@ -310,7 +310,7 @@ fn test_box_conditional_mutator_once_or_else() {
     });
 
     let mut target = vec![0];
-    mutator.mutate(&mut target);
+    mutator.mutate_once(&mut target);
     assert_eq!(target, vec![0, 1, 2, 3]); // when branch executes
 
     // Test or_else() with condition false (or_else branch executes)
@@ -325,7 +325,7 @@ fn test_box_conditional_mutator_once_or_else() {
     });
 
     let mut target2 = vec![0];
-    mutator2.mutate(&mut target2);
+    mutator2.mutate_once(&mut target2);
     assert_eq!(target2, vec![0, 99]); // or_else branch executes
 }
 
@@ -338,7 +338,7 @@ fn test_closure_into_fn() {
     // Test into_fn() for closures
     let data = vec![1, 2, 3];
     let closure = move |x: &mut Vec<i32>| x.extend(data);
-    let f = closure.into_fn();
+    let f = closure.into_fn_once();
 
     let mut v = vec![0];
     f(&mut v);
@@ -355,7 +355,7 @@ fn test_closure_and_then() {
         (move |x: &mut Vec<i32>| x.extend(data1)).and_then(move |x: &mut Vec<i32>| x.extend(data2));
 
     let mut target = vec![0];
-    chained.mutate(&mut target);
+    chained.mutate_once(&mut target);
     assert_eq!(target, vec![0, 1, 2, 3, 4]);
 
     // Test chaining multiple closures
@@ -368,6 +368,6 @@ fn test_closure_and_then() {
         .and_then(move |x: &mut Vec<i32>| x.extend(data5));
 
     let mut target2 = vec![0];
-    multi_chained.mutate(&mut target2);
+    multi_chained.mutate_once(&mut target2);
     assert_eq!(target2, vec![0, 5, 6, 7]);
 }
