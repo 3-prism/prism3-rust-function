@@ -7,17 +7,22 @@
  *
  ******************************************************************************/
 
-//! Unit tests for ReadonlySupplier types
+//! Unit tests for Supplier types
 
 use prism3_function::{
-    ArcReadonlySupplier, ArcTransformer, BoxReadonlySupplier, BoxTransformer, RcReadonlySupplier,
-    RcTransformer, ReadonlySupplier,
+    ArcSupplier,
+    ArcTransformer,
+    BoxSupplier,
+    BoxTransformer,
+    RcSupplier,
+    RcTransformer,
+    Supplier,
 };
 use std::sync::Arc;
 use std::thread;
 
 // ======================================================================
-// ReadonlySupplier Trait Tests (for closures)
+// Supplier Trait Tests (for closures)
 // ======================================================================
 
 #[cfg(test)]
@@ -26,7 +31,7 @@ mod test_readonly_supplier_trait {
 
     #[test]
     fn test_closure_implements_readonly_supplier() {
-        // Test that closure implements ReadonlySupplier trait
+        // Test that closure implements Supplier trait
         let closure = || 42;
         let boxed = closure.into_box();
         assert_eq!(boxed.get(), 42);
@@ -36,7 +41,7 @@ mod test_readonly_supplier_trait {
     #[test]
     fn test_closure_stateless() {
         // Test stateless closure (always returns same value)
-        let boxed = BoxReadonlySupplier::new(|| 42);
+        let boxed = BoxSupplier::new(|| 42);
         assert_eq!(boxed.get(), 42);
         assert_eq!(boxed.get(), 42);
         assert_eq!(boxed.get(), 42);
@@ -44,7 +49,7 @@ mod test_readonly_supplier_trait {
 
     #[test]
     fn test_into_box() {
-        // Test conversion to BoxReadonlySupplier
+        // Test conversion to BoxSupplier
         let closure = || 42;
         let boxed = closure.into_box();
         assert_eq!(boxed.get(), 42);
@@ -52,7 +57,7 @@ mod test_readonly_supplier_trait {
 
     #[test]
     fn test_into_rc() {
-        // Test conversion to RcReadonlySupplier
+        // Test conversion to RcSupplier
         let closure = || 42;
         let rc = closure.into_rc();
         assert_eq!(rc.get(), 42);
@@ -60,7 +65,7 @@ mod test_readonly_supplier_trait {
 
     #[test]
     fn test_into_arc() {
-        // Test conversion to ArcReadonlySupplier
+        // Test conversion to ArcSupplier
         let closure = || 42;
         let arc = closure.into_arc();
         assert_eq!(arc.get(), 42);
@@ -68,7 +73,7 @@ mod test_readonly_supplier_trait {
 
     #[test]
     fn test_closure_get() {
-        // Test the get method in impl<T, F> ReadonlySupplier<T>
+        // Test the get method in impl<T, F> Supplier<T>
         // for F
         let closure = || 42;
         assert_eq!(closure.get(), 42);
@@ -119,7 +124,7 @@ mod test_readonly_supplier_trait {
 }
 
 // ======================================================================
-// BoxReadonlySupplier Tests
+// BoxSupplier Tests
 // ======================================================================
 
 #[cfg(test)]
@@ -131,8 +136,8 @@ mod test_box_readonly_supplier {
 
         #[test]
         fn test_new_basic() {
-            // Test creating a new BoxReadonlySupplier
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            // Test creating a new BoxSupplier
+            let supplier = BoxSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
@@ -140,14 +145,14 @@ mod test_box_readonly_supplier {
         fn test_new_with_closure() {
             // Test with a closure that captures variables
             let value = 100;
-            let supplier = BoxReadonlySupplier::new(move || value);
+            let supplier = BoxSupplier::new(move || value);
             assert_eq!(supplier.get(), 100);
         }
 
         #[test]
         fn test_new_returns_same_value() {
             // Test that successive calls return same value
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            let supplier = BoxSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
@@ -160,7 +165,7 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_constant_basic() {
             // Test constant supplier
-            let constant = BoxReadonlySupplier::constant(42);
+            let constant = BoxSupplier::constant(42);
             assert_eq!(constant.get(), 42);
             assert_eq!(constant.get(), 42);
         }
@@ -168,7 +173,7 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_constant_string() {
             // Test constant with String type
-            let constant = BoxReadonlySupplier::constant(String::from("hello"));
+            let constant = BoxSupplier::constant(String::from("hello"));
             assert_eq!(constant.get(), "hello");
             assert_eq!(constant.get(), "hello");
         }
@@ -176,7 +181,7 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_constant_vec() {
             // Test constant with Vec type
-            let constant = BoxReadonlySupplier::constant(vec![1, 2, 3]);
+            let constant = BoxSupplier::constant(vec![1, 2, 3]);
             assert_eq!(constant.get(), vec![1, 2, 3]);
             assert_eq!(constant.get(), vec![1, 2, 3]);
         }
@@ -188,23 +193,21 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_map_basic() {
             // Test map transformation
-            let mapped = BoxReadonlySupplier::new(|| 10).map(|x| x * 2);
+            let mapped = BoxSupplier::new(|| 10).map(|x| x * 2);
             assert_eq!(mapped.get(), 20);
         }
 
         #[test]
         fn test_map_chain() {
             // Test chained map operations
-            let pipeline = BoxReadonlySupplier::new(|| 10)
-                .map(|x| x * 2)
-                .map(|x| x + 5);
+            let pipeline = BoxSupplier::new(|| 10).map(|x| x * 2).map(|x| x + 5);
             assert_eq!(pipeline.get(), 25);
         }
 
         #[test]
         fn test_map_type_conversion() {
             // Test map with type conversion
-            let mapped = BoxReadonlySupplier::new(|| 42).map(|x: i32| x.to_string());
+            let mapped = BoxSupplier::new(|| 42).map(|x: i32| x.to_string());
             assert_eq!(mapped.get(), "42");
         }
     }
@@ -215,23 +218,21 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_filter_passes() {
             // Test filter that passes
-            let filtered = BoxReadonlySupplier::new(|| 42).filter(|x| x % 2 == 0);
+            let filtered = BoxSupplier::new(|| 42).filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), Some(42));
         }
 
         #[test]
         fn test_filter_fails() {
             // Test filter that fails
-            let filtered = BoxReadonlySupplier::new(|| 43).filter(|x| x % 2 == 0);
+            let filtered = BoxSupplier::new(|| 43).filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), None);
         }
 
         #[test]
         fn test_filter_with_map() {
             // Test combining filter and map
-            let pipeline = BoxReadonlySupplier::new(|| 10)
-                .map(|x| x * 2)
-                .filter(|x| *x > 15);
+            let pipeline = BoxSupplier::new(|| 10).map(|x| x * 2).filter(|x| *x > 15);
             assert_eq!(pipeline.get(), Some(20));
         }
     }
@@ -242,8 +243,8 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_zip_basic() {
             // Test zipping two suppliers
-            let first = BoxReadonlySupplier::new(|| 42);
-            let second = BoxReadonlySupplier::new(|| "hello");
+            let first = BoxSupplier::new(|| 42);
+            let second = BoxSupplier::new(|| "hello");
             let zipped = first.zip(second);
             assert_eq!(zipped.get(), (42, "hello"));
         }
@@ -251,8 +252,8 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_zip_different_types() {
             // Test zipping suppliers of different types
-            let first = BoxReadonlySupplier::new(|| 100);
-            let second = BoxReadonlySupplier::new(|| vec![1, 2, 3]);
+            let first = BoxSupplier::new(|| 100);
+            let second = BoxSupplier::new(|| vec![1, 2, 3]);
             let zipped = first.zip(second);
             assert_eq!(zipped.get(), (100, vec![1, 2, 3]));
         }
@@ -263,23 +264,23 @@ mod test_box_readonly_supplier {
 
         #[test]
         fn test_get() {
-            // Test ReadonlySupplier::get method
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            // Test Supplier::get method
+            let supplier = BoxSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_into_box() {
             // Test into_box (should return self)
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            let supplier = BoxSupplier::new(|| 42);
             let boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
 
         #[test]
         fn test_into_rc() {
-            // Test conversion to RcReadonlySupplier
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            // Test conversion to RcSupplier
+            let supplier = BoxSupplier::new(|| 42);
             let rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
@@ -287,7 +288,7 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_into_fn() {
             // Test conversion to FnMut closure
-            let supplier = BoxReadonlySupplier::new(|| 42);
+            let supplier = BoxSupplier::new(|| 42);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 42);
             assert_eq!(fn_mut(), 42);
@@ -297,7 +298,7 @@ mod test_box_readonly_supplier {
         fn test_into_fn_with_captured_value() {
             // Test into_fn with captured value
             let value = 100;
-            let supplier = BoxReadonlySupplier::new(move || value * 2);
+            let supplier = BoxSupplier::new(move || value * 2);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 200);
             assert_eq!(fn_mut(), 200);
@@ -306,21 +307,21 @@ mod test_box_readonly_supplier {
         #[test]
         fn test_into_fn_with_string() {
             // Test into_fn with String type
-            let supplier = BoxReadonlySupplier::new(|| String::from("hello"));
+            let supplier = BoxSupplier::new(|| String::from("hello"));
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), "hello");
             assert_eq!(fn_mut(), "hello");
         }
 
         // Note: test_into_arc is not included here because
-        // BoxReadonlySupplier cannot be converted to
-        // ArcReadonlySupplier (inner function may not be Send +
+        // BoxSupplier cannot be converted to
+        // ArcSupplier (inner function may not be Send +
         // Sync). This is enforced at compile time by trait bounds.
     }
 }
 
 // ======================================================================
-// ArcReadonlySupplier Tests
+// ArcSupplier Tests
 // ======================================================================
 
 #[cfg(test)]
@@ -332,8 +333,8 @@ mod test_arc_readonly_supplier {
 
         #[test]
         fn test_new_basic() {
-            // Test creating a new ArcReadonlySupplier
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            // Test creating a new ArcSupplier
+            let supplier = ArcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
@@ -341,14 +342,14 @@ mod test_arc_readonly_supplier {
         fn test_new_with_closure() {
             // Test with a closure that captures variables
             let value = 100;
-            let supplier = ArcReadonlySupplier::new(move || value);
+            let supplier = ArcSupplier::new(move || value);
             assert_eq!(supplier.get(), 100);
         }
 
         #[test]
         fn test_new_returns_same_value() {
             // Test that successive calls return same value
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            let supplier = ArcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
@@ -361,7 +362,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_constant_basic() {
             // Test constant supplier
-            let constant = ArcReadonlySupplier::constant(42);
+            let constant = ArcSupplier::constant(42);
             assert_eq!(constant.get(), 42);
             assert_eq!(constant.get(), 42);
         }
@@ -369,7 +370,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_constant_string() {
             // Test constant with String type
-            let constant = ArcReadonlySupplier::constant(String::from("hello"));
+            let constant = ArcSupplier::constant(String::from("hello"));
             assert_eq!(constant.get(), "hello");
             assert_eq!(constant.get(), "hello");
         }
@@ -381,7 +382,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_map_basic() {
             // Test map transformation
-            let source = ArcReadonlySupplier::new(|| 10);
+            let source = ArcSupplier::new(|| 10);
             let mapped = source.map(|x| x * 2);
             assert_eq!(mapped.get(), 20);
         }
@@ -389,7 +390,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_map_chain() {
             // Test chained map operations
-            let source = ArcReadonlySupplier::new(|| 10);
+            let source = ArcSupplier::new(|| 10);
             let pipeline = source.map(|x| x * 2).map(|x| x + 5);
             assert_eq!(pipeline.get(), 25);
         }
@@ -397,7 +398,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_map_preserves_original() {
             // Test that mapping doesn't consume original
-            let source = ArcReadonlySupplier::new(|| 10);
+            let source = ArcSupplier::new(|| 10);
             let _mapped = source.map(|x| x * 2);
             // source is still usable
             assert_eq!(source.get(), 10);
@@ -410,7 +411,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_filter_passes() {
             // Test filter that passes
-            let source = ArcReadonlySupplier::new(|| 42);
+            let source = ArcSupplier::new(|| 42);
             let filtered = source.filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), Some(42));
         }
@@ -418,7 +419,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_filter_fails() {
             // Test filter that fails
-            let source = ArcReadonlySupplier::new(|| 43);
+            let source = ArcSupplier::new(|| 43);
             let filtered = source.filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), None);
         }
@@ -430,8 +431,8 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_zip_basic() {
             // Test zipping two suppliers
-            let first = ArcReadonlySupplier::new(|| 42);
-            let second = ArcReadonlySupplier::new(|| "hello");
+            let first = ArcSupplier::new(|| 42);
+            let second = ArcSupplier::new(|| "hello");
             let zipped = first.zip(&second);
             assert_eq!(zipped.get(), (42, "hello"));
         }
@@ -439,8 +440,8 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_zip_preserves_originals() {
             // Test that zip doesn't consume originals
-            let first = ArcReadonlySupplier::new(|| 42);
-            let second = ArcReadonlySupplier::new(|| "hello");
+            let first = ArcSupplier::new(|| 42);
+            let second = ArcSupplier::new(|| "hello");
             let _zipped = first.zip(&second);
             // Both are still usable
             assert_eq!(first.get(), 42);
@@ -454,7 +455,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_clone_basic() {
             // Test cloning supplier
-            let original = ArcReadonlySupplier::new(|| 42);
+            let original = ArcSupplier::new(|| 42);
             let cloned = original.clone();
             assert_eq!(original.get(), 42);
             assert_eq!(cloned.get(), 42);
@@ -463,7 +464,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_clone_shares_function() {
             // Test that clone shares the underlying function
-            let original = ArcReadonlySupplier::new(|| String::from("hello"));
+            let original = ArcSupplier::new(|| String::from("hello"));
             let cloned = original.clone();
             assert_eq!(original.get(), cloned.get());
         }
@@ -475,7 +476,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_send_between_threads() {
             // Test that supplier can be sent between threads
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            let supplier = ArcSupplier::new(|| 42);
             let handle = thread::spawn(move || supplier.get());
             assert_eq!(handle.join().unwrap(), 42);
         }
@@ -483,7 +484,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_concurrent_access() {
             // Test lock-free concurrent access
-            let factory = ArcReadonlySupplier::new(|| String::from("Hello, World!"));
+            let factory = ArcSupplier::new(|| String::from("Hello, World!"));
 
             let handles: Vec<_> = (0..10)
                 .map(|_| {
@@ -500,7 +501,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_shared_across_threads() {
             // Test sharing supplier across multiple threads
-            let supplier = Arc::new(ArcReadonlySupplier::new(|| 100));
+            let supplier = Arc::new(ArcSupplier::new(|| 100));
 
             let handles: Vec<_> = (0..5)
                 .map(|_| {
@@ -520,23 +521,23 @@ mod test_arc_readonly_supplier {
 
         #[test]
         fn test_get() {
-            // Test ReadonlySupplier::get method
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            // Test Supplier::get method
+            let supplier = ArcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_into_box() {
-            // Test conversion to BoxReadonlySupplier
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            // Test conversion to BoxSupplier
+            let supplier = ArcSupplier::new(|| 42);
             let boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
 
         #[test]
         fn test_into_rc() {
-            // Test conversion to RcReadonlySupplier
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            // Test conversion to RcSupplier
+            let supplier = ArcSupplier::new(|| 42);
             let rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
@@ -544,7 +545,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_into_arc() {
             // Test into_arc (should return self)
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            let supplier = ArcSupplier::new(|| 42);
             let arc = supplier.into_arc();
             assert_eq!(arc.get(), 42);
         }
@@ -552,7 +553,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_into_fn() {
             // Test conversion to FnMut closure
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            let supplier = ArcSupplier::new(|| 42);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 42);
             assert_eq!(fn_mut(), 42);
@@ -562,7 +563,7 @@ mod test_arc_readonly_supplier {
         fn test_into_fn_with_captured_value() {
             // Test into_fn with captured value
             let value = 100;
-            let supplier = ArcReadonlySupplier::new(move || value * 2);
+            let supplier = ArcSupplier::new(move || value * 2);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 200);
             assert_eq!(fn_mut(), 200);
@@ -571,7 +572,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_into_fn_with_string() {
             // Test into_fn with String type
-            let supplier = ArcReadonlySupplier::new(|| String::from("hello"));
+            let supplier = ArcSupplier::new(|| String::from("hello"));
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), "hello");
             assert_eq!(fn_mut(), "hello");
@@ -580,7 +581,7 @@ mod test_arc_readonly_supplier {
         #[test]
         fn test_into_fn_thread_safe() {
             // Test that into_fn result can be sent to another thread
-            let supplier = ArcReadonlySupplier::new(|| 42);
+            let supplier = ArcSupplier::new(|| 42);
             let func = supplier.into_fn();
             let handle = thread::spawn(func);
             assert_eq!(handle.join().unwrap(), 42);
@@ -589,7 +590,7 @@ mod test_arc_readonly_supplier {
 }
 
 // ======================================================================
-// RcReadonlySupplier Tests
+// RcSupplier Tests
 // ======================================================================
 
 #[cfg(test)]
@@ -601,8 +602,8 @@ mod test_rc_readonly_supplier {
 
         #[test]
         fn test_new_basic() {
-            // Test creating a new RcReadonlySupplier
-            let supplier = RcReadonlySupplier::new(|| 42);
+            // Test creating a new RcSupplier
+            let supplier = RcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
@@ -610,14 +611,14 @@ mod test_rc_readonly_supplier {
         fn test_new_with_closure() {
             // Test with a closure that captures variables
             let value = 100;
-            let supplier = RcReadonlySupplier::new(move || value);
+            let supplier = RcSupplier::new(move || value);
             assert_eq!(supplier.get(), 100);
         }
 
         #[test]
         fn test_new_returns_same_value() {
             // Test that successive calls return same value
-            let supplier = RcReadonlySupplier::new(|| 42);
+            let supplier = RcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
             assert_eq!(supplier.get(), 42);
@@ -630,7 +631,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_constant_basic() {
             // Test constant supplier
-            let constant = RcReadonlySupplier::constant(42);
+            let constant = RcSupplier::constant(42);
             assert_eq!(constant.get(), 42);
             assert_eq!(constant.get(), 42);
         }
@@ -638,7 +639,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_constant_string() {
             // Test constant with String type
-            let constant = RcReadonlySupplier::constant(String::from("hello"));
+            let constant = RcSupplier::constant(String::from("hello"));
             assert_eq!(constant.get(), "hello");
             assert_eq!(constant.get(), "hello");
         }
@@ -650,7 +651,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_map_basic() {
             // Test map transformation
-            let source = RcReadonlySupplier::new(|| 10);
+            let source = RcSupplier::new(|| 10);
             let mapped = source.map(|x| x * 2);
             assert_eq!(mapped.get(), 20);
         }
@@ -658,7 +659,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_map_chain() {
             // Test chained map operations
-            let source = RcReadonlySupplier::new(|| 10);
+            let source = RcSupplier::new(|| 10);
             let pipeline = source.map(|x| x * 2).map(|x| x + 5);
             assert_eq!(pipeline.get(), 25);
         }
@@ -666,7 +667,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_map_preserves_original() {
             // Test that mapping doesn't consume original
-            let source = RcReadonlySupplier::new(|| 10);
+            let source = RcSupplier::new(|| 10);
             let _mapped = source.map(|x| x * 2);
             // source is still usable
             assert_eq!(source.get(), 10);
@@ -679,7 +680,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_filter_passes() {
             // Test filter that passes
-            let source = RcReadonlySupplier::new(|| 42);
+            let source = RcSupplier::new(|| 42);
             let filtered = source.filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), Some(42));
         }
@@ -687,7 +688,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_filter_fails() {
             // Test filter that fails
-            let source = RcReadonlySupplier::new(|| 43);
+            let source = RcSupplier::new(|| 43);
             let filtered = source.filter(|x| x % 2 == 0);
             assert_eq!(filtered.get(), None);
         }
@@ -699,8 +700,8 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_zip_basic() {
             // Test zipping two suppliers
-            let first = RcReadonlySupplier::new(|| 42);
-            let second = RcReadonlySupplier::new(|| "hello");
+            let first = RcSupplier::new(|| 42);
+            let second = RcSupplier::new(|| "hello");
             let zipped = first.zip(&second);
             assert_eq!(zipped.get(), (42, "hello"));
         }
@@ -708,8 +709,8 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_zip_preserves_originals() {
             // Test that zip doesn't consume originals
-            let first = RcReadonlySupplier::new(|| 42);
-            let second = RcReadonlySupplier::new(|| "hello");
+            let first = RcSupplier::new(|| 42);
+            let second = RcSupplier::new(|| "hello");
             let _zipped = first.zip(&second);
             // Both are still usable
             assert_eq!(first.get(), 42);
@@ -723,7 +724,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_clone_basic() {
             // Test cloning supplier
-            let original = RcReadonlySupplier::new(|| 42);
+            let original = RcSupplier::new(|| 42);
             let cloned = original.clone();
             assert_eq!(original.get(), 42);
             assert_eq!(cloned.get(), 42);
@@ -732,7 +733,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_clone_shares_function() {
             // Test that clone shares the underlying function
-            let original = RcReadonlySupplier::new(|| String::from("hello"));
+            let original = RcSupplier::new(|| String::from("hello"));
             let cloned = original.clone();
             assert_eq!(original.get(), cloned.get());
         }
@@ -743,15 +744,15 @@ mod test_rc_readonly_supplier {
 
         #[test]
         fn test_get() {
-            // Test ReadonlySupplier::get method
-            let supplier = RcReadonlySupplier::new(|| 42);
+            // Test Supplier::get method
+            let supplier = RcSupplier::new(|| 42);
             assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_into_box() {
-            // Test conversion to BoxReadonlySupplier
-            let supplier = RcReadonlySupplier::new(|| 42);
+            // Test conversion to BoxSupplier
+            let supplier = RcSupplier::new(|| 42);
             let boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
@@ -759,7 +760,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_into_rc() {
             // Test into_rc (should return self)
-            let supplier = RcReadonlySupplier::new(|| 42);
+            let supplier = RcSupplier::new(|| 42);
             let rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
@@ -767,7 +768,7 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_into_fn() {
             // Test conversion to FnMut closure
-            let supplier = RcReadonlySupplier::new(|| 42);
+            let supplier = RcSupplier::new(|| 42);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 42);
             assert_eq!(fn_mut(), 42);
@@ -777,7 +778,7 @@ mod test_rc_readonly_supplier {
         fn test_into_fn_with_captured_value() {
             // Test into_fn with captured value
             let value = 100;
-            let supplier = RcReadonlySupplier::new(move || value * 2);
+            let supplier = RcSupplier::new(move || value * 2);
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), 200);
             assert_eq!(fn_mut(), 200);
@@ -786,15 +787,15 @@ mod test_rc_readonly_supplier {
         #[test]
         fn test_into_fn_with_string() {
             // Test into_fn with String type
-            let supplier = RcReadonlySupplier::new(|| String::from("hello"));
+            let supplier = RcSupplier::new(|| String::from("hello"));
             let mut fn_mut = supplier.into_fn();
             assert_eq!(fn_mut(), "hello");
             assert_eq!(fn_mut(), "hello");
         }
 
         // Note: test_into_arc is not included here because
-        // RcReadonlySupplier cannot be converted to
-        // ArcReadonlySupplier (Rc is not Send + Sync). This is
+        // RcSupplier cannot be converted to
+        // ArcSupplier (Rc is not Send + Sync). This is
         // enforced at compile time by trait bounds.
     }
 }
@@ -811,7 +812,7 @@ mod test_integration {
     fn test_usage_in_read_only_context() {
         // Test using supplier in read-only struct methods
         struct Executor {
-            error_supplier: ArcReadonlySupplier<String>,
+            error_supplier: ArcSupplier<String>,
         }
 
         impl Executor {
@@ -822,7 +823,7 @@ mod test_integration {
         }
 
         let executor = Executor {
-            error_supplier: ArcReadonlySupplier::new(|| String::from("Error occurred")),
+            error_supplier: ArcSupplier::new(|| String::from("Error occurred")),
         };
 
         assert_eq!(executor.execute(), Err(String::from("Error occurred")));
@@ -836,7 +837,7 @@ mod test_integration {
             timeout: u64,
         }
 
-        let factory = BoxReadonlySupplier::new(|| Config { timeout: 30 });
+        let factory = BoxSupplier::new(|| Config { timeout: 30 });
 
         let config1 = factory.get();
         let config2 = factory.get();
@@ -848,7 +849,7 @@ mod test_integration {
     #[test]
     fn test_concurrent_factory() {
         // Test using as factory in concurrent context
-        let factory = Arc::new(ArcReadonlySupplier::new(|| vec![1, 2, 3, 4, 5]));
+        let factory = Arc::new(ArcSupplier::new(|| vec![1, 2, 3, 4, 5]));
 
         let handles: Vec<_> = (0..10)
             .map(|_| {
@@ -865,7 +866,7 @@ mod test_integration {
     #[test]
     fn test_mixed_transformations() {
         // Test combining multiple transformation methods
-        let pipeline = BoxReadonlySupplier::new(|| 10)
+        let pipeline = BoxSupplier::new(|| 10)
             .map(|x| x * 2)
             .filter(|x| *x > 15)
             .map(|opt: Option<i32>| opt.map(|x| x.to_string()));
@@ -884,7 +885,7 @@ mod test_integration {
 }
 
 // ======================================================================
-// Map with Transformer Tests - BoxReadonlySupplier
+// Map with Transformer Tests - BoxSupplier
 // ======================================================================
 
 #[cfg(test)]
@@ -903,7 +904,7 @@ mod test_box_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_closure() {
         // Test map accepts closure
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
     }
@@ -911,7 +912,7 @@ mod test_box_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_function_pointer() {
         // Test map accepts function pointer
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
     }
@@ -919,7 +920,7 @@ mod test_box_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_box_transformer() {
         // Test map accepts BoxTransformer object
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let transformer = BoxTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
         assert_eq!(mapped.get(), 30);
@@ -928,7 +929,7 @@ mod test_box_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_chain_with_different_types() {
         // Test chained calls, each map uses different type of transformer
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let step1 = supplier.map(|x| x * 2); // closure
         let step2 = step1.map(double); // function pointer
         let step3 = step2.map(BoxTransformer::new(|x| x + 5)); // BoxTransformer
@@ -939,7 +940,7 @@ mod test_box_readonly_supplier_map_with_transformer {
     fn test_map_with_closure_capturing_variables() {
         // Test map uses closure capturing variables
         let multiplier = 3;
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
         assert_eq!(mapped.get(), 30);
     }
@@ -947,14 +948,14 @@ mod test_box_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_type_conversion() {
         // Test map performs type conversion
-        let supplier = BoxReadonlySupplier::new(|| 42);
+        let supplier = BoxSupplier::new(|| 42);
 
         // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
         assert_eq!(mapped1.get(), "42");
 
         // Use BoxTransformer to convert type
-        let supplier2 = BoxReadonlySupplier::new(|| 42);
+        let supplier2 = BoxSupplier::new(|| 42);
         let transformer = BoxTransformer::new(to_string);
         let mapped2 = supplier2.map(transformer);
         assert_eq!(mapped2.get(), "42");
@@ -968,7 +969,7 @@ mod test_box_readonly_supplier_map_with_transformer {
             value: i32,
         }
 
-        let supplier = BoxReadonlySupplier::new(|| 10);
+        let supplier = BoxSupplier::new(|| 10);
         let transformer = BoxTransformer::new(|x| Data { value: x * 2 });
         let mapped = supplier.map(transformer);
         assert_eq!(mapped.get(), Data { value: 20 });
@@ -976,7 +977,7 @@ mod test_box_readonly_supplier_map_with_transformer {
 }
 
 // ======================================================================
-// Map with Transformer Tests - ArcReadonlySupplier
+// Map with Transformer Tests - ArcSupplier
 // ======================================================================
 
 #[cfg(test)]
@@ -995,7 +996,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_closure() {
         // Test map accepts closure
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
     }
@@ -1003,7 +1004,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_function_pointer() {
         // Test map accepts function pointer
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
     }
@@ -1011,7 +1012,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_arc_transformer() {
         // Test map accepts ArcTransformer object
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
         assert_eq!(mapped.get(), 30);
@@ -1020,7 +1021,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_chain_with_different_types() {
         // Test chained calls, each map uses different type of transformer
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let step1 = supplier.map(|x| x * 2); // closure
         let step2 = step1.map(double); // function pointer
         let step3 = step2.map(ArcTransformer::new(|x| x + 5)); // ArcTransformer
@@ -1031,7 +1032,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     fn test_map_with_closure_capturing_variables() {
         // Test map uses closure capturing variables
         let multiplier = 3;
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
         assert_eq!(mapped.get(), 30);
     }
@@ -1039,7 +1040,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_preserves_original_with_transformer() {
         // Test original supplier still usable after using transformer
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
 
@@ -1051,7 +1052,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_thread_safety_with_transformer() {
         // Test map with transformer in multi-threaded environment
-        let supplier = ArcReadonlySupplier::new(|| 10);
+        let supplier = ArcSupplier::new(|| 10);
         let transformer = ArcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
 
@@ -1070,7 +1071,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_type_conversion() {
         // Test map performs type conversion
-        let supplier = ArcReadonlySupplier::new(|| 42);
+        let supplier = ArcSupplier::new(|| 42);
 
         // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
@@ -1085,8 +1086,8 @@ mod test_arc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_shared_transformer() {
         // Test multiple suppliers sharing the same transformer
-        let supplier1 = ArcReadonlySupplier::new(|| 10);
-        let supplier2 = ArcReadonlySupplier::new(|| 20);
+        let supplier1 = ArcSupplier::new(|| 10);
+        let supplier2 = ArcSupplier::new(|| 20);
 
         let transformer = ArcTransformer::new(|x| x * 2);
         let mapped1 = supplier1.map(transformer.clone());
@@ -1098,7 +1099,7 @@ mod test_arc_readonly_supplier_map_with_transformer {
 }
 
 // ======================================================================
-// Map with Transformer Tests - RcReadonlySupplier
+// Map with Transformer Tests - RcSupplier
 // ======================================================================
 
 #[cfg(test)]
@@ -1117,7 +1118,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_closure() {
         // Test map accepts closure
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let mapped = supplier.map(|x| x * 2);
         assert_eq!(mapped.get(), 20);
     }
@@ -1125,7 +1126,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_function_pointer() {
         // Test map accepts function pointer
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
     }
@@ -1133,7 +1134,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_rc_transformer() {
         // Test map accepts RcTransformer object
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let transformer = RcTransformer::new(|x| x * 3);
         let mapped = supplier.map(transformer);
         assert_eq!(mapped.get(), 30);
@@ -1142,7 +1143,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_chain_with_different_types() {
         // Test chained calls, each map uses different type of transformer
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let step1 = supplier.map(|x| x * 2); // closure
         let step2 = step1.map(double); // function pointer
         let step3 = step2.map(RcTransformer::new(|x| x + 5)); // RcTransformer
@@ -1153,7 +1154,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     fn test_map_with_closure_capturing_variables() {
         // Test map uses closure capturing variables
         let multiplier = 3;
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let mapped = supplier.map(move |x| x * multiplier);
         assert_eq!(mapped.get(), 30);
     }
@@ -1161,7 +1162,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_preserves_original_with_transformer() {
         // Test original supplier still usable after using transformer
-        let supplier = RcReadonlySupplier::new(|| 10);
+        let supplier = RcSupplier::new(|| 10);
         let transformer = RcTransformer::new(|x| x * 2);
         let mapped = supplier.map(transformer);
 
@@ -1173,7 +1174,7 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_type_conversion() {
         // Test map performs type conversion
-        let supplier = RcReadonlySupplier::new(|| 42);
+        let supplier = RcSupplier::new(|| 42);
 
         // Use closure to convert type
         let mapped1 = supplier.map(|x: i32| x.to_string());
@@ -1188,8 +1189,8 @@ mod test_rc_readonly_supplier_map_with_transformer {
     #[test]
     fn test_map_with_shared_transformer() {
         // Test multiple suppliers sharing the same transformer
-        let supplier1 = RcReadonlySupplier::new(|| 10);
-        let supplier2 = RcReadonlySupplier::new(|| 20);
+        let supplier1 = RcSupplier::new(|| 10);
+        let supplier2 = RcSupplier::new(|| 20);
 
         let transformer = RcTransformer::new(|x| x * 2);
         let mapped1 = supplier1.map(transformer.clone());
@@ -1211,7 +1212,7 @@ mod test_map_transformer_integration {
     #[test]
     fn test_mixed_transformer_types_in_pipeline() {
         // Test mixing different types of transformers in pipeline
-        let supplier = BoxReadonlySupplier::new(|| 5);
+        let supplier = BoxSupplier::new(|| 5);
 
         let pipeline = supplier
             .map(|x| x * 2) // closure
@@ -1230,7 +1231,7 @@ mod test_map_transformer_integration {
             squared: i32,
         }
 
-        let supplier = ArcReadonlySupplier::new(|| 5);
+        let supplier = ArcSupplier::new(|| 5);
         let transformer = ArcTransformer::new(|x| Result {
             doubled: x * 2,
             squared: x * x,
@@ -1253,7 +1254,7 @@ mod test_map_transformer_integration {
             format!("Value: {}", x * 2)
         }
 
-        let supplier = ArcReadonlySupplier::new(|| 21);
+        let supplier = ArcSupplier::new(|| 21);
         let mapped = supplier.map(process);
         assert_eq!(mapped.get(), "Value: 42");
     }
@@ -1263,9 +1264,9 @@ mod test_map_transformer_integration {
         // Test reusability of Transformer
         let transformer = ArcTransformer::new(|x: i32| x * 10);
 
-        let supplier1 = ArcReadonlySupplier::new(|| 1);
-        let supplier2 = ArcReadonlySupplier::new(|| 2);
-        let supplier3 = ArcReadonlySupplier::new(|| 3);
+        let supplier1 = ArcSupplier::new(|| 1);
+        let supplier2 = ArcSupplier::new(|| 2);
+        let supplier3 = ArcSupplier::new(|| 3);
 
         let mapped1 = supplier1.map(transformer.clone());
         let mapped2 = supplier2.map(transformer.clone());
@@ -1285,7 +1286,7 @@ mod test_map_transformer_integration {
 mod test_custom_readonly_supplier_default_impl {
     use super::*;
 
-    /// A simple custom type that implements ReadonlySupplier with
+    /// A simple custom type that implements Supplier with
     /// only the core `get` method, relying on default
     /// implementations for `into_box`, `into_rc`, and `into_arc`.
     struct CounterSupplier {
@@ -1300,7 +1301,7 @@ mod test_custom_readonly_supplier_default_impl {
         }
     }
 
-    impl ReadonlySupplier<i32> for CounterSupplier {
+    impl Supplier<i32> for CounterSupplier {
         fn get(&self) -> i32 {
             self.value
         }
@@ -1538,7 +1539,7 @@ mod test_to_methods {
     use super::*;
 
     // ============================================================
-    // Tests for ArcReadonlySupplier to_* methods
+    // Tests for ArcSupplier to_* methods
     // ============================================================
 
     mod test_arc_readonly_supplier_to_methods {
@@ -1546,8 +1547,8 @@ mod test_to_methods {
 
         #[test]
         fn test_arc_to_box() {
-            // Test ArcReadonlySupplier::to_box
-            let arc = ArcReadonlySupplier::new(|| 42);
+            // Test ArcSupplier::to_box
+            let arc = ArcSupplier::new(|| 42);
             let boxed = arc.to_box();
 
             assert_eq!(boxed.get(), 42);
@@ -1559,8 +1560,8 @@ mod test_to_methods {
 
         #[test]
         fn test_arc_to_rc() {
-            // Test ArcReadonlySupplier::to_rc
-            let arc = ArcReadonlySupplier::new(|| 100);
+            // Test ArcSupplier::to_rc
+            let arc = ArcSupplier::new(|| 100);
             let rc = arc.to_rc();
 
             assert_eq!(rc.get(), 100);
@@ -1572,8 +1573,8 @@ mod test_to_methods {
 
         #[test]
         fn test_arc_to_arc() {
-            // Test ArcReadonlySupplier::to_arc (optimized clone)
-            let arc1 = ArcReadonlySupplier::new(|| 200);
+            // Test ArcSupplier::to_arc (optimized clone)
+            let arc1 = ArcSupplier::new(|| 200);
             let arc2 = arc1.to_arc();
 
             assert_eq!(arc1.get(), 200);
@@ -1586,8 +1587,8 @@ mod test_to_methods {
 
         #[test]
         fn test_arc_to_fn() {
-            // Test ArcReadonlySupplier::to_fn
-            let arc = ArcReadonlySupplier::new(|| 42);
+            // Test ArcSupplier::to_fn
+            let arc = ArcSupplier::new(|| 42);
             let mut fn_mut = arc.to_fn();
 
             assert_eq!(fn_mut(), 42);
@@ -1600,7 +1601,7 @@ mod test_to_methods {
         #[test]
         fn test_arc_to_methods_with_string() {
             // Test to_* methods with String type
-            let arc = ArcReadonlySupplier::new(|| String::from("Hello"));
+            let arc = ArcSupplier::new(|| String::from("Hello"));
 
             let boxed = arc.to_box();
             assert_eq!(boxed.get(), "Hello");
@@ -1621,7 +1622,7 @@ mod test_to_methods {
         #[test]
         fn test_arc_to_arc_thread_safety() {
             // Test that to_arc result is thread-safe
-            let arc1 = ArcReadonlySupplier::new(|| 999);
+            let arc1 = ArcSupplier::new(|| 999);
             let arc2 = arc1.to_arc();
 
             let handles: Vec<_> = (0..5)
@@ -1638,7 +1639,7 @@ mod test_to_methods {
     }
 
     // ============================================================
-    // Tests for RcReadonlySupplier to_* methods
+    // Tests for RcSupplier to_* methods
     // ============================================================
 
     mod test_rc_readonly_supplier_to_methods {
@@ -1646,8 +1647,8 @@ mod test_to_methods {
 
         #[test]
         fn test_rc_to_box() {
-            // Test RcReadonlySupplier::to_box
-            let rc = RcReadonlySupplier::new(|| 42);
+            // Test RcSupplier::to_box
+            let rc = RcSupplier::new(|| 42);
             let boxed = rc.to_box();
 
             assert_eq!(boxed.get(), 42);
@@ -1659,8 +1660,8 @@ mod test_to_methods {
 
         #[test]
         fn test_rc_to_rc() {
-            // Test RcReadonlySupplier::to_rc (optimized clone)
-            let rc1 = RcReadonlySupplier::new(|| 100);
+            // Test RcSupplier::to_rc (optimized clone)
+            let rc1 = RcSupplier::new(|| 100);
             let rc2 = rc1.to_rc();
 
             assert_eq!(rc1.get(), 100);
@@ -1673,8 +1674,8 @@ mod test_to_methods {
 
         #[test]
         fn test_rc_to_fn() {
-            // Test RcReadonlySupplier::to_fn
-            let rc = RcReadonlySupplier::new(|| 42);
+            // Test RcSupplier::to_fn
+            let rc = RcSupplier::new(|| 42);
             let mut fn_mut = rc.to_fn();
 
             assert_eq!(fn_mut(), 42);
@@ -1687,7 +1688,7 @@ mod test_to_methods {
         #[test]
         fn test_rc_to_methods_with_string() {
             // Test to_* methods with String type
-            let rc = RcReadonlySupplier::new(|| String::from("Hello"));
+            let rc = RcSupplier::new(|| String::from("Hello"));
 
             let boxed = rc.to_box();
             assert_eq!(boxed.get(), "Hello");
@@ -1702,7 +1703,7 @@ mod test_to_methods {
             assert_eq!(rc.get(), "Hello");
         }
 
-        // Note: to_arc is not implemented for RcReadonlySupplier
+        // Note: to_arc is not implemented for RcSupplier
         // because Rc is not Send + Sync. If you try to call it,
         // the compiler will fail with a trait bound error.
     }
@@ -1808,16 +1809,16 @@ mod test_to_methods {
     }
 
     // ============================================================
-    // Note: BoxReadonlySupplier does not implement to_* methods
+    // Note: BoxSupplier does not implement to_* methods
     // ============================================================
     //
-    // BoxReadonlySupplier cannot implement to_* methods because
+    // BoxSupplier cannot implement to_* methods because
     // it does not implement Clone. Box provides unique ownership
     // and cannot be cloned unless the inner type implements Clone,
     // which dyn Fn() -> T does not.
     //
     // If you try to call to_box, to_rc, to_arc, or to_fn on
-    // BoxReadonlySupplier, the compiler will fail with an error
-    // indicating that BoxReadonlySupplier<T> does not implement
+    // BoxSupplier, the compiler will fail with an error
+    // indicating that BoxSupplier<T> does not implement
     // Clone, which is required by the default implementations.
 }

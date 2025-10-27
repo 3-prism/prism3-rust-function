@@ -6,10 +6,13 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-/// Tests for ReadonlyBiConsumer types
+/// Tests for BiConsumer types
 use prism3_function::{
-    ArcReadonlyBiConsumer, BoxReadonlyBiConsumer, FnReadonlyBiConsumerOps, RcReadonlyBiConsumer,
-    ReadonlyBiConsumer,
+    ArcBiConsumer,
+    BiConsumer,
+    BoxBiConsumer,
+    FnBiConsumerOps,
+    RcBiConsumer,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,7 +24,7 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         consumer.accept(&5, &3);
@@ -32,7 +35,7 @@ mod box_readonly_bi_consumer_tests {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c1 = counter.clone();
         let c2 = counter.clone();
-        let chained = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let chained = BoxBiConsumer::new(move |_x: &i32, _y: &i32| {
             *c1.lock().unwrap() += 1;
         })
         .and_then(move |_x: &i32, _y: &i32| {
@@ -45,7 +48,7 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_noop() {
-        let noop = BoxReadonlyBiConsumer::<i32, i32>::noop();
+        let noop = BoxBiConsumer::<i32, i32>::noop();
         noop.accept(&42, &10);
         // Should not panic
     }
@@ -61,7 +64,7 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_fn() {
-        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let func = consumer.into_fn();
@@ -70,7 +73,7 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_box_into_box() {
-        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let box_consumer = consumer.into_box();
@@ -79,7 +82,7 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = BoxReadonlyBiConsumer::<i32, i32>::noop();
+        let mut consumer = BoxBiConsumer::<i32, i32>::noop();
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -88,29 +91,29 @@ mod box_readonly_bi_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("BoxReadonlyBiConsumer"));
+        assert!(debug_str.contains("BoxBiConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyBiConsumer");
+        assert_eq!(display_str, "BoxBiConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("my_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyBiConsumer(my_consumer)");
+        assert_eq!(display_str, "BoxBiConsumer(my_consumer)");
     }
 
     #[test]
     fn test_into_rc() {
-        let consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let rc_consumer = consumer.into_rc();
@@ -124,7 +127,7 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         consumer.accept(&5, &3);
@@ -134,7 +137,7 @@ mod arc_readonly_bi_consumer_tests {
     fn test_clone() {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -153,10 +156,10 @@ mod arc_readonly_bi_consumer_tests {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c1 = counter.clone();
         let c2 = counter.clone();
-        let first = ArcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let first = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
-        let second = ArcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let second = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -170,7 +173,7 @@ mod arc_readonly_bi_consumer_tests {
     fn test_to_fn() {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -181,7 +184,7 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_box() {
-        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let box_consumer = consumer.into_box();
@@ -190,7 +193,7 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_rc() {
-        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let rc_consumer = consumer.into_rc();
@@ -199,7 +202,7 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -208,29 +211,29 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("ArcReadonlyBiConsumer"));
+        assert!(debug_str.contains("ArcBiConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyBiConsumer");
+        assert_eq!(display_str, "ArcBiConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("my_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyBiConsumer(my_consumer)");
+        assert_eq!(display_str, "ArcBiConsumer(my_consumer)");
     }
 
     #[test]
     fn test_into_fn() {
-        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let func = consumer.into_fn();
@@ -242,7 +245,7 @@ mod arc_readonly_bi_consumer_tests {
         use std::sync::Mutex;
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
         let func = consumer.into_fn();
@@ -253,7 +256,7 @@ mod arc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_arc() {
-        let consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let arc_consumer = consumer.into_arc();
@@ -267,7 +270,7 @@ mod rc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         consumer.accept(&5, &3);
@@ -277,7 +280,7 @@ mod rc_readonly_bi_consumer_tests {
     fn test_clone() {
         let counter = Rc::new(std::cell::Cell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.set(c.get() + 1);
         });
 
@@ -296,10 +299,10 @@ mod rc_readonly_bi_consumer_tests {
         let counter = Rc::new(std::cell::Cell::new(0));
         let c1 = counter.clone();
         let c2 = counter.clone();
-        let first = RcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let first = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c1.set(c1.get() + 1);
         });
-        let second = RcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let second = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c2.set(c2.get() + 1);
         });
 
@@ -313,7 +316,7 @@ mod rc_readonly_bi_consumer_tests {
     fn test_to_fn() {
         let counter = Rc::new(std::cell::Cell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.set(c.get() + 1);
         });
 
@@ -324,7 +327,7 @@ mod rc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_box() {
-        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let box_consumer = consumer.into_box();
@@ -333,7 +336,7 @@ mod rc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -342,29 +345,29 @@ mod rc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("RcReadonlyBiConsumer"));
+        assert!(debug_str.contains("RcBiConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyBiConsumer");
+        assert_eq!(display_str, "RcBiConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyBiConsumer(test_consumer)");
+        assert_eq!(display_str, "RcBiConsumer(test_consumer)");
     }
 
     #[test]
     fn test_into_fn() {
-        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let func = consumer.into_fn();
@@ -373,7 +376,7 @@ mod rc_readonly_bi_consumer_tests {
 
     #[test]
     fn test_into_rc() {
-        let consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
         let rc_consumer = consumer.into_rc();
@@ -411,7 +414,7 @@ mod closure_tests {
 
     #[test]
     fn test_closure_into_fn() {
-        // Test into_fn in impl<T, U, F> ReadonlyBiConsumer<T, U> for F
+        // Test into_fn in impl<T, U, F> BiConsumer<T, U> for F
         let closure = |x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         };
@@ -467,7 +470,7 @@ mod edge_cases_tests {
 
     #[test]
     fn test_noop_multiple_calls() {
-        let consumer = BoxReadonlyBiConsumer::<i32, i32>::noop();
+        let consumer = BoxBiConsumer::<i32, i32>::noop();
         consumer.accept(&5, &3);
         consumer.accept(&10, &20);
         consumer.accept(&1, &2);
@@ -478,10 +481,10 @@ mod edge_cases_tests {
     fn test_and_then_with_noop() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let consumer = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = BoxBiConsumer::new(move |_x: &i32, _y: &i32| {
             *c.lock().unwrap() += 1;
         })
-        .and_then(BoxReadonlyBiConsumer::noop());
+        .and_then(BoxBiConsumer::noop());
         consumer.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 1);
     }
@@ -492,13 +495,13 @@ mod edge_cases_tests {
         let c1 = counter.clone();
         let c2 = counter.clone();
         let c3 = counter.clone();
-        let consumer = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let consumer = BoxBiConsumer::new(move |_x: &i32, _y: &i32| {
             *c1.lock().unwrap() += 1;
         })
         .and_then(move |_x: &i32, _y: &i32| {
             *c2.lock().unwrap() += 1;
         })
-        .and_then(BoxReadonlyBiConsumer::noop())
+        .and_then(BoxBiConsumer::noop())
         .and_then(move |_x: &i32, _y: &i32| {
             *c3.lock().unwrap() += 1;
         });
@@ -510,7 +513,7 @@ mod edge_cases_tests {
     fn test_with_different_types() {
         let counter = Arc::new(std::sync::Mutex::new(String::new()));
         let c = counter.clone();
-        let consumer = BoxReadonlyBiConsumer::new(move |s: &String, n: &i32| {
+        let consumer = BoxBiConsumer::new(move |s: &String, n: &i32| {
             *c.lock().unwrap() = format!("{}: {}", s, n);
         });
         consumer.accept(&"Count".to_string(), &42);
@@ -521,7 +524,7 @@ mod edge_cases_tests {
     fn test_arc_consumer_multiple_threads() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -546,7 +549,7 @@ mod edge_cases_tests {
     fn test_rc_consumer_multiple_clones() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
 
@@ -563,9 +566,9 @@ mod edge_cases_tests {
 
     #[test]
     fn test_name_with_and_then() {
-        let mut consumer1 = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer1 = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer1.set_name("first");
-        let consumer2 = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer2 = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         let chained = consumer1.and_then(consumer2);
         // Name is not preserved through and_then
         assert_eq!(chained.name(), None);
@@ -575,7 +578,7 @@ mod edge_cases_tests {
     fn test_arc_to_fn_multiple_calls() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
         let func = consumer.to_fn();
@@ -589,7 +592,7 @@ mod edge_cases_tests {
     fn test_rc_to_fn_multiple_calls() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
         let func = consumer.to_fn();
@@ -612,7 +615,7 @@ mod conversion_tests {
     fn test_arc_to_box() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
         let box_consumer = arc_consumer.into_box();
@@ -624,7 +627,7 @@ mod conversion_tests {
     fn test_arc_to_rc() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
         let rc_consumer = arc_consumer.into_rc();
@@ -636,7 +639,7 @@ mod conversion_tests {
     fn test_rc_to_box() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
         let box_consumer = rc_consumer.into_box();
@@ -691,7 +694,7 @@ mod name_tests {
 
     #[test]
     fn test_box_consumer_name() {
-        let mut consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let mut consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("{} + {} = {}", x, y, x + y);
         });
         assert_eq!(consumer.name(), None);
@@ -702,7 +705,7 @@ mod name_tests {
 
     #[test]
     fn test_arc_consumer_name() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let mut consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("{} + {} = {}", x, y, x + y);
         });
         assert_eq!(consumer.name(), None);
@@ -713,7 +716,7 @@ mod name_tests {
 
     #[test]
     fn test_rc_consumer_name() {
-        let mut consumer = RcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+        let mut consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("{} + {} = {}", x, y, x + y);
         });
         assert_eq!(consumer.name(), None);
@@ -724,7 +727,7 @@ mod name_tests {
 
     #[test]
     fn test_box_consumer_name_with_accept() {
-        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1, &2);
@@ -733,7 +736,7 @@ mod name_tests {
 
     #[test]
     fn test_arc_consumer_name_with_accept() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1, &2);
@@ -742,7 +745,7 @@ mod name_tests {
 
     #[test]
     fn test_rc_consumer_name_with_accept() {
-        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1, &2);
@@ -751,7 +754,7 @@ mod name_tests {
 
     #[test]
     fn test_box_consumer_name_change() {
-        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("name1");
         assert_eq!(consumer.name(), Some("name1"));
         consumer.set_name("name2");
@@ -760,7 +763,7 @@ mod name_tests {
 
     #[test]
     fn test_arc_consumer_name_change() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("name1");
         assert_eq!(consumer.name(), Some("name1"));
         consumer.set_name("name2");
@@ -769,7 +772,7 @@ mod name_tests {
 
     #[test]
     fn test_rc_consumer_name_change() {
-        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("name1");
         assert_eq!(consumer.name(), Some("name1"));
         consumer.set_name("name2");
@@ -787,92 +790,92 @@ mod display_debug_tests {
 
     #[test]
     fn test_box_consumer_debug() {
-        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("BoxReadonlyBiConsumer"));
+        assert!(debug_str.contains("BoxBiConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_box_consumer_display_without_name() {
-        let consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyBiConsumer");
+        assert_eq!(display_str, "BoxBiConsumer");
     }
 
     #[test]
     fn test_box_consumer_display_with_name() {
-        let mut consumer = BoxReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = BoxBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyBiConsumer(test_consumer)");
+        assert_eq!(display_str, "BoxBiConsumer(test_consumer)");
     }
 
     #[test]
     fn test_arc_consumer_debug() {
-        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("ArcReadonlyBiConsumer"));
+        assert!(debug_str.contains("ArcBiConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_arc_consumer_display_without_name() {
-        let consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyBiConsumer");
+        assert_eq!(display_str, "ArcBiConsumer");
     }
 
     #[test]
     fn test_arc_consumer_display_with_name() {
-        let mut consumer = ArcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = ArcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyBiConsumer(test_consumer)");
+        assert_eq!(display_str, "ArcBiConsumer(test_consumer)");
     }
 
     #[test]
     fn test_rc_consumer_debug() {
-        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("RcReadonlyBiConsumer"));
+        assert!(debug_str.contains("RcBiConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_rc_consumer_display_without_name() {
-        let consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyBiConsumer");
+        assert_eq!(display_str, "RcBiConsumer");
     }
 
     #[test]
     fn test_rc_consumer_display_with_name() {
-        let mut consumer = RcReadonlyBiConsumer::new(|_x: &i32, _y: &i32| {});
+        let mut consumer = RcBiConsumer::new(|_x: &i32, _y: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyBiConsumer(test_consumer)");
+        assert_eq!(display_str, "RcBiConsumer(test_consumer)");
     }
 }
 
 // ============================================================================
-// Custom ReadonlyBiConsumer Implementation Tests - Testing default into_xxx methods
+// Custom BiConsumer Implementation Tests - Testing default into_xxx methods
 // ============================================================================
 
 #[cfg(test)]
 mod custom_readonly_bi_consumer_tests {
     use super::*;
 
-    /// Custom ReadonlyBiConsumer implementation for testing trait's default methods
-    struct CustomReadonlyBiConsumer<T, U> {
+    /// Custom BiConsumer implementation for testing trait's default methods
+    struct CustomBiConsumer<T, U> {
         counter: Arc<std::sync::Mutex<i32>>,
         _phantom: std::marker::PhantomData<(T, U)>,
     }
 
-    impl<T, U> CustomReadonlyBiConsumer<T, U> {
+    impl<T, U> CustomBiConsumer<T, U> {
         fn new(counter: Arc<std::sync::Mutex<i32>>) -> Self {
             Self {
                 counter,
@@ -881,7 +884,7 @@ mod custom_readonly_bi_consumer_tests {
         }
     }
 
-    impl<T, U> ReadonlyBiConsumer<T, U> for CustomReadonlyBiConsumer<T, U> {
+    impl<T, U> BiConsumer<T, U> for CustomBiConsumer<T, U> {
         fn accept(&self, _first: &T, _second: &U) {
             *self.counter.lock().unwrap() += 1;
         }
@@ -891,7 +894,7 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_box() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
         // Test default into_box implementation
         let box_consumer = custom.into_box();
@@ -905,14 +908,14 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_rc() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
         // Test default into_rc implementation
         let rc_consumer = custom.into_rc();
         rc_consumer.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 1);
 
-        // Test RcReadonlyBiConsumer's clone
+        // Test RcBiConsumer's clone
         let rc_clone = rc_consumer.clone();
         rc_consumer.accept(&10, &20);
         assert_eq!(*counter.lock().unwrap(), 2);
@@ -924,14 +927,14 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_arc() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
         // Test default into_arc implementation (requires Send + Sync)
         let arc_consumer = custom.into_arc();
         arc_consumer.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 1);
 
-        // Test ArcReadonlyBiConsumer's clone
+        // Test ArcBiConsumer's clone
         let arc_clone = arc_consumer.clone();
         arc_consumer.accept(&10, &20);
         assert_eq!(*counter.lock().unwrap(), 2);
@@ -943,7 +946,7 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_fn() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
         // Test default into_fn implementation
         let func = custom.into_fn();
@@ -960,9 +963,9 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_box_then_and_then() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
-        // Convert to BoxReadonlyBiConsumer and test and_then
+        // Convert to BoxBiConsumer and test and_then
         let box_consumer = custom.into_box();
         let c2 = counter.clone();
         let chained = box_consumer.and_then(move |_: &i32, _: &i32| {
@@ -976,12 +979,12 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_rc_then_and_then() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
-        // Convert to RcReadonlyBiConsumer and test and_then
+        // Convert to RcBiConsumer and test and_then
         let rc_consumer = custom.into_rc();
         let c2 = counter.clone();
-        let second = RcReadonlyBiConsumer::new(move |_: &i32, _: &i32| {
+        let second = RcBiConsumer::new(move |_: &i32, _: &i32| {
             *c2.lock().unwrap() += 10;
         });
 
@@ -994,12 +997,12 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_arc_then_and_then() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
-        // Convert to ArcReadonlyBiConsumer and test and_then
+        // Convert to ArcBiConsumer and test and_then
         let arc_consumer = custom.into_arc();
         let c2 = counter.clone();
-        let second = ArcReadonlyBiConsumer::new(move |_: &i32, _: &i32| {
+        let second = ArcBiConsumer::new(move |_: &i32, _: &i32| {
             *c2.lock().unwrap() += 10;
         });
 
@@ -1013,19 +1016,19 @@ mod custom_readonly_bi_consumer_tests {
     fn test_custom_multiple_conversions() {
         // Test that the same custom implementation can be converted to different types
         let counter1 = Arc::new(std::sync::Mutex::new(0));
-        let custom1 = CustomReadonlyBiConsumer::new(counter1.clone());
+        let custom1 = CustomBiConsumer::new(counter1.clone());
         let box_consumer = custom1.into_box();
         box_consumer.accept(&5, &3);
         assert_eq!(*counter1.lock().unwrap(), 1);
 
         let counter2 = Arc::new(std::sync::Mutex::new(0));
-        let custom2 = CustomReadonlyBiConsumer::new(counter2.clone());
+        let custom2 = CustomBiConsumer::new(counter2.clone());
         let rc_consumer = custom2.into_rc();
         rc_consumer.accept(&10, &20);
         assert_eq!(*counter2.lock().unwrap(), 1);
 
         let counter3 = Arc::new(std::sync::Mutex::new(0));
-        let custom3 = CustomReadonlyBiConsumer::new(counter3.clone());
+        let custom3 = CustomBiConsumer::new(counter3.clone());
         let arc_consumer = custom3.into_arc();
         arc_consumer.accept(&15, &25);
         assert_eq!(*counter3.lock().unwrap(), 1);
@@ -1040,7 +1043,7 @@ mod custom_readonly_bi_consumer_tests {
             counter: Arc<std::sync::Mutex<i32>>,
         }
 
-        impl ReadonlyBiConsumer<String, i32> for StringIntConsumer {
+        impl BiConsumer<String, i32> for StringIntConsumer {
             fn accept(&self, _first: &String, second: &i32) {
                 *self.counter.lock().unwrap() += second;
             }
@@ -1061,7 +1064,7 @@ mod custom_readonly_bi_consumer_tests {
     #[test]
     fn test_custom_into_fn_with_state() {
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
 
         // Convert to function and call multiple times
         let func = custom.into_fn();
@@ -1083,7 +1086,7 @@ mod custom_readonly_bi_consumer_tests {
     fn test_custom_arc_send_sync() {
         // Test thread safety after converting custom implementation to Arc
         let counter = Arc::new(std::sync::Mutex::new(0));
-        let custom = CustomReadonlyBiConsumer::new(counter.clone());
+        let custom = CustomBiConsumer::new(counter.clone());
         let arc_consumer = custom.into_arc();
 
         let handles: Vec<_> = (0..5)
@@ -1109,7 +1112,7 @@ mod noop_tests {
 
     #[test]
     fn test_box_noop_multiple_accepts() {
-        let noop = BoxReadonlyBiConsumer::<i32, i32>::noop();
+        let noop = BoxBiConsumer::<i32, i32>::noop();
         noop.accept(&1, &2);
         noop.accept(&3, &4);
         noop.accept(&5, &6);
@@ -1118,7 +1121,7 @@ mod noop_tests {
 
     #[test]
     fn test_arc_noop_multiple_accepts() {
-        let noop = ArcReadonlyBiConsumer::<i32, i32>::noop();
+        let noop = ArcBiConsumer::<i32, i32>::noop();
         noop.accept(&1, &2);
         noop.accept(&3, &4);
         noop.accept(&5, &6);
@@ -1127,7 +1130,7 @@ mod noop_tests {
 
     #[test]
     fn test_rc_noop_multiple_accepts() {
-        let noop = RcReadonlyBiConsumer::<i32, i32>::noop();
+        let noop = RcBiConsumer::<i32, i32>::noop();
         noop.accept(&1, &2);
         noop.accept(&3, &4);
         noop.accept(&5, &6);
@@ -1138,10 +1141,10 @@ mod noop_tests {
     fn test_box_noop_with_and_then() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let active = BoxReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let active = BoxBiConsumer::new(move |_x: &i32, _y: &i32| {
             *c.lock().unwrap() += 1;
         });
-        let chained = active.and_then(BoxReadonlyBiConsumer::noop());
+        let chained = active.and_then(BoxBiConsumer::noop());
         chained.accept(&1, &2);
         assert_eq!(*counter.lock().unwrap(), 1);
     }
@@ -1150,10 +1153,10 @@ mod noop_tests {
     fn test_arc_noop_with_and_then() {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c = counter.clone();
-        let active = ArcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let active = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
-        let noop = ArcReadonlyBiConsumer::<i32, i32>::noop();
+        let noop = ArcBiConsumer::<i32, i32>::noop();
         let chained = active.and_then(&noop);
         chained.accept(&1, &2);
         assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 1);
@@ -1163,10 +1166,10 @@ mod noop_tests {
     fn test_rc_noop_with_and_then() {
         let counter = Rc::new(std::cell::Cell::new(0));
         let c = counter.clone();
-        let active = RcReadonlyBiConsumer::new(move |_x: &i32, _y: &i32| {
+        let active = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.set(c.get() + 1);
         });
-        let chained = active.and_then(&RcReadonlyBiConsumer::<i32, i32>::noop());
+        let chained = active.and_then(&RcBiConsumer::<i32, i32>::noop());
         chained.accept(&1, &2);
         assert_eq!(counter.get(), 1);
     }
@@ -1181,14 +1184,14 @@ mod to_methods_tests {
     use super::*;
 
     // ========================================================================
-    // ArcReadonlyBiConsumer to_xxx tests
+    // ArcBiConsumer to_xxx tests
     // ========================================================================
 
     #[test]
     fn test_arc_to_box() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -1205,7 +1208,7 @@ mod to_methods_tests {
     fn test_arc_to_rc() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -1222,7 +1225,7 @@ mod to_methods_tests {
     fn test_arc_to_arc() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -1239,7 +1242,7 @@ mod to_methods_tests {
     fn test_arc_to_fn_preserves_original() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -1256,7 +1259,7 @@ mod to_methods_tests {
     fn test_arc_to_fn_multiple_calls() {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c = counter.clone();
-        let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
 
@@ -1268,14 +1271,14 @@ mod to_methods_tests {
     }
 
     // ========================================================================
-    // RcReadonlyBiConsumer to_xxx tests
+    // RcBiConsumer to_xxx tests
     // ========================================================================
 
     #[test]
     fn test_rc_to_box() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
 
@@ -1292,7 +1295,7 @@ mod to_methods_tests {
     fn test_rc_to_rc() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
 
@@ -1309,7 +1312,7 @@ mod to_methods_tests {
     fn test_rc_to_fn_preserves_original() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
 
@@ -1326,7 +1329,7 @@ mod to_methods_tests {
     fn test_rc_to_fn_multiple_calls() {
         let counter = Rc::new(RefCell::new(0));
         let c = counter.clone();
-        let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+        let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
 
@@ -1410,10 +1413,10 @@ mod to_methods_tests {
     }
 
     // ========================================================================
-    // Custom ReadonlyBiConsumer to_xxx tests
+    // Custom BiConsumer to_xxx tests
     // ========================================================================
 
-    /// Custom ReadonlyBiConsumer implementation for testing default to_xxx methods
+    /// Custom BiConsumer implementation for testing default to_xxx methods
     #[derive(Clone)]
     struct CustomConsumer {
         counter: Arc<std::sync::Mutex<i32>>,
@@ -1425,7 +1428,7 @@ mod to_methods_tests {
         }
     }
 
-    impl ReadonlyBiConsumer<i32, i32> for CustomConsumer {
+    impl BiConsumer<i32, i32> for CustomConsumer {
         fn accept(&self, first: &i32, second: &i32) {
             *self.counter.lock().unwrap() += first + second;
         }
@@ -1629,7 +1632,7 @@ mod to_methods_tests {
             counter: Arc<std::sync::Mutex<String>>,
         }
 
-        impl ReadonlyBiConsumer<String, i32> for StringConsumer {
+        impl BiConsumer<String, i32> for StringConsumer {
             fn accept(&self, first: &String, second: &i32) {
                 let mut c = self.counter.lock().unwrap();
                 if !c.is_empty() {

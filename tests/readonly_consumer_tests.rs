@@ -7,11 +7,14 @@
  *
  ******************************************************************************/
 
-//! Tests for ReadonlyConsumer types
+//! Tests for Consumer types
 
 use prism3_function::{
-    ArcReadonlyConsumer, BoxReadonlyConsumer, FnReadonlyConsumerOps, RcReadonlyConsumer,
-    ReadonlyConsumer,
+    ArcConsumer,
+    BoxConsumer,
+    Consumer,
+    FnConsumerOps,
+    RcConsumer,
 };
 use std::rc::Rc;
 use std::sync::Arc;
@@ -22,7 +25,7 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         consumer.accept(&5);
@@ -33,7 +36,7 @@ mod box_readonly_consumer_tests {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let c1 = counter.clone();
         let c2 = counter.clone();
-        let chained = BoxReadonlyConsumer::new(move |_x: &i32| {
+        let chained = BoxConsumer::new(move |_x: &i32| {
             *c1.lock().unwrap() += 1;
         })
         .and_then(move |_x: &i32| {
@@ -50,11 +53,11 @@ mod box_readonly_consumer_tests {
         let c1 = counter.clone();
         let c2 = counter.clone();
 
-        let first = BoxReadonlyConsumer::new(move |_x: &i32| {
+        let first = BoxConsumer::new(move |_x: &i32| {
             *c1.lock().unwrap() += 1;
         });
 
-        let second = BoxReadonlyConsumer::new(move |_x: &i32| {
+        let second = BoxConsumer::new(move |_x: &i32| {
             *c2.lock().unwrap() += 1;
         });
 
@@ -70,7 +73,7 @@ mod box_readonly_consumer_tests {
         let c2 = counter.clone();
         let c3 = counter.clone();
 
-        let chained = BoxReadonlyConsumer::new(move |_x: &i32| {
+        let chained = BoxConsumer::new(move |_x: &i32| {
             *c1.lock().unwrap() += 1;
         })
         .and_then(move |_x: &i32| {
@@ -86,14 +89,14 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_noop() {
-        let noop = BoxReadonlyConsumer::<i32>::noop();
+        let noop = BoxConsumer::<i32>::noop();
         noop.accept(&42);
         // Should not panic
     }
 
     #[test]
     fn test_arc_noop() {
-        let noop = ArcReadonlyConsumer::<i32>::noop();
+        let noop = ArcConsumer::<i32>::noop();
         noop.accept(&42);
         // Should not panic
     }
@@ -109,7 +112,7 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_into_rc() {
-        let consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let rc_consumer = consumer.into_rc();
@@ -118,7 +121,7 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_into_fn() {
-        let consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let func = consumer.into_fn();
@@ -127,8 +130,8 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_box_consumer_into_box() {
-        // Test BoxReadonlyConsumer's own into_box() method
-        let consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        // Test BoxConsumer's own into_box() method
+        let consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let box_consumer = consumer.into_box();
@@ -137,7 +140,7 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = BoxReadonlyConsumer::<i32>::noop();
+        let mut consumer = BoxConsumer::<i32>::noop();
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -146,28 +149,28 @@ mod box_readonly_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = BoxReadonlyConsumer::<i32>::noop();
+        let consumer = BoxConsumer::<i32>::noop();
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("BoxReadonlyConsumer"));
+        assert!(debug_str.contains("BoxConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let mut consumer = BoxReadonlyConsumer::<i32>::noop();
-        assert_eq!(format!("{}", consumer), "BoxReadonlyConsumer");
+        let mut consumer = BoxConsumer::<i32>::noop();
+        assert_eq!(format!("{}", consumer), "BoxConsumer");
 
         consumer.set_name("my_consumer");
-        assert_eq!(format!("{}", consumer), "BoxReadonlyConsumer(my_consumer)");
+        assert_eq!(format!("{}", consumer), "BoxConsumer(my_consumer)");
     }
 
     #[test]
     fn test_with_different_types() {
-        let string_consumer = BoxReadonlyConsumer::new(|s: &String| {
+        let string_consumer = BoxConsumer::new(|s: &String| {
             println!("String: {}", s);
         });
         string_consumer.accept(&"Hello".to_string());
 
-        let vec_consumer = BoxReadonlyConsumer::new(|v: &Vec<i32>| {
+        let vec_consumer = BoxConsumer::new(|v: &Vec<i32>| {
             println!("Vec length: {}", v.len());
         });
         vec_consumer.accept(&vec![1, 2, 3]);
@@ -180,7 +183,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         consumer.accept(&5);
@@ -190,7 +193,7 @@ mod arc_readonly_consumer_tests {
     fn test_clone() {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -207,11 +210,11 @@ mod arc_readonly_consumer_tests {
         let c1 = counter.clone();
         let c2 = counter.clone();
 
-        let first = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let first = ArcConsumer::new(move |_x: &i32| {
             c1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
-        let second = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let second = ArcConsumer::new(move |_x: &i32| {
             c2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -228,7 +231,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_into_box() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let box_consumer = consumer.into_box();
@@ -237,7 +240,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_into_rc() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let rc_consumer = consumer.into_rc();
@@ -246,7 +249,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_into_arc() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let arc_consumer = consumer.into_arc();
@@ -255,7 +258,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_into_fn() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let func = consumer.into_fn();
@@ -264,7 +267,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_to_fn() {
-        let consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let func = consumer.to_fn();
@@ -276,7 +279,7 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = ArcConsumer::new(|_x: &i32| {});
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -285,25 +288,25 @@ mod arc_readonly_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = ArcConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("ArcReadonlyConsumer"));
+        assert!(debug_str.contains("ArcConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
-        assert_eq!(format!("{}", consumer), "ArcReadonlyConsumer");
+        let mut consumer = ArcConsumer::new(|_x: &i32| {});
+        assert_eq!(format!("{}", consumer), "ArcConsumer");
 
         consumer.set_name("my_consumer");
-        assert_eq!(format!("{}", consumer), "ArcReadonlyConsumer(my_consumer)");
+        assert_eq!(format!("{}", consumer), "ArcConsumer(my_consumer)");
     }
 
     #[test]
     fn test_thread_safety() {
         let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -330,7 +333,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_new_and_accept() {
-        let consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         consumer.accept(&5);
@@ -338,7 +341,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_rc_noop() {
-        let noop = RcReadonlyConsumer::<i32>::noop();
+        let noop = RcConsumer::<i32>::noop();
         noop.accept(&42);
         // Should not panic
     }
@@ -347,7 +350,7 @@ mod rc_readonly_consumer_tests {
     fn test_clone() {
         let counter = Rc::new(std::cell::RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = RcConsumer::new(move |_x: &i32| {
             *c.borrow_mut() += 1;
         });
 
@@ -364,11 +367,11 @@ mod rc_readonly_consumer_tests {
         let c1 = counter.clone();
         let c2 = counter.clone();
 
-        let first = RcReadonlyConsumer::new(move |_x: &i32| {
+        let first = RcConsumer::new(move |_x: &i32| {
             *c1.borrow_mut() += 1;
         });
 
-        let second = RcReadonlyConsumer::new(move |_x: &i32| {
+        let second = RcConsumer::new(move |_x: &i32| {
             *c2.borrow_mut() += 1;
         });
 
@@ -385,7 +388,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_into_box() {
-        let consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let box_consumer = consumer.into_box();
@@ -394,7 +397,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_into_rc() {
-        let consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let rc_consumer = consumer.into_rc();
@@ -403,7 +406,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_into_fn() {
-        let consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let func = consumer.into_fn();
@@ -412,7 +415,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_to_fn() {
-        let consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let func = consumer.to_fn();
@@ -424,7 +427,7 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_name() {
-        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = RcConsumer::new(|_x: &i32| {});
         assert_eq!(consumer.name(), None);
 
         consumer.set_name("test_consumer");
@@ -433,18 +436,18 @@ mod rc_readonly_consumer_tests {
 
     #[test]
     fn test_debug() {
-        let consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = RcConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("RcReadonlyConsumer"));
+        assert!(debug_str.contains("RcConsumer"));
     }
 
     #[test]
     fn test_display() {
-        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
-        assert_eq!(format!("{}", consumer), "RcReadonlyConsumer");
+        let mut consumer = RcConsumer::new(|_x: &i32| {});
+        assert_eq!(format!("{}", consumer), "RcConsumer");
 
         consumer.set_name("my_consumer");
-        assert_eq!(format!("{}", consumer), "RcReadonlyConsumer(my_consumer)");
+        assert_eq!(format!("{}", consumer), "RcConsumer(my_consumer)");
     }
 }
 
@@ -541,7 +544,7 @@ mod conversion_tests {
 
     #[test]
     fn test_box_to_rc() {
-        let box_consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let box_consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let rc_consumer = box_consumer.into_rc();
@@ -550,7 +553,7 @@ mod conversion_tests {
 
     #[test]
     fn test_arc_to_box() {
-        let arc_consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let arc_consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let box_consumer = arc_consumer.into_box();
@@ -559,7 +562,7 @@ mod conversion_tests {
 
     #[test]
     fn test_arc_to_rc() {
-        let arc_consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let arc_consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let rc_consumer = arc_consumer.into_rc();
@@ -568,7 +571,7 @@ mod conversion_tests {
 
     #[test]
     fn test_rc_to_box() {
-        let rc_consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let rc_consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         let box_consumer = rc_consumer.into_box();
@@ -583,13 +586,13 @@ mod conversion_tests {
 mod generic_tests {
     use super::*;
 
-    fn apply_consumer<C: ReadonlyConsumer<i32>>(consumer: &C, value: &i32) {
+    fn apply_consumer<C: Consumer<i32>>(consumer: &C, value: &i32) {
         consumer.accept(value);
     }
 
     #[test]
     fn test_with_box_consumer() {
-        let box_consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let box_consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         apply_consumer(&box_consumer, &5);
@@ -597,7 +600,7 @@ mod generic_tests {
 
     #[test]
     fn test_with_arc_consumer() {
-        let arc_consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let arc_consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         apply_consumer(&arc_consumer, &5);
@@ -605,7 +608,7 @@ mod generic_tests {
 
     #[test]
     fn test_with_rc_consumer() {
-        let rc_consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let rc_consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         apply_consumer(&rc_consumer, &5);
@@ -630,7 +633,7 @@ mod name_tests {
 
     #[test]
     fn test_box_consumer_name() {
-        let mut consumer = BoxReadonlyConsumer::new(|x: &i32| {
+        let mut consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         assert_eq!(consumer.name(), None);
@@ -641,7 +644,7 @@ mod name_tests {
 
     #[test]
     fn test_arc_consumer_name() {
-        let mut consumer = ArcReadonlyConsumer::new(|x: &i32| {
+        let mut consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         assert_eq!(consumer.name(), None);
@@ -652,7 +655,7 @@ mod name_tests {
 
     #[test]
     fn test_rc_consumer_name() {
-        let mut consumer = RcReadonlyConsumer::new(|x: &i32| {
+        let mut consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
         assert_eq!(consumer.name(), None);
@@ -663,7 +666,7 @@ mod name_tests {
 
     #[test]
     fn test_box_consumer_name_with_accept() {
-        let mut consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = BoxConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1);
@@ -672,7 +675,7 @@ mod name_tests {
 
     #[test]
     fn test_arc_consumer_name_with_accept() {
-        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = ArcConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1);
@@ -681,7 +684,7 @@ mod name_tests {
 
     #[test]
     fn test_rc_consumer_name_with_accept() {
-        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = RcConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&1);
@@ -699,81 +702,84 @@ mod display_debug_tests {
 
     #[test]
     fn test_box_consumer_debug() {
-        let consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = BoxConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("BoxReadonlyConsumer"));
+        assert!(debug_str.contains("BoxConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_box_consumer_display_without_name() {
-        let consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = BoxConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyConsumer");
+        assert_eq!(display_str, "BoxConsumer");
     }
 
     #[test]
     fn test_box_consumer_display_with_name() {
-        let mut consumer = BoxReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = BoxConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "BoxReadonlyConsumer(test_consumer)");
+        assert_eq!(display_str, "BoxConsumer(test_consumer)");
     }
 
     #[test]
     fn test_arc_consumer_debug() {
-        let consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = ArcConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("ArcReadonlyConsumer"));
+        assert!(debug_str.contains("ArcConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_arc_consumer_display_without_name() {
-        let consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = ArcConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyConsumer");
+        assert_eq!(display_str, "ArcConsumer");
     }
 
     #[test]
     fn test_arc_consumer_display_with_name() {
-        let mut consumer = ArcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = ArcConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "ArcReadonlyConsumer(test_consumer)");
+        assert_eq!(display_str, "ArcConsumer(test_consumer)");
     }
 
     #[test]
     fn test_rc_consumer_debug() {
-        let consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = RcConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
-        assert!(debug_str.contains("RcReadonlyConsumer"));
+        assert!(debug_str.contains("RcConsumer"));
         assert!(debug_str.contains("name"));
         assert!(debug_str.contains("function"));
     }
 
     #[test]
     fn test_rc_consumer_display_without_name() {
-        let consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let consumer = RcConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyConsumer");
+        assert_eq!(display_str, "RcConsumer");
     }
 
     #[test]
     fn test_rc_consumer_display_with_name() {
-        let mut consumer = RcReadonlyConsumer::new(|_x: &i32| {});
+        let mut consumer = RcConsumer::new(|_x: &i32| {});
         consumer.set_name("test_consumer");
         let display_str = format!("{}", consumer);
-        assert_eq!(display_str, "RcReadonlyConsumer(test_consumer)");
+        assert_eq!(display_str, "RcConsumer(test_consumer)");
     }
 }
 
 #[cfg(test)]
 mod custom_struct_tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{
+        AtomicUsize,
+        Ordering,
+    };
     use std::sync::Arc;
 
     struct MyConsumer {
@@ -786,7 +792,7 @@ mod custom_struct_tests {
         }
     }
 
-    impl ReadonlyConsumer<i32> for MyConsumer {
+    impl Consumer<i32> for MyConsumer {
         fn accept(&self, _value: &i32) {
             self.counter.fetch_add(1, Ordering::SeqCst);
         }
@@ -868,9 +874,12 @@ mod custom_struct_tests {
 #[cfg(test)]
 mod to_xxx_methods_tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{
+        AtomicUsize,
+        Ordering,
+    };
 
-    // BoxReadonlyConsumer cannot implement Clone because it uses Box<dyn Fn>
+    // BoxConsumer cannot implement Clone because it uses Box<dyn Fn>
     // So it cannot have to_box, to_rc, to_fn methods
     // It can only have into_xxx methods
 
@@ -878,7 +887,7 @@ mod to_xxx_methods_tests {
     fn test_arc_to_box() {
         let counter = Arc::new(AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -896,7 +905,7 @@ mod to_xxx_methods_tests {
     fn test_arc_to_rc() {
         let counter = Arc::new(AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -914,7 +923,7 @@ mod to_xxx_methods_tests {
     fn test_arc_to_arc() {
         let counter = Arc::new(AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -932,7 +941,7 @@ mod to_xxx_methods_tests {
     fn test_arc_to_fn() {
         let counter = Arc::new(AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -950,7 +959,7 @@ mod to_xxx_methods_tests {
     fn test_rc_to_box() {
         let counter = Rc::new(std::cell::RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = RcConsumer::new(move |_x: &i32| {
             *c.borrow_mut() += 1;
         });
 
@@ -968,7 +977,7 @@ mod to_xxx_methods_tests {
     fn test_rc_to_rc() {
         let counter = Rc::new(std::cell::RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = RcConsumer::new(move |_x: &i32| {
             *c.borrow_mut() += 1;
         });
 
@@ -986,7 +995,7 @@ mod to_xxx_methods_tests {
     fn test_rc_to_fn() {
         let counter = Rc::new(std::cell::RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = RcConsumer::new(move |_x: &i32| {
             *c.borrow_mut() += 1;
         });
 
@@ -1092,7 +1101,7 @@ mod to_xxx_methods_tests {
     fn test_arc_to_xxx_all_methods() {
         let counter = Arc::new(AtomicUsize::new(0));
         let c = counter.clone();
-        let consumer = ArcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = ArcConsumer::new(move |_x: &i32| {
             c.fetch_add(1, Ordering::SeqCst);
         });
 
@@ -1122,7 +1131,7 @@ mod to_xxx_methods_tests {
     fn test_rc_to_xxx_all_methods() {
         let counter = Rc::new(std::cell::RefCell::new(0));
         let c = counter.clone();
-        let consumer = RcReadonlyConsumer::new(move |_x: &i32| {
+        let consumer = RcConsumer::new(move |_x: &i32| {
             *c.borrow_mut() += 1;
         });
 
