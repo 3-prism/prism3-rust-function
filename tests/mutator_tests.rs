@@ -9,7 +9,14 @@
 
 //! Unit tests for Mutator types
 
-use prism3_function::{ArcMutator, BoxMutator, FnMutatorOps, Mutator, MutatorOnce, RcMutator};
+use prism3_function::{
+    ArcMutator,
+    BoxMutator,
+    FnMutatorOps,
+    Mutator,
+    MutatorOnce,
+    RcMutator,
+};
 
 // ============================================================================
 // BoxMutator Tests
@@ -1702,7 +1709,11 @@ mod test_into_fn {
 #[cfg(test)]
 mod test_conditional_execution {
     use super::*;
-    use prism3_function::predicate::{ArcPredicate, BoxPredicate, RcPredicate};
+    use prism3_function::predicate::{
+        ArcPredicate,
+        BoxPredicate,
+        RcPredicate,
+    };
 
     // Helper function pointer for testing
     fn is_positive(x: &i32) -> bool {

@@ -14,7 +14,12 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use prism3_function::{ArcBiTransformer, BiTransformer, BoxBiTransformer, RcBiTransformer};
+use prism3_function::{
+    ArcBiTransformer,
+    BiTransformer,
+    BoxBiTransformer,
+    RcBiTransformer,
+};
 use std::thread;
 
 // ============================================================================

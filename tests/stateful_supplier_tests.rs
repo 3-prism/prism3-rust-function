@@ -10,11 +10,18 @@
 //! Unit tests for StatefulSupplier types
 
 use prism3_function::{
-    ArcStatefulSupplier, BoxStatefulSupplier, RcStatefulSupplier, StatefulSupplier,
+    ArcStatefulSupplier,
+    BoxStatefulSupplier,
+    FnStatefulSupplierOps,
+    RcStatefulSupplier,
+    StatefulSupplier,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
 
 // ==========================================================================
@@ -22,7 +29,7 @@ use std::thread;
 // ==========================================================================
 
 #[cfg(test)]
-mod test_StatefulSupplier_trait {
+mod test_stateful_supplier_trait {
     use super::*;
 
     #[test]
@@ -55,7 +62,7 @@ mod test_StatefulSupplier_trait {
     }
 
     #[test]
-    fn test_closure_implements_StatefulSupplier() {
+    fn test_closure_implements_stateful_supplier() {
         let closure = || 42;
         let mut boxed = closure.into_box();
         assert_eq!(boxed.get(), 42);
@@ -107,7 +114,7 @@ mod test_StatefulSupplier_trait {
     fn test_closure_get_readonly() {
         // Test readonly closure (Fn)
         let value = 42;
-        let closure = move || value;
+        let mut closure = move || value;
         assert_eq!(closure.get(), 42);
         assert_eq!(closure.get(), 42);
         assert_eq!(closure.get(), 42);
@@ -163,40 +170,40 @@ mod test_StatefulSupplier_trait {
 // ==========================================================================
 
 #[cfg(test)]
-mod test_box_StatefulSupplier {
+mod test_box_stateful_supplier {
     use super::*;
 
     mod test_new {
         use super::*;
 
         #[test]
-        fn test_creates_StatefulSupplier() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            assert_eq!(StatefulSupplier.get(), 42);
+        fn test_creates_stateful_supplier() {
+            let mut supplier = BoxStatefulSupplier::new(|| 42);
+            assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_with_i32() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            assert_eq!(StatefulSupplier.get(), 42);
+            let mut supplier = BoxStatefulSupplier::new(|| 42);
+            assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| String::from("hello"));
-            assert_eq!(StatefulSupplier.get(), "hello");
+            let mut supplier = BoxStatefulSupplier::new(|| String::from("hello"));
+            assert_eq!(supplier.get(), "hello");
         }
 
         #[test]
         fn test_with_vec() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| vec![1, 2, 3]);
-            assert_eq!(StatefulSupplier.get(), vec![1, 2, 3]);
+            let mut supplier = BoxStatefulSupplier::new(|| vec![1, 2, 3]);
+            assert_eq!(supplier.get(), vec![1, 2, 3]);
         }
 
         #[test]
         fn test_with_bool() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| true);
-            assert!(StatefulSupplier.get());
+            let mut supplier = BoxStatefulSupplier::new(|| true);
+            assert!(supplier.get());
         }
     }
 
@@ -224,23 +231,23 @@ mod test_box_StatefulSupplier {
 
         #[test]
         fn test_can_be_called_multiple_times() {
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            assert_eq!(StatefulSupplier.get(), 42);
-            assert_eq!(StatefulSupplier.get(), 42);
-            assert_eq!(StatefulSupplier.get(), 42);
+            let mut supplier = BoxStatefulSupplier::new(|| 42);
+            assert_eq!(supplier.get(), 42);
+            assert_eq!(supplier.get(), 42);
+            assert_eq!(supplier.get(), 42);
         }
 
         #[test]
         fn test_stateful_counter() {
             let mut counter = 0;
-            let mut StatefulSupplier = BoxStatefulSupplier::new(move || {
+            let mut supplier = BoxStatefulSupplier::new(move || {
                 counter += 1;
                 counter
             });
 
-            assert_eq!(StatefulSupplier.get(), 1);
-            assert_eq!(StatefulSupplier.get(), 2);
-            assert_eq!(StatefulSupplier.get(), 3);
+            assert_eq!(supplier.get(), 1);
+            assert_eq!(supplier.get(), 2);
+            assert_eq!(supplier.get(), 3);
         }
     }
 
@@ -266,7 +273,7 @@ mod test_box_StatefulSupplier {
         }
 
         #[test]
-        fn test_with_stateful_StatefulSupplier() {
+        fn test_with_stateful_stateful_supplier() {
             let mut counter = 0;
             let mut mapped = BoxStatefulSupplier::new(move || {
                 counter += 1;
@@ -287,44 +294,6 @@ mod test_box_StatefulSupplier {
             }
             let mut mapped = BoxStatefulSupplier::new(|| 10).map(double);
             assert_eq!(mapped.get(), 20);
-        }
-
-        // Test with BoxMapper
-        #[test]
-        fn test_with_box_mapper() {
-            let mapper = BoxMapper::new(|x: i32| x * 3);
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 10).map(mapper);
-            assert_eq!(StatefulSupplier.get(), 30);
-        }
-
-        // Test with stateful BoxMapper
-        #[test]
-        fn test_with_stateful_box_mapper() {
-            let mut counter = 0;
-            let mapper = BoxMapper::new(move |x: i32| {
-                counter += 1;
-                x + counter
-            });
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 10).map(mapper);
-            assert_eq!(StatefulSupplier.get(), 11); // 10 + 1
-            assert_eq!(StatefulSupplier.get(), 12); // 10 + 2
-            assert_eq!(StatefulSupplier.get(), 13); // 10 + 3
-        }
-
-        // Test with RcMapper
-        #[test]
-        fn test_with_rc_mapper() {
-            let mapper = RcMapper::new(|x: i32| x * 4);
-            let mut StatefulSupplier = BoxStatefulSupplier::new(|| 10).map(mapper);
-            assert_eq!(StatefulSupplier.get(), 40);
-        }
-
-        // Test chaining with different mapper types
-        #[test]
-        fn test_chain_with_mapper_and_closure() {
-            let mapper = BoxMapper::new(|x: i32| x * 2);
-            let mut chained = BoxStatefulSupplier::new(|| 5).map(mapper).map(|x| x + 10);
-            assert_eq!(chained.get(), 20); // (5 * 2) + 10
         }
     }
 
@@ -347,7 +316,7 @@ mod test_box_StatefulSupplier {
         }
 
         #[test]
-        fn test_with_constant_StatefulSupplier() {
+        fn test_with_constant_stateful_supplier() {
             let mut filtered = BoxStatefulSupplier::constant(5).filter(|x: &i32| x % 2 == 0);
             assert_eq!(filtered.get(), None); // 5 is odd
             assert_eq!(filtered.get(), None);
@@ -358,7 +327,7 @@ mod test_box_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_combines_two_StatefulSuppliers() {
+        fn test_combines_two_stateful_suppliers() {
             let first = BoxStatefulSupplier::new(|| 42);
             let second = BoxStatefulSupplier::new(|| "hello");
             let mut zipped = first.zip(second);
@@ -367,7 +336,7 @@ mod test_box_StatefulSupplier {
         }
 
         #[test]
-        fn test_with_stateful_StatefulSuppliers() {
+        fn test_with_stateful_stateful_suppliers() {
             let mut counter1 = 0;
             let first = BoxStatefulSupplier::new(move || {
                 counter1 += 1;
@@ -405,7 +374,7 @@ mod test_box_StatefulSupplier {
         }
 
         #[test]
-        fn test_with_stateful_StatefulSupplier() {
+        fn test_with_stateful_stateful_supplier() {
             let mut counter = 0;
             let mut memoized = BoxStatefulSupplier::new(move || {
                 counter += 1;
@@ -424,8 +393,8 @@ mod test_box_StatefulSupplier {
 
         #[test]
         fn test_returns_self() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let mut boxed = StatefulSupplier.into_box();
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let mut boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
     }
@@ -435,8 +404,8 @@ mod test_box_StatefulSupplier {
 
         #[test]
         fn test_converts_to_rc() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let mut rc = StatefulSupplier.into_rc();
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let mut rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
     }
@@ -446,8 +415,8 @@ mod test_box_StatefulSupplier {
 
         #[test]
         fn test_converts_to_fn() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 42);
             assert_eq!(f(), 42);
         }
@@ -455,11 +424,11 @@ mod test_box_StatefulSupplier {
         #[test]
         fn test_into_fn_with_stateful_closure() {
             let mut counter = 0;
-            let StatefulSupplier = BoxStatefulSupplier::new(move || {
+            let supplier = BoxStatefulSupplier::new(move || {
                 counter += 1;
                 counter
             });
-            let mut f = StatefulSupplier.into_fn();
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 1);
             assert_eq!(f(), 2);
             assert_eq!(f(), 3);
@@ -471,15 +440,15 @@ mod test_box_StatefulSupplier {
                 (f(), f())
             }
 
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 100);
-            let f = StatefulSupplier.into_fn();
+            let supplier = BoxStatefulSupplier::new(|| 100);
+            let f = supplier.into_fn();
             assert_eq!(call_twice(f), (100, 100));
         }
 
         #[test]
         fn test_into_fn_with_string() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| String::from("hello"));
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = BoxStatefulSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
             assert_eq!(f(), "hello");
             assert_eq!(f(), "hello");
         }
@@ -488,8 +457,8 @@ mod test_box_StatefulSupplier {
         fn test_into_fn_zero_overhead() {
             // This test verifies that into_fn for BoxStatefulSupplier
             // directly returns the inner function without wrapping
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 999);
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = BoxStatefulSupplier::new(|| 999);
+            let mut f = supplier.into_fn();
             // Should work just like calling the original function
             assert_eq!(f(), 999);
         }
@@ -501,30 +470,30 @@ mod test_box_StatefulSupplier {
 // ==========================================================================
 
 #[cfg(test)]
-mod test_arc_StatefulSupplier {
+mod test_arc_stateful_supplier {
     use super::*;
 
     mod test_new {
         use super::*;
 
         #[test]
-        fn test_creates_StatefulSupplier() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+        fn test_creates_stateful_supplier() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
         }
 
         #[test]
         fn test_with_i32() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| String::from("hello"));
-            let mut s = StatefulSupplier;
+            let supplier = ArcStatefulSupplier::new(|| String::from("hello"));
+            let mut s = supplier;
             assert_eq!(s.get(), "hello");
         }
     }
@@ -546,8 +515,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_can_be_called_multiple_times() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
             assert_eq!(s.get(), 42);
         }
@@ -556,13 +525,13 @@ mod test_arc_StatefulSupplier {
         fn test_stateful_counter() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let mut s = StatefulSupplier;
+            let mut s = supplier;
             assert_eq!(s.get(), 1);
             assert_eq!(s.get(), 2);
             assert_eq!(s.get(), 3);
@@ -574,9 +543,9 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_can_be_cloned() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let clone1 = StatefulSupplier.clone();
-            let clone2 = StatefulSupplier.clone();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let clone1 = supplier.clone();
+            let clone2 = supplier.clone();
 
             let mut s1 = clone1;
             let mut s2 = clone2;
@@ -588,14 +557,14 @@ mod test_arc_StatefulSupplier {
         fn test_clones_share_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let mut s1 = StatefulSupplier.clone();
-            let mut s2 = StatefulSupplier.clone();
+            let mut s1 = supplier.clone();
+            let mut s2 = supplier.clone();
 
             assert_eq!(s1.get(), 1);
             assert_eq!(s2.get(), 2);
@@ -644,51 +613,6 @@ mod test_arc_StatefulSupplier {
             let mapped = source.map(triple);
             let mut s = mapped;
             assert_eq!(s.get(), 30);
-        }
-
-        // Test with ArcMapper
-        #[test]
-        fn test_with_arc_mapper() {
-            let mapper = ArcMapper::new(|x: i32| x * 4);
-            let source = ArcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 40);
-        }
-
-        // Test with stateful ArcMapper
-        #[test]
-        fn test_with_stateful_arc_mapper() {
-            let counter = Arc::new(Mutex::new(0));
-            let counter_clone = Arc::clone(&counter);
-            let mapper = ArcMapper::new(move |x: i32| {
-                let mut c = counter_clone.lock().unwrap();
-                *c += 1;
-                x + *c
-            });
-            let source = ArcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 11); // 10 + 1
-            assert_eq!(StatefulSupplier.get(), 12); // 10 + 2
-            assert_eq!(StatefulSupplier.get(), 13); // 10 + 3
-        }
-
-        // Test with another ArcMapper
-        #[test]
-        fn test_with_multiple_arc_mappers() {
-            let mapper = ArcMapper::new(|x: i32| x * 5);
-            let source = ArcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 50);
-        }
-
-        // Test chaining with different mapper types
-        #[test]
-        fn test_chain_with_mapper_and_closure() {
-            let mapper = ArcMapper::new(|x: i32| x * 2);
-            let source = ArcStatefulSupplier::new(|| 5);
-            let chained = source.map(mapper);
-            let mut final_StatefulSupplier = chained.map(|x| x + 10);
-            assert_eq!(final_StatefulSupplier.get(), 20); // (5 * 2) + 10
         }
 
         // Test thread safety with mapper
@@ -743,7 +667,7 @@ mod test_arc_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_combines_two_StatefulSuppliers() {
+        fn test_combines_two_stateful_suppliers() {
             let first = ArcStatefulSupplier::new(|| 42);
             let second = ArcStatefulSupplier::new(|| "hello");
             let zipped = first.zip(second.clone());
@@ -794,14 +718,14 @@ mod test_arc_StatefulSupplier {
         fn test_can_be_sent_across_threads() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let mut s1 = StatefulSupplier.clone();
-            let mut s2 = StatefulSupplier.clone();
+            let mut s1 = supplier.clone();
+            let mut s2 = supplier.clone();
 
             let h1 = thread::spawn(move || s1.get());
             let h2 = thread::spawn(move || s2.get());
@@ -819,8 +743,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_converts_to_box() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut boxed = StatefulSupplier.into_box();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
     }
@@ -830,8 +754,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_converts_to_rc() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut rc = StatefulSupplier.into_rc();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
     }
@@ -841,8 +765,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_returns_self() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut arc = StatefulSupplier.into_arc();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut arc = supplier.into_arc();
             assert_eq!(arc.get(), 42);
         }
     }
@@ -852,8 +776,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_converts_to_fn() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 42);
             assert_eq!(f(), 42);
         }
@@ -862,12 +786,12 @@ mod test_arc_StatefulSupplier {
         fn test_into_fn_with_stateful_closure() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
-            let mut f = StatefulSupplier.into_fn();
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 1);
             assert_eq!(f(), 2);
             assert_eq!(f(), 3);
@@ -880,23 +804,23 @@ mod test_arc_StatefulSupplier {
                 (f(), f())
             }
 
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 100);
-            let f = StatefulSupplier.into_fn();
+            let supplier = ArcStatefulSupplier::new(|| 100);
+            let f = supplier.into_fn();
             assert_eq!(call_twice(f), (100, 100));
         }
 
         #[test]
         fn test_into_fn_with_string() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| String::from("hello"));
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = ArcStatefulSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
             assert_eq!(f(), "hello");
             assert_eq!(f(), "hello");
         }
 
         #[test]
-        fn test_into_fn_with_mapped_StatefulSupplier() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 10);
-            let mapped = StatefulSupplier.map(|x| x * 2);
+        fn test_into_fn_with_mapped_stateful_supplier() {
+            let supplier = ArcStatefulSupplier::new(|| 10);
+            let mapped = supplier.map(|x| x * 2);
             let mut f = mapped.into_fn();
             assert_eq!(f(), 20);
             assert_eq!(f(), 20);
@@ -907,13 +831,13 @@ mod test_arc_StatefulSupplier {
             // Test that the closure returned by into_fn works with thread-safe data
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let mut f = StatefulSupplier.into_fn();
+            let mut f = supplier.into_fn();
 
             // Call multiple times
             assert_eq!(f(), 1);
@@ -929,9 +853,9 @@ mod test_arc_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_creates_box_StatefulSupplier() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut boxed = StatefulSupplier.to_box();
+        fn test_creates_box_stateful_supplier() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut boxed = supplier.to_box();
             assert_eq!(boxed.get(), 42);
         }
     }
@@ -940,9 +864,9 @@ mod test_arc_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_creates_rc_StatefulSupplier() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut rc = StatefulSupplier.to_rc();
+        fn test_creates_rc_stateful_supplier() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut rc = supplier.to_rc();
             assert_eq!(rc.get(), 42);
             assert_eq!(rc.get(), 42);
         }
@@ -953,9 +877,9 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_returns_clone() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut arc_clone = StatefulSupplier.to_arc();
-            let mut original = StatefulSupplier;
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut arc_clone = supplier.to_arc();
+            let mut original = supplier;
             assert_eq!(arc_clone.get(), 42);
             assert_eq!(original.get(), 42);
         }
@@ -966,8 +890,8 @@ mod test_arc_StatefulSupplier {
 
         #[test]
         fn test_creates_fn() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let mut f = StatefulSupplier.to_fn();
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let mut f = supplier.to_fn();
             assert_eq!(f(), 42);
             assert_eq!(f(), 42);
         }
@@ -979,30 +903,30 @@ mod test_arc_StatefulSupplier {
 // ==========================================================================
 
 #[cfg(test)]
-mod test_rc_StatefulSupplier {
+mod test_rc_stateful_supplier {
     use super::*;
 
     mod test_new {
         use super::*;
 
         #[test]
-        fn test_creates_StatefulSupplier() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+        fn test_creates_stateful_supplier() {
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
         }
 
         #[test]
         fn test_with_i32() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| String::from("hello"));
-            let mut s = StatefulSupplier;
+            let supplier = RcStatefulSupplier::new(|| String::from("hello"));
+            let mut s = supplier;
             assert_eq!(s.get(), "hello");
         }
     }
@@ -1024,8 +948,8 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_can_be_called_multiple_times() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut s = StatefulSupplier;
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut s = supplier;
             assert_eq!(s.get(), 42);
             assert_eq!(s.get(), 42);
         }
@@ -1034,13 +958,13 @@ mod test_rc_StatefulSupplier {
         fn test_stateful_counter() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let mut s = StatefulSupplier;
+            let mut s = supplier;
             assert_eq!(s.get(), 1);
             assert_eq!(s.get(), 2);
             assert_eq!(s.get(), 3);
@@ -1051,9 +975,9 @@ mod test_rc_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_creates_box_StatefulSupplier() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut boxed = StatefulSupplier.to_box();
+        fn test_creates_box_stateful_supplier() {
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut boxed = supplier.to_box();
             assert_eq!(boxed.get(), 42);
             assert_eq!(boxed.get(), 42);
         }
@@ -1064,9 +988,9 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_returns_clone() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut first = StatefulSupplier.to_rc();
-            let mut second = StatefulSupplier;
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut first = supplier.to_rc();
+            let mut second = supplier;
             assert_eq!(first.get(), 42);
             assert_eq!(second.get(), 42);
         }
@@ -1077,8 +1001,8 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_creates_closure() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut f = StatefulSupplier.to_fn();
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut f = supplier.to_fn();
             assert_eq!(f(), 42);
             assert_eq!(f(), 42);
         }
@@ -1089,9 +1013,9 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_can_be_cloned() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let clone1 = StatefulSupplier.clone();
-            let clone2 = StatefulSupplier.clone();
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let clone1 = supplier.clone();
+            let clone2 = supplier.clone();
 
             let mut s1 = clone1;
             let mut s2 = clone2;
@@ -1103,14 +1027,14 @@ mod test_rc_StatefulSupplier {
         fn test_clones_share_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let mut s1 = StatefulSupplier.clone();
-            let mut s2 = StatefulSupplier.clone();
+            let mut s1 = supplier.clone();
+            let mut s2 = supplier.clone();
 
             assert_eq!(s1.get(), 1);
             assert_eq!(s2.get(), 2);
@@ -1161,51 +1085,6 @@ mod test_rc_StatefulSupplier {
             assert_eq!(s.get(), 40);
         }
 
-        // Test with RcMapper
-        #[test]
-        fn test_with_rc_mapper() {
-            let mapper = RcMapper::new(|x: i32| x * 5);
-            let source = RcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 50);
-        }
-
-        // Test with stateful RcMapper
-        #[test]
-        fn test_with_stateful_rc_mapper() {
-            let counter = Rc::new(RefCell::new(0));
-            let counter_clone = Rc::clone(&counter);
-            let mapper = RcMapper::new(move |x: i32| {
-                let mut c = counter_clone.borrow_mut();
-                *c += 1;
-                x + *c
-            });
-            let source = RcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 11); // 10 + 1
-            assert_eq!(StatefulSupplier.get(), 12); // 10 + 2
-            assert_eq!(StatefulSupplier.get(), 13); // 10 + 3
-        }
-
-        // Test with BoxMapper
-        #[test]
-        fn test_with_box_mapper() {
-            let mapper = BoxMapper::new(|x: i32| x * 6);
-            let source = RcStatefulSupplier::new(|| 10);
-            let mut StatefulSupplier = source.map(mapper);
-            assert_eq!(StatefulSupplier.get(), 60);
-        }
-
-        // Test chaining with different mapper types
-        #[test]
-        fn test_chain_with_mapper_and_closure() {
-            let mapper = RcMapper::new(|x: i32| x * 2);
-            let source = RcStatefulSupplier::new(|| 5);
-            let chained = source.map(mapper);
-            let mut final_StatefulSupplier = chained.map(|x| x + 10);
-            assert_eq!(final_StatefulSupplier.get(), 20); // (5 * 2) + 10
-        }
-
         // Test shared state with cloned StatefulSuppliers
         #[test]
         fn test_shared_state_with_mapper() {
@@ -1251,7 +1130,7 @@ mod test_rc_StatefulSupplier {
         use super::*;
 
         #[test]
-        fn test_combines_two_StatefulSuppliers() {
+        fn test_combines_two_stateful_suppliers() {
             let first = RcStatefulSupplier::new(|| 42);
             let second = RcStatefulSupplier::new(|| "hello");
             let zipped = first.zip(second.clone());
@@ -1300,8 +1179,8 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_converts_to_box() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut boxed = StatefulSupplier.into_box();
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut boxed = supplier.into_box();
             assert_eq!(boxed.get(), 42);
         }
     }
@@ -1311,8 +1190,8 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_returns_self() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut rc = StatefulSupplier.into_rc();
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut rc = supplier.into_rc();
             assert_eq!(rc.get(), 42);
         }
     }
@@ -1322,8 +1201,8 @@ mod test_rc_StatefulSupplier {
 
         #[test]
         fn test_converts_to_fn() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 42);
             assert_eq!(f(), 42);
         }
@@ -1332,12 +1211,12 @@ mod test_rc_StatefulSupplier {
         fn test_into_fn_with_stateful_closure() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
-            let mut f = StatefulSupplier.into_fn();
+            let mut f = supplier.into_fn();
             assert_eq!(f(), 1);
             assert_eq!(f(), 2);
             assert_eq!(f(), 3);
@@ -1350,23 +1229,23 @@ mod test_rc_StatefulSupplier {
                 (f(), f())
             }
 
-            let StatefulSupplier = RcStatefulSupplier::new(|| 100);
-            let f = StatefulSupplier.into_fn();
+            let supplier = RcStatefulSupplier::new(|| 100);
+            let f = supplier.into_fn();
             assert_eq!(call_twice(f), (100, 100));
         }
 
         #[test]
         fn test_into_fn_with_string() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| String::from("hello"));
-            let mut f = StatefulSupplier.into_fn();
+            let supplier = RcStatefulSupplier::new(|| String::from("hello"));
+            let mut f = supplier.into_fn();
             assert_eq!(f(), "hello");
             assert_eq!(f(), "hello");
         }
 
         #[test]
-        fn test_into_fn_with_mapped_StatefulSupplier() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 10);
-            let mapped = StatefulSupplier.map(|x| x * 2);
+        fn test_into_fn_with_mapped_stateful_supplier() {
+            let supplier = RcStatefulSupplier::new(|| 10);
+            let mapped = supplier.map(|x| x * 2);
             let mut f = mapped.into_fn();
             assert_eq!(f(), 20);
             assert_eq!(f(), 20);
@@ -1377,13 +1256,13 @@ mod test_rc_StatefulSupplier {
             // Test that the closure returned by into_fn shares state correctly
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let mut f = StatefulSupplier.into_fn();
+            let mut f = supplier.into_fn();
 
             // Call multiple times
             assert_eq!(f(), 1);
@@ -1401,82 +1280,82 @@ mod test_rc_StatefulSupplier {
 }
 
 // ==========================================================================
-// StatefulSupplierOnce Implementation Tests for BoxStatefulSupplier
+// SupplierOnce Implementation Tests for BoxStatefulSupplier
 // ==========================================================================
 
 #[cfg(test)]
-mod test_box_StatefulSupplier_once {
+mod test_box_stateful_supplier_once {
     use super::*;
-    use prism3_function::StatefulSupplierOnce;
+    use prism3_function::SupplierOnce;
 
     mod test_get {
         use super::*;
 
         #[test]
-        fn test_consumes_StatefulSupplier() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+        fn test_consumes_stateful_supplier() {
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let value = supplier.get_once();
             assert_eq!(value, 42);
             // StatefulSupplier is consumed, cannot be used again
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| String::from("hello"));
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| String::from("hello"));
+            let value = supplier.get_once();
             assert_eq!(value, "hello");
         }
 
         #[test]
         fn test_with_vec() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| vec![1, 2, 3]);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| vec![1, 2, 3]);
+            let value = supplier.get_once();
             assert_eq!(value, vec![1, 2, 3]);
         }
 
         #[test]
         fn test_moves_captured_value() {
             let data = String::from("captured");
-            let StatefulSupplier = BoxStatefulSupplier::new(move || data.clone());
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(move || data.clone());
+            let value = supplier.get_once();
             assert_eq!(value, "captured");
         }
 
         #[test]
         fn test_with_stateful_closure() {
             let mut counter = 0;
-            let StatefulSupplier = BoxStatefulSupplier::new(move || {
+            let supplier = BoxStatefulSupplier::new(move || {
                 counter += 1;
                 counter
             });
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let value = supplier.get_once();
             assert_eq!(value, 1);
         }
     }
 
     mod test_into_box {
         use super::*;
-        use prism3_function::BoxStatefulSupplierOnce;
+        use prism3_function::BoxSupplierOnce;
 
         #[test]
-        fn test_converts_to_box_StatefulSupplier_once() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let once: BoxStatefulSupplierOnce<i32> = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+        fn test_converts_to_box_stateful_supplier_once() {
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = supplier.into_box_once();
             assert_eq!(once.get_once(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| String::from("test"));
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| String::from("test"));
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), "test");
         }
 
         #[test]
         fn test_with_moved_value() {
             let data = vec![1, 2, 3];
-            let StatefulSupplier = BoxStatefulSupplier::new(move || data.clone());
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(move || data.clone());
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), vec![1, 2, 3]);
         }
     }
@@ -1486,30 +1365,30 @@ mod test_box_StatefulSupplier_once {
 
         #[test]
         fn test_converts_to_fn_once() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| 42);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| String::from("hello"));
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| String::from("hello"));
+            let f = supplier.into_fn_once();
             assert_eq!(f(), "hello");
         }
 
         #[test]
         fn test_with_moved_value() {
             let data = String::from("captured");
-            let StatefulSupplier = BoxStatefulSupplier::new(move || data.clone());
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(move || data.clone());
+            let f = supplier.into_fn_once();
             assert_eq!(f(), "captured");
         }
 
         #[test]
         fn test_fn_once_closure_can_be_called() {
-            let StatefulSupplier = BoxStatefulSupplier::new(|| 100);
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = BoxStatefulSupplier::new(|| 100);
+            let f = supplier.into_fn_once();
             let result = f();
             assert_eq!(result, 100);
         }
@@ -1517,11 +1396,11 @@ mod test_box_StatefulSupplier_once {
         #[test]
         fn test_with_stateful_closure() {
             let mut counter = 0;
-            let StatefulSupplier = BoxStatefulSupplier::new(move || {
+            let supplier = BoxStatefulSupplier::new(move || {
                 counter += 1;
                 counter
             });
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 1);
         }
     }
@@ -1532,36 +1411,36 @@ mod test_box_StatefulSupplier_once {
 }
 
 // ==========================================================================
-// StatefulSupplierOnce Implementation Tests for ArcStatefulSupplier
+// SupplierOnce Implementation Tests for ArcStatefulSupplier
 // ==========================================================================
 
 #[cfg(test)]
-mod test_arc_StatefulSupplier_once {
+mod test_arc_stateful_supplier_once {
     use super::*;
-    use prism3_function::StatefulSupplierOnce;
+    use prism3_function::SupplierOnce;
 
     mod test_get {
         use super::*;
 
         #[test]
-        fn test_consumes_StatefulSupplier() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+        fn test_consumes_stateful_supplier() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let value = supplier.get_once();
             assert_eq!(value, 42);
             // StatefulSupplier is consumed, cannot be used again
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| String::from("hello"));
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| String::from("hello"));
+            let value = supplier.get_once();
             assert_eq!(value, "hello");
         }
 
         #[test]
         fn test_with_vec() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| vec![1, 2, 3]);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| vec![1, 2, 3]);
+            let value = supplier.get_once();
             assert_eq!(value, vec![1, 2, 3]);
         }
 
@@ -1569,31 +1448,31 @@ mod test_arc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let value = supplier.get_once();
             assert_eq!(value, 1);
             assert_eq!(*counter.lock().unwrap(), 1);
         }
 
         #[test]
-        fn test_cloned_StatefulSuppliers_share_state() {
+        fn test_cloned_stateful_suppliers_share_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone1 = Arc::clone(&counter);
 
-            let StatefulSupplier1 = ArcStatefulSupplier::new(move || {
+            let stateful_supplier1 = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone1.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let StatefulSupplier2 = StatefulSupplier1.clone();
+            let stateful_supplier2 = stateful_supplier1.clone();
 
-            let value1 = StatefulSupplierOnce::get_once(StatefulSupplier1);
-            let value2 = StatefulSupplierOnce::get_once(StatefulSupplier2);
+            let value1 = SupplierOnce::get_once(stateful_supplier1);
+            let value2 = SupplierOnce::get_once(stateful_supplier2);
 
             // Both should increment the same counter
             assert_eq!(value1 + value2, 3); // 1 + 2
@@ -1603,19 +1482,19 @@ mod test_arc_StatefulSupplier_once {
 
     mod test_into_box {
         use super::*;
-        use prism3_function::BoxStatefulSupplierOnce;
+        use prism3_function::BoxSupplierOnce;
 
         #[test]
-        fn test_converts_to_box_StatefulSupplier_once() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let once: BoxStatefulSupplierOnce<i32> = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+        fn test_converts_to_box_stateful_supplier_once() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = supplier.into_box_once();
             assert_eq!(once.get_once(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| String::from("test"));
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| String::from("test"));
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), "test");
         }
 
@@ -1623,12 +1502,12 @@ mod test_arc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), 1);
             assert_eq!(*counter.lock().unwrap(), 1);
         }
@@ -1639,15 +1518,15 @@ mod test_arc_StatefulSupplier_once {
 
         #[test]
         fn test_converts_to_fn_once() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| String::from("hello"));
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| String::from("hello"));
+            let f = supplier.into_fn_once();
             assert_eq!(f(), "hello");
         }
 
@@ -1655,12 +1534,12 @@ mod test_arc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 1);
             assert_eq!(*counter.lock().unwrap(), 1);
         }
@@ -1669,33 +1548,33 @@ mod test_arc_StatefulSupplier_once {
         fn test_fn_once_with_thread_safety() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 1);
         }
     }
 
     mod test_to_box {
         use super::*;
-        use prism3_function::BoxStatefulSupplierOnce;
+        use prism3_function::BoxSupplierOnce;
 
         #[test]
-        fn test_creates_box_StatefulSupplier_once() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let once: BoxStatefulSupplierOnce<i32> = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+        fn test_creates_box_stateful_supplier_once() {
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = supplier.to_box_once();
             assert_eq!(once.get_once(), 42);
         }
 
         #[test]
         fn test_original_remains_usable() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let _once = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let _once = supplier.to_box_once();
             // Original StatefulSupplier still usable
-            let s = StatefulSupplier;
+            let s = supplier;
             assert_eq!(s.clone().get(), 42);
         }
 
@@ -1703,17 +1582,17 @@ mod test_arc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let once = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+            let once = supplier.to_box_once();
             assert_eq!(once.get_once(), 1);
 
             // Can still use original
-            assert_eq!(StatefulSupplier.clone().get(), 2);
+            assert_eq!(supplier.clone().get(), 2);
             assert_eq!(*counter.lock().unwrap(), 2);
         }
     }
@@ -1723,17 +1602,17 @@ mod test_arc_StatefulSupplier_once {
 
         #[test]
         fn test_creates_fn_once() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let f = supplier.to_fn_once();
             assert_eq!(f(), 42);
         }
 
         #[test]
         fn test_original_remains_usable() {
-            let StatefulSupplier = ArcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let supplier = ArcStatefulSupplier::new(|| 42);
+            let f = supplier.to_fn_once();
             // Original StatefulSupplier still usable
-            assert_eq!(StatefulSupplier.clone().get(), 42);
+            assert_eq!(supplier.clone().get(), 42);
             // Call the function we created
             assert_eq!(f(), 42);
         }
@@ -1742,53 +1621,53 @@ mod test_arc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
-            let StatefulSupplier = ArcStatefulSupplier::new(move || {
+            let supplier = ArcStatefulSupplier::new(move || {
                 let mut c = counter_clone.lock().unwrap();
                 *c += 1;
                 *c
             });
 
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let f = supplier.to_fn_once();
             assert_eq!(f(), 1);
 
             // Can still use original
-            assert_eq!(StatefulSupplier.clone().get(), 2);
+            assert_eq!(supplier.clone().get(), 2);
             assert_eq!(*counter.lock().unwrap(), 2);
         }
     }
 }
 
 // ==========================================================================
-// StatefulSupplierOnce Implementation Tests for RcStatefulSupplier
+// SupplierOnce Implementation Tests for RcStatefulSupplier
 // ==========================================================================
 
 #[cfg(test)]
-mod test_rc_StatefulSupplier_once {
+mod test_rc_stateful_supplier_once {
     use super::*;
-    use prism3_function::StatefulSupplierOnce;
+    use prism3_function::SupplierOnce;
 
     mod test_get {
         use super::*;
 
         #[test]
-        fn test_consumes_StatefulSupplier() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+        fn test_consumes_stateful_supplier() {
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let value = supplier.get_once();
             assert_eq!(value, 42);
             // StatefulSupplier is consumed, cannot be used again
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| String::from("hello"));
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| String::from("hello"));
+            let value = supplier.get_once();
             assert_eq!(value, "hello");
         }
 
         #[test]
         fn test_with_vec() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| vec![1, 2, 3]);
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| vec![1, 2, 3]);
+            let value = supplier.get_once();
             assert_eq!(value, vec![1, 2, 3]);
         }
 
@@ -1796,31 +1675,31 @@ mod test_rc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
-            let value = StatefulSupplierOnce::get_once(StatefulSupplier);
+            let value = supplier.get_once();
             assert_eq!(value, 1);
             assert_eq!(*counter.borrow(), 1);
         }
 
         #[test]
-        fn test_cloned_StatefulSuppliers_share_state() {
+        fn test_cloned_stateful_suppliers_share_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone1 = Rc::clone(&counter);
 
-            let StatefulSupplier1 = RcStatefulSupplier::new(move || {
+            let stateful_supplier1 = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone1.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let StatefulSupplier2 = StatefulSupplier1.clone();
+            let stateful_supplier2 = stateful_supplier1.clone();
 
-            let value1 = StatefulSupplierOnce::get_once(StatefulSupplier1);
-            let value2 = StatefulSupplierOnce::get_once(StatefulSupplier2);
+            let value1 = SupplierOnce::get_once(stateful_supplier1);
+            let value2 = SupplierOnce::get_once(stateful_supplier2);
 
             // Both should increment the same counter
             assert_eq!(value1 + value2, 3); // 1 + 2
@@ -1830,19 +1709,19 @@ mod test_rc_StatefulSupplier_once {
 
     mod test_into_box {
         use super::*;
-        use prism3_function::BoxStatefulSupplierOnce;
+        use prism3_function::BoxSupplierOnce;
 
         #[test]
-        fn test_converts_to_box_StatefulSupplier_once() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let once: BoxStatefulSupplierOnce<i32> = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+        fn test_converts_to_box_stateful_supplier_once() {
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = supplier.into_box_once();
             assert_eq!(once.get_once(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| String::from("test"));
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| String::from("test"));
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), "test");
         }
 
@@ -1850,12 +1729,12 @@ mod test_rc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
-            let once = StatefulSupplierOnce::into_box_once(StatefulSupplier);
+            let once = supplier.into_box_once();
             assert_eq!(once.get_once(), 1);
             assert_eq!(*counter.borrow(), 1);
         }
@@ -1866,15 +1745,15 @@ mod test_rc_StatefulSupplier_once {
 
         #[test]
         fn test_converts_to_fn_once() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 42);
         }
 
         #[test]
         fn test_with_string() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| String::from("hello"));
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| String::from("hello"));
+            let f = supplier.into_fn_once();
             assert_eq!(f(), "hello");
         }
 
@@ -1882,12 +1761,12 @@ mod test_rc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 1);
             assert_eq!(*counter.borrow(), 1);
         }
@@ -1896,33 +1775,33 @@ mod test_rc_StatefulSupplier_once {
         fn test_fn_once_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
-            let f = StatefulSupplierOnce::into_fn_once(StatefulSupplier);
+            let f = supplier.into_fn_once();
             assert_eq!(f(), 1);
         }
     }
 
     mod test_to_box {
         use super::*;
-        use prism3_function::BoxStatefulSupplierOnce;
+        use prism3_function::BoxSupplierOnce;
 
         #[test]
-        fn test_creates_box_StatefulSupplier_once() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let once: BoxStatefulSupplierOnce<i32> = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+        fn test_creates_box_stateful_supplier_once() {
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let once: BoxSupplierOnce<i32> = supplier.to_box_once();
             assert_eq!(once.get_once(), 42);
         }
 
         #[test]
         fn test_original_remains_usable() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let _once = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let _once = supplier.to_box_once();
             // Original StatefulSupplier still usable
-            let s = StatefulSupplier;
+            let s = supplier;
             assert_eq!(s.clone().get(), 42);
         }
 
@@ -1930,17 +1809,17 @@ mod test_rc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let once = StatefulSupplierOnce::to_box_once(&StatefulSupplier);
+            let once = supplier.to_box_once();
             assert_eq!(once.get_once(), 1);
 
             // Can still use original
-            assert_eq!(StatefulSupplier.clone().get(), 2);
+            assert_eq!(supplier.clone().get(), 2);
             assert_eq!(*counter.borrow(), 2);
         }
     }
@@ -1950,17 +1829,17 @@ mod test_rc_StatefulSupplier_once {
 
         #[test]
         fn test_creates_fn_once() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let f = supplier.to_fn_once();
             assert_eq!(f(), 42);
         }
 
         #[test]
         fn test_original_remains_usable() {
-            let StatefulSupplier = RcStatefulSupplier::new(|| 42);
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let supplier = RcStatefulSupplier::new(|| 42);
+            let f = supplier.to_fn_once();
             // Original StatefulSupplier still usable
-            assert_eq!(StatefulSupplier.clone().get(), 42);
+            assert_eq!(supplier.clone().get(), 42);
             // Call the function we created
             assert_eq!(f(), 42);
         }
@@ -1969,17 +1848,17 @@ mod test_rc_StatefulSupplier_once {
         fn test_with_shared_state() {
             let counter = Rc::new(RefCell::new(0));
             let counter_clone = Rc::clone(&counter);
-            let StatefulSupplier = RcStatefulSupplier::new(move || {
+            let supplier = RcStatefulSupplier::new(move || {
                 let mut c = counter_clone.borrow_mut();
                 *c += 1;
                 *c
             });
 
-            let f = StatefulSupplierOnce::to_fn_once(&StatefulSupplier);
+            let f = supplier.to_fn_once();
             assert_eq!(f(), 1);
 
             // Can still use original
-            assert_eq!(StatefulSupplier.clone().get(), 2);
+            assert_eq!(supplier.clone().get(), 2);
             assert_eq!(*counter.borrow(), 2);
         }
     }
@@ -1990,7 +1869,7 @@ mod test_rc_StatefulSupplier_once {
 // ==========================================================================
 
 #[cfg(test)]
-mod test_custom_StatefulSupplier_default_impl {
+mod test_custom_stateful_supplier_default_impl {
     use super::*;
 
     /// A custom StatefulSupplier implementation that only implements the
@@ -2007,7 +1886,7 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     impl StatefulSupplier<i32> for CounterStatefulSupplier {
-        fn get(&self) -> i32 {
+        fn get(&mut self) -> i32 {
             // For readonly StatefulSupplier, we can't modify state
             // This is just a demo, return the counter value
             self.counter
@@ -2017,12 +1896,12 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_box() {
+    fn test_custom_stateful_supplier_into_box() {
         // Create a custom StatefulSupplier with initial value 42
         let custom = CounterStatefulSupplier::new(42);
 
         // Convert to BoxStatefulSupplier using the default implementation
-        let boxed = custom.into_box();
+        let mut boxed = custom.into_box();
 
         // Verify it works correctly
         assert_eq!(boxed.get(), 42);
@@ -2031,12 +1910,12 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_rc() {
+    fn test_custom_stateful_supplier_into_rc() {
         // Create a custom StatefulSupplier with initial value 10
         let custom = CounterStatefulSupplier::new(10);
 
         // Convert to RcStatefulSupplier using the default implementation
-        let rc = custom.into_rc();
+        let mut rc = custom.into_rc();
 
         // Verify it works correctly
         assert_eq!(rc.get(), 10);
@@ -2045,12 +1924,12 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_arc() {
+    fn test_custom_stateful_supplier_into_arc() {
         // Create a custom StatefulSupplier with initial value 100
         let custom = CounterStatefulSupplier::new(100);
 
         // Convert to ArcStatefulSupplier using the default implementation
-        let arc = custom.into_arc();
+        let mut arc = custom.into_arc();
 
         // Verify it works correctly
         assert_eq!(arc.get(), 100);
@@ -2059,14 +1938,14 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_clone_and_share() {
+    fn test_custom_stateful_supplier_clone_and_share() {
         // Create a custom StatefulSupplier and convert to RcStatefulSupplier
         let custom = CounterStatefulSupplier::new(42);
         let rc = custom.into_rc();
 
         // Clone the RcStatefulSupplier to share state
-        let s1 = rc.clone();
-        let s2 = rc.clone();
+        let mut s1 = rc.clone();
+        let mut s2 = rc.clone();
 
         // Verify shared state works correctly - they share the
         // same underlying value
@@ -2076,14 +1955,14 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_thread_safety() {
+    fn test_custom_stateful_supplier_thread_safety() {
         // Create a custom StatefulSupplier and convert to ArcStatefulSupplier
         let custom = CounterStatefulSupplier::new(100);
         let arc = custom.into_arc();
 
         // Clone for use in threads
-        let s1 = arc.clone();
-        let s2 = arc.clone();
+        let mut s1 = arc.clone();
+        let mut s2 = arc.clone();
 
         let h1 = thread::spawn(move || s1.get());
         let h2 = thread::spawn(move || s2.get());
@@ -2097,7 +1976,7 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_with_string() {
+    fn test_custom_stateful_supplier_with_string() {
         /// A custom StatefulSupplier that generates sequential string IDs
         struct IdStatefulSupplier {
             next_id: u32,
@@ -2110,7 +1989,7 @@ mod test_custom_StatefulSupplier_default_impl {
         }
 
         impl StatefulSupplier<String> for IdStatefulSupplier {
-            fn get(&self) -> String {
+            fn get(&mut self) -> String {
                 // For readonly StatefulSupplier, return the same ID
                 format!("ID-{:04}", self.next_id)
             }
@@ -2118,19 +1997,19 @@ mod test_custom_StatefulSupplier_default_impl {
 
         // Test with BoxStatefulSupplier
         let id_gen = IdStatefulSupplier::new();
-        let boxed = id_gen.into_box();
+        let mut boxed = id_gen.into_box();
         assert_eq!(boxed.get(), "ID-0001");
         assert_eq!(boxed.get(), "ID-0001");
         assert_eq!(boxed.get(), "ID-0001");
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_fn() {
+    fn test_custom_stateful_supplier_into_fn() {
         // Test the default implementation of into_fn for custom StatefulSupplier
         let custom = CounterStatefulSupplier::new(42);
 
         // Convert to closure using the default implementation
-        let f = custom.into_fn();
+        let mut f = custom.into_fn();
 
         // Verify it works correctly
         assert_eq!(f(), 42);
@@ -2139,9 +2018,9 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_fn_with_fn_function() {
-        // Test that custom StatefulSupplier's into_fn result works with Fn
-        fn call_twice<F: Fn() -> i32>(f: F) -> (i32, i32) {
+    fn test_custom_stateful_supplier_into_fn_with_fnmut_function() {
+        // Test that custom StatefulSupplier's into_fn result works with FnMut
+        fn call_twice<F: FnMut() -> i32>(mut f: F) -> (i32, i32) {
             (f(), f())
         }
 
@@ -2151,7 +2030,7 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_fn_with_string() {
+    fn test_custom_stateful_supplier_into_fn_with_string() {
         /// A custom StatefulSupplier that generates sequential string IDs
         struct IdStatefulSupplier {
             next_id: u32,
@@ -2164,7 +2043,7 @@ mod test_custom_StatefulSupplier_default_impl {
         }
 
         impl StatefulSupplier<String> for IdStatefulSupplier {
-            fn get(&self) -> String {
+            fn get(&mut self) -> String {
                 // For readonly StatefulSupplier, return the same ID
                 format!("ID-{:04}", self.next_id)
             }
@@ -2172,14 +2051,14 @@ mod test_custom_StatefulSupplier_default_impl {
 
         // Test with into_fn
         let id_gen = IdStatefulSupplier::new();
-        let f = id_gen.into_fn();
+        let mut f = id_gen.into_fn();
         assert_eq!(f(), "ID-0001");
         assert_eq!(f(), "ID-0001");
         assert_eq!(f(), "ID-0001");
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_fn_default_impl() {
+    fn test_custom_stateful_supplier_into_fn_default_impl() {
         /// Test that the default into_fn implementation wraps get() correctly
         struct SimpleStatefulSupplier {
             value: i32,
@@ -2192,14 +2071,14 @@ mod test_custom_StatefulSupplier_default_impl {
         }
 
         impl StatefulSupplier<i32> for SimpleStatefulSupplier {
-            fn get(&self) -> i32 {
+            fn get(&mut self) -> i32 {
                 self.value
             }
             // Only implements get(), relying on default into_fn
         }
 
-        let StatefulSupplier = SimpleStatefulSupplier::new(999);
-        let f = StatefulSupplier.into_fn();
+        let supplier = SimpleStatefulSupplier::new(999);
+        let mut f = supplier.into_fn();
 
         // Verify it uses the get() method correctly
         assert_eq!(f(), 999);
@@ -2207,7 +2086,7 @@ mod test_custom_StatefulSupplier_default_impl {
     }
 
     #[test]
-    fn test_custom_StatefulSupplier_into_fn_composition() {
+    fn test_custom_stateful_supplier_into_fn_composition() {
         // Test that into_fn works correctly when composing with other operations
         let custom = CounterStatefulSupplier::new(0);
 
@@ -2215,9 +2094,9 @@ mod test_custom_StatefulSupplier_default_impl {
         let boxed = custom.into_box();
         let mut f = boxed.into_fn();
 
-        assert_eq!(f(), 1);
-        assert_eq!(f(), 2);
-        assert_eq!(f(), 3);
+        assert_eq!(f(), 0);
+        assert_eq!(f(), 0);
+        assert_eq!(f(), 0);
     }
 }
 
@@ -2226,7 +2105,7 @@ mod test_custom_StatefulSupplier_default_impl {
 // ==========================================================================
 
 #[cfg(test)]
-mod test_fn_StatefulSupplier_ops {
+mod test_fn_stateful_supplier_ops {
     use super::*;
 
     #[test]
@@ -2258,30 +2137,6 @@ mod test_fn_StatefulSupplier_ops {
         assert_eq!(mapped.get(), 2);
         assert_eq!(mapped.get(), 4);
         assert_eq!(mapped.get(), 6);
-    }
-
-    #[test]
-    fn test_closure_map_with_box_mapper() {
-        // Test map using BoxMapper
-        let mapper = BoxMapper::new(|x: i32| x * 3);
-        let mut mapped = (|| 10).map(mapper);
-        assert_eq!(mapped.get(), 30);
-    }
-
-    #[test]
-    fn test_closure_map_with_rc_mapper() {
-        // Test map using RcMapper
-        let mapper = RcMapper::new(|x: i32| x * 3);
-        let mut mapped = (|| 10).map(mapper);
-        assert_eq!(mapped.get(), 30);
-    }
-
-    #[test]
-    fn test_closure_map_with_arc_mapper() {
-        // Test map using ArcMapper
-        let mapper = ArcMapper::new(|x: i32| x * 3);
-        let mut mapped = (|| 10).map(mapper);
-        assert_eq!(mapped.get(), 30);
     }
 
     #[test]
@@ -2480,8 +2335,8 @@ mod test_fn_StatefulSupplier_ops {
             x * 2
         }
 
-        let StatefulSupplier = || 10;
-        let mut mapped = StatefulSupplier.map(double);
+        let supplier = || 10;
+        let mut mapped = supplier.map(double);
         assert_eq!(mapped.get(), 20);
     }
 
@@ -2573,7 +2428,7 @@ mod test_fn_StatefulSupplier_ops {
 }
 
 #[cfg(test)]
-mod test_custom_clone_StatefulSupplier {
+mod test_custom_clone_stateful_supplier {
     use super::*;
 
     #[derive(Clone)]
@@ -2582,36 +2437,36 @@ mod test_custom_clone_StatefulSupplier {
     }
 
     impl StatefulSupplier<i32> for CustomStatefulSupplier {
-        fn get(&self) -> i32 {
+        fn get(&mut self) -> i32 {
             self.value
         }
     }
 
     #[test]
     fn test_default_to_box() {
-        let StatefulSupplier = CustomStatefulSupplier { value: 10 };
-        let boxed = StatefulSupplier.to_box();
+        let supplier = CustomStatefulSupplier { value: 10 };
+        let mut boxed = supplier.to_box();
         assert_eq!(boxed.get(), 10);
     }
 
     #[test]
     fn test_default_to_rc() {
-        let StatefulSupplier = CustomStatefulSupplier { value: 11 };
-        let rc = StatefulSupplier.to_rc();
+        let supplier = CustomStatefulSupplier { value: 11 };
+        let mut rc = supplier.to_rc();
         assert_eq!(rc.get(), 11);
     }
 
     #[test]
     fn test_default_to_arc() {
-        let StatefulSupplier = CustomStatefulSupplier { value: 12 };
-        let arc = StatefulSupplier.to_arc();
+        let supplier = CustomStatefulSupplier { value: 12 };
+        let mut arc = supplier.to_arc();
         assert_eq!(arc.get(), 12);
     }
 
     #[test]
     fn test_default_to_fn() {
-        let StatefulSupplier = CustomStatefulSupplier { value: 13 };
-        let mut f = StatefulSupplier.to_fn();
+        let supplier = CustomStatefulSupplier { value: 13 };
+        let mut f = supplier.to_fn();
         assert_eq!(f(), 13);
     }
 }

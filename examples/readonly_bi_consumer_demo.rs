@@ -13,26 +13,33 @@
 //! neither modify their own state nor the input values.
 
 use prism3_function::{
-    ArcReadonlyBiConsumer, BoxReadonlyBiConsumer, RcReadonlyBiConsumer, ReadonlyBiConsumer,
+    ArcBiConsumer,
+    BiConsumer,
+    BoxBiConsumer,
+    RcBiConsumer,
 };
 use std::rc::Rc;
-use std::sync::{atomic::AtomicUsize, atomic::Ordering, Arc};
+use std::sync::{
+    atomic::AtomicUsize,
+    atomic::Ordering,
+    Arc,
+};
 use std::thread;
 
 fn main() {
     println!("=== ReadonlyBiConsumer Demo ===\n");
 
-    // 1. BoxReadonlyBiConsumer - Single ownership
-    println!("1. BoxReadonlyBiConsumer - Single ownership:");
-    let box_consumer = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    // 1. BoxBiConsumer - Single ownership
+    println!("1. BoxBiConsumer - Single ownership:");
+    let box_consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  Values: x={}, y={}, sum={}", x, y, x + y);
     });
     box_consumer.accept(&10, &5);
     println!();
 
-    // 2. Method chaining with BoxReadonlyBiConsumer
-    println!("2. BoxReadonlyBiConsumer with method chaining:");
-    let chained = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    // 2. Method chaining with BoxBiConsumer
+    println!("2. BoxBiConsumer with method chaining:");
+    let chained = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  First operation: x={}, y={}", x, y);
     })
     .and_then(|x: &i32, y: &i32| {
@@ -44,11 +51,11 @@ fn main() {
     chained.accept(&5, &3);
     println!();
 
-    // 3. ArcReadonlyBiConsumer - Thread-safe shared ownership
-    println!("3. ArcReadonlyBiConsumer - Thread-safe shared ownership:");
+    // 3. ArcBiConsumer - Thread-safe shared ownership
+    println!("3. ArcBiConsumer - Thread-safe shared ownership:");
     let counter = Arc::new(AtomicUsize::new(0));
     let c = counter.clone();
-    let arc_consumer = ArcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+    let arc_consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
         c.fetch_add(1, Ordering::SeqCst);
         println!("  Thread {:?}: sum={}", thread::current().id(), x + y);
     });
@@ -68,11 +75,11 @@ fn main() {
     handle2.join().unwrap();
     println!("  Total calls: {}\n", counter.load(Ordering::SeqCst));
 
-    // 4. RcReadonlyBiConsumer - Single-threaded shared ownership
-    println!("4. RcReadonlyBiConsumer - Single-threaded shared ownership:");
+    // 4. RcBiConsumer - Single-threaded shared ownership
+    println!("4. RcBiConsumer - Single-threaded shared ownership:");
     let counter = Rc::new(std::cell::Cell::new(0));
     let c = counter.clone();
-    let rc_consumer = RcReadonlyBiConsumer::new(move |x: &i32, y: &i32| {
+    let rc_consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
         c.set(c.get() + 1);
         println!("  Call {}: sum={}", c.get(), x + y);
     });
@@ -94,7 +101,7 @@ fn main() {
 
     // 6. Pure observation - logging
     println!("6. Pure observation - logging:");
-    let logger = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    let logger = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  [LOG] Processing pair: ({}, {})", x, y);
     });
     logger.accept(&5, &3);
@@ -103,13 +110,13 @@ fn main() {
 
     // 7. Chaining observations
     println!("7. Chaining observations:");
-    let log_input = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    let log_input = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  [INPUT] x={}, y={}", x, y);
     });
-    let log_sum = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    let log_sum = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  [SUM] {}", x + y);
     });
-    let log_product = BoxReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    let log_product = BoxBiConsumer::new(|x: &i32, y: &i32| {
         println!("  [PRODUCT] {}", x * y);
     });
 
@@ -117,12 +124,12 @@ fn main() {
     chained.accept(&5, &3);
     println!();
 
-    // 8. ArcReadonlyBiConsumer - Reusability
-    println!("8. ArcReadonlyBiConsumer - Reusability:");
-    let first = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    // 8. ArcBiConsumer - Reusability
+    println!("8. ArcBiConsumer - Reusability:");
+    let first = ArcBiConsumer::new(|x: &i32, y: &i32| {
         println!("  First: x={}, y={}", x, y);
     });
-    let second = ArcReadonlyBiConsumer::new(|x: &i32, y: &i32| {
+    let second = ArcBiConsumer::new(|x: &i32, y: &i32| {
         println!("  Second: sum={}", x + y);
     });
 
@@ -139,7 +146,7 @@ fn main() {
 
     // 9. Name support
     println!("9. Name support:");
-    let mut named_consumer = BoxReadonlyBiConsumer::<i32, i32>::noop();
+    let mut named_consumer = BoxBiConsumer::<i32, i32>::noop();
     println!("  Initial name: {:?}", named_consumer.name());
 
     named_consumer.set_name("sum_logger");
@@ -148,7 +155,7 @@ fn main() {
 
     // 10. No-op consumer
     println!("10. No-op consumer:");
-    let noop = BoxReadonlyBiConsumer::<i32, i32>::noop();
+    let noop = BoxBiConsumer::<i32, i32>::noop();
     noop.accept(&42, &10);
     println!("  No-op completed (no output expected)\n");
 

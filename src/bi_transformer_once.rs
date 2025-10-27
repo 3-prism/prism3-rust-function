@@ -21,7 +21,10 @@
 //!
 //! Hu Haixing
 
-use crate::bi_predicate::{BiPredicate, BoxBiPredicate};
+use crate::bi_predicate::{
+    BiPredicate,
+    BoxBiPredicate,
+};
 
 // ============================================================================
 // Core Trait

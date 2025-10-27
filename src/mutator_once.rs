@@ -137,7 +137,10 @@
 //!
 //! Haixing Hu
 
-use crate::predicate::{BoxPredicate, Predicate};
+use crate::predicate::{
+    BoxPredicate,
+    Predicate,
+};
 
 // ============================================================================
 // 1. MutatorOnce Trait - One-time Mutator Interface

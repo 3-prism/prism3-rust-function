@@ -8,8 +8,13 @@
  ******************************************************************************/
 
 use prism3_function::{
-    ArcUnaryOperator, BoxUnaryOperator, BoxUnaryOperatorOnce, RcUnaryOperator, Transformer,
-    TransformerOnce, UnaryOperator,
+    ArcUnaryOperator,
+    BoxUnaryOperator,
+    BoxUnaryOperatorOnce,
+    RcUnaryOperator,
+    Transformer,
+    TransformerOnce,
+    UnaryOperator,
 };
 use std::thread;
 

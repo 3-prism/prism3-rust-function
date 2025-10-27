@@ -6,7 +6,12 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use prism3_function::bi_predicate::{ArcBiPredicate, BiPredicate, BoxBiPredicate, RcBiPredicate};
+use prism3_function::bi_predicate::{
+    ArcBiPredicate,
+    BiPredicate,
+    BoxBiPredicate,
+    RcBiPredicate,
+};
 
 fn main() {
     println!("=== BoxBiPredicate always_true/always_false Demo ===\n");

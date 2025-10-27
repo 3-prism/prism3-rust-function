@@ -26,7 +26,12 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::bi_predicate::{ArcBiPredicate, BiPredicate, BoxBiPredicate, RcBiPredicate};
+use crate::bi_predicate::{
+    ArcBiPredicate,
+    BiPredicate,
+    BoxBiPredicate,
+    RcBiPredicate,
+};
 
 // ============================================================================
 // Core Trait

@@ -8,7 +8,10 @@
  ******************************************************************************/
 //! Tests for FnTransformerOps extension trait
 
-use prism3_function::{FnTransformerOps, Transformer};
+use prism3_function::{
+    FnTransformerOps,
+    Transformer,
+};
 
 #[cfg(test)]
 mod fn_transformer_ops_tests {

@@ -7,7 +7,12 @@
  *
  ******************************************************************************/
 
-use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+use prism3_function::{
+    ArcTransformer,
+    BoxTransformer,
+    RcTransformer,
+    Transformer,
+};
 use std::collections::HashMap;
 use std::thread;
 

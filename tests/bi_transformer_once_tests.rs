@@ -8,7 +8,10 @@
  ******************************************************************************/
 //! Tests for BiTransformerOnce trait and implementations
 
-use prism3_function::{BiTransformerOnce, BoxBiTransformerOnce};
+use prism3_function::{
+    BiTransformerOnce,
+    BoxBiTransformerOnce,
+};
 
 // ============================================================================
 // Tests for BiTransformerOnce trait

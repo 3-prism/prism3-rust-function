@@ -10,10 +10,17 @@
 //! Unit tests for the predicate module.
 
 use prism3_function::predicate::{
-    ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate,
+    ArcPredicate,
+    BoxPredicate,
+    FnPredicateOps,
+    Predicate,
+    RcPredicate,
 };
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 #[cfg(test)]
 mod closure_predicate_tests {

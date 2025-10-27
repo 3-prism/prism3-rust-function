@@ -11,7 +11,10 @@
 //! This example shows how to directly use and_then, compose, and when methods on FnOnce closures,
 //! without explicitly wrapping them in BoxTransformerOnce.
 
-use prism3_function::{FnTransformerOnceOps, TransformerOnce};
+use prism3_function::{
+    FnTransformerOnceOps,
+    TransformerOnce,
+};
 
 fn main() {
     println!("=== FnTransformerOnceOps Example ===\n");

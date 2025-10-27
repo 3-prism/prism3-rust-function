@@ -8,10 +8,18 @@
  ******************************************************************************/
 //! Demonstrates how into_fn and to_fn are used with function parameters that accept closures
 
-use prism3_function::{ArcConsumer, BoxConsumer, Consumer, RcConsumer};
+use prism3_function::{
+    ArcConsumer,
+    BoxConsumer,
+    Consumer,
+    RcConsumer,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 fn main() {
     println!("=== Consumer into_fn/to_fn Usage Examples ===\n");

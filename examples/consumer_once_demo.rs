@@ -10,8 +10,15 @@
 //!
 //! Demonstrates the usage of ConsumerOnce trait and its implementations.
 
-use prism3_function::{BoxConsumerOnce, ConsumerOnce, FnConsumerOnceOps};
-use std::sync::{Arc, Mutex};
+use prism3_function::{
+    BoxConsumerOnce,
+    ConsumerOnce,
+    FnConsumerOnceOps,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 fn main() {
     println!("=== ConsumerOnce Demo ===\n");

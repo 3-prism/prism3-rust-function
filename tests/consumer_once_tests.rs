@@ -13,8 +13,15 @@
 /// # ConsumerOnce Tests
 ///
 /// Unit tests for the ConsumerOnce trait and its implementations.
-use prism3_function::{BoxConsumerOnce, ConsumerOnce, FnConsumerOnceOps};
-use std::sync::{Arc, Mutex};
+use prism3_function::{
+    BoxConsumerOnce,
+    ConsumerOnce,
+    FnConsumerOnceOps,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 // ============================================================================
 // BoxConsumerOnce Tests
@@ -1328,7 +1335,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers can use to_box() (function pointers are Copy/Clone)
     #[test]
     fn test_fn_pointer_to_box() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -1346,7 +1356,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers can use to_fn() (function pointers are Copy/Clone)
     #[test]
     fn test_fn_pointer_to_fn() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -1364,7 +1377,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers preserve original after to_box()
     #[test]
     fn test_fn_pointer_to_box_preserves_original() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER2: AtomicUsize = AtomicUsize::new(0);
 
@@ -1385,7 +1401,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers preserve original after to_fn()
     #[test]
     fn test_fn_pointer_to_fn_preserves_original() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER3: AtomicUsize = AtomicUsize::new(0);
 
@@ -1406,7 +1425,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers called to_box() multiple times
     #[test]
     fn test_fn_pointer_to_box_multiple_times() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER4: AtomicUsize = AtomicUsize::new(0);
 
@@ -1427,7 +1449,10 @@ mod closure_to_xxx_methods_tests {
     /// Test function pointers called to_fn() multiple times
     #[test]
     fn test_fn_pointer_to_fn_multiple_times() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{
+            AtomicUsize,
+            Ordering,
+        };
 
         static COUNTER5: AtomicUsize = AtomicUsize::new(0);
 

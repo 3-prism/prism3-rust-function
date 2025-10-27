@@ -13,7 +13,10 @@
 
 #[cfg(test)]
 mod box_transformer_tests {
-    use prism3_function::{BoxTransformer, Transformer};
+    use prism3_function::{
+        BoxTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_new_and_apply() {
@@ -80,7 +83,10 @@ mod box_transformer_tests {
 
 #[cfg(test)]
 mod arc_transformer_tests {
-    use prism3_function::{ArcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        Transformer,
+    };
     use std::thread;
 
     #[test]
@@ -164,7 +170,10 @@ mod arc_transformer_tests {
 
 #[cfg(test)]
 mod rc_transformer_tests {
-    use prism3_function::{RcTransformer, Transformer};
+    use prism3_function::{
+        RcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_new_and_apply() {
@@ -232,7 +241,11 @@ mod rc_transformer_tests {
 
 #[cfg(test)]
 mod box_conditional_tests {
-    use prism3_function::{BoxPredicate, BoxTransformer, Transformer};
+    use prism3_function::{
+        BoxPredicate,
+        BoxTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_when_or_else() {
@@ -258,7 +271,11 @@ mod box_conditional_tests {
 
 #[cfg(test)]
 mod arc_conditional_tests {
-    use prism3_function::{ArcPredicate, ArcTransformer, Transformer};
+    use prism3_function::{
+        ArcPredicate,
+        ArcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_when_or_else() {
@@ -299,7 +316,11 @@ mod arc_conditional_tests {
 
 #[cfg(test)]
 mod rc_conditional_tests {
-    use prism3_function::{RcPredicate, RcTransformer, Transformer};
+    use prism3_function::{
+        RcPredicate,
+        RcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_when_or_else() {
@@ -344,7 +365,12 @@ mod rc_conditional_tests {
 
 #[cfg(test)]
 mod conversion_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_closure_to_box() {
@@ -431,7 +457,11 @@ mod conversion_tests {
 
 #[cfg(test)]
 mod to_conversion_tests {
-    use prism3_function::{ArcTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        RcTransformer,
+        Transformer,
+    };
     use std::thread;
 
     // ArcTransformer to_xxx tests
@@ -668,7 +698,10 @@ mod to_conversion_tests {
 
 #[cfg(test)]
 mod trait_usage_tests {
-    use prism3_function::{BoxTransformer, Transformer};
+    use prism3_function::{
+        BoxTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_transformer_trait() {
@@ -707,7 +740,12 @@ mod trait_usage_tests {
 
 #[cfg(test)]
 mod complex_composition_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_multiple_and_then() {
@@ -759,7 +797,11 @@ mod complex_composition_tests {
 
 #[cfg(test)]
 mod edge_cases_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_identity_composition() {
@@ -816,7 +858,10 @@ mod edge_cases_tests {
 
 #[cfg(test)]
 mod default_implementation_tests {
-    use prism3_function::{BoxTransformer, Transformer};
+    use prism3_function::{
+        BoxTransformer,
+        Transformer,
+    };
     use std::thread;
 
     // A custom transformer that only implements the core `transform`
@@ -952,7 +997,12 @@ mod default_implementation_tests {
 
 #[cfg(test)]
 mod specialized_into_fn_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+    };
     use std::thread;
 
     #[test]
@@ -1156,7 +1206,12 @@ mod specialized_into_fn_tests {
 
 #[cfg(test)]
 mod type_conversion_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+    };
 
     #[test]
     fn test_box_into_box() {
@@ -1251,7 +1306,11 @@ mod type_conversion_tests {
 
 #[cfg(test)]
 mod transformer_default_to_methods_tests {
-    use prism3_function::{ArcTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        RcTransformer,
+        Transformer,
+    };
     use std::thread;
 
     // ========================================================================
@@ -1640,7 +1699,12 @@ mod transformer_default_to_methods_tests {
 
 #[cfg(test)]
 mod custom_transformer_to_methods_tests {
-    use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, Transformer};
+    use prism3_function::{
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+    };
     use std::thread;
 
     /// Custom Transformer implementation for testing default to_xxx methods
@@ -2058,7 +2122,11 @@ mod custom_transformer_to_methods_tests {
 #[cfg(test)]
 mod transformer_once_tests {
     use prism3_function::{
-        ArcTransformer, BoxTransformer, RcTransformer, Transformer, TransformerOnce,
+        ArcTransformer,
+        BoxTransformer,
+        RcTransformer,
+        Transformer,
+        TransformerOnce,
     };
     use std::sync::Arc;
     use std::thread;

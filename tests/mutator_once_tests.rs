@@ -10,7 +10,11 @@
 //!
 //! Tests the complete functionality of MutatorOnce trait and its implementations.
 
-use prism3_function::{BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
+use prism3_function::{
+    BoxMutatorOnce,
+    FnMutatorOnceOps,
+    MutatorOnce,
+};
 
 // Test closures specialization and default behaviors
 #[test]

@@ -19,11 +19,18 @@
 //! - Type conversions
 
 use prism3_function::predicate::{
-    ArcPredicate, BoxPredicate, FnPredicateOps, Predicate, RcPredicate,
+    ArcPredicate,
+    BoxPredicate,
+    FnPredicateOps,
+    Predicate,
+    RcPredicate,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 fn main() {
     println!("=== Predicate Usage Examples ===\n");

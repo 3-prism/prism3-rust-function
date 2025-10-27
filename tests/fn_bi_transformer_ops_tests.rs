@@ -7,7 +7,10 @@
  *
  ******************************************************************************/
 
-use prism3_function::{BiTransformer, FnBiTransformerOps};
+use prism3_function::{
+    BiTransformer,
+    FnBiTransformerOps,
+};
 
 #[cfg(test)]
 mod fn_bi_transformer_ops_tests {

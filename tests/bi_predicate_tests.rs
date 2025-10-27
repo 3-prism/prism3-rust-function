@@ -10,7 +10,11 @@
 #[cfg(test)]
 mod tests {
     use prism3_function::bi_predicate::{
-        ArcBiPredicate, BiPredicate, BoxBiPredicate, FnBiPredicateOps, RcBiPredicate,
+        ArcBiPredicate,
+        BiPredicate,
+        BoxBiPredicate,
+        FnBiPredicateOps,
+        RcBiPredicate,
     };
     use std::thread;
 
@@ -1887,7 +1891,11 @@ mod tests {
 
 #[cfg(test)]
 mod to_fn_tests {
-    use prism3_function::bi_predicate::{ArcBiPredicate, BiPredicate, RcBiPredicate};
+    use prism3_function::bi_predicate::{
+        ArcBiPredicate,
+        BiPredicate,
+        RcBiPredicate,
+    };
 
     #[test]
     fn test_rc_to_fn() {

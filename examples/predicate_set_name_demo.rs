@@ -9,7 +9,12 @@
 
 //! Demonstrates the set_name and new_with_name methods of Predicate
 
-use prism3_function::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+use prism3_function::predicate::{
+    ArcPredicate,
+    BoxPredicate,
+    Predicate,
+    RcPredicate,
+};
 
 fn main() {
     println!("=== Predicate Naming Functionality Demo ===\n");

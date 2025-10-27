@@ -10,8 +10,14 @@
 //!
 //! Demonstrates conditional execution features of BoxMutatorOnce
 
-use prism3_function::predicate::{BoxPredicate, FnPredicateOps};
-use prism3_function::{BoxMutatorOnce, MutatorOnce};
+use prism3_function::predicate::{
+    BoxPredicate,
+    FnPredicateOps,
+};
+use prism3_function::{
+    BoxMutatorOnce,
+    MutatorOnce,
+};
 
 fn main() {
     println!("=== MutatorOnce Conditional Execution Examples ===\n");

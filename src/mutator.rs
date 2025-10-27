@@ -194,10 +194,21 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
-use crate::mutator_once::{BoxMutatorOnce, MutatorOnce};
-use crate::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+use crate::mutator_once::{
+    BoxMutatorOnce,
+    MutatorOnce,
+};
+use crate::predicate::{
+    ArcPredicate,
+    BoxPredicate,
+    Predicate,
+    RcPredicate,
+};
 
 // ============================================================================
 // 1. Mutator Trait - Unified Mutator Interface

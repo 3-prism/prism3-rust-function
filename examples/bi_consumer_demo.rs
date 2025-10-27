@@ -12,10 +12,20 @@
 //! This example demonstrates the usage of BiConsumer types after
 //! refactoring to use &T, &U semantics (not modifying input values).
 
-use prism3_function::{ArcBiConsumer, BiConsumer, BoxBiConsumer, RcBiConsumer};
+use prism3_function::{
+    ArcBiConsumer,
+    BiConsumer,
+    BoxBiConsumer,
+    BoxStatefulBiConsumer,
+    RcBiConsumer,
+    StatefulBiConsumer,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
 
 fn main() {
@@ -25,7 +35,7 @@ fn main() {
     println!("1. BoxBiConsumer - Single ownership:");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
-    let mut box_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    let box_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
         println!("  Processing: x={}, y={}", x, y);
         l.lock().unwrap().push(*x + *y);
     });
@@ -37,7 +47,7 @@ fn main() {
     let log = Arc::new(Mutex::new(Vec::new()));
     let l1 = log.clone();
     let l2 = log.clone();
-    let mut chained = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    let chained = BoxBiConsumer::new(move |x: &i32, y: &i32| {
         l1.lock().unwrap().push(*x + *y);
         println!("  After first operation: sum = {}", x + y);
     })
@@ -61,12 +71,12 @@ fn main() {
     let consumer2 = arc_consumer.clone();
 
     let handle1 = thread::spawn(move || {
-        let mut c = consumer1;
+        let c = consumer1;
         c.accept(&10, &5);
     });
 
     let handle2 = thread::spawn(move || {
-        let mut c = consumer2;
+        let c = consumer2;
         c.accept(&20, &8);
     });
 
@@ -82,8 +92,8 @@ fn main() {
         l.borrow_mut().push(*x + *y);
     });
 
-    let mut clone1 = rc_consumer.clone();
-    let mut clone2 = rc_consumer.clone();
+    let clone1 = rc_consumer.clone();
+    let clone2 = rc_consumer.clone();
 
     clone1.accept(&5, &3);
     println!("  After first use: {:?}", *log.borrow());
@@ -95,7 +105,7 @@ fn main() {
     println!("5. Working with closures directly:");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
-    let mut closure = move |x: &i32, y: &i32| {
+    let closure = move |x: &i32, y: &i32| {
         let sum = *x + *y;
         l.lock().unwrap().push(sum);
     };
@@ -106,7 +116,7 @@ fn main() {
     println!("6. Conditional BiConsumer:");
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
-    let mut conditional = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    let mut conditional = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
         l.lock().unwrap().push(*x + *y);
     })
     .when(|x: &i32, y: &i32| *x > 0 && *y > 0);
@@ -122,7 +132,7 @@ fn main() {
     let log = Arc::new(Mutex::new(Vec::new()));
     let l1 = log.clone();
     let l2 = log.clone();
-    let mut branch = BoxBiConsumer::new(move |x: &i32, _y: &i32| {
+    let mut branch = BoxStatefulBiConsumer::new(move |x: &i32, _y: &i32| {
         l1.lock().unwrap().push(*x);
     })
     .when(|x: &i32, y: &i32| *x > *y)
@@ -142,7 +152,7 @@ fn main() {
     let sum = Arc::new(Mutex::new(0));
     let c = count.clone();
     let s = sum.clone();
-    let mut stats_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+    let stats_consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
         *c.lock().unwrap() += 1;
         *s.lock().unwrap() += x + y;
     });

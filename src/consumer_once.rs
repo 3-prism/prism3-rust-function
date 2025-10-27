@@ -33,7 +33,10 @@
 
 use std::fmt;
 
-use crate::predicate::{BoxPredicate, Predicate};
+use crate::predicate::{
+    BoxPredicate,
+    Predicate,
+};
 
 // ============================================================================
 // 1. ConsumerOnce Trait - Unified ConsumerOnce Interface

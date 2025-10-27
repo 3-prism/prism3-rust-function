@@ -6,7 +6,12 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-use prism3_function::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+use prism3_function::predicate::{
+    ArcPredicate,
+    BoxPredicate,
+    Predicate,
+    RcPredicate,
+};
 
 fn main() {
     println!("=== BoxPredicate always_true/always_false Demo ===\n");

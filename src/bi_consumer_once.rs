@@ -38,7 +38,10 @@
 
 use std::fmt;
 
-use crate::bi_predicate::{BiPredicate, BoxBiPredicate};
+use crate::bi_predicate::{
+    BiPredicate,
+    BoxBiPredicate,
+};
 
 // ==========================================================================
 // Type Aliases

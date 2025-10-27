@@ -7,7 +7,11 @@
  *
  ******************************************************************************/
 use prism3_function::comparator::{
-    ArcComparator, BoxComparator, Comparator, FnComparatorOps, RcComparator,
+    ArcComparator,
+    BoxComparator,
+    Comparator,
+    FnComparatorOps,
+    RcComparator,
 };
 use std::cmp::Ordering;
 

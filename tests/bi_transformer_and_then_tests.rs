@@ -17,8 +17,13 @@
 #[cfg(test)]
 mod tests {
     use prism3_function::{
-        ArcBiTransformer, ArcTransformer, BiTransformer, BoxBiTransformer, BoxTransformer,
-        RcBiTransformer, RcTransformer,
+        ArcBiTransformer,
+        ArcTransformer,
+        BiTransformer,
+        BoxBiTransformer,
+        BoxTransformer,
+        RcBiTransformer,
+        RcTransformer,
     };
 
     // ========================================================================

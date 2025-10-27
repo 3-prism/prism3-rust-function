@@ -9,8 +9,15 @@
 
 //! Tests for BiConsumerOnce types
 
-use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce, FnBiConsumerOnceOps};
-use std::sync::{Arc, Mutex};
+use prism3_function::{
+    BiConsumerOnce,
+    BoxBiConsumerOnce,
+    FnBiConsumerOnceOps,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 #[cfg(test)]
 mod box_bi_consumer_once_tests {

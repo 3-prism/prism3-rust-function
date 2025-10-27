@@ -7,7 +7,10 @@
  *
  ******************************************************************************/
 
-use prism3_function::{BoxTransformerOnce, TransformerOnce};
+use prism3_function::{
+    BoxTransformerOnce,
+    TransformerOnce,
+};
 
 // ============================================================================
 // BoxTransformerOnce Tests - Consuming, single ownership
@@ -653,7 +656,10 @@ mod custom_type_default_impl_tests {
 
 #[cfg(test)]
 mod box_transformer_transformer_once_tests {
-    use prism3_function::{BoxTransformer, TransformerOnce};
+    use prism3_function::{
+        BoxTransformer,
+        TransformerOnce,
+    };
 
     #[test]
     fn test_box_transformer_apply_once() {
@@ -697,7 +703,10 @@ mod box_transformer_transformer_once_tests {
 
 #[cfg(test)]
 mod rc_transformer_transformer_once_tests {
-    use prism3_function::{RcTransformer, TransformerOnce};
+    use prism3_function::{
+        RcTransformer,
+        TransformerOnce,
+    };
 
     #[test]
     fn test_rc_transformer_apply_once() {
@@ -751,7 +760,10 @@ mod rc_transformer_transformer_once_tests {
 
 #[cfg(test)]
 mod arc_transformer_transformer_once_tests {
-    use prism3_function::{ArcTransformer, TransformerOnce};
+    use prism3_function::{
+        ArcTransformer,
+        TransformerOnce,
+    };
     use std::sync::Arc;
     use std::thread;
 

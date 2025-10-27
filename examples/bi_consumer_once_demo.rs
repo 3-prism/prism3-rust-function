@@ -12,8 +12,14 @@
 //! This example demonstrates the usage of BoxBiConsumerOnce type, which
 //! consumes itself on first call.
 
-use prism3_function::{BiConsumerOnce, BoxBiConsumerOnce};
-use std::sync::{Arc, Mutex};
+use prism3_function::{
+    BiConsumerOnce,
+    BoxBiConsumerOnce,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 fn main() {
     println!("=== BiConsumerOnce Demo ===\n");

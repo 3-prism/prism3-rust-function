@@ -10,11 +10,23 @@
 //! Unit tests for Consumer types (immutable)
 
 use prism3_function::{
-    ArcConsumer, BoxConsumer, Consumer, ConsumerOnce, FnConsumerOps, RcConsumer,
+    ArcConsumer,
+    ArcStatefulConsumer,
+    BoxConsumer,
+    BoxStatefulConsumer,
+    Consumer,
+    ConsumerOnce,
+    FnConsumerOps,
+    RcConsumer,
+    RcStatefulConsumer,
+    StatefulConsumer,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 // ============================================================================
 // BoxConsumer Tests
@@ -28,7 +40,7 @@ mod test_box_consumer {
     fn test_new() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let value = 5;
@@ -41,7 +53,7 @@ mod test_box_consumer {
         // String
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |s: &String| {
+        let mut consumer = BoxStatefulConsumer::new(move |s: &String| {
             *l.lock().unwrap() = format!("Got: {}", s);
         });
         let text = String::from("hello");
@@ -51,7 +63,7 @@ mod test_box_consumer {
         // Vec
         let log = Arc::new(Mutex::new(0));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |v: &Vec<i32>| {
+        let mut consumer = BoxStatefulConsumer::new(move |v: &Vec<i32>| {
             *l.lock().unwrap() = v.len();
         });
         let numbers = vec![1, 2, 3];
@@ -61,7 +73,7 @@ mod test_box_consumer {
         // bool
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |b: &bool| {
+        let mut consumer = BoxStatefulConsumer::new(move |b: &bool| {
             *l.lock().unwrap() = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
@@ -74,7 +86,7 @@ mod test_box_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x * 2);
         })
         .and_then(move |x: &i32| {
@@ -92,7 +104,7 @@ mod test_box_consumer {
         let l1 = log.clone();
         let l2 = log.clone();
         let l3 = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x + 1);
         })
         .and_then(move |x: &i32| {
@@ -112,10 +124,10 @@ mod test_box_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let c1 = BoxConsumer::new(move |x: &i32| {
+        let c1 = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x * 2);
         });
-        let c2 = BoxConsumer::new(move |x: &i32| {
+        let c2 = BoxStatefulConsumer::new(move |x: &i32| {
             l2.lock().unwrap().push(*x + 10);
         });
         let mut combined = c1.and_then(c2);
@@ -127,7 +139,7 @@ mod test_box_consumer {
 
     #[test]
     fn test_noop() {
-        let mut noop = BoxConsumer::<i32>::noop();
+        let noop = BoxConsumer::<i32>::noop();
         let value = 42;
         noop.accept(&value);
         // No assertion needed, just ensure it doesn't panic
@@ -139,7 +151,7 @@ mod test_box_consumer {
     fn test_if_then() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|x: &i32| *x > 0);
@@ -158,7 +170,7 @@ mod test_box_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
@@ -176,14 +188,15 @@ mod test_box_consumer {
 
     #[test]
     fn test_debug() {
-        let consumer = BoxConsumer::new(|_x: &i32| {});
+        let consumer = BoxStatefulConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("BoxConsumer"));
     }
 
     #[test]
     fn test_debug_with_name() {
-        let consumer = BoxConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let mut consumer = BoxStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("BoxConsumer"));
         assert!(debug_str.contains("test_consumer"));
@@ -191,14 +204,15 @@ mod test_box_consumer {
 
     #[test]
     fn test_display() {
-        let consumer = BoxConsumer::new(|_x: &i32| {});
+        let consumer = BoxStatefulConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "BoxConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let consumer = BoxConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let mut consumer = BoxStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("my_consumer");
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "BoxConsumer(my_consumer)");
     }
@@ -207,7 +221,7 @@ mod test_box_consumer {
     fn test_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut func = consumer.into_fn();
@@ -220,7 +234,7 @@ mod test_box_consumer {
     fn test_into_rc_from_box() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut rc_consumer = consumer.into_rc();
@@ -232,7 +246,7 @@ mod test_box_consumer {
     fn test_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut box_consumer = consumer.into_box();
@@ -253,7 +267,7 @@ mod test_arc_consumer {
     fn test_new() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new(move |x: &i32| {
+        let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let value = 5;
@@ -265,7 +279,7 @@ mod test_arc_consumer {
     fn test_clone() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new(move |x: &i32| {
+        let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut clone = consumer.clone();
@@ -280,10 +294,10 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let first = ArcConsumer::new(move |x: &i32| {
+        let first = ArcStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x * 2);
         });
-        let second = ArcConsumer::new(move |x: &i32| {
+        let second = ArcStatefulConsumer::new(move |x: &i32| {
             l2.lock().unwrap().push(*x + 10);
         });
         let mut chained = first.and_then(&second);
@@ -297,7 +311,7 @@ mod test_arc_consumer {
     fn test_thread_safety() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
 
@@ -322,21 +336,22 @@ mod test_arc_consumer {
 
     #[test]
     fn test_noop() {
-        let mut noop = ArcConsumer::<i32>::noop();
+        let noop = ArcConsumer::<i32>::noop();
         noop.accept(&42);
         // No assertion needed, just ensure it doesn't panic
     }
 
     #[test]
     fn test_debug() {
-        let consumer = ArcConsumer::new(|_x: &i32| {});
+        let consumer = ArcStatefulConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("ArcConsumer"));
     }
 
     #[test]
     fn test_debug_with_name() {
-        let consumer = ArcConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let mut consumer = ArcStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("ArcConsumer"));
         assert!(debug_str.contains("test_consumer"));
@@ -344,14 +359,15 @@ mod test_arc_consumer {
 
     #[test]
     fn test_display() {
-        let consumer = ArcConsumer::new(|_x: &i32| {});
+        let consumer = ArcStatefulConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "ArcConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let consumer = ArcConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let mut consumer = ArcStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("my_consumer");
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "ArcConsumer(my_consumer)");
     }
@@ -360,7 +376,7 @@ mod test_arc_consumer {
     fn test_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut func = consumer.into_fn();
@@ -373,7 +389,7 @@ mod test_arc_consumer {
     fn test_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut box_consumer = consumer.into_box();
@@ -385,7 +401,7 @@ mod test_arc_consumer {
     fn test_into_rc() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut rc_consumer = consumer.into_rc();
@@ -397,7 +413,7 @@ mod test_arc_consumer {
     fn test_into_arc() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let arc_consumer = consumer.into_arc();
@@ -414,7 +430,7 @@ mod test_arc_consumer {
     fn test_accept_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         consumer.accept_once(&5);
@@ -426,7 +442,7 @@ mod test_arc_consumer {
         // String
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |s: &String| {
+        let consumer = ArcStatefulConsumer::new(move |s: &String| {
             *l.lock().unwrap() = format!("Got: {}", s);
         });
         let text = String::from("hello");
@@ -436,7 +452,7 @@ mod test_arc_consumer {
         // Vec
         let log = Arc::new(Mutex::new(0));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |v: &Vec<i32>| {
+        let consumer = ArcStatefulConsumer::new(move |v: &Vec<i32>| {
             *l.lock().unwrap() = v.len();
         });
         let numbers = vec![1, 2, 3];
@@ -446,7 +462,7 @@ mod test_arc_consumer {
         // bool
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |b: &bool| {
+        let consumer = ArcStatefulConsumer::new(move |b: &bool| {
             *l.lock().unwrap() = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
@@ -458,7 +474,7 @@ mod test_arc_consumer {
     fn test_into_box_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let box_consumer_once = consumer.into_box_once();
@@ -470,7 +486,7 @@ mod test_arc_consumer {
     fn test_into_fn_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let func = consumer.into_fn_once();
@@ -482,7 +498,7 @@ mod test_arc_consumer {
     fn test_to_box_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new(move |x: &i32| {
+        let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let box_consumer_once = consumer.to_box_once();
@@ -497,7 +513,7 @@ mod test_arc_consumer {
     fn test_to_fn_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new(move |x: &i32| {
+        let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let func = consumer.to_fn_once();
@@ -513,7 +529,7 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let mut counter = 0;
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             counter += 1;
             l.lock().unwrap().push(*x + counter);
         });
@@ -525,7 +541,7 @@ mod test_arc_consumer {
     fn test_consumer_once_consumes_self() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
 
@@ -550,7 +566,7 @@ mod test_rc_consumer {
     fn test_new() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new(move |x: &i32| {
+        let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let value = 5;
@@ -562,7 +578,7 @@ mod test_rc_consumer {
     fn test_clone() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new(move |x: &i32| {
+        let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut clone = consumer.clone();
@@ -577,10 +593,10 @@ mod test_rc_consumer {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let first = RcConsumer::new(move |x: &i32| {
+        let first = RcStatefulConsumer::new(move |x: &i32| {
             l1.borrow_mut().push(*x * 2);
         });
-        let second = RcConsumer::new(move |x: &i32| {
+        let second = RcStatefulConsumer::new(move |x: &i32| {
             l2.borrow_mut().push(*x + 10);
         });
         let mut chained = first.and_then(&second);
@@ -592,21 +608,22 @@ mod test_rc_consumer {
 
     #[test]
     fn test_noop() {
-        let mut noop = RcConsumer::<i32>::noop();
+        let noop = RcConsumer::<i32>::noop();
         noop.accept(&42);
         // No assertion needed, just ensure it doesn't panic
     }
 
     #[test]
     fn test_debug() {
-        let consumer = RcConsumer::new(|_x: &i32| {});
+        let consumer = RcStatefulConsumer::new(|_x: &i32| {});
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("RcConsumer"));
     }
 
     #[test]
     fn test_debug_with_name() {
-        let consumer = RcConsumer::new_with_name("test_consumer", |_x: &i32| {});
+        let mut consumer = RcStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("test_consumer");
         let debug_str = format!("{:?}", consumer);
         assert!(debug_str.contains("RcConsumer"));
         assert!(debug_str.contains("test_consumer"));
@@ -614,14 +631,15 @@ mod test_rc_consumer {
 
     #[test]
     fn test_display() {
-        let consumer = RcConsumer::new(|_x: &i32| {});
+        let consumer = RcStatefulConsumer::new(|_x: &i32| {});
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "RcConsumer");
     }
 
     #[test]
     fn test_display_with_name() {
-        let consumer = RcConsumer::new_with_name("my_consumer", |_x: &i32| {});
+        let mut consumer = RcStatefulConsumer::new(|_x: &i32| {});
+        consumer.set_name("my_consumer");
         let display_str = format!("{}", consumer);
         assert_eq!(display_str, "RcConsumer(my_consumer)");
     }
@@ -630,7 +648,7 @@ mod test_rc_consumer {
     fn test_into_fn() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut func = consumer.into_fn();
@@ -643,7 +661,7 @@ mod test_rc_consumer {
     fn test_into_box() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut box_consumer = consumer.into_box();
@@ -655,7 +673,7 @@ mod test_rc_consumer {
     fn test_into_rc() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let rc_consumer = consumer.into_rc();
@@ -677,10 +695,10 @@ mod test_conversions {
     fn test_box_to_rc() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let box_consumer = BoxConsumer::new(move |x: &i32| {
+        let box_consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
-        let mut rc_consumer: RcConsumer<i32> = box_consumer.into_rc();
+        let mut rc_consumer: RcStatefulConsumer<i32> = box_consumer.into_rc();
         rc_consumer.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);
     }
@@ -695,7 +713,7 @@ mod test_conversions {
     fn test_accept_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         consumer.accept_once(&5);
@@ -707,7 +725,7 @@ mod test_conversions {
         // String
         let log = Rc::new(RefCell::new(String::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |s: &String| {
+        let consumer = RcStatefulConsumer::new(move |s: &String| {
             *l.borrow_mut() = format!("Got: {}", s);
         });
         let text = String::from("hello");
@@ -717,7 +735,7 @@ mod test_conversions {
         // Vec
         let log = Rc::new(RefCell::new(0));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |v: &Vec<i32>| {
+        let consumer = RcStatefulConsumer::new(move |v: &Vec<i32>| {
             *l.borrow_mut() = v.len();
         });
         let numbers = vec![1, 2, 3];
@@ -727,7 +745,7 @@ mod test_conversions {
         // bool
         let log = Rc::new(RefCell::new(String::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |b: &bool| {
+        let consumer = RcStatefulConsumer::new(move |b: &bool| {
             *l.borrow_mut() = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
@@ -739,7 +757,7 @@ mod test_conversions {
     fn test_into_box_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let box_consumer_once = consumer.into_box_once();
@@ -751,7 +769,7 @@ mod test_conversions {
     fn test_into_fn_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let func = consumer.into_fn_once();
@@ -763,7 +781,7 @@ mod test_conversions {
     fn test_to_box_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new(move |x: &i32| {
+        let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let box_consumer_once = consumer.to_box_once();
@@ -778,7 +796,7 @@ mod test_conversions {
     fn test_to_fn_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new(move |x: &i32| {
+        let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let func = consumer.to_fn_once();
@@ -794,7 +812,7 @@ mod test_conversions {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
         let mut counter = 0;
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             counter += 1;
             l.borrow_mut().push(*x + counter);
         });
@@ -806,7 +824,7 @@ mod test_conversions {
     fn test_consumer_once_consumes_self() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
 
@@ -882,7 +900,7 @@ mod test_fn_consumer_ops {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut chained = (move |x: &i32| {
+        let chained = (move |x: &i32| {
             l1.lock().unwrap().push(*x * 2);
         })
         .and_then(move |x: &i32| {
@@ -901,7 +919,7 @@ mod test_fn_consumer_ops {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x);
         };
-        let mut boxed: BoxConsumer<i32> = closure.into_box();
+        let boxed: BoxConsumer<i32> = Consumer::into_box(closure);
         boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
@@ -913,7 +931,7 @@ mod test_fn_consumer_ops {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x);
         };
-        let mut arc: ArcConsumer<i32> = closure.into_arc();
+        let arc: ArcConsumer<i32> = Consumer::into_arc(closure);
         arc.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
@@ -925,7 +943,7 @@ mod test_fn_consumer_ops {
         let closure = move |x: &i32| {
             l.borrow_mut().push(*x);
         };
-        let mut rc: RcConsumer<i32> = closure.into_rc();
+        let rc: RcConsumer<i32> = Consumer::into_rc(closure);
         rc.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);
     }
@@ -938,7 +956,7 @@ mod test_fn_consumer_ops {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         };
-        let mut func = closure.into_fn();
+        let func = Consumer::into_fn(closure);
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
@@ -1065,9 +1083,10 @@ mod test_consumer_names {
     fn test_box_consumer_with_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new_with_name("logger", move |x: &i32| {
+        let mut consumer = BoxConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
+        consumer.set_name("logger");
         assert_eq!(consumer.name(), Some("logger"));
         consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -1077,7 +1096,7 @@ mod test_consumer_names {
     fn test_box_consumer_set_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         assert_eq!(consumer.name(), None);
@@ -1089,9 +1108,10 @@ mod test_consumer_names {
     fn test_arc_consumer_with_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new_with_name("logger", move |x: &i32| {
+        let mut consumer = ArcConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
+        consumer.set_name("logger");
         assert_eq!(consumer.name(), Some("logger"));
         consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -1101,7 +1121,7 @@ mod test_consumer_names {
     fn test_arc_consumer_set_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcConsumer::new(move |x: &i32| {
+        let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         assert_eq!(consumer.name(), None);
@@ -1113,9 +1133,10 @@ mod test_consumer_names {
     fn test_rc_consumer_with_name() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new_with_name("logger", move |x: &i32| {
+        let mut consumer = RcConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
+        consumer.set_name("logger");
         assert_eq!(consumer.name(), Some("logger"));
         consumer.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);
@@ -1125,7 +1146,7 @@ mod test_consumer_names {
     fn test_rc_consumer_set_name() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcConsumer::new(move |x: &i32| {
+        let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         assert_eq!(consumer.name(), None);
@@ -1146,7 +1167,7 @@ mod test_to_fn {
     fn test_arc_consumer_to_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut func = consumer.to_fn();
@@ -1159,7 +1180,7 @@ mod test_to_fn {
     fn test_rc_consumer_to_fn() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut func = consumer.to_fn();
@@ -1191,7 +1212,7 @@ mod test_edge_cases {
     fn test_if_then_with_always_true() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|_: &i32| true);
@@ -1204,7 +1225,7 @@ mod test_edge_cases {
     fn test_if_then_with_always_false() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|_: &i32| false);
@@ -1218,7 +1239,7 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|_: &i32| true).or_else(move |x: &i32| {
@@ -1233,7 +1254,7 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|_: &i32| false).or_else(move |x: &i32| {
@@ -1247,10 +1268,10 @@ mod test_edge_cases {
     fn test_and_then_with_noop() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         })
-        .and_then(BoxConsumer::noop());
+        .and_then(BoxStatefulConsumer::noop());
         consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
@@ -1262,13 +1283,13 @@ mod test_edge_cases {
         let l2 = log.clone();
         let l3 = log.clone();
         let l4 = log.clone();
-        let mut consumer = BoxConsumer::new(move |x: &i32| {
+        let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         })
         .and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x * 2);
         })
-        .and_then(BoxConsumer::noop())
+        .and_then(BoxStatefulConsumer::noop())
         .and_then(move |x: &i32| {
             l3.lock().unwrap().push(*x + 10);
         })
@@ -1283,7 +1304,7 @@ mod test_edge_cases {
     fn test_box_conditional_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1298,7 +1319,7 @@ mod test_edge_cases {
     fn test_box_conditional_into_rc() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1313,7 +1334,7 @@ mod test_edge_cases {
     fn test_box_conditional_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1329,7 +1350,7 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1346,7 +1367,7 @@ mod test_edge_cases {
     fn test_arc_when() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let mut conditional = consumer.when(|x: &i32| *x > 0);
@@ -1360,7 +1381,7 @@ mod test_edge_cases {
     fn test_arc_conditional_clone() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1377,7 +1398,7 @@ mod test_edge_cases {
     fn test_arc_conditional_into_arc() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1392,7 +1413,7 @@ mod test_edge_cases {
     fn test_arc_conditional_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1407,7 +1428,7 @@ mod test_edge_cases {
     fn test_arc_conditional_into_rc() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1422,7 +1443,7 @@ mod test_edge_cases {
     fn test_arc_conditional_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1438,7 +1459,7 @@ mod test_edge_cases {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l1.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1455,7 +1476,7 @@ mod test_edge_cases {
     fn test_rc_when() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let mut conditional = consumer.when(|x: &i32| *x > 0);
@@ -1469,7 +1490,7 @@ mod test_edge_cases {
     fn test_rc_conditional_clone() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1486,7 +1507,7 @@ mod test_edge_cases {
     fn test_rc_conditional_into_rc() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1501,7 +1522,7 @@ mod test_edge_cases {
     fn test_rc_conditional_into_box() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1516,7 +1537,7 @@ mod test_edge_cases {
     fn test_rc_conditional_into_fn() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1532,7 +1553,7 @@ mod test_edge_cases {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l1.borrow_mut().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
@@ -1559,7 +1580,7 @@ mod test_default_into_implementations {
         log: Arc<Mutex<Vec<i32>>>,
     }
 
-    impl Consumer<i32> for CustomConsumer {
+    impl StatefulConsumer<i32> for CustomConsumer {
         fn accept(&mut self, value: &i32) {
             self.log.lock().unwrap().push(*value * 10);
         }
@@ -1624,7 +1645,7 @@ mod test_default_into_implementations {
         let l2 = log.clone();
 
         let custom = CustomConsumer { log: l1 };
-        let box_consumer = BoxConsumer::new(move |x: &i32| {
+        let box_consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l2.lock().unwrap().push(*x + 1);
         });
 
@@ -1654,12 +1675,12 @@ mod test_default_into_implementations {
     }
 
     // Define a stateful custom Consumer
-    struct StatefulConsumer {
+    struct StatefulConsumerImpl {
         log: Arc<Mutex<Vec<i32>>>,
         multiplier: i32,
     }
 
-    impl Consumer<i32> for StatefulConsumer {
+    impl StatefulConsumer<i32> for StatefulConsumerImpl {
         fn accept(&mut self, value: &i32) {
             self.log.lock().unwrap().push(*value * self.multiplier);
             self.multiplier += 1; // Increment multiplier after each call
@@ -1669,7 +1690,7 @@ mod test_default_into_implementations {
     #[test]
     fn test_stateful_consumer_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let stateful = StatefulConsumer {
+        let stateful = StatefulConsumerImpl {
             log: log.clone(),
             multiplier: 2,
         };
@@ -1685,7 +1706,7 @@ mod test_default_into_implementations {
     #[test]
     fn test_stateful_consumer_into_rc() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let stateful = StatefulConsumer {
+        let stateful = StatefulConsumerImpl {
             log: log.clone(),
             multiplier: 3,
         };
@@ -1700,7 +1721,7 @@ mod test_default_into_implementations {
     #[test]
     fn test_stateful_consumer_into_arc() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let stateful = StatefulConsumer {
+        let stateful = StatefulConsumerImpl {
             log: log.clone(),
             multiplier: 5,
         };
@@ -1716,7 +1737,7 @@ mod test_default_into_implementations {
     #[test]
     fn test_stateful_consumer_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
-        let stateful = StatefulConsumer {
+        let stateful = StatefulConsumerImpl {
             log: log.clone(),
             multiplier: 1,
         };
@@ -1761,7 +1782,7 @@ fn test_arcconsumer_to_box_rc_arc_and_fn() {
     let log = Arc::new(Mutex::new(Vec::new()));
     let l = log.clone();
 
-    let consumer = ArcConsumer::new(move |x: &i32| {
+    let consumer = ArcStatefulConsumer::new(move |x: &i32| {
         l.lock().unwrap().push(*x + 1);
     });
 
@@ -1792,7 +1813,7 @@ fn test_rcconsumer_to_box_rc_and_fn() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let l = log.clone();
 
-    let consumer = RcConsumer::new(move |x: &i32| {
+    let consumer = RcStatefulConsumer::new(move |x: &i32| {
         l.borrow_mut().push(*x + 2);
     });
 
@@ -1825,7 +1846,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 3);
         });
 
@@ -1845,7 +1866,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 4);
         });
 
@@ -1865,7 +1886,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 5);
         });
 
@@ -1885,7 +1906,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = ArcConsumer::new(move |x: &i32| {
+        let consumer = ArcStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 6);
         });
 
@@ -1908,7 +1929,7 @@ mod test_closure_to_methods {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x * 7);
         });
 
@@ -1928,7 +1949,7 @@ mod test_closure_to_methods {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x * 8);
         });
 
@@ -1948,7 +1969,7 @@ mod test_closure_to_methods {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
 
-        let consumer = RcConsumer::new(move |x: &i32| {
+        let consumer = RcStatefulConsumer::new(move |x: &i32| {
             l.borrow_mut().push(*x * 9);
         });
 
@@ -1972,7 +1993,7 @@ mod test_closure_to_methods {
             log: Arc<Mutex<Vec<i32>>>,
         }
 
-        impl Consumer<i32> for CustomConsumer {
+        impl StatefulConsumer<i32> for CustomConsumer {
             fn accept(&mut self, value: &i32) {
                 self.log.lock().unwrap().push(*value * 10);
             }
@@ -2006,7 +2027,7 @@ mod test_closure_to_methods {
             log: Rc<RefCell<Vec<i32>>>,
         }
 
-        impl Consumer<i32> for CustomConsumer {
+        impl StatefulConsumer<i32> for CustomConsumer {
             fn accept(&mut self, value: &i32) {
                 self.log.borrow_mut().push(*value * 11);
             }
@@ -2040,7 +2061,7 @@ mod test_closure_to_methods {
             log: Arc<Mutex<Vec<i32>>>,
         }
 
-        impl Consumer<i32> for CustomConsumer {
+        impl StatefulConsumer<i32> for CustomConsumer {
             fn accept(&mut self, value: &i32) {
                 self.log.lock().unwrap().push(*value * 12);
             }
@@ -2074,7 +2095,7 @@ mod test_closure_to_methods {
             log: Arc<Mutex<Vec<i32>>>,
         }
 
-        impl Consumer<i32> for CustomConsumer {
+        impl StatefulConsumer<i32> for CustomConsumer {
             fn accept(&mut self, value: &i32) {
                 self.log.lock().unwrap().push(*value * 13);
             }
@@ -2113,7 +2134,7 @@ mod test_closure_to_methods {
     fn test_accept_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         consumer.accept_once(&5);
@@ -2125,7 +2146,7 @@ mod test_closure_to_methods {
         // String
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |s: &String| {
+        let consumer = BoxStatefulConsumer::new(move |s: &String| {
             *l.lock().unwrap() = format!("Got: {}", s);
         });
         let text = String::from("hello");
@@ -2135,7 +2156,7 @@ mod test_closure_to_methods {
         // Vec
         let log = Arc::new(Mutex::new(0));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |v: &Vec<i32>| {
+        let consumer = BoxStatefulConsumer::new(move |v: &Vec<i32>| {
             *l.lock().unwrap() = v.len();
         });
         let numbers = vec![1, 2, 3];
@@ -2145,7 +2166,7 @@ mod test_closure_to_methods {
         // bool
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |b: &bool| {
+        let consumer = BoxStatefulConsumer::new(move |b: &bool| {
             *l.lock().unwrap() = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
@@ -2157,7 +2178,7 @@ mod test_closure_to_methods {
     fn test_into_box_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let box_consumer_once = consumer.into_box_once();
@@ -2169,7 +2190,7 @@ mod test_closure_to_methods {
     fn test_into_fn_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
         let func = consumer.into_fn_once();
@@ -2182,7 +2203,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let mut counter = 0;
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             counter += 1;
             l.lock().unwrap().push(*x + counter);
         });
@@ -2194,7 +2215,7 @@ mod test_closure_to_methods {
     fn test_consumer_once_consumes_self() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let consumer = BoxConsumer::new(move |x: &i32| {
+        let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
 

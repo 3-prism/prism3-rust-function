@@ -9,11 +9,10 @@
 
 //! Unit tests for SupplierOnce types
 
-use prism3_function::{ArcSupplier, BoxSupplier, BoxSupplierOnce, RcSupplier, SupplierOnce};
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use prism3_function::{
+    BoxSupplierOnce,
+    SupplierOnce,
+};
 
 // ==========================================================================
 // SupplierOnce Trait Tests (for closures)
@@ -442,7 +441,10 @@ mod test_custom_supplier_once_default_implementation {
 #[cfg(test)]
 mod test_to_box_and_to_fn {
     use super::*;
-    use std::sync::{Arc, Mutex};
+    use std::sync::{
+        Arc,
+        Mutex,
+    };
 
     // A custom cloneable supplier to test the default `to_box` and `to_fn`
     // implementations.
@@ -551,117 +553,123 @@ mod test_to_box_and_to_fn {
 // BoxSupplier SupplierOnce Implementation Tests
 // ==========================================================================
 
-#[cfg(test)]
-mod test_box_supplier_supplier_once {
-    use super::*;
+// BoxSupplier no longer implements SupplierOnce after refactoring
+// #[cfg(test)]
+// mod test_box_supplier_supplier_once {
+//     use super::*;
+//
+//     #[test]
+//     fn test_get_consumes_supplier() {
+//         let supplier = BoxSupplier::new(|| 42);
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, 42);
+//         // supplier is consumed here
+//     }
 
-    #[test]
-    fn test_get_consumes_supplier() {
-        let supplier = BoxSupplier::new(|| 42);
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, 42);
-        // supplier is consumed here
-    }
-
-    #[test]
-    fn test_get_with_string() {
-        let supplier = BoxSupplier::new(|| String::from("hello"));
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, "hello");
-    }
-
-    #[test]
-    fn test_get_with_vec() {
-        let supplier = BoxSupplier::new(|| vec![1, 2, 3]);
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, vec![1, 2, 3]);
-    }
-
-    #[test]
-    fn test_get_with_stateful_closure() {
-        let mut counter = 0;
-        let supplier = BoxSupplier::new(move || {
-            counter += 1;
-            counter
-        });
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, 1);
-    }
-
-    #[test]
-    fn test_into_box_once() {
-        let supplier = BoxSupplier::new(|| 42);
-        let once = SupplierOnce::into_box_once(supplier);
-        assert_eq!(once.get_once(), 42);
-    }
-
-    #[test]
-    fn test_into_box_once_with_string() {
-        let supplier = BoxSupplier::new(|| String::from("hello"));
-        let once = SupplierOnce::into_box_once(supplier);
-        assert_eq!(once.get_once(), "hello");
-    }
-
-    #[test]
-    fn test_into_fn_once() {
-        let supplier = BoxSupplier::new(|| 42);
-        let fn_once = SupplierOnce::into_fn_once(supplier);
-        assert_eq!(fn_once(), 42);
-    }
-
-    #[test]
-    fn test_into_fn_once_with_string() {
-        let supplier = BoxSupplier::new(|| String::from("hello"));
-        let fn_once = SupplierOnce::into_fn_once(supplier);
-        assert_eq!(fn_once(), "hello");
-    }
-
-    #[test]
-    fn test_into_fn_once_with_move() {
-        let data = String::from("captured");
-        let supplier = BoxSupplier::new(move || data.clone());
-        let fn_once = SupplierOnce::into_fn_once(supplier);
-        assert_eq!(fn_once(), "captured");
-    }
-
-    #[test]
-    fn test_with_constant_supplier() {
-        let supplier = BoxSupplier::constant(42);
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, 42);
-    }
-
-    #[test]
-    fn test_with_mapped_supplier() {
-        let supplier = BoxSupplier::new(|| 10).map(|x| x * 2);
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, 20);
-    }
-
-    #[test]
-    fn test_with_filtered_supplier() {
-        let mut counter = 0;
-        let supplier = BoxSupplier::new(move || {
-            counter += 1;
-            counter
-        })
-        .filter(|x| x % 2 == 0);
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, None);
-    }
-
-    #[test]
-    fn test_with_memoized_supplier() {
-        let supplier = BoxSupplier::new(|| 42).memoize();
-        let value = SupplierOnce::get_once(supplier);
-        assert_eq!(value, 42);
-    }
-}
+//     #[test]
+//     fn test_get_with_string() {
+//         let supplier = BoxSupplier::new(|| String::from("hello"));
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, "hello");
+//     }
+//
+//     #[test]
+//     fn test_get_with_vec() {
+//         let supplier = BoxSupplier::new(|| vec![1, 2, 3]);
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, vec![1, 2, 3]);
+//     }
+//
+//     #[test]
+//     fn test_get_with_stateful_closure() {
+//         let mut counter = 0;
+//         let supplier = BoxSupplier::new(move || {
+//             counter += 1;
+//             counter
+//         });
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, 1);
+//     }
+//
+//     #[test]
+//     fn test_into_box_once() {
+//         let supplier = BoxSupplier::new(|| 42);
+//         let once = SupplierOnce::into_box_once(supplier);
+//         assert_eq!(once.get_once(), 42);
+//     }
+//
+//     #[test]
+//     fn test_into_box_once_with_string() {
+//         let supplier = BoxSupplier::new(|| String::from("hello"));
+//         let once = SupplierOnce::into_box_once(supplier);
+//         assert_eq!(once.get_once(), "hello");
+//     }
+//
+//     #[test]
+//     fn test_into_fn_once() {
+//         let supplier = BoxSupplier::new(|| 42);
+//         let fn_once = SupplierOnce::into_fn_once(supplier);
+//         assert_eq!(fn_once(), 42);
+//     }
+//
+//     #[test]
+//     fn test_into_fn_once_with_string() {
+//         let supplier = BoxSupplier::new(|| String::from("hello"));
+//         let fn_once = SupplierOnce::into_fn_once(supplier);
+//         assert_eq!(fn_once(), "hello");
+//     }
+//
+//     #[test]
+//     fn test_into_fn_once_with_move() {
+//         let data = String::from("captured");
+//         let supplier = BoxSupplier::new(move || data.clone());
+//         let fn_once = SupplierOnce::into_fn_once(supplier);
+//         assert_eq!(fn_once(), "captured");
+//     }
+//
+//     #[test]
+//     fn test_with_constant_supplier() {
+//         let supplier = BoxSupplier::constant(42);
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, 42);
+//     }
+//
+//     #[test]
+//     fn test_with_mapped_supplier() {
+//         let supplier = BoxSupplier::new(|| 10).map(|x| x * 2);
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, 20);
+//     }
+//
+//     #[test]
+//     fn test_with_filtered_supplier() {
+//         let mut counter = 0;
+//         let supplier = BoxSupplier::new(move || {
+//             counter += 1;
+//             counter
+//         })
+//         .filter(|x| x % 2 == 0);
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, None);
+//     }
+//
+//     #[test]
+//     fn test_with_memoized_supplier() {
+//         let supplier = BoxSupplier::new(|| 42).memoize();
+//         let value = SupplierOnce::get_once(supplier);
+//         assert_eq!(value, 42);
+//     }
+// }
 
 // ==========================================================================
 // ArcSupplier SupplierOnce Implementation Tests
 // ==========================================================================
 
+// ArcSupplier no longer implements SupplierOnce after refactoring
+// All tests in test_arc_supplier_supplier_once and test_rc_supplier_supplier_once
+// have been disabled because BoxSupplier, ArcSupplier, and RcSupplier no longer
+// implement SupplierOnce after refactoring.
+/*
 #[cfg(test)]
 mod test_arc_supplier_supplier_once {
     use super::*;
@@ -1050,3 +1058,4 @@ mod test_rc_supplier_supplier_once {
         assert_eq!(value.name, "test");
     }
 }
+*/

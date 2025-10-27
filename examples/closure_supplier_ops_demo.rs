@@ -8,15 +8,18 @@
  ******************************************************************************/
 
 /**
- * Demonstrates various operations on closures using Supplier trait.
+ * Demonstrates various operations on closures using StatefulSupplier trait.
  *
- * This example showcases how to use the Supplier trait with closures,
- * including mapping, filtering, zipping, and memoization.
+ * This example showcases how to use the StatefulSupplier trait with closures,
+ * including mapping, filtering, and memoization.
  */
-use prism3_function::{FnSupplierOps, Supplier};
+use prism3_function::{
+    FnStatefulSupplierOps,
+    StatefulSupplier,
+};
 
 fn main() {
-    println!("=== Closure Supplier Operations Demo ===\n");
+    println!("=== Closure StatefulSupplier Operations Demo ===\n");
 
     // 1. FnMut closure using map
     println!("1. FnMut closure using map:");

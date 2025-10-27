@@ -8,8 +8,13 @@
  ******************************************************************************/
 
 use prism3_function::{
-    ArcBinaryOperator, BiTransformer, BiTransformerOnce, BinaryOperator, BoxBinaryOperator,
-    BoxBinaryOperatorOnce, RcBinaryOperator,
+    ArcBinaryOperator,
+    BiTransformer,
+    BiTransformerOnce,
+    BinaryOperator,
+    BoxBinaryOperator,
+    BoxBinaryOperatorOnce,
+    RcBinaryOperator,
 };
 use std::thread;
 

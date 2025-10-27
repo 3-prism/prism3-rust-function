@@ -8,7 +8,10 @@
  ******************************************************************************/
 //! Tests for FnTransformerOnceOps extension trait
 
-use prism3_function::{FnTransformerOnceOps, TransformerOnce};
+use prism3_function::{
+    FnTransformerOnceOps,
+    TransformerOnce,
+};
 
 #[cfg(test)]
 mod fn_transformer_once_ops_tests {

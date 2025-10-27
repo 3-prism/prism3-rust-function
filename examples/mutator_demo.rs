@@ -14,7 +14,13 @@
 //!
 //! Mutator is used to modify values, unlike the read-only Consumer.
 
-use prism3_function::{ArcMutator, BoxMutator, FnMutatorOps, Mutator, RcMutator};
+use prism3_function::{
+    ArcMutator,
+    BoxMutator,
+    FnMutatorOps,
+    Mutator,
+    RcMutator,
+};
 use std::thread;
 
 fn main() {

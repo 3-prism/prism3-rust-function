@@ -15,7 +15,12 @@
 //!
 //! Hu Haixing
 
-use prism3_function::{ArcTransformer, RcTransformer, Transformer, TransformerOnce};
+use prism3_function::{
+    ArcTransformer,
+    RcTransformer,
+    Transformer,
+    TransformerOnce,
+};
 
 fn main() {
     println!("=== TransformerOnce Specialized Methods Demo ===\n");

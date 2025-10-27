@@ -10,9 +10,19 @@
 
 #[cfg(test)]
 mod tests {
-    use prism3_function::{ArcTester, BoxTester, FnTesterOps, RcTester, Tester};
+    use prism3_function::{
+        ArcTester,
+        BoxTester,
+        FnTesterOps,
+        RcTester,
+        Tester,
+    };
     use std::sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{
+            AtomicBool,
+            AtomicUsize,
+            Ordering,
+        },
         Arc,
     };
 

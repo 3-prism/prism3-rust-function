@@ -11,7 +11,10 @@
 //! This example shows how to directly use and_then, compose, and when methods on closures,
 //! without explicitly wrapping them in BoxTransformer, RcTransformer, or ArcTransformer.
 
-use prism3_function::{FnTransformerOps, Transformer};
+use prism3_function::{
+    FnTransformerOps,
+    Transformer,
+};
 
 fn main() {
     println!("=== FnTransformerOps Example ===\n");

@@ -143,7 +143,10 @@
 //!
 //! Haixing Hu
 
-use std::fmt::{Debug, Display};
+use std::fmt::{
+    Debug,
+    Display,
+};
 use std::rc::Rc;
 use std::sync::Arc;
 

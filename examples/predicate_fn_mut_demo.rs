@@ -9,7 +9,12 @@
 
 //! Demonstrates how Predicate's into_fn/to_fn methods can be used in scenarios requiring FnMut
 
-use prism3_function::predicate::{ArcPredicate, BoxPredicate, Predicate, RcPredicate};
+use prism3_function::predicate::{
+    ArcPredicate,
+    BoxPredicate,
+    Predicate,
+    RcPredicate,
+};
 
 fn main() {
     println!("=== Demonstrating Predicate compatibility with FnMut ===\n");

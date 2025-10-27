@@ -8,7 +8,10 @@
  ******************************************************************************/
 //! BiTransformerOnce usage examples
 
-use prism3_function::{BiTransformerOnce, BoxBiTransformerOnce};
+use prism3_function::{
+    BiTransformerOnce,
+    BoxBiTransformerOnce,
+};
 
 fn main() {
     println!("=== BiTransformerOnce Examples ===\n");

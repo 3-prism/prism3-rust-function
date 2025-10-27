@@ -15,8 +15,19 @@
 //! Consumer is used to consume (read) values without modifying the original value.
 //! If you need to modify values, please refer to mutator_demo.rs
 
-use prism3_function::{ArcConsumer, BoxConsumer, Consumer, FnConsumerOps, RcConsumer};
-use std::sync::{Arc, Mutex};
+use prism3_function::{
+    ArcConsumer,
+    BoxConsumer,
+    BoxStatefulConsumer,
+    Consumer,
+    FnConsumerOps,
+    RcConsumer,
+    StatefulConsumer,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
 
 fn main() {
@@ -30,7 +41,7 @@ fn main() {
     println!("Example 1: BoxConsumer basic usage");
     println!("{}", "-".repeat(50));
 
-    let mut consumer = BoxConsumer::new(|x: &i32| {
+    let consumer = BoxConsumer::new(|x: &i32| {
         println!("Read and calculate: {} * 2 = {}", x, x * 2);
     });
     let value = 5;
@@ -49,7 +60,7 @@ fn main() {
     let r2 = results.clone();
     let r3 = results.clone();
 
-    let mut chained = BoxConsumer::new(move |x: &i32| {
+    let chained = BoxConsumer::new(move |x: &i32| {
         r1.lock().unwrap().push(*x * 2);
     })
     .and_then(move |x: &i32| {
@@ -76,7 +87,7 @@ fn main() {
     let r1 = result.clone();
     let r2 = result.clone();
 
-    let mut closure_chain = (move |x: &i32| {
+    let closure_chain = (move |x: &i32| {
         *r1.lock().unwrap() = *x * 2;
     })
     .and_then(move |_x: &i32| {
@@ -97,20 +108,20 @@ fn main() {
 
     // noop
     println!("noop - does nothing:");
-    let mut noop = BoxConsumer::<i32>::noop();
+    let noop = BoxConsumer::<i32>::noop();
     let value = 42;
     noop.accept(&value);
     println!("Value: {}\n", value);
 
     // print
     print!("print - prints value: ");
-    let mut print = BoxConsumer::new(|x: &i32| println!("{}", x));
+    let print = BoxConsumer::new(|x: &i32| println!("{}", x));
     let value = 42;
     print.accept(&value);
     println!();
 
     // print with prefix
-    let mut print_with = BoxConsumer::new(|x: &i32| println!("Value is: {}", x));
+    let print_with = BoxConsumer::new(|x: &i32| println!("Value is: {}", x));
     let value = 42;
     print_with.accept(&value);
     println!();
@@ -123,7 +134,7 @@ fn main() {
 
     // when
     let mut check_positive =
-        BoxConsumer::new(|x: &i32| println!("Positive: {}", x)).when(|x: &i32| *x > 0);
+        BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x)).when(|x: &i32| *x > 0);
 
     let positive = 5;
     let negative = -5;
@@ -134,7 +145,7 @@ fn main() {
     println!("(negative numbers not printed)\n");
 
     // when().or_else()
-    let mut categorize = BoxConsumer::new(|x: &i32| println!("Positive: {}", x))
+    let mut categorize = BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x))
         .when(|x: &i32| *x > 0)
         .or_else(|x: &i32| println!("Non-positive: {}", x));
 
@@ -156,14 +167,14 @@ fn main() {
     let shared_clone = shared.clone();
     let handle = thread::spawn(move || {
         let value = 5;
-        let mut consumer = shared_clone;
+        let consumer = shared_clone;
         consumer.accept(&value);
         value
     });
 
     // Use in main thread
     let value = 3;
-    let mut consumer = shared;
+    let consumer = shared;
     consumer.accept(&value);
 
     let thread_result = handle.join().unwrap();
@@ -183,18 +194,18 @@ fn main() {
     let pipeline2 = add_ten.and_then(&double);
 
     let value1 = 5;
-    let mut p1 = pipeline1;
+    let p1 = pipeline1;
     print!("pipeline1 processing 5: ");
     p1.accept(&value1);
 
     let value2 = 5;
-    let mut p2 = pipeline2;
+    let p2 = pipeline2;
     print!("pipeline2 processing 5: ");
     p2.accept(&value2);
 
     // double and add_ten are still available
     let value3 = 10;
-    let mut d = double;
+    let d = double;
     print!("Original double still available, processing 10: ");
     d.accept(&value3);
     println!();
@@ -212,17 +223,17 @@ fn main() {
     let clone2 = rc_consumer.clone();
 
     let value1 = 5;
-    let mut c1 = clone1;
+    let c1 = clone1;
     print!("clone1 processing 5: ");
     c1.accept(&value1);
 
     let value2 = 3;
-    let mut c2 = clone2;
+    let c2 = clone2;
     print!("clone2 processing 3: ");
     c2.accept(&value2);
 
     let value3 = 7;
-    let mut c3 = rc_consumer;
+    let c3 = rc_consumer;
     print!("Original processing 7: ");
     c3.accept(&value3);
     println!();
@@ -240,12 +251,12 @@ fn main() {
     let pipeline2 = add_ten.and_then(&double);
 
     let value1 = 5;
-    let mut p1 = pipeline1;
+    let p1 = pipeline1;
     print!("pipeline1 processing 5: ");
     p1.accept(&value1);
 
     let value2 = 5;
-    let mut p2 = pipeline2;
+    let p2 = pipeline2;
     print!("pipeline2 processing 5: ");
     p2.accept(&value2);
     println!();
@@ -303,7 +314,7 @@ fn main() {
         println!("Log to file: value={}, square={}", x, x * x);
     });
 
-    let mut pipeline = validator.and_then(logger);
+    let pipeline = validator.and_then(logger);
 
     let test_values = vec![-50, 30, 200];
     for value in test_values {
@@ -317,7 +328,7 @@ fn main() {
     println!("Example 12: String analysis");
     println!("{}", "-".repeat(50));
 
-    let mut string_analyzer = BoxConsumer::new(|s: &String| {
+    let string_analyzer = BoxConsumer::new(|s: &String| {
         println!("Length: {}", s.len());
     })
     .and_then(|s: &String| {
@@ -344,7 +355,7 @@ fn main() {
 
     // Closure -> BoxConsumer
     let closure = |x: &i32| print!("Processing: {} ", x * 2);
-    let mut box_con = closure.into_box();
+    let box_con = Consumer::into_box(closure);
     let value = 5;
     print!("Closure -> BoxConsumer: ");
     box_con.accept(&value);
@@ -352,7 +363,7 @@ fn main() {
 
     // Closure -> RcConsumer
     let closure = |x: &i32| print!("Processing: {} ", x * 2);
-    let mut rc_con = closure.into_rc();
+    let rc_con = Consumer::into_rc(closure);
     let value = 5;
     print!("Closure -> RcConsumer: ");
     rc_con.accept(&value);
@@ -360,7 +371,7 @@ fn main() {
 
     // Closure -> ArcConsumer
     let closure = |x: &i32| print!("Processing: {} ", x * 2);
-    let mut arc_con = closure.into_arc();
+    let arc_con = Consumer::into_arc(closure);
     let value = 5;
     print!("Closure -> ArcConsumer: ");
     arc_con.accept(&value);
@@ -368,7 +379,7 @@ fn main() {
 
     // BoxConsumer -> RcConsumer
     let box_con = BoxConsumer::new(|x: &i32| print!("Processing: {} ", x * 2));
-    let mut rc_con = box_con.into_rc();
+    let rc_con = box_con.into_rc();
     let value = 5;
     print!("BoxConsumer -> RcConsumer: ");
     rc_con.accept(&value);
@@ -376,7 +387,7 @@ fn main() {
 
     // RcConsumer -> BoxConsumer
     let rc_con = RcConsumer::new(|x: &i32| print!("Processing: {} ", x * 2));
-    let mut box_con = rc_con.into_box();
+    let box_con = rc_con.into_box();
     let value = 5;
     print!("RcConsumer -> BoxConsumer: ");
     box_con.accept(&value);
@@ -394,7 +405,7 @@ fn main() {
         y: i32,
     }
 
-    let mut analyzer = BoxConsumer::new(|p: &Point| {
+    let analyzer = BoxConsumer::new(|p: &Point| {
         println!("Point coordinates: ({}, {})", p.x, p.y);
     })
     .and_then(|p: &Point| {
@@ -427,7 +438,7 @@ fn main() {
     let sum_clone = sum.clone();
     let count_clone = count.clone();
 
-    let mut collector = BoxConsumer::new(move |x: &i32| {
+    let collector = BoxConsumer::new(move |x: &i32| {
         *sum_clone.lock().unwrap() += *x;
         *count_clone.lock().unwrap() += 1;
     });

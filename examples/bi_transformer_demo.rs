@@ -7,7 +7,12 @@
  *
  ******************************************************************************/
 
-use prism3_function::{ArcBiTransformer, BiTransformer, BoxBiTransformer, RcBiTransformer};
+use prism3_function::{
+    ArcBiTransformer,
+    BiTransformer,
+    BoxBiTransformer,
+    RcBiTransformer,
+};
 
 fn main() {
     println!("=== BiTransformer Demo ===\n");

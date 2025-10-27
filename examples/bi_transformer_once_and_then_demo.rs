@@ -10,7 +10,10 @@
 //!
 //! Demonstrates how to use BoxBiTransformerOnce's and_then method for chained composition.
 
-use prism3_function::{BiTransformerOnce, BoxBiTransformerOnce};
+use prism3_function::{
+    BiTransformerOnce,
+    BoxBiTransformerOnce,
+};
 
 fn main() {
     println!("=== BoxBiTransformerOnce and_then Method Example ===\n");

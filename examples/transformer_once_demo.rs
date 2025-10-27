@@ -15,7 +15,12 @@
 //!
 //! Hu Haixing
 
-use prism3_function::{ArcTransformer, BoxTransformer, RcTransformer, TransformerOnce};
+use prism3_function::{
+    ArcTransformer,
+    BoxTransformer,
+    RcTransformer,
+    TransformerOnce,
+};
 use std::sync::Arc;
 use std::thread;
 

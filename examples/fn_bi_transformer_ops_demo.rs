@@ -11,7 +11,10 @@
 //!
 //! Demonstrates how to use the `FnBiTransformerOps` trait to provide `and_then` and `when` methods for closures.
 
-use prism3_function::{BiTransformer, FnBiTransformerOps};
+use prism3_function::{
+    BiTransformer,
+    FnBiTransformerOps,
+};
 
 fn main() {
     println!("=== FnBiTransformerOps Demo ===\n");

@@ -10,7 +10,11 @@
 //!
 //! Demonstrates various usage scenarios of MutatorOnce
 
-use prism3_function::{BoxMutatorOnce, FnMutatorOnceOps, MutatorOnce};
+use prism3_function::{
+    BoxMutatorOnce,
+    FnMutatorOnceOps,
+    MutatorOnce,
+};
 
 fn main() {
     println!("=== MutatorOnce Examples ===\n");
