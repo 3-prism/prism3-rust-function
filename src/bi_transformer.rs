@@ -21,7 +21,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -55,7 +55,7 @@ use crate::bi_transformer_once::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait BiTransformer<T, U, R> {
     /// Transforms two input values to produce an output value
     ///
@@ -239,7 +239,7 @@ pub trait BiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxBiTransformer<T, U, R> {
     function: Box<dyn Fn(T, U) -> R>,
 }
@@ -632,7 +632,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcBiTransformer<T, U, R> {
     function: Arc<dyn Fn(T, U) -> R + Send + Sync>,
 }
@@ -1115,7 +1115,7 @@ impl<T, U, R> Clone for ArcConditionalBiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcBiTransformer<T, U, R> {
     function: Rc<dyn Fn(T, U) -> R>,
 }
@@ -1587,7 +1587,7 @@ impl<T, U, R> Clone for RcConditionalBiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, U, R> BiTransformer<T, U, R> for F
 where
     F: Fn(T, U) -> R,
@@ -1721,7 +1721,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -1870,7 +1870,7 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, U, R, F> FnBiTransformerOps<T, U, R> for F where F: Fn(T, U) -> R + 'static {}
 
 // ============================================================================
@@ -1927,7 +1927,7 @@ impl<T, U, R, F> FnBiTransformerOps<T, U, R> for F where F: Fn(T, U) -> R + 'sta
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait BinaryOperator<T>: BiTransformer<T, T, T> {}
 
 /// Blanket implementation of BinaryOperator for all BiTransformer<T, T, T>
@@ -1937,7 +1937,7 @@ pub trait BinaryOperator<T>: BiTransformer<T, T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> BinaryOperator<T> for F
 where
     F: BiTransformer<T, T, T>,
@@ -1967,7 +1967,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxBinaryOperator<T> = BoxBiTransformer<T, T, T>;
 
 /// Type alias for `ArcBiTransformer<T, T, T>`
@@ -1989,7 +1989,7 @@ pub type BoxBinaryOperator<T> = BoxBiTransformer<T, T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type ArcBinaryOperator<T> = ArcBiTransformer<T, T, T>;
 
 /// Type alias for `RcBiTransformer<T, T, T>`
@@ -2011,5 +2011,5 @@ pub type ArcBinaryOperator<T> = ArcBiTransformer<T, T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type RcBinaryOperator<T> = RcBiTransformer<T, T, T>;

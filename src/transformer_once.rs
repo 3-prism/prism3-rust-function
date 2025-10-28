@@ -19,7 +19,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use crate::predicate::{
     BoxPredicate,
@@ -43,7 +43,7 @@ use crate::predicate::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait TransformerOnce<T, R> {
     /// Transforms the input value, consuming both self and input
     ///
@@ -196,7 +196,7 @@ pub trait TransformerOnce<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxTransformerOnce<T, R> {
     function: Box<dyn FnOnce(T) -> R>,
 }
@@ -586,7 +586,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, R> TransformerOnce<T, R> for F
 where
     F: FnOnce(T) -> R,
@@ -686,7 +686,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -864,7 +864,7 @@ pub trait FnTransformerOnceOps<T, R>: FnOnce(T) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, R, F> FnTransformerOnceOps<T, R> for F where F: FnOnce(T) -> R + 'static {}
 
 // ============================================================================
@@ -908,7 +908,7 @@ impl<T, R, F> FnTransformerOnceOps<T, R> for F where F: FnOnce(T) -> R + 'static
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait UnaryOperatorOnce<T>: TransformerOnce<T, T> {}
 
 /// Blanket implementation of UnaryOperatorOnce for all TransformerOnce<T, T>
@@ -918,7 +918,7 @@ pub trait UnaryOperatorOnce<T>: TransformerOnce<T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> UnaryOperatorOnce<T> for F
 where
     F: TransformerOnce<T, T>,
@@ -948,5 +948,5 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxUnaryOperatorOnce<T> = BoxTransformerOnce<T, T>;

@@ -22,7 +22,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -52,7 +52,7 @@ use crate::transformer_once::BoxTransformerOnce;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait Transformer<T, R> {
     /// Applies the transformation to the input value to produce an output value
     ///
@@ -322,7 +322,7 @@ pub trait Transformer<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxTransformer<T, R> {
     function: Box<dyn Fn(T) -> R>,
 }
@@ -681,7 +681,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: T) -> R {
         (self.function)(input)
     }
@@ -799,7 +799,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcTransformer<T, R> {
     function: Arc<dyn Fn(T) -> R + Send + Sync>,
 }
@@ -1193,7 +1193,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: T) -> R {
         (self.function)(input)
     }
@@ -1438,7 +1438,7 @@ impl<T, R> Clone for ArcConditionalTransformer<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcTransformer<T, R> {
     function: Rc<dyn Fn(T) -> R>,
 }
@@ -1828,7 +1828,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: T) -> R {
         (self.function)(input)
     }
@@ -2076,7 +2076,7 @@ impl<T, R> Clone for RcConditionalTransformer<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, R> Transformer<T, R> for F
 where
     F: Fn(T) -> R,
@@ -2208,7 +2208,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -2418,7 +2418,7 @@ pub trait FnTransformerOps<T, R>: Fn(T) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, R, F> FnTransformerOps<T, R> for F where F: Fn(T) -> R + 'static {}
 
 // ============================================================================
@@ -2476,7 +2476,7 @@ impl<T, R, F> FnTransformerOps<T, R> for F where F: Fn(T) -> R + 'static {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait UnaryOperator<T>: Transformer<T, T> {}
 
 /// Blanket implementation of UnaryOperator for all Transformer<T, T>
@@ -2486,7 +2486,7 @@ pub trait UnaryOperator<T>: Transformer<T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> UnaryOperator<T> for F
 where
     F: Transformer<T, T>,
@@ -2516,7 +2516,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxUnaryOperator<T> = BoxTransformer<T, T>;
 
 /// Type alias for `ArcTransformer<T, T>`
@@ -2538,7 +2538,7 @@ pub type BoxUnaryOperator<T> = BoxTransformer<T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type ArcUnaryOperator<T> = ArcTransformer<T, T>;
 
 /// Type alias for `RcTransformer<T, T>`
@@ -2560,5 +2560,5 @@ pub type ArcUnaryOperator<T> = ArcTransformer<T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type RcUnaryOperator<T> = RcTransformer<T, T>;

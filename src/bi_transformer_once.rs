@@ -19,7 +19,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use crate::bi_predicate::{
     BiPredicate,
@@ -44,7 +44,7 @@ use crate::bi_predicate::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait BiTransformerOnce<T, U, R> {
     /// Transforms two input values, consuming self and both inputs
     ///
@@ -170,7 +170,7 @@ pub trait BiTransformerOnce<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxBiTransformerOnce<T, U, R> {
     function: Box<dyn FnOnce(T, U) -> R>,
 }
@@ -504,7 +504,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, U, R> BiTransformerOnce<T, U, R> for F
 where
     F: FnOnce(T, U) -> R,
@@ -599,7 +599,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnBiTransformerOnceOps<T, U, R>: FnOnce(T, U) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -726,7 +726,7 @@ pub trait FnBiTransformerOnceOps<T, U, R>: FnOnce(T, U) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, U, R, F> FnBiTransformerOnceOps<T, U, R> for F where F: FnOnce(T, U) -> R + 'static {}
 
 // ============================================================================
@@ -770,7 +770,7 @@ impl<T, U, R, F> FnBiTransformerOnceOps<T, U, R> for F where F: FnOnce(T, U) -> 
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait BinaryOperatorOnce<T>: BiTransformerOnce<T, T, T> {}
 
 /// Blanket implementation of BinaryOperatorOnce for all BiTransformerOnce<T, T, T>
@@ -780,7 +780,7 @@ pub trait BinaryOperatorOnce<T>: BiTransformerOnce<T, T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> BinaryOperatorOnce<T> for F
 where
     F: BiTransformerOnce<T, T, T>,
@@ -810,5 +810,5 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxBinaryOperatorOnce<T> = BoxBiTransformerOnce<T, T, T>;
