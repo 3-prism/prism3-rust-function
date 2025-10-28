@@ -74,7 +74,7 @@ pub trait StatefulTransformer<T, R> {
 
     /// Converts to BoxStatefulTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original mapper becomes unavailable
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
     /// after calling this method.
     ///
     /// # Returns
@@ -92,19 +92,19 @@ pub trait StatefulTransformer<T, R> {
     /// ```rust
     /// use prism3_function::{StatefulTransformer, BoxStatefulTransformer};
     ///
-    /// struct CustomMapper {
+    /// struct CustomTransformer {
     ///     multiplier: i32,
     /// }
     ///
-    /// impl StatefulTransformer<i32, i32> for CustomMapper {
+    /// impl StatefulTransformer<i32, i32> for CustomTransformer {
     ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
     /// }
     ///
-    /// let mapper = CustomMapper { multiplier: 0 };
-    /// let mut boxed = mapper.into_box();
+    /// let transformer = CustomTransformer { multiplier: 0 };
+    /// let mut boxed = transformer.into_box();
     /// assert_eq!(boxed.apply(10), 10);  // 10 * 1
     /// assert_eq!(boxed.apply(10), 20);  // 10 * 2
     /// ```
@@ -114,13 +114,13 @@ pub trait StatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self;
-        BoxStatefulTransformer::new(move |t| mapper.apply(t))
+        let mut transformer = self;
+        BoxStatefulTransformer::new(move |t| transformer.apply(t))
     }
 
     /// Converts to RcStatefulTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original mapper becomes unavailable
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
     /// after calling this method.
     ///
     /// # Returns
@@ -138,21 +138,21 @@ pub trait StatefulTransformer<T, R> {
     /// ```rust
     /// use prism3_function::{StatefulTransformer, RcStatefulTransformer};
     ///
-    /// struct CustomMapper {
+    /// struct CustomTransformer {
     ///     multiplier: i32,
     /// }
     ///
-    /// impl StatefulTransformer<i32, i32> for CustomMapper {
+    /// impl StatefulTransformer<i32, i32> for CustomTransformer {
     ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
     /// }
     ///
-    /// let mapper = CustomMapper { multiplier: 0 };
-    /// let mut rc_mapper = mapper.into_rc();
-    /// assert_eq!(rc_mapper.apply(10), 10);  // 10 * 1
-    /// assert_eq!(rc_mapper.apply(10), 20);  // 10 * 2
+    /// let transformer = CustomTransformer { multiplier: 0 };
+    /// let mut rc_transformer = transformer.into_rc();
+    /// assert_eq!(rc_transformer.apply(10), 10);  // 10 * 1
+    /// assert_eq!(rc_transformer.apply(10), 20);  // 10 * 2
     /// ```
     fn into_rc(self) -> RcStatefulTransformer<T, R>
     where
@@ -160,13 +160,13 @@ pub trait StatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self;
-        RcStatefulTransformer::new(move |t| mapper.apply(t))
+        let mut transformer = self;
+        RcStatefulTransformer::new(move |t| transformer.apply(t))
     }
 
     /// Converts to ArcStatefulTransformer
     ///
-    /// **⚠️ Consumes `self`**: The original mapper becomes unavailable
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
     /// after calling this method.
     ///
     /// # Returns
@@ -184,21 +184,21 @@ pub trait StatefulTransformer<T, R> {
     /// ```rust
     /// use prism3_function::{StatefulTransformer, ArcStatefulTransformer};
     ///
-    /// struct CustomMapper {
+    /// struct CustomTransformer {
     ///     multiplier: i32,
     /// }
     ///
-    /// impl StatefulTransformer<i32, i32> for CustomMapper {
+    /// impl StatefulTransformer<i32, i32> for CustomTransformer {
     ///     fn apply(&mut self, input: i32) -> i32 {
     ///         self.multiplier += 1;
     ///         input * self.multiplier
     ///     }
     /// }
     ///
-    /// let mapper = CustomMapper { multiplier: 0 };
-    /// let mut arc_mapper = mapper.into_arc();
-    /// assert_eq!(arc_mapper.apply(10), 10);  // 10 * 1
-    /// assert_eq!(arc_mapper.apply(10), 20);  // 10 * 2
+    /// let transformer = CustomTransformer { multiplier: 0 };
+    /// let mut arc_transformer = transformer.into_arc();
+    /// assert_eq!(arc_transformer.apply(10), 10);  // 10 * 1
+    /// assert_eq!(arc_transformer.apply(10), 20);  // 10 * 2
     /// ```
     fn into_arc(self) -> ArcStatefulTransformer<T, R>
     where
@@ -206,13 +206,13 @@ pub trait StatefulTransformer<T, R> {
         T: Send + Sync + 'static,
         R: Send + 'static,
     {
-        let mut mapper = self;
-        ArcStatefulTransformer::new(move |t| mapper.apply(t))
+        let mut transformer = self;
+        ArcStatefulTransformer::new(move |t| transformer.apply(t))
     }
 
     /// Converts to a closure implementing `FnMut(T) -> R`
     ///
-    /// **⚠️ Consumes `self`**: The original mapper becomes unavailable
+    /// **⚠️ Consumes `self`**: The original transformer becomes unavailable
     /// after calling this method.
     ///
     /// # Returns
@@ -229,8 +229,8 @@ pub trait StatefulTransformer<T, R> {
     /// ```rust
     /// use prism3_function::{StatefulTransformer, BoxStatefulTransformer};
     ///
-    /// let mapper = BoxStatefulTransformer::new(|x: i32| x * 2);
-    /// let mut closure = mapper.into_fn();
+    /// let transformer = BoxStatefulTransformer::new(|x: i32| x * 2);
+    /// let mut closure = transformer.into_fn();
     /// assert_eq!(closure(10), 20);
     /// assert_eq!(closure(15), 30);
     /// ```
@@ -240,14 +240,14 @@ pub trait StatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let mut mapper = self;
-        move |t| mapper.apply(t)
+        let mut transformer = self;
+        move |t| transformer.apply(t)
     }
 
     /// Non-consuming conversion to `BoxStatefulTransformer`.
     ///
     /// Default implementation requires `Self: Clone` and wraps a cloned
-    /// instance in a `RefCell` so the returned mapper can mutate state
+    /// instance in a `RefCell` so the returned transformer can mutate state
     /// across calls.
     fn to_box(&self) -> BoxStatefulTransformer<T, R>
     where
@@ -261,7 +261,7 @@ pub trait StatefulTransformer<T, R> {
     /// Non-consuming conversion to `RcStatefulTransformer`.
     ///
     /// Default implementation clones `self` into an `Rc<RefCell<_>>` so the
-    /// resulting mapper can be shared within a single thread.
+    /// resulting transformer can be shared within a single thread.
     fn to_rc(&self) -> RcStatefulTransformer<T, R>
     where
         Self: Sized + Clone + 'static,
@@ -303,10 +303,10 @@ pub trait StatefulTransformer<T, R> {
 // BoxStatefulTransformer - Box<dyn FnMut(T) -> R>
 // ============================================================================
 
-/// BoxStatefulTransformer - mapper wrapper based on `Box<dyn FnMut>`
+/// BoxStatefulTransformer - transformer wrapper based on `Box<dyn FnMut>`
 ///
-/// A mapper wrapper that provides single ownership with reusable stateful
-/// transformation. The mapper consumes the input and can be called
+/// A transformer wrapper that provides single ownership with reusable stateful
+/// transformation. The transformer consumes the input and can be called
 /// multiple times while maintaining internal state.
 ///
 /// # Features
@@ -342,12 +342,12 @@ where
     /// use prism3_function::{BoxStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = BoxStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.apply(10), 11);
-    /// assert_eq!(mapper.apply(10), 12);
+    /// assert_eq!(transformer.apply(10), 11);
+    /// assert_eq!(transformer.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -362,10 +362,10 @@ where
     // because the boxed `FnMut` is not clonable and we cannot produce a
     // non-consuming adapter from `&self` without moving ownership or
     // requiring `Clone` on the inner function. Consumers should use the
-    // blanket `StatefulTransformer::to_*` defaults when their mapper type implements
+    // blanket `StatefulTransformer::to_*` defaults when their transformer type implements
     // `Clone`.
 
-    /// Creates an identity mapper
+    /// Creates an identity transformer
     ///
     /// # Examples
     ///
@@ -381,19 +381,19 @@ where
 
     /// Chain composition - applies self first, then after
     ///
-    /// Creates a new mapper that applies this mapper first, then applies
-    /// the after mapper to the result. Consumes self.
+    /// Creates a new transformer that applies this transformer first, then applies
+    /// the after transformer to the result. Consumes self.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The output type of the after mapper
-    /// * `F` - The type of the after mapper (must implement StatefulTransformer<R, S>)
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement StatefulTransformer<R, S>)
     ///
     /// # Parameters
     ///
-    /// * `after` - The mapper to apply after self. **Note: This parameter
+    /// * `after` - The transformer to apply after self. **Note: This parameter
     ///   is passed by value and will transfer ownership.** If you need to
-    ///   preserve the original mapper, clone it first (if it implements
+    ///   preserve the original transformer, clone it first (if it implements
     ///   `Clone`). Can be:
     ///   - A closure: `|x: R| -> S`
     ///   - A `BoxStatefulTransformer<R, S>`
@@ -411,18 +411,18 @@ where
     /// use prism3_function::{BoxStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter1 = 0;
-    /// let mapper1 = BoxStatefulTransformer::new(move |x: i32| {
+    /// let transformer1 = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter1 += 1;
     ///     x + counter1
     /// });
     ///
     /// let mut counter2 = 0;
-    /// let mapper2 = BoxStatefulTransformer::new(move |x: i32| {
+    /// let transformer2 = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter2 += 1;
     ///     x * counter2
     /// });
     ///
-    /// let mut composed = mapper1.and_then(mapper2);
+    /// let mut composed = transformer1.and_then(transformer2);
     /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
     /// ```
@@ -431,29 +431,26 @@ where
         S: 'static,
         F: StatefulTransformer<R, S> + 'static,
     {
-        let mut self_mapper = self;
-        let mut after_mapper = after;
-        BoxStatefulTransformer::new(move |x: T| {
-            let intermediate = self_mapper.apply(x);
-            after_mapper.apply(intermediate)
-        })
+        let mut self_fn = self.function;
+        let mut after_mut = after;
+        BoxStatefulTransformer::new(move |x: T| after_mut.apply(self_fn(x)))
     }
 
     /// Reverse composition - applies before first, then self
     ///
-    /// Creates a new mapper that applies the before mapper first, then
-    /// applies this mapper to the result. Consumes self.
+    /// Creates a new transformer that applies the before transformer first, then
+    /// applies this transformer to the result. Consumes self.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The input type of the before mapper
-    /// * `F` - The type of the before mapper (must implement StatefulTransformer<S, T>)
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement StatefulTransformer<S, T>)
     ///
     /// # Parameters
     ///
-    /// * `before` - The mapper to apply before self. **Note: This
+    /// * `before` - The transformer to apply before self. **Note: This
     ///   parameter is passed by value and will transfer ownership.** If
-    ///   you need to preserve the original mapper, clone it first (if it
+    ///   you need to preserve the original transformer, clone it first (if it
     ///   implements `Clone`). Can be:
     ///   - A closure: `|x: S| -> T`
     ///   - A `BoxStatefulTransformer<S, T>`
@@ -471,12 +468,12 @@ where
     /// use prism3_function::{BoxStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mapper = BoxStatefulTransformer::new(move |x: i32| {
+    /// let transformer = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * counter
     /// });
     ///
-    /// let mut composed = mapper.compose(|x: i32| x + 1);
+    /// let mut composed = transformer.compose(|x: i32| x + 1);
     /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
@@ -485,18 +482,18 @@ where
         S: 'static,
         F: StatefulTransformer<S, T> + 'static,
     {
-        let mut self_mapper = self;
-        let mut before_mapper = before;
+        let mut self_fn = self.function;
+        let mut before_mut = before;
         BoxStatefulTransformer::new(move |x: S| {
-            let intermediate = before_mapper.apply(x);
-            self_mapper.apply(intermediate)
+            let intermediate = before_mut.apply(x);
+            self_fn(intermediate)
         })
     }
 
-    /// Creates a conditional mapper
+    /// Creates a conditional transformer
     ///
-    /// Returns a mapper that only executes when a predicate is satisfied.
-    /// You must call `or_else()` to provide an alternative mapper for
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// You must call `or_else()` to provide an alternative transformer for
     /// when the condition is not satisfied.
     ///
     /// # Parameters
@@ -522,22 +519,22 @@ where
     /// use prism3_function::{StatefulTransformer, BoxStatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = BoxStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * 2
     /// })
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(transformer.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(transformer.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> BoxConditionalStatefulTransformer<T, R>
     where
         P: Predicate<T> + 'static,
     {
         BoxConditionalStatefulTransformer {
-            mapper: self,
+            transformer: self,
             predicate: predicate.into_box(),
         }
     }
@@ -548,7 +545,7 @@ where
     T: 'static,
     R: Clone + 'static,
 {
-    /// Creates a constant mapper
+    /// Creates a constant transformer
     ///
     /// # Examples
     ///
@@ -582,8 +579,7 @@ impl<T, R> StatefulTransformer<T, R> for BoxStatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        let self_fn = self.function;
-        RcStatefulTransformer::new(self_fn)
+        RcStatefulTransformer::new(self.function)
     }
 
     // do NOT override StatefulTransformer::into_arc() because BoxStatefulTransformer is not Send + Sync
@@ -622,8 +618,8 @@ where
     where
         Self: Sized + 'static,
     {
-        let mut f = self.function;
-        move |input: T| f(input)
+        let mut self_fn = self.function;
+        move |input: T| self_fn(input)
     }
 
     // NOTE: `BoxStatefulTransformer` is not `Clone`, so it cannot offer
@@ -638,7 +634,7 @@ where
 
 /// BoxConditionalStatefulTransformer struct
 ///
-/// A conditional mapper that only executes when a predicate is satisfied.
+/// A conditional transformer that only executes when a predicate is satisfied.
 /// Uses `BoxStatefulTransformer` and `BoxPredicate` for single ownership semantics.
 ///
 /// This type is typically created by calling `BoxStatefulTransformer::when()` and is
@@ -661,7 +657,7 @@ where
 /// let mut high_count = 0;
 /// let mut low_count = 0;
 ///
-/// let mut mapper = BoxStatefulTransformer::new(move |x: i32| {
+/// let mut transformer = BoxStatefulTransformer::new(move |x: i32| {
 ///     high_count += 1;
 ///     x * 2
 /// })
@@ -671,15 +667,15 @@ where
 ///     x + 1
 /// });
 ///
-/// assert_eq!(mapper.apply(15), 30); // when branch executed
-/// assert_eq!(mapper.apply(5), 6);   // or_else branch executed
+/// assert_eq!(transformer.apply(15), 30); // when branch executed
+/// assert_eq!(transformer.apply(5), 6);   // or_else branch executed
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
 pub struct BoxConditionalStatefulTransformer<T, R> {
-    mapper: BoxStatefulTransformer<T, R>,
+    transformer: BoxStatefulTransformer<T, R>,
     predicate: BoxPredicate<T>,
 }
 
@@ -690,12 +686,12 @@ where
 {
     /// Adds an else branch
     ///
-    /// Executes the original mapper when the condition is satisfied,
-    /// otherwise executes else_mapper.
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
     ///
     /// # Parameters
     ///
-    /// * `else_mapper` - The mapper for the else branch, can be:
+    /// * `else_transformer` - The transformer for the else branch, can be:
     ///   - Closure: `|x: T| -> R`
     ///   - `BoxStatefulTransformer<T, R>`, `RcStatefulTransformer<T, R>`, `ArcStatefulTransformer<T, R>`
     ///   - Any type implementing `StatefulTransformer<T, R>`
@@ -709,24 +705,25 @@ where
     /// ```rust
     /// use prism3_function::{StatefulTransformer, BoxStatefulTransformer};
     ///
-    /// let mut mapper = BoxStatefulTransformer::new(|x: i32| x * 2)
+    /// let mut transformer = BoxStatefulTransformer::new(|x: i32| x * 2)
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.apply(5), 10);   // Condition satisfied
-    /// assert_eq!(mapper.apply(-5), 5);   // Condition not satisfied
+    /// assert_eq!(transformer.apply(5), 10);   // Condition satisfied
+    /// assert_eq!(transformer.apply(-5), 5);   // Condition not satisfied
     /// ```
-    pub fn or_else<F>(self, mut else_mapper: F) -> BoxStatefulTransformer<T, R>
+    pub fn or_else<F>(self, else_transformer: F) -> BoxStatefulTransformer<T, R>
     where
         F: StatefulTransformer<T, R> + 'static,
     {
         let pred = self.predicate;
-        let mut then_mapper = self.mapper;
+        let mut then_trans = self.transformer;
+        let mut else_trans = else_transformer;
         BoxStatefulTransformer::new(move |t| {
             if pred.test(&t) {
-                then_mapper.apply(t)
+                then_trans.apply(t)
             } else {
-                else_mapper.apply(t)
+                else_trans.apply(t)
             }
         })
     }
@@ -736,9 +733,9 @@ where
 // ArcStatefulTransformer - Arc<Mutex<dyn FnMut(T) -> R + Send>>
 // ============================================================================
 
-/// ArcStatefulTransformer - thread-safe mapper wrapper
+/// ArcStatefulTransformer - thread-safe transformer wrapper
 ///
-/// A thread-safe, clonable mapper wrapper suitable for multi-threaded
+/// A thread-safe, clonable transformer wrapper suitable for multi-threaded
 /// scenarios. Can be called multiple times and shared across threads
 /// while maintaining internal state.
 ///
@@ -761,7 +758,7 @@ pub struct ArcStatefulTransformer<T, R> {
 
 impl<T, R> ArcStatefulTransformer<T, R>
 where
-    T: Send + Sync + 'static,
+    T: Send + 'static,
     R: Send + 'static,
 {
     /// Creates a new ArcStatefulTransformer
@@ -776,12 +773,12 @@ where
     /// use prism3_function::{ArcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = ArcStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = ArcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.apply(10), 11);
-    /// assert_eq!(mapper.apply(10), 12);
+    /// assert_eq!(transformer.apply(10), 11);
+    /// assert_eq!(transformer.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -792,7 +789,7 @@ where
         }
     }
 
-    /// Creates an identity mapper
+    /// Creates an identity transformer
     ///
     /// # Examples
     ///
@@ -808,18 +805,18 @@ where
 
     /// Chain composition - applies self first, then after
     ///
-    /// Creates a new mapper that applies this mapper first, then applies
-    /// the after mapper to the result. Uses &self, so original mapper
+    /// Creates a new transformer that applies this transformer first, then applies
+    /// the after transformer to the result. Uses &self, so original transformer
     /// remains usable.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The output type of the after mapper
-    /// * `F` - The type of the after mapper (must implement StatefulTransformer<R, S>)
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement StatefulTransformer<R, S>)
     ///
     /// # Parameters
     ///
-    /// * `after` - The mapper to apply after self. Can be:
+    /// * `after` - The transformer to apply after self. Can be:
     ///   - A closure: `|x: R| -> S`
     ///   - A `BoxStatefulTransformer<R, S>`
     ///   - An `RcStatefulTransformer<R, S>`
@@ -836,18 +833,18 @@ where
     /// use prism3_function::{ArcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter1 = 0;
-    /// let mapper1 = ArcStatefulTransformer::new(move |x: i32| {
+    /// let transformer1 = ArcStatefulTransformer::new(move |x: i32| {
     ///     counter1 += 1;
     ///     x + counter1
     /// });
     ///
     /// let mut counter2 = 0;
-    /// let mapper2 = ArcStatefulTransformer::new(move |x: i32| {
+    /// let transformer2 = ArcStatefulTransformer::new(move |x: i32| {
     ///     counter2 += 1;
     ///     x * counter2
     /// });
     ///
-    /// let mut composed = mapper1.and_then(mapper2);
+    /// let mut composed = transformer1.and_then(transformer2);
     ///
     /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
@@ -855,32 +852,32 @@ where
     pub fn and_then<S, F>(&self, after: F) -> ArcStatefulTransformer<T, S>
     where
         S: Send + 'static,
+        R: Send + Sync + 'static,
         F: StatefulTransformer<R, S> + Send + 'static,
     {
-        let self_fn = Arc::clone(&self.function);
-        let after = Arc::new(Mutex::new(after));
-        ArcStatefulTransformer {
-            function: Arc::new(Mutex::new(move |x: T| {
-                let intermediate = self_fn.lock().unwrap()(x);
-                after.lock().unwrap().apply(intermediate)
-            })),
-        }
+        let self_fn = self.function.clone();
+        let mut after_arc = after.into_arc();
+        ArcStatefulTransformer::new(move |x: T| {
+            let mut func = self_fn.lock().unwrap();
+            let intermediate = func(x);
+            after_arc.apply(intermediate)
+        })
     }
 
     /// Reverse composition - applies before first, then self
     ///
-    /// Creates a new mapper that applies the before mapper first, then
-    /// applies this mapper to the result. Uses &self, so original mapper
+    /// Creates a new transformer that applies the before transformer first, then
+    /// applies this transformer to the result. Uses &self, so original transformer
     /// remains usable.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The input type of the before mapper
-    /// * `F` - The type of the before mapper (must implement StatefulTransformer<S, T>)
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement StatefulTransformer<S, T>)
     ///
     /// # Parameters
     ///
-    /// * `before` - The mapper to apply before self. Can be:
+    /// * `before` - The transformer to apply before self. Can be:
     ///   - A closure: `|x: S| -> T`
     ///   - A `BoxStatefulTransformer<S, T>`
     ///   - An `RcStatefulTransformer<S, T>`
@@ -897,34 +894,32 @@ where
     /// use prism3_function::{ArcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mapper = ArcStatefulTransformer::new(move |x: i32| {
+    /// let transformer = ArcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * counter
     /// });
     ///
-    /// let mut composed = mapper.compose(|x: i32| x + 1);
+    /// let mut composed = transformer.compose(|x: i32| x + 1);
     /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
     pub fn compose<S, F>(&self, before: F) -> ArcStatefulTransformer<S, R>
     where
-        S: Send + 'static,
+        S: Send + Sync + 'static,
         F: StatefulTransformer<S, T> + Send + 'static,
     {
-        let self_fn = Arc::clone(&self.function);
-        let before = Arc::new(Mutex::new(before));
-        ArcStatefulTransformer {
-            function: Arc::new(Mutex::new(move |x: S| {
-                let intermediate = before.lock().unwrap().apply(x);
-                self_fn.lock().unwrap()(intermediate)
-            })),
-        }
+        let self_fn = self.function.clone();
+        let mut before_arc = before.into_arc();
+        ArcStatefulTransformer::new(move |x: S| {
+            let intermediate = before_arc.apply(x);
+            self_fn.lock().unwrap()(intermediate)
+        })
     }
 
-    /// Creates a conditional mapper (thread-safe version)
+    /// Creates a conditional transformer (thread-safe version)
     ///
-    /// Returns a mapper that only executes when a predicate is satisfied.
-    /// You must call `or_else()` to provide an alternative mapper.
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// You must call `or_else()` to provide an alternative transformer.
     ///
     /// # Parameters
     ///
@@ -944,22 +939,22 @@ where
     /// use prism3_function::{StatefulTransformer, ArcStatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = ArcStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = ArcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * 2
     /// })
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(transformer.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(transformer.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(&self, predicate: P) -> ArcConditionalStatefulTransformer<T, R>
     where
         P: Predicate<T> + Send + Sync + 'static,
     {
         ArcConditionalStatefulTransformer {
-            mapper: self.clone(),
+            transformer: self.clone(),
             predicate: predicate.into_arc(),
         }
     }
@@ -970,7 +965,7 @@ where
     T: Send + Sync + 'static,
     R: Clone + Send + 'static,
 {
-    /// Creates a constant mapper
+    /// Creates a constant transformer
     ///
     /// # Examples
     ///
@@ -987,7 +982,8 @@ where
 
 impl<T, R> StatefulTransformer<T, R> for ArcStatefulTransformer<T, R> {
     fn apply(&mut self, input: T) -> R {
-        (self.function.lock().unwrap())(input)
+        let mut func = self.function.lock().unwrap();
+        func(input)
     }
 
     fn into_box(self) -> BoxStatefulTransformer<T, R>
@@ -995,7 +991,10 @@ impl<T, R> StatefulTransformer<T, R> for ArcStatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        BoxStatefulTransformer::new(move |x| self.function.lock().unwrap()(x))
+        BoxStatefulTransformer::new(move |x| {
+            let mut func = self.function.lock().unwrap();
+            func(x)
+        })
     }
 
     fn into_rc(self) -> RcStatefulTransformer<T, R>
@@ -1003,7 +1002,10 @@ impl<T, R> StatefulTransformer<T, R> for ArcStatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        RcStatefulTransformer::new(move |x| self.function.lock().unwrap()(x))
+        RcStatefulTransformer::new(move |x| {
+            let mut func = self.function.lock().unwrap();
+            func(x)
+        })
     }
 
     fn into_arc(self) -> ArcStatefulTransformer<T, R>
@@ -1021,25 +1023,10 @@ impl<T, R> StatefulTransformer<T, R> for ArcStatefulTransformer<T, R> {
         R: 'static,
     {
         // Efficient: use Arc cloning to create a closure
-        move |input: T| (self.function.lock().unwrap())(input)
-    }
-
-    fn to_box(&self) -> BoxStatefulTransformer<T, R>
-    where
-        T: 'static,
-        R: 'static,
-    {
-        let self_fn = self.function.clone();
-        BoxStatefulTransformer::new(move |x| self_fn.lock().unwrap()(x))
-    }
-
-    fn to_rc(&self) -> RcStatefulTransformer<T, R>
-    where
-        T: 'static,
-        R: 'static,
-    {
-        let self_fn = self.function.clone();
-        RcStatefulTransformer::new(move |x| self_fn.lock().unwrap()(x))
+        move |input: T| {
+            let mut func = self.function.lock().unwrap();
+            func(input)
+        }
     }
 
     fn to_arc(&self) -> ArcStatefulTransformer<T, R>
@@ -1049,21 +1036,12 @@ impl<T, R> StatefulTransformer<T, R> for ArcStatefulTransformer<T, R> {
     {
         self.clone()
     }
-
-    fn to_fn(&self) -> impl FnMut(T) -> R
-    where
-        T: 'static,
-        R: 'static,
-    {
-        let self_fn = self.function.clone();
-        move |input: T| self_fn.lock().unwrap()(input)
-    }
 }
 
 impl<T, R> Clone for ArcStatefulTransformer<T, R> {
     fn clone(&self) -> Self {
-        ArcStatefulTransformer {
-            function: Arc::clone(&self.function),
+        Self {
+            function: self.function.clone(),
         }
     }
 }
@@ -1073,8 +1051,9 @@ where
     T: Send + Sync + 'static,
     R: Send + 'static,
 {
-    fn apply_once(mut self, input: T) -> R {
-        StatefulTransformer::apply(&mut self, input)
+    fn apply_once(self, input: T) -> R {
+        let mut func = self.function.lock().unwrap();
+        func(input)
     }
 
     fn into_box_once(self) -> BoxTransformerOnce<T, R>
@@ -1083,7 +1062,10 @@ where
         T: 'static,
         R: 'static,
     {
-        BoxTransformerOnce::new(move |input| self.function.lock().unwrap()(input))
+        BoxTransformerOnce::new(move |input| {
+            let mut func = self.function.lock().unwrap();
+            func(input)
+        })
     }
 
     fn into_fn_once(self) -> impl FnOnce(T) -> R
@@ -1092,7 +1074,10 @@ where
         T: 'static,
         R: 'static,
     {
-        move |input: T| self.function.lock().unwrap()(input)
+        move |input: T| {
+            let mut func = self.function.lock().unwrap();
+            func(input)
+        }
     }
 
     fn to_box_once(&self) -> BoxTransformerOnce<T, R>
@@ -1102,7 +1087,10 @@ where
         R: 'static,
     {
         let self_fn = self.function.clone();
-        BoxTransformerOnce::new(move |input| self_fn.lock().unwrap()(input))
+        BoxTransformerOnce::new(move |input| {
+            let mut func = self_fn.lock().unwrap();
+            func(input)
+        })
     }
 
     fn to_fn_once(&self) -> impl FnOnce(T) -> R
@@ -1112,7 +1100,10 @@ where
         R: 'static,
     {
         let self_fn = self.function.clone();
-        move |input: T| self_fn.lock().unwrap()(input)
+        move |input: T| {
+            let mut func = self_fn.lock().unwrap();
+            func(input)
+        }
     }
 }
 
@@ -1122,7 +1113,7 @@ where
 
 /// ArcConditionalStatefulTransformer struct
 ///
-/// A thread-safe conditional mapper that only executes when a predicate
+/// A thread-safe conditional transformer that only executes when a predicate
 /// is satisfied. Uses `ArcStatefulTransformer` and `ArcPredicate` for shared
 /// ownership across threads.
 ///
@@ -1143,21 +1134,21 @@ where
 /// ```rust
 /// use prism3_function::{StatefulTransformer, ArcStatefulTransformer};
 ///
-/// let mut mapper = ArcStatefulTransformer::new(|x: i32| x * 2)
+/// let mut transformer = ArcStatefulTransformer::new(|x: i32| x * 2)
 ///     .when(|x: &i32| *x > 0)
 ///     .or_else(|x: i32| -x);
 ///
-/// let mut mapper_clone = mapper.clone();
+/// let mut transformer_clone = transformer.clone();
 ///
-/// assert_eq!(mapper.apply(5), 10);
-/// assert_eq!(mapper_clone.apply(-5), 5);
+/// assert_eq!(transformer.apply(5), 10);
+/// assert_eq!(transformer_clone.apply(-5), 5);
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
 pub struct ArcConditionalStatefulTransformer<T, R> {
-    mapper: ArcStatefulTransformer<T, R>,
+    transformer: ArcStatefulTransformer<T, R>,
     predicate: ArcPredicate<T>,
 }
 
@@ -1168,12 +1159,12 @@ where
 {
     /// Adds an else branch (thread-safe version)
     ///
-    /// Executes the original mapper when the condition is satisfied,
-    /// otherwise executes else_mapper.
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
     ///
     /// # Parameters
     ///
-    /// * `else_mapper` - The mapper for the else branch, can be:
+    /// * `else_transformer` - The transformer for the else branch, can be:
     ///   - Closure: `|x: T| -> R` (must be `Send`)
     ///   - `ArcStatefulTransformer<T, R>`, `BoxStatefulTransformer<T, R>`
     ///   - Any type implementing `StatefulTransformer<T, R> + Send`
@@ -1187,40 +1178,38 @@ where
     /// ```rust
     /// use prism3_function::{StatefulTransformer, ArcStatefulTransformer};
     ///
-    /// let mut mapper = ArcStatefulTransformer::new(|x: i32| x * 2)
+    /// let mut transformer = ArcStatefulTransformer::new(|x: i32| x * 2)
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.apply(5), 10);
-    /// assert_eq!(mapper.apply(-5), 5);
+    /// assert_eq!(transformer.apply(5), 10);
+    /// assert_eq!(transformer.apply(-5), 5);
     /// ```
-    pub fn or_else<F>(self, else_mapper: F) -> ArcStatefulTransformer<T, R>
+    pub fn or_else<F>(&self, else_transformer: F) -> ArcStatefulTransformer<T, R>
     where
         F: StatefulTransformer<T, R> + Send + 'static,
     {
-        let pred = self.predicate;
-        let then_mapper = self.mapper;
-        let else_mapper = Arc::new(Mutex::new(else_mapper));
-        ArcStatefulTransformer {
-            function: Arc::new(Mutex::new(move |t| {
-                if pred.test(&t) {
-                    then_mapper.function.lock().unwrap()(t)
-                } else {
-                    else_mapper.lock().unwrap().apply(t)
-                }
-            })),
-        }
+        let pred = self.predicate.clone();
+        let mut then_trans = self.transformer.clone();
+        let mut else_trans = else_transformer;
+        ArcStatefulTransformer::new(move |t| {
+            if pred.test(&t) {
+                then_trans.apply(t)
+            } else {
+                else_trans.apply(t)
+            }
+        })
     }
 }
 
 impl<T, R> Clone for ArcConditionalStatefulTransformer<T, R> {
-    /// Clones the conditional mapper
+    /// Clones the conditional transformer
     ///
-    /// Creates a new instance that shares the underlying mapper and
+    /// Creates a new instance that shares the underlying transformer and
     /// predicate with the original instance.
     fn clone(&self) -> Self {
         Self {
-            mapper: self.mapper.clone(),
+            transformer: self.transformer.clone(),
             predicate: self.predicate.clone(),
         }
     }
@@ -1230,9 +1219,9 @@ impl<T, R> Clone for ArcConditionalStatefulTransformer<T, R> {
 // RcStatefulTransformer - Rc<RefCell<dyn FnMut(T) -> R>>
 // ============================================================================
 
-/// RcStatefulTransformer - single-threaded mapper wrapper
+/// RcStatefulTransformer - single-threaded transformer wrapper
 ///
-/// A single-threaded, clonable mapper wrapper optimized for scenarios
+/// A single-threaded, clonable transformer wrapper optimized for scenarios
 /// that require sharing without thread-safety overhead.
 ///
 /// # Features
@@ -1269,12 +1258,12 @@ where
     /// use prism3_function::{RcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = RcStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = RcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x + counter
     /// });
-    /// assert_eq!(mapper.apply(10), 11);
-    /// assert_eq!(mapper.apply(10), 12);
+    /// assert_eq!(transformer.apply(10), 11);
+    /// assert_eq!(transformer.apply(10), 12);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
@@ -1285,7 +1274,7 @@ where
         }
     }
 
-    /// Creates an identity mapper
+    /// Creates an identity transformer
     ///
     /// # Examples
     ///
@@ -1301,18 +1290,18 @@ where
 
     /// Chain composition - applies self first, then after
     ///
-    /// Creates a new mapper that applies this mapper first, then applies
-    /// the after mapper to the result. Uses &self, so original mapper
+    /// Creates a new transformer that applies this transformer first, then applies
+    /// the after transformer to the result. Uses &self, so original transformer
     /// remains usable.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The output type of the after mapper
-    /// * `F` - The type of the after mapper (must implement StatefulTransformer<R, S>)
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement StatefulTransformer<R, S>)
     ///
     /// # Parameters
     ///
-    /// * `after` - The mapper to apply after self. Can be:
+    /// * `after` - The transformer to apply after self. Can be:
     ///   - A closure: `|x: R| -> S`
     ///   - A `BoxStatefulTransformer<R, S>`
     ///   - An `RcStatefulTransformer<R, S>` (will be cloned internally)
@@ -1329,18 +1318,18 @@ where
     /// use prism3_function::{RcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter1 = 0;
-    /// let mapper1 = RcStatefulTransformer::new(move |x: i32| {
+    /// let transformer1 = RcStatefulTransformer::new(move |x: i32| {
     ///     counter1 += 1;
     ///     x + counter1
     /// });
     ///
     /// let mut counter2 = 0;
-    /// let mapper2 = RcStatefulTransformer::new(move |x: i32| {
+    /// let transformer2 = RcStatefulTransformer::new(move |x: i32| {
     ///     counter2 += 1;
     ///     x * counter2
     /// });
     ///
-    /// let mut composed = mapper1.and_then(mapper2);
+    /// let mut composed = transformer1.and_then(transformer2);
     ///
     /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 24);  // (10 + 2) * 2
@@ -1350,30 +1339,28 @@ where
         S: 'static,
         F: StatefulTransformer<R, S> + 'static,
     {
-        let self_fn = Rc::clone(&self.function);
-        let after = Rc::new(RefCell::new(after));
-        RcStatefulTransformer {
-            function: Rc::new(RefCell::new(move |x: T| {
-                let intermediate = self_fn.borrow_mut()(x);
-                after.borrow_mut().apply(intermediate)
-            })),
-        }
+        let self_fn = self.function.clone();
+        let mut after_mut = after;
+        RcStatefulTransformer::new(move |x: T| {
+            let intermediate = self_fn.borrow_mut()(x);
+            after_mut.apply(intermediate)
+        })
     }
 
     /// Reverse composition - applies before first, then self
     ///
-    /// Creates a new mapper that applies the before mapper first, then
-    /// applies this mapper to the result. Uses &self, so original mapper
+    /// Creates a new transformer that applies the before transformer first, then
+    /// applies this transformer to the result. Uses &self, so original transformer
     /// remains usable.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The input type of the before mapper
-    /// * `F` - The type of the before mapper (must implement StatefulTransformer<S, T>)
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement StatefulTransformer<S, T>)
     ///
     /// # Parameters
     ///
-    /// * `before` - The mapper to apply before self. Can be:
+    /// * `before` - The transformer to apply before self. Can be:
     ///   - A closure: `|x: S| -> T`
     ///   - A `BoxStatefulTransformer<S, T>`
     ///   - An `RcStatefulTransformer<S, T>` (will be cloned internally)
@@ -1390,12 +1377,12 @@ where
     /// use prism3_function::{RcStatefulTransformer, StatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mapper = RcStatefulTransformer::new(move |x: i32| {
+    /// let transformer = RcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * counter
     /// });
     ///
-    /// let mut composed = mapper.compose(|x: i32| x + 1);
+    /// let mut composed = transformer.compose(|x: i32| x + 1);
     /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
     /// assert_eq!(composed.apply(10), 22); // (10 + 1) * 2
     /// ```
@@ -1404,20 +1391,18 @@ where
         S: 'static,
         F: StatefulTransformer<S, T> + 'static,
     {
-        let self_fn = Rc::clone(&self.function);
-        let before = Rc::new(RefCell::new(before));
-        RcStatefulTransformer {
-            function: Rc::new(RefCell::new(move |x: S| {
-                let intermediate = before.borrow_mut().apply(x);
-                self_fn.borrow_mut()(intermediate)
-            })),
-        }
+        let self_fn = self.function.clone();
+        let mut before_mut = before;
+        RcStatefulTransformer::new(move |x: S| {
+            let intermediate = before_mut.apply(x);
+            self_fn.borrow_mut()(intermediate)
+        })
     }
 
-    /// Creates a conditional mapper (single-threaded shared version)
+    /// Creates a conditional transformer (single-threaded shared version)
     ///
-    /// Returns a mapper that only executes when a predicate is satisfied.
-    /// You must call `or_else()` to provide an alternative mapper.
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// You must call `or_else()` to provide an alternative transformer.
     ///
     /// # Parameters
     ///
@@ -1439,22 +1424,22 @@ where
     /// use prism3_function::{StatefulTransformer, RcStatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mut mapper = RcStatefulTransformer::new(move |x: i32| {
+    /// let mut transformer = RcStatefulTransformer::new(move |x: i32| {
     ///     counter += 1;
     ///     x * 2
     /// })
     /// .when(|x: &i32| *x > 10)
     /// .or_else(|x| x + 1);
     ///
-    /// assert_eq!(mapper.apply(15), 30);  // 15 > 10, apply * 2
-    /// assert_eq!(mapper.apply(5), 6);    // 5 <= 10, apply + 1
+    /// assert_eq!(transformer.apply(15), 30);  // 15 > 10, apply * 2
+    /// assert_eq!(transformer.apply(5), 6);    // 5 <= 10, apply + 1
     /// ```
     pub fn when<P>(self, predicate: P) -> RcConditionalStatefulTransformer<T, R>
     where
         P: Predicate<T> + 'static,
     {
         RcConditionalStatefulTransformer {
-            mapper: self,
+            transformer: self,
             predicate: predicate.into_rc(),
         }
     }
@@ -1465,7 +1450,7 @@ where
     T: 'static,
     R: Clone + 'static,
 {
-    /// Creates a constant mapper
+    /// Creates a constant transformer
     ///
     /// # Examples
     ///
@@ -1482,7 +1467,8 @@ where
 
 impl<T, R> StatefulTransformer<T, R> for RcStatefulTransformer<T, R> {
     fn apply(&mut self, input: T) -> R {
-        (self.function.borrow_mut())(input)
+        let mut self_fn = self.function.borrow_mut();
+        self_fn(input)
     }
 
     fn into_box(self) -> BoxStatefulTransformer<T, R>
@@ -1490,9 +1476,10 @@ impl<T, R> StatefulTransformer<T, R> for RcStatefulTransformer<T, R> {
         T: 'static,
         R: 'static,
     {
-        BoxStatefulTransformer {
-            function: Box::new(move |x| self.function.borrow_mut()(x)),
-        }
+        BoxStatefulTransformer::new(move |x| {
+            let mut self_fn = self.function.borrow_mut();
+            self_fn(x)
+        })
     }
 
     fn into_rc(self) -> RcStatefulTransformer<T, R>
@@ -1513,14 +1500,25 @@ impl<T, R> StatefulTransformer<T, R> for RcStatefulTransformer<T, R> {
         R: 'static,
     {
         // Efficient: use Rc cloning to create a closure
-        move |input: T| (self.function.borrow_mut())(input)
+        move |input: T| {
+            let mut self_fn = self.function.borrow_mut();
+            self_fn(input)
+        }
+    }
+
+    fn to_rc(&self) -> RcStatefulTransformer<T, R>
+    where
+        T: 'static,
+        R: 'static,
+    {
+        self.clone()
     }
 }
 
 impl<T, R> Clone for RcStatefulTransformer<T, R> {
     fn clone(&self) -> Self {
-        RcStatefulTransformer {
-            function: Rc::clone(&self.function),
+        Self {
+            function: self.function.clone(),
         }
     }
 }
@@ -1530,22 +1528,29 @@ where
     T: 'static,
     R: 'static,
 {
-    fn apply_once(mut self, input: T) -> R {
-        StatefulTransformer::apply(&mut self, input)
+    fn apply_once(self, input: T) -> R {
+        let mut func = self.function.borrow_mut();
+        func(input)
     }
 
     fn into_box_once(self) -> BoxTransformerOnce<T, R>
     where
         Self: Sized + 'static,
     {
-        BoxTransformerOnce::new(move |input| self.function.borrow_mut()(input))
+        BoxTransformerOnce::new(move |input| {
+            let mut func = self.function.borrow_mut();
+            func(input)
+        })
     }
 
     fn into_fn_once(self) -> impl FnOnce(T) -> R
     where
         Self: Sized + 'static,
     {
-        move |input: T| self.function.borrow_mut()(input)
+        move |input: T| {
+            let mut func = self.function.borrow_mut();
+            func(input)
+        }
     }
 
     fn to_box_once(&self) -> BoxTransformerOnce<T, R>
@@ -1553,7 +1558,10 @@ where
         Self: Clone + 'static,
     {
         let self_fn = self.function.clone();
-        BoxTransformerOnce::new(move |input| self_fn.borrow_mut()(input))
+        BoxTransformerOnce::new(move |input| {
+            let mut func = self_fn.borrow_mut();
+            func(input)
+        })
     }
 
     fn to_fn_once(&self) -> impl FnOnce(T) -> R
@@ -1561,7 +1569,10 @@ where
         Self: Clone + 'static,
     {
         let self_fn = self.function.clone();
-        move |input: T| self_fn.borrow_mut()(input)
+        move |input: T| {
+            let mut func = self_fn.borrow_mut();
+            func(input)
+        }
     }
 }
 
@@ -1571,7 +1582,7 @@ where
 
 /// RcConditionalStatefulTransformer struct
 ///
-/// A single-threaded conditional mapper that only executes when a
+/// A single-threaded conditional transformer that only executes when a
 /// predicate is satisfied. Uses `RcStatefulTransformer` and `RcPredicate` for shared
 /// ownership within a single thread.
 ///
@@ -1591,21 +1602,21 @@ where
 /// ```rust
 /// use prism3_function::{StatefulTransformer, RcStatefulTransformer};
 ///
-/// let mut mapper = RcStatefulTransformer::new(|x: i32| x * 2)
+/// let mut transformer = RcStatefulTransformer::new(|x: i32| x * 2)
 ///     .when(|x: &i32| *x > 0)
 ///     .or_else(|x: i32| -x);
 ///
-/// let mut mapper_clone = mapper.clone();
+/// let mut transformer_clone = transformer.clone();
 ///
-/// assert_eq!(mapper.apply(5), 10);
-/// assert_eq!(mapper_clone.apply(-5), 5);
+/// assert_eq!(transformer.apply(5), 10);
+/// assert_eq!(transformer_clone.apply(-5), 5);
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
 pub struct RcConditionalStatefulTransformer<T, R> {
-    mapper: RcStatefulTransformer<T, R>,
+    transformer: RcStatefulTransformer<T, R>,
     predicate: RcPredicate<T>,
 }
 
@@ -1616,12 +1627,12 @@ where
 {
     /// Adds an else branch (single-threaded shared version)
     ///
-    /// Executes the original mapper when the condition is satisfied,
-    /// otherwise executes else_mapper.
+    /// Executes the original transformer when the condition is satisfied,
+    /// otherwise executes else_transformer.
     ///
     /// # Parameters
     ///
-    /// * `else_mapper` - The mapper for the else branch, can be:
+    /// * `else_transformer` - The transformer for the else branch, can be:
     ///   - Closure: `|x: T| -> R`
     ///   - `RcStatefulTransformer<T, R>`, `BoxStatefulTransformer<T, R>`
     ///   - Any type implementing `StatefulTransformer<T, R>`
@@ -1635,26 +1646,26 @@ where
     /// ```rust
     /// use prism3_function::{StatefulTransformer, RcStatefulTransformer};
     ///
-    /// let mut mapper = RcStatefulTransformer::new(|x: i32| x * 2)
+    /// let mut transformer = RcStatefulTransformer::new(|x: i32| x * 2)
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.apply(5), 10);
-    /// assert_eq!(mapper.apply(-5), 5);
+    /// assert_eq!(transformer.apply(5), 10);
+    /// assert_eq!(transformer.apply(-5), 5);
     /// ```
-    pub fn or_else<F>(self, else_mapper: F) -> RcStatefulTransformer<T, R>
+    pub fn or_else<F>(&self, else_transformer: F) -> RcStatefulTransformer<T, R>
     where
         F: StatefulTransformer<T, R> + 'static,
     {
-        let pred = self.predicate;
-        let then_mapper = self.mapper;
-        let else_mapper = Rc::new(RefCell::new(else_mapper));
+        let pred = self.predicate.clone();
+        let mut then_trans = self.transformer.clone();
+        let mut else_trans = else_transformer;
         RcStatefulTransformer {
             function: Rc::new(RefCell::new(move |t| {
                 if pred.test(&t) {
-                    then_mapper.function.borrow_mut()(t)
+                    then_trans.apply(t)
                 } else {
-                    else_mapper.borrow_mut().apply(t)
+                    else_trans.apply(t)
                 }
             })),
         }
@@ -1662,13 +1673,13 @@ where
 }
 
 impl<T, R> Clone for RcConditionalStatefulTransformer<T, R> {
-    /// Clones the conditional mapper
+    /// Clones the conditional transformer
     ///
-    /// Creates a new instance that shares the underlying mapper and
+    /// Creates a new instance that shares the underlying transformer and
     /// predicate with the original instance.
     fn clone(&self) -> Self {
         Self {
-            mapper: self.mapper.clone(),
+            transformer: self.transformer.clone(),
             predicate: self.predicate.clone(),
         }
     }
@@ -1689,13 +1700,13 @@ impl<T, R> Clone for RcConditionalStatefulTransformer<T, R> {
 /// use prism3_function::StatefulTransformer;
 ///
 /// let mut counter = 0;
-/// let mut mapper = |x: i32| {
+/// let mut transformer = |x: i32| {
 ///     counter += 1;
 ///     x + counter
 /// };
 ///
-/// assert_eq!(mapper.apply(10), 11);
-/// assert_eq!(mapper.apply(10), 12);
+/// assert_eq!(transformer.apply(10), 11);
+/// assert_eq!(transformer.apply(10), 12);
 /// ```
 ///
 /// # Author
@@ -1728,7 +1739,7 @@ where
     fn into_arc(self) -> ArcStatefulTransformer<T, R>
     where
         Self: Sized + Send + 'static,
-        T: Send + Sync + 'static,
+        T: Send + 'static,
         R: Send + 'static,
     {
         ArcStatefulTransformer::new(self)
@@ -1758,10 +1769,7 @@ where
         T: 'static,
         R: 'static,
     {
-        // Clone the closure into a RefCell to allow interior mutability
-        // across calls.
-        let cell = RefCell::new(self.clone());
-        BoxStatefulTransformer::new(move |input: T| cell.borrow_mut().apply(input))
+        BoxStatefulTransformer::new(self.clone())
     }
 
     fn to_rc(&self) -> RcStatefulTransformer<T, R>
@@ -1770,18 +1778,16 @@ where
         T: 'static,
         R: 'static,
     {
-        let cell = Rc::new(RefCell::new(self.clone()));
-        RcStatefulTransformer::new(move |input: T| cell.borrow_mut().apply(input))
+        RcStatefulTransformer::new(self.clone())
     }
 
     fn to_arc(&self) -> ArcStatefulTransformer<T, R>
     where
         Self: Sized + Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: Send + 'static,
         R: Send + 'static,
     {
-        let cell = Arc::new(Mutex::new(self.clone()));
-        ArcStatefulTransformer::new(move |input: T| cell.lock().unwrap().apply(input))
+        ArcStatefulTransformer::new(self.clone())
     }
 
     fn to_fn(&self) -> impl FnMut(T) -> R
@@ -1790,13 +1796,12 @@ where
         T: 'static,
         R: 'static,
     {
-        let cell = RefCell::new(self.clone());
-        move |input: T| cell.borrow_mut().apply(input)
+        self.clone()
     }
 }
 
 // ============================================================================
-// FnStatefulTransformerOps - Extension trait for closure mappers
+// FnStatefulTransformerOps - Extension trait for closure transformers
 // ============================================================================
 
 /// Extension trait for closures implementing `FnMut(T) -> R`
@@ -1823,18 +1828,18 @@ where
 /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps};
 ///
 /// let mut counter1 = 0;
-/// let mapper1 = move |x: i32| {
+/// let transformer1 = move |x: i32| {
 ///     counter1 += 1;
 ///     x + counter1
 /// };
 ///
 /// let mut counter2 = 0;
-/// let mapper2 = move |x: i32| {
+/// let transformer2 = move |x: i32| {
 ///     counter2 += 1;
 ///     x * counter2
 /// };
 ///
-/// let mut composed = mapper1.and_then(mapper2);
+/// let mut composed = transformer1.and_then(transformer2);
 /// assert_eq!(composed.apply(10), 11);  // (10 + 1) * 1
 /// ```
 ///
@@ -1844,12 +1849,12 @@ where
 /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps};
 ///
 /// let mut counter = 0;
-/// let mapper = move |x: i32| {
+/// let transformer = move |x: i32| {
 ///     counter += 1;
 ///     x * counter
 /// };
 ///
-/// let mut composed = mapper.compose(|x: i32| x + 1);
+/// let mut composed = transformer.compose(|x: i32| x + 1);
 /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
 /// ```
 ///
@@ -1858,12 +1863,12 @@ where
 /// ```rust
 /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps};
 ///
-/// let mut mapper = (|x: i32| x * 2)
+/// let mut transformer = (|x: i32| x * 2)
 ///     .when(|x: &i32| *x > 0)
 ///     .or_else(|x: i32| -x);
 ///
-/// assert_eq!(mapper.apply(5), 10);
-/// assert_eq!(mapper.apply(-5), 5);
+/// assert_eq!(transformer.apply(5), 10);
+/// assert_eq!(transformer.apply(-5), 5);
 /// ```
 ///
 /// # Author
@@ -1872,18 +1877,18 @@ where
 pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
-    /// Creates a new mapper that applies this mapper first, then applies
-    /// the after mapper to the result. Consumes self and returns a
+    /// Creates a new transformer that applies this transformer first, then applies
+    /// the after transformer to the result. Consumes self and returns a
     /// `BoxStatefulTransformer`.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The output type of the after mapper
-    /// * `F` - The type of the after mapper (must implement StatefulTransformer<R, S>)
+    /// * `S` - The output type of the after transformer
+    /// * `F` - The type of the after transformer (must implement StatefulTransformer<R, S>)
     ///
     /// # Parameters
     ///
-    /// * `after` - The mapper to apply after self. Can be:
+    /// * `after` - The transformer to apply after self. Can be:
     ///   - A closure: `|x: R| -> S`
     ///   - A `BoxStatefulTransformer<R, S>`
     ///   - An `RcStatefulTransformer<R, S>`
@@ -1900,18 +1905,18 @@ pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps, BoxStatefulTransformer};
     ///
     /// let mut counter1 = 0;
-    /// let mapper1 = move |x: i32| {
+    /// let transformer1 = move |x: i32| {
     ///     counter1 += 1;
     ///     x + counter1
     /// };
     ///
     /// let mut counter2 = 0;
-    /// let mapper2 = BoxStatefulTransformer::new(move |x: i32| {
+    /// let transformer2 = BoxStatefulTransformer::new(move |x: i32| {
     ///     counter2 += 1;
     ///     x * counter2
     /// });
     ///
-    /// let mut composed = mapper1.and_then(mapper2);
+    /// let mut composed = transformer1.and_then(transformer2);
     /// assert_eq!(composed.apply(10), 11);
     /// ```
     fn and_then<S, F>(self, after: F) -> BoxStatefulTransformer<T, S>
@@ -1926,18 +1931,18 @@ pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
 
     /// Reverse composition - applies before first, then self
     ///
-    /// Creates a new mapper that applies the before mapper first, then
-    /// applies this mapper to the result. Consumes self and returns a
+    /// Creates a new transformer that applies the before transformer first, then
+    /// applies this transformer to the result. Consumes self and returns a
     /// `BoxStatefulTransformer`.
     ///
     /// # Type Parameters
     ///
-    /// * `S` - The input type of the before mapper
-    /// * `F` - The type of the before mapper (must implement StatefulTransformer<S, T>)
+    /// * `S` - The input type of the before transformer
+    /// * `F` - The type of the before transformer (must implement StatefulTransformer<S, T>)
     ///
     /// # Parameters
     ///
-    /// * `before` - The mapper to apply before self. Can be:
+    /// * `before` - The transformer to apply before self. Can be:
     ///   - A closure: `|x: S| -> T`
     ///   - A `BoxStatefulTransformer<S, T>`
     ///   - An `RcStatefulTransformer<S, T>`
@@ -1954,14 +1959,14 @@ pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps, BoxStatefulTransformer};
     ///
     /// let mut counter = 0;
-    /// let mapper = move |x: i32| {
+    /// let transformer = move |x: i32| {
     ///     counter += 1;
     ///     x * counter
     /// };
     ///
     /// let before = BoxStatefulTransformer::new(|x: i32| x + 1);
     ///
-    /// let mut composed = mapper.compose(before);
+    /// let mut composed = transformer.compose(before);
     /// assert_eq!(composed.apply(10), 11); // (10 + 1) * 1
     /// ```
     fn compose<S, F>(self, before: F) -> BoxStatefulTransformer<S, R>
@@ -1974,10 +1979,10 @@ pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
         BoxStatefulTransformer::new(self).compose(before)
     }
 
-    /// Creates a conditional mapper
+    /// Creates a conditional transformer
     ///
-    /// Returns a mapper that only executes when a predicate is satisfied.
-    /// You must call `or_else()` to provide an alternative mapper for
+    /// Returns a transformer that only executes when a predicate is satisfied.
+    /// You must call `or_else()` to provide an alternative transformer for
     /// when the condition is not satisfied.
     ///
     /// # Parameters
@@ -1999,12 +2004,12 @@ pub trait FnStatefulTransformerOps<T, R>: FnMut(T) -> R + Sized + 'static {
     /// ```rust
     /// use prism3_function::{StatefulTransformer, FnStatefulTransformerOps};
     ///
-    /// let mut mapper = (|x: i32| x * 2)
+    /// let mut transformer = (|x: i32| x * 2)
     ///     .when(|x: &i32| *x > 0)
     ///     .or_else(|x: i32| -x);
     ///
-    /// assert_eq!(mapper.apply(5), 10);
-    /// assert_eq!(mapper.apply(-5), 5);
+    /// assert_eq!(transformer.apply(5), 10);
+    /// assert_eq!(transformer.apply(-5), 5);
     /// ```
     fn when<P>(self, predicate: P) -> BoxConditionalStatefulTransformer<T, R>
     where
