@@ -322,7 +322,7 @@ pub trait Predicate<T> {
     fn into_arc(self) -> ArcPredicate<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         ArcPredicate::new(move |value: &T| self.test(value))
     }
@@ -425,7 +425,7 @@ pub trait Predicate<T> {
     fn to_arc(&self) -> ArcPredicate<T>
     where
         Self: Clone + Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         self.clone().into_arc()
     }
@@ -666,22 +666,11 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!pred.test(&101)); // does not satisfy less than 100
     /// ```
     ///
-    /// ## Preserving original predicates with clone
+    /// ## Note on ownership
     ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
-    ///
-    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-    ///
-    /// // Clone the predicates to preserve them for later use
-    /// let combined = is_positive.clone().and(is_even.clone());
-    /// assert!(combined.test(&4));
-    ///
-    /// // Original predicates are still usable
-    /// assert!(is_positive.test(&5));
-    /// assert!(is_even.test(&6));
-    /// ```
+    /// `BoxPredicate` uses single ownership semantics. If you need to reuse
+    /// predicates after composition, consider using `RcPredicate` instead,
+    /// which supports cloning and shared ownership.
     pub fn and<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -759,23 +748,11 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(combined.test(&150));
     /// ```
     ///
-    /// ## Preserving original predicates with clone
+    /// ## Note on ownership
     ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
-    ///
-    /// let is_negative = BoxPredicate::new(|x: &i32| *x < 0);
-    /// let is_large = BoxPredicate::new(|x: &i32| *x > 100);
-    ///
-    /// // Clone the predicates to preserve them for later use
-    /// let combined = is_negative.clone().or(is_large.clone());
-    /// assert!(combined.test(&-5));
-    /// assert!(combined.test(&150));
-    ///
-    /// // Original predicates are still usable
-    /// assert!(is_negative.test(&-10));
-    /// assert!(is_large.test(&200));
-    /// ```
+    /// `BoxPredicate` uses single ownership semantics. If you need to reuse
+    /// predicates after composition, consider using `RcPredicate` instead,
+    /// which supports cloning and shared ownership.
     pub fn or<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -872,23 +849,11 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!nand.test(&4));  // returns false when both conditions are met
     /// ```
     ///
-    /// ## Preserving original predicates with clone
+    /// ## Note on ownership
     ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
-    ///
-    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-    ///
-    /// // Clone the predicates to preserve them for later use
-    /// let nand = is_positive.clone().nand(is_even.clone());
-    /// assert!(nand.test(&3));   // returns true when only one condition is met
-    /// assert!(!nand.test(&4));  // returns false when both conditions are met
-    ///
-    /// // Original predicates are still usable
-    /// assert!(is_positive.test(&5));
-    /// assert!(is_even.test(&6));
-    /// ```
+    /// `BoxPredicate` uses single ownership semantics. If you need to reuse
+    /// predicates after composition, consider using `RcPredicate` instead,
+    /// which supports cloning and shared ownership.
     pub fn nand<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -970,24 +935,11 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!xor.test(&-1));  // returns false when neither condition is met
     /// ```
     ///
-    /// ## Preserving original predicates with clone
+    /// ## Note on ownership
     ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
-    ///
-    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-    ///
-    /// // Clone the predicates to preserve them for later use
-    /// let xor = is_positive.clone().xor(is_even.clone());
-    /// assert!(xor.test(&3));    // returns true when only one condition is met
-    /// assert!(!xor.test(&4));   // returns false when both conditions are met
-    /// assert!(!xor.test(&-1));  // returns false when neither condition is met
-    ///
-    /// // Original predicates are still usable
-    /// assert!(is_positive.test(&5));
-    /// assert!(is_even.test(&6));
-    /// ```
+    /// `BoxPredicate` uses single ownership semantics. If you need to reuse
+    /// predicates after composition, consider using `RcPredicate` instead,
+    /// which supports cloning and shared ownership.
     pub fn xor<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -1073,23 +1025,11 @@ impl<T: 'static> BoxPredicate<T> {
     /// assert!(!nor.test(&4));   // Returns false when at least one is true
     /// ```
     ///
-    /// ## Preserving original predicates with clone
+    /// ## Note on ownership
     ///
-    /// ```rust
-    /// use prism3_function::predicate::{Predicate, BoxPredicate};
-    ///
-    /// let is_positive = BoxPredicate::new(|x: &i32| *x > 0);
-    /// let is_even = BoxPredicate::new(|x: &i32| x % 2 == 0);
-    ///
-    /// // Clone the predicates to preserve them for later use
-    /// let nor = is_positive.clone().nor(is_even.clone());
-    /// assert!(nor.test(&-3));   // Returns true only when both are false
-    /// assert!(!nor.test(&4));   // Returns false when at least one is true
-    ///
-    /// // Original predicates are still usable
-    /// assert!(is_positive.test(&5));
-    /// assert!(is_even.test(&6));
-    /// ```
+    /// `BoxPredicate` uses single ownership semantics. If you need to reuse
+    /// predicates after composition, consider using `RcPredicate` instead,
+    /// which supports cloning and shared ownership.
     pub fn nor<P>(self, other: P) -> BoxPredicate<T>
     where
         P: Predicate<T> + 'static,
@@ -1839,7 +1779,6 @@ impl<T: 'static> ArcPredicate<T> {
     /// ```
     pub fn and<P>(&self, other: P) -> ArcPredicate<T>
     where
-        T: Send + Sync,
         P: Predicate<T> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1884,7 +1823,6 @@ impl<T: 'static> ArcPredicate<T> {
     /// ```
     pub fn or<P>(&self, other: P) -> ArcPredicate<T>
     where
-        T: Send + Sync,
         P: Predicate<T> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1901,10 +1839,7 @@ impl<T: 'static> ArcPredicate<T> {
     ///
     /// A new `ArcPredicate` representing the logical negation.
     #[allow(clippy::should_implement_trait)]
-    pub fn not(&self) -> ArcPredicate<T>
-    where
-        T: Send + Sync,
-    {
+    pub fn not(&self) -> ArcPredicate<T> {
         let self_fn = Arc::clone(&self.function);
         ArcPredicate {
             function: Arc::new(move |value: &T| !self_fn(value)),
@@ -1944,7 +1879,6 @@ impl<T: 'static> ArcPredicate<T> {
     /// ```
     pub fn nand<P>(&self, other: P) -> ArcPredicate<T>
     where
-        T: Send + Sync,
         P: Predicate<T> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1971,7 +1905,6 @@ impl<T: 'static> ArcPredicate<T> {
     /// A new `ArcPredicate` representing the logical XOR.
     pub fn xor<P>(&self, other: P) -> ArcPredicate<T>
     where
-        T: Send + Sync,
         P: Predicate<T> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -2014,7 +1947,6 @@ impl<T: 'static> ArcPredicate<T> {
     /// ```
     pub fn nor<P>(&self, other: P) -> ArcPredicate<T>
     where
-        T: Send + Sync,
         P: Predicate<T> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -2044,10 +1976,7 @@ impl<T: 'static> Predicate<T> for ArcPredicate<T> {
         }
     }
 
-    fn into_arc(self) -> ArcPredicate<T>
-    where
-        T: Send + Sync,
-    {
+    fn into_arc(self) -> ArcPredicate<T> {
         self
     }
 
@@ -2138,7 +2067,6 @@ where
     fn into_arc(self) -> ArcPredicate<T>
     where
         Self: Send + Sync,
-        T: Send + Sync,
     {
         ArcPredicate::new(self)
     }
@@ -2165,7 +2093,7 @@ where
 
     fn to_arc(&self) -> ArcPredicate<T>
     where
-        Self: Clone + Send + Sync + 'static,
+        Self: Clone + Send + Sync,
     {
         let self_fn = self.clone();
         ArcPredicate::new(self_fn)

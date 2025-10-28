@@ -329,8 +329,8 @@ pub trait BiPredicate<T, U> {
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         ArcBiPredicate::new(move |first, second| self.test(first, second))
     }
@@ -402,8 +402,8 @@ pub trait BiPredicate<T, U> {
     fn to_arc(&self) -> ArcBiPredicate<T, U>
     where
         Self: Sized + Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         self.clone().into_arc()
     }
@@ -1389,8 +1389,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// A new `ArcBiPredicate` representing the logical AND.
     pub fn and<P>(&self, other: P) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1424,8 +1424,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// Thread-safe.
     pub fn or<P>(&self, other: P) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1446,8 +1446,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     #[allow(clippy::should_implement_trait)]
     pub fn not(&self) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         let self_fn = Arc::clone(&self.function);
         ArcBiPredicate {
@@ -1481,8 +1481,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// Thread-safe.
     pub fn nand<P>(&self, other: P) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1518,8 +1518,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// A new `ArcBiPredicate` representing the logical XOR.
     pub fn xor<P>(&self, other: P) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1556,8 +1556,8 @@ impl<T, U> ArcBiPredicate<T, U> {
     /// Thread-safe.
     pub fn nor<P>(&self, other: P) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
         P: BiPredicate<T, U> + Send + Sync + 'static,
     {
         let self_fn = Arc::clone(&self.function);
@@ -1604,8 +1604,8 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
     // Use optimized zero-cost conversion for into_arc
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         self
     }
@@ -1647,8 +1647,8 @@ impl<T, U> BiPredicate<T, U> for ArcBiPredicate<T, U> {
 
     fn to_arc(&self) -> ArcBiPredicate<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         self.clone()
     }
@@ -1720,8 +1720,8 @@ where
     fn into_arc(self) -> ArcBiPredicate<T, U>
     where
         Self: Send + Sync,
-        T: Send + Sync,
-        U: Send + Sync,
+        T: Send,
+        U: Send,
     {
         ArcBiPredicate::new(self)
     }
@@ -1752,8 +1752,8 @@ where
     fn to_arc(&self) -> ArcBiPredicate<T, U>
     where
         Self: Sized + Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: Send + 'static,
+        U: Send + 'static,
     {
         ArcBiPredicate::new(self.clone())
     }
