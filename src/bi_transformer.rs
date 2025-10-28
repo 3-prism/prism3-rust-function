@@ -32,6 +32,10 @@ use crate::bi_predicate::{
     BoxBiPredicate,
     RcBiPredicate,
 };
+use crate::bi_transformer_once::{
+    BiTransformerOnce,
+    BoxBiTransformerOnce,
+};
 
 // ============================================================================
 // Core Trait
@@ -469,7 +473,7 @@ impl<T, U, R> BiTransformer<T, U, R> for BoxBiTransformer<T, U, R> {
 // BoxBiTransformer BiTransformerOnce Implementation
 // ============================================================================
 
-impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for BoxBiTransformer<T, U, R>
+impl<T, U, R> BiTransformerOnce<T, U, R> for BoxBiTransformer<T, U, R>
 where
     T: 'static,
     U: 'static,
@@ -489,14 +493,14 @@ where
         (self.function)(first, second)
     }
 
-    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    fn into_box_once(self) -> BoxBiTransformerOnce<T, U, R>
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
         // Zero-cost: directly return itself
-        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+        BoxBiTransformerOnce::new(move |t: T, u: U| {
             (self.function)(t, u)
         })
     }
@@ -922,7 +926,7 @@ impl<T, U, R> Clone for ArcBiTransformer<T, U, R> {
 // ArcBiTransformer BiTransformerOnce Implementation
 // ============================================================================
 
-impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for ArcBiTransformer<T, U, R>
+impl<T, U, R> BiTransformerOnce<T, U, R> for ArcBiTransformer<T, U, R>
 where
     T: 'static,
     U: 'static,
@@ -942,13 +946,13 @@ where
         (self.function)(first, second)
     }
 
-    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    fn into_box_once(self) -> BoxBiTransformerOnce<T, U, R>
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+        BoxBiTransformerOnce::new(move |t: T, u: U| {
             (self.function)(t, u)
         })
     }
@@ -962,14 +966,14 @@ where
         move |t: T, u: U| (self.function)(t, u)
     }
 
-    fn to_box_once(&self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    fn to_box_once(&self) -> BoxBiTransformerOnce<T, U, R>
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
         let self_fn = self.function.clone();
-        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
+        BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
     }
 
     fn to_fn_once(&self) -> impl FnOnce(T, U) -> R
@@ -1391,7 +1395,7 @@ impl<T, U, R> Clone for RcBiTransformer<T, U, R> {
 // RcBiTransformer BiTransformerOnce Implementation
 // ============================================================================
 
-impl<T, U, R> crate::bi_transformer_once::BiTransformerOnce<T, U, R> for RcBiTransformer<T, U, R>
+impl<T, U, R> BiTransformerOnce<T, U, R> for RcBiTransformer<T, U, R>
 where
     T: 'static,
     U: 'static,
@@ -1411,13 +1415,13 @@ where
         (self.function)(first, second)
     }
 
-    fn into_box_once(self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    fn into_box_once(self) -> BoxBiTransformerOnce<T, U, R>
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
-        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| {
+        BoxBiTransformerOnce::new(move |t: T, u: U| {
             (self.function)(t, u)
         })
     }
@@ -1431,14 +1435,14 @@ where
         move |t: T, u: U| (self.function)(t, u)
     }
 
-    fn to_box_once(&self) -> crate::bi_transformer_once::BoxBiTransformerOnce<T, U, R>
+    fn to_box_once(&self) -> BoxBiTransformerOnce<T, U, R>
     where
         T: 'static,
         U: 'static,
         R: 'static,
     {
         let self_fn = self.function.clone();
-        crate::bi_transformer_once::BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
+        BoxBiTransformerOnce::new(move |t: T, u: U| self_fn(t, u))
     }
 
     fn to_fn_once(&self) -> impl FnOnce(T, U) -> R
