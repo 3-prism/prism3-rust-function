@@ -536,6 +536,122 @@ mod arc_bi_consumer_tests {
         conditional_clone.accept(&2, &1);
         assert_eq!(*log.lock().unwrap(), vec![8, 3]);
     }
+
+    /// Test that ArcBiConsumer can work with non-Send + non-Sync types
+    ///
+    /// This test verifies that the relaxed generic constraints (T: 'static, U: 'static
+    /// instead of T: Send + Sync + 'static, U: Send + Sync + 'static) allow ArcBiConsumer
+    /// to be created for types that are not thread-safe, as long as we only pass references.
+    #[test]
+    fn test_with_non_send_sync_types() {
+        // Rc<RefCell<i32>> is neither Send nor Sync
+        type NonSendType = Rc<RefCell<i32>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        // This should compile now with relaxed constraints
+        let consumer = ArcBiConsumer::<NonSendType, NonSendType>::new(
+            move |first: &NonSendType, second: &NonSendType| {
+                let val1 = *first.borrow();
+                let val2 = *second.borrow();
+                l.lock().unwrap().push(val1 + val2);
+            },
+        );
+
+        let value1 = Rc::new(RefCell::new(5));
+        let value2 = Rc::new(RefCell::new(3));
+        consumer.accept(&value1, &value2);
+
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    /// Test that ArcBiConsumer with non-Send types can be cloned and used
+    #[test]
+    fn test_clone_with_non_send_sync_types() {
+        type NonSendType = Rc<RefCell<String>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcBiConsumer::<NonSendType, NonSendType>::new(
+            move |first: &NonSendType, second: &NonSendType| {
+                let val1 = first.borrow().clone();
+                let val2 = second.borrow().clone();
+                l.lock().unwrap().push(format!("{} {}", val1, val2));
+            },
+        );
+
+        let consumer2 = consumer.clone();
+
+        let value1 = Rc::new(RefCell::new("hello".to_string()));
+        let value2 = Rc::new(RefCell::new("world".to_string()));
+
+        consumer.accept(&value1, &value2);
+        consumer2.accept(&value2, &value1);
+
+        let result = log.lock().unwrap().clone();
+        assert_eq!(
+            result,
+            vec!["hello world".to_string(), "world hello".to_string()]
+        );
+    }
+
+    /// Test that ArcBiConsumer with non-Send types can be chained
+    #[test]
+    fn test_and_then_with_non_send_sync_types() {
+        type NonSendType = Rc<RefCell<i32>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let first = ArcBiConsumer::<NonSendType, NonSendType>::new(
+            move |x: &NonSendType, y: &NonSendType| {
+                let val1 = *x.borrow();
+                let val2 = *y.borrow();
+                l1.lock().unwrap().push(val1 + val2);
+            },
+        );
+
+        let second = ArcBiConsumer::<NonSendType, NonSendType>::new(
+            move |x: &NonSendType, y: &NonSendType| {
+                let val1 = *x.borrow();
+                let val2 = *y.borrow();
+                l2.lock().unwrap().push(val1 * val2);
+            },
+        );
+
+        let chained = first.and_then(&second);
+
+        let value1 = Rc::new(RefCell::new(5));
+        let value2 = Rc::new(RefCell::new(3));
+        chained.accept(&value1, &value2);
+
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]); // 5+3=8, 5*3=15
+    }
+
+    /// Test mixed Send and non-Send types
+    #[test]
+    fn test_with_mixed_send_non_send_types() {
+        type NonSendType = Rc<RefCell<i32>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        // First parameter is non-Send, second is Send (i32)
+        let consumer =
+            ArcBiConsumer::<NonSendType, i32>::new(move |first: &NonSendType, second: &i32| {
+                let val1 = *first.borrow();
+                l.lock().unwrap().push(val1 + second);
+            });
+
+        let value1 = Rc::new(RefCell::new(5));
+        let value2 = 3;
+        consumer.accept(&value1, &value2);
+
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
 }
 
 #[cfg(test)]

@@ -156,7 +156,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -215,7 +215,7 @@ use std::sync::Arc;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait Tester {
     /// Executes the test and returns the test result
     ///
@@ -472,7 +472,7 @@ pub trait Tester {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxTester {
     function: Box<dyn Fn() -> bool>,
 }
@@ -929,7 +929,7 @@ impl Tester for BoxTester {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcTester {
     function: Arc<dyn Fn() -> bool + Send + Sync>,
 }
@@ -1451,7 +1451,7 @@ impl Clone for ArcTester {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcTester {
     function: Rc<dyn Fn() -> bool>,
 }
@@ -1841,7 +1841,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnTesterOps: Sized + Fn() -> bool + 'static {
     /// Returns a tester that represents the logical AND of this tester
     /// and another

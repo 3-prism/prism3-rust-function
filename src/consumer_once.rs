@@ -29,7 +29,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::fmt;
 
@@ -81,7 +81,7 @@ use crate::predicate::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait ConsumerOnce<T> {
     /// Execute one-time consumption operation
     ///
@@ -304,54 +304,14 @@ pub trait ConsumerOnce<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxConsumerOnce<T> {
     function: Box<dyn FnOnce(&T)>,
     name: Option<String>,
 }
 
-impl<T> BoxConsumerOnce<T>
-where
-    T: 'static,
-{
-    /// Create a new BoxConsumerOnce
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - Closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - Closure to be wrapped
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxConsumerOnce<T>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = BoxConsumerOnce::new(move |x: &i32| {
-    ///     l.lock().unwrap().push(*x + 1);
-    /// });
-    /// consumer.accept_once(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![6]);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnOnce(&T) + 'static,
-    {
-        BoxConsumerOnce {
-            function: Box::new(f),
-            name: None,
-        }
-    }
-
+// Methods that don't require T: 'static
+impl<T> BoxConsumerOnce<T> {
     /// Get the consumer's name
     ///
     /// Returns the optional name associated with this consumer.
@@ -399,6 +359,90 @@ where
     /// ```
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = Some(name.into());
+    }
+}
+
+// Methods that require T: 'static
+impl<T> BoxConsumerOnce<T>
+where
+    T: 'static,
+{
+    /// Create a new BoxConsumerOnce
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Closure type
+    ///
+    /// # Parameters
+    ///
+    /// * `f` - Closure to be wrapped
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxConsumerOnce<T>` instance
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumerOnce::new(move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// consumer.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnOnce(&T) + 'static,
+    {
+        BoxConsumerOnce {
+            function: Box::new(f),
+            name: None,
+        }
+    }
+
+    /// Creates a new BoxConsumerOnce with a name
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - The closure type
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name of the consumer
+    /// * `f` - The closure to wrap
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxConsumerOnce<T>` instance with the specified name
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use prism3_function::{ConsumerOnce, BoxConsumerOnce};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l = log.clone();
+    /// let consumer = BoxConsumerOnce::new_with_name("my_consumer", move |x: &i32| {
+    ///     l.lock().unwrap().push(*x + 1);
+    /// });
+    /// assert_eq!(consumer.name(), Some("my_consumer"));
+    /// consumer.accept_once(&5);
+    /// assert_eq!(*log.lock().unwrap(), vec![6]);
+    /// ```
+    pub fn new_with_name<F>(name: &str, f: F) -> Self
+    where
+        F: FnOnce(&T) + 'static,
+    {
+        BoxConsumerOnce {
+            function: Box::new(f),
+            name: Some(name.to_string()),
+        }
     }
 
     /// Sequentially chain another one-time consumer
@@ -539,7 +583,7 @@ impl<T> ConsumerOnce<T> for BoxConsumerOnce<T> {
         self.function
     }
 
-    // do NOT override Consumer::to_xxxx() because BoxConsumerOnce is not Clone
+    // do NOT override ConsumerOnce::to_xxxx() because BoxConsumerOnce is not Clone
     // and calling BoxConsumerOnce::to_xxxx() will cause a compile error
 }
 
@@ -622,7 +666,7 @@ impl<T> fmt::Display for BoxConsumerOnce<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxConditionalConsumerOnce<T> {
     consumer: BoxConsumerOnce<T>,
     predicate: BoxPredicate<T>,
@@ -860,7 +904,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnConsumerOnceOps<T>: FnOnce(&T) + Sized {
     /// Sequentially chain another one-time consumer
     ///

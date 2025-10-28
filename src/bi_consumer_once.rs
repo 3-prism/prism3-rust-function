@@ -300,6 +300,20 @@ pub struct BoxBiConsumerOnce<T, U> {
     name: Option<String>,
 }
 
+// Methods that don't require T: 'static or U: 'static
+impl<T, U> BoxBiConsumerOnce<T, U> {
+    /// Gets the name of the consumer
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the name of the consumer
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = Some(name.into());
+    }
+}
+
+// Methods that require T: 'static and U: 'static
 impl<T, U> BoxBiConsumerOnce<T, U>
 where
     T: 'static,
@@ -381,16 +395,6 @@ where
             function: Box::new(f),
             name: Some(name.to_string()),
         }
-    }
-
-    /// Gets the name of the consumer
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
     }
 
     /// Creates a no-op bi-consumer

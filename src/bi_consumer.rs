@@ -165,8 +165,8 @@ pub trait BiConsumer<T, U> {
     fn into_arc(self) -> ArcBiConsumer<T, U>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         ArcBiConsumer::new(move |t, u| self.accept(t, u))
     }
@@ -290,8 +290,8 @@ pub trait BiConsumer<T, U> {
     fn to_arc(&self) -> ArcBiConsumer<T, U>
     where
         Self: Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         self.clone().into_arc()
     }
@@ -611,8 +611,8 @@ pub struct ArcBiConsumer<T, U> {
 
 impl<T, U> ArcBiConsumer<T, U>
 where
-    T: Send + Sync + 'static,
-    U: Send + Sync + 'static,
+    T: 'static,
+    U: 'static,
 {
     /// Creates a new ArcBiConsumer
     ///
@@ -667,18 +667,23 @@ where
         self.name = Some(name.into());
     }
 
-    /// Chains another ArcBiConsumer in sequence
+    /// Chains another consumer in sequence
     ///
     /// Returns a new consumer executing the current operation first, then
     /// the next operation. Borrows &self, does not consume the original
     /// consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation. **Note:
-    ///   This parameter is passed by reference, so the original consumer remains
-    ///   usable.** Can be:
-    ///   - An `ArcBiConsumer<T, U>` (passed by reference)
+    /// * `next` - The consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
     ///   - Any type implementing `BiConsumer<T, U> + Send + Sync`
     ///
     /// # Returns
@@ -705,13 +710,15 @@ where
     /// first.accept(&2, &3); // Still usable
     /// second.accept(&7, &8); // Still usable
     /// ```
-    pub fn and_then(&self, next: &ArcBiConsumer<T, U>) -> ArcBiConsumer<T, U> {
+    pub fn and_then<C>(&self, next: C) -> ArcBiConsumer<T, U>
+    where
+        C: BiConsumer<T, U> + Send + Sync + 'static,
+    {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&next.function);
         ArcBiConsumer {
             function: Arc::new(move |t: &T, u: &U| {
                 first(t, u);
-                second(t, u);
+                next.accept(t, u);
             }),
             name: None,
         }
@@ -741,8 +748,8 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
 
     fn into_arc(self) -> ArcBiConsumer<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         self
     }
@@ -775,8 +782,8 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
 
     fn to_arc(&self) -> ArcBiConsumer<T, U>
     where
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         self.clone()
     }
@@ -934,18 +941,23 @@ where
         self.name = Some(name.into());
     }
 
-    /// Chains another RcBiConsumer in sequence
+    /// Chains another consumer in sequence
     ///
     /// Returns a new consumer executing the current operation first, then
     /// the next operation. Borrows &self, does not consume the original
     /// consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation. **Note:
-    ///   This parameter is passed by reference, so the original consumer remains
-    ///   usable.** Can be:
-    ///   - An `RcBiConsumer<T, U>` (passed by reference)
+    /// * `next` - The consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxBiConsumer<T, U>`
+    ///   - An `RcBiConsumer<T, U>`
+    ///   - An `ArcBiConsumer<T, U>`
     ///   - Any type implementing `BiConsumer<T, U>`
     ///
     /// # Returns
@@ -972,13 +984,15 @@ where
     /// first.accept(&2, &3); // Still usable
     /// second.accept(&7, &8); // Still usable
     /// ```
-    pub fn and_then(&self, next: &RcBiConsumer<T, U>) -> RcBiConsumer<T, U> {
+    pub fn and_then<C>(&self, next: C) -> RcBiConsumer<T, U>
+    where
+        C: BiConsumer<T, U> + 'static,
+    {
         let first = Rc::clone(&self.function);
-        let second = Rc::clone(&next.function);
         RcBiConsumer {
             function: Rc::new(move |t: &T, u: &U| {
                 first(t, u);
-                second(t, u);
+                next.accept(t, u);
             }),
             name: None,
         }
@@ -1150,8 +1164,8 @@ where
     fn to_arc(&self) -> ArcBiConsumer<T, U>
     where
         Self: Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         let self_fn = self.clone();
         ArcBiConsumer::new(move |t, u| self_fn(t, u))

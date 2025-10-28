@@ -21,7 +21,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -57,7 +57,7 @@ use crate::stateful_transformer::StatefulTransformer;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait StatefulBiTransformer<T, U, R> {
     /// Transforms two input values to produce an output value
     ///
@@ -137,10 +137,10 @@ pub trait StatefulBiTransformer<T, U, R> {
     /// Returns `ArcStatefulBiTransformer<T, U, R>`
     fn into_arc(self) -> ArcStatefulBiTransformer<T, U, R>
     where
-        Self: Sized + Send + Sync + 'static,
+        Self: Sized + Send + 'static,
         T: Send + Sync + 'static,
         U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
+        R: Send + 'static,
     {
         let mut trans = self;
         ArcStatefulBiTransformer::new(move |x, y| trans.apply(x, y))
@@ -245,7 +245,7 @@ pub trait StatefulBiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxStatefulBiTransformer<T, U, R> {
     function: Box<dyn FnMut(T, U) -> R>,
 }
@@ -639,7 +639,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcStatefulBiTransformer<T, U, R> {
     function: Arc<Mutex<dyn FnMut(T, U) -> R + Send>>,
 }
@@ -877,7 +877,7 @@ impl<T, U, R> StatefulBiTransformer<T, U, R> for ArcStatefulBiTransformer<T, U, 
     where
         T: Send + Sync + 'static,
         U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
+        R: Send + 'static,
     {
         // Zero-cost: directly return itself
         self
@@ -1120,7 +1120,7 @@ impl<T, U, R> Clone for ArcConditionalStatefulBiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcStatefulBiTransformer<T, U, R> {
     function: Rc<RefCell<dyn FnMut(T, U) -> R>>,
 }
@@ -1590,7 +1590,7 @@ impl<T, U, R> Clone for RcConditionalStatefulBiTransformer<T, U, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, U, R> StatefulBiTransformer<T, U, R> for F
 where
     F: FnMut(T, U) -> R,
@@ -1618,10 +1618,10 @@ where
 
     fn into_arc(self) -> ArcStatefulBiTransformer<T, U, R>
     where
-        Self: Sized + Send + Sync + 'static,
+        Self: Sized + Send + 'static,
         T: Send + 'static,
-        U: Send + Sync + 'static,
-        R: Send + Sync + 'static,
+        U: Send + 'static,
+        R: Send + 'static,
     {
         ArcStatefulBiTransformer::new(self)
     }
@@ -1724,7 +1724,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnStatefulBiTransformerOps<T, U, R>: FnMut(T, U) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -1873,7 +1873,7 @@ pub trait FnStatefulBiTransformerOps<T, U, R>: FnMut(T, U) -> R + Sized + 'stati
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, U, R, F> FnStatefulBiTransformerOps<T, U, R> for F where F: FnMut(T, U) -> R + 'static {}
 
 // ============================================================================
@@ -1930,7 +1930,7 @@ impl<T, U, R, F> FnStatefulBiTransformerOps<T, U, R> for F where F: FnMut(T, U) 
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait BinaryOperator<T>: StatefulBiTransformer<T, T, T> {}
 
 /// Blanket implementation of BinaryOperator for all StatefulBiTransformer<T, T, T>
@@ -1940,7 +1940,7 @@ pub trait BinaryOperator<T>: StatefulBiTransformer<T, T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> BinaryOperator<T> for F
 where
     F: StatefulBiTransformer<T, T, T>,
@@ -1970,7 +1970,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxBinaryOperator<T> = BoxStatefulBiTransformer<T, T, T>;
 
 /// Type alias for `ArcStatefulBiTransformer<T, T, T>`
@@ -1992,7 +1992,7 @@ pub type BoxBinaryOperator<T> = BoxStatefulBiTransformer<T, T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type ArcBinaryOperator<T> = ArcStatefulBiTransformer<T, T, T>;
 
 /// Type alias for `RcStatefulBiTransformer<T, T, T>`
@@ -2014,5 +2014,5 @@ pub type ArcBinaryOperator<T> = ArcStatefulBiTransformer<T, T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type RcBinaryOperator<T> = RcStatefulBiTransformer<T, T, T>;

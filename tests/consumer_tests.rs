@@ -552,6 +552,83 @@ mod test_arc_consumer {
         // This would not compile - consumer is moved
         // consumer.accept(&3); // Would not compile
     }
+
+    /// Test that ArcConsumer can work with non-Send + non-Sync types
+    ///
+    /// This test verifies that the relaxed generic constraints (T: 'static instead
+    /// of T: Send + Sync + 'static) allow ArcConsumer to be created for types that
+    /// are not thread-safe, as long as we only pass references to them.
+    #[test]
+    fn test_with_non_send_sync_type() {
+        // Rc<RefCell<i32>> is neither Send nor Sync
+        type NonSendType = Rc<RefCell<i32>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        // This should compile now with relaxed constraints
+        let consumer = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l.lock().unwrap().push(val);
+        });
+
+        let value = Rc::new(RefCell::new(42));
+        consumer.accept(&value);
+
+        assert_eq!(*log.lock().unwrap(), vec![42]);
+    }
+
+    /// Test that ArcConsumer with non-Send type can be cloned and used
+    #[test]
+    fn test_clone_with_non_send_sync_type() {
+        type NonSendType = Rc<RefCell<String>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = value.borrow().clone();
+            l.lock().unwrap().push(val);
+        });
+
+        let consumer2 = consumer.clone();
+
+        let value1 = Rc::new(RefCell::new("hello".to_string()));
+        let value2 = Rc::new(RefCell::new("world".to_string()));
+
+        consumer.accept(&value1);
+        consumer2.accept(&value2);
+
+        let result = log.lock().unwrap().clone();
+        assert_eq!(result, vec!["hello".to_string(), "world".to_string()]);
+    }
+
+    /// Test that ArcConsumer with non-Send type can be chained
+    #[test]
+    fn test_and_then_with_non_send_sync_type() {
+        type NonSendType = Rc<RefCell<i32>>;
+
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let first = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l1.lock().unwrap().push(val * 2);
+        });
+
+        let second = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l2.lock().unwrap().push(val + 10);
+        });
+
+        let chained = first.and_then(&second);
+
+        let value = Rc::new(RefCell::new(5));
+        chained.accept(&value);
+
+        assert_eq!(*log.lock().unwrap(), vec![10, 15]); // 5*2=10, 5+10=15
+    }
 }
 
 // ============================================================================

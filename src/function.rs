@@ -21,7 +21,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -53,7 +53,7 @@ use crate::predicate::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait Function<T, R> {
     /// Applies the function to the input reference to produce an output value
     ///
@@ -323,7 +323,7 @@ pub trait Function<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxFunction<T, R> {
     function: Box<dyn Fn(&T) -> R>,
 }
@@ -683,7 +683,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: &T) -> R {
         (self.function)(input)
     }
@@ -801,7 +801,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcFunction<T, R> {
     function: Arc<dyn Fn(&T) -> R + Send + Sync>,
 }
@@ -1206,7 +1206,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: &T) -> R {
         (self.function)(input)
     }
@@ -1451,7 +1451,7 @@ impl<T, R> Clone for ArcConditionalFunction<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcFunction<T, R> {
     function: Rc<dyn Fn(&T) -> R>,
 }
@@ -1844,7 +1844,7 @@ where
     ///
     /// # Author
     ///
-    /// Hu Haixing
+    /// Haixing Hu
     fn apply_once(self, input: &T) -> R {
         (self.function)(input)
     }
@@ -2092,7 +2092,7 @@ impl<T, R> Clone for RcConditionalFunction<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, R> Function<T, R> for F
 where
     F: Fn(&T) -> R,
@@ -2224,7 +2224,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnFunctionOps<T, R>: Fn(&T) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -2434,7 +2434,7 @@ pub trait FnFunctionOps<T, R>: Fn(&T) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, R, F> FnFunctionOps<T, R> for F where F: Fn(&T) -> R + 'static {}
 
 // ============================================================================
@@ -2492,7 +2492,7 @@ impl<T, R, F> FnFunctionOps<T, R> for F where F: Fn(&T) -> R + 'static {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait UnaryOperator<T>: Function<T, T> {}
 
 /// Blanket implementation of UnaryOperator for all Function<T, T>
@@ -2502,7 +2502,7 @@ pub trait UnaryOperator<T>: Function<T, T> {}
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T> UnaryOperator<T> for F
 where
     F: Function<T, T>,
@@ -2532,7 +2532,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type BoxUnaryOperator<T> = BoxFunction<T, T>;
 
 /// Type alias for `ArcFunction<T, T>`
@@ -2554,7 +2554,7 @@ pub type BoxUnaryOperator<T> = BoxFunction<T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type ArcUnaryOperator<T> = ArcFunction<T, T>;
 
 /// Type alias for `RcFunction<T, T>`
@@ -2576,5 +2576,5 @@ pub type ArcUnaryOperator<T> = ArcFunction<T, T>;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub type RcUnaryOperator<T> = RcFunction<T, T>;

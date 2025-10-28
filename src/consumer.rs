@@ -30,7 +30,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::fmt;
 use std::rc::Rc;
@@ -80,7 +80,7 @@ use std::sync::Arc;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait Consumer<T> {
     /// Execute readonly consumption operation
     ///
@@ -145,7 +145,7 @@ pub trait Consumer<T> {
     fn into_arc(self) -> ArcConsumer<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         ArcConsumer::new(move |t| self.accept(t))
     }
@@ -218,8 +218,8 @@ pub trait Consumer<T> {
     /// Non-consuming conversion to `ArcConsumer`
     ///
     /// **⚠️ Does NOT consume `self`**: Clones `self` and returns an
-    /// `ArcConsumer`. Requires `Self: Clone + Send + Sync` and
-    /// `T: Send + Sync` so the result is thread-safe.
+    /// `ArcConsumer`. Requires `Self: Clone + Send + Sync` so the result
+    /// is thread-safe.
     ///
     /// # Returns
     ///
@@ -227,7 +227,7 @@ pub trait Consumer<T> {
     fn to_arc(&self) -> ArcConsumer<T>
     where
         Self: Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         self.clone().into_arc()
     }
@@ -286,7 +286,7 @@ pub trait Consumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxConsumer<T> {
     function: Box<dyn Fn(&T)>,
     name: Option<String>,
@@ -522,7 +522,7 @@ impl<T> fmt::Display for BoxConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcConsumer<T> {
     function: Arc<dyn Fn(&T) + Send + Sync>,
     name: Option<String>,
@@ -530,7 +530,7 @@ pub struct ArcConsumer<T> {
 
 impl<T> ArcConsumer<T>
 where
-    T: Send + Sync + 'static,
+    T: 'static,
 {
     /// Create a new ArcConsumer
     ///
@@ -585,17 +585,22 @@ where
         self.name = Some(name.into());
     }
 
-    /// Sequentially chain another ArcConsumer
+    /// Sequentially chain another consumer
     ///
     /// Returns a new consumer that executes the current operation first, then the
     /// next operation. Borrows &self, does not consume the original consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation. **Note: This
-    ///   parameter is passed by reference, so the original consumer remains
-    ///   usable.** Can be:
-    ///   - An `ArcConsumer<T>` (passed by reference)
+    /// * `next` - Consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumer<T>`
+    ///   - An `ArcConsumer<T>`
+    ///   - An `RcConsumer<T>`
     ///   - Any type implementing `Consumer<T> + Send + Sync`
     ///
     /// # Returns
@@ -622,13 +627,15 @@ where
     /// first.accept(&3); // Still usable
     /// second.accept(&7); // Still usable
     /// ```
-    pub fn and_then(&self, next: &ArcConsumer<T>) -> ArcConsumer<T> {
+    pub fn and_then<C>(&self, next: C) -> ArcConsumer<T>
+    where
+        C: Consumer<T> + Send + Sync + 'static,
+    {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&next.function);
         ArcConsumer {
             function: Arc::new(move |t: &T| {
                 first(t);
-                second(t);
+                next.accept(t);
             }),
             name: None,
         }
@@ -656,7 +663,7 @@ impl<T> Consumer<T> for ArcConsumer<T> {
 
     fn into_arc(self) -> ArcConsumer<T>
     where
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         self
     }
@@ -686,7 +693,7 @@ impl<T> Consumer<T> for ArcConsumer<T> {
 
     fn to_arc(&self) -> ArcConsumer<T>
     where
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         self.clone()
     }
@@ -778,7 +785,7 @@ impl<T> fmt::Display for ArcConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcConsumer<T> {
     function: Rc<dyn Fn(&T)>,
     name: Option<String>,
@@ -841,17 +848,22 @@ where
         self.name = Some(name.into());
     }
 
-    /// Sequentially chain another RcConsumer
+    /// Sequentially chain another consumer
     ///
     /// Returns a new consumer that executes the current operation first, then the
     /// next operation. Borrows &self, does not consume the original consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation. **Note: This
-    ///   parameter is passed by reference, so the original consumer remains
-    ///   usable.** Can be:
-    ///   - An `RcConsumer<T>` (passed by reference)
+    /// * `next` - Consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxConsumer<T>`
+    ///   - An `RcConsumer<T>`
+    ///   - An `ArcConsumer<T>`
     ///   - Any type implementing `Consumer<T>`
     ///
     /// # Returns
@@ -878,13 +890,15 @@ where
     /// first.accept(&3); // Still usable
     /// second.accept(&7); // Still usable
     /// ```
-    pub fn and_then(&self, next: &RcConsumer<T>) -> RcConsumer<T> {
+    pub fn and_then<C>(&self, next: C) -> RcConsumer<T>
+    where
+        C: Consumer<T> + 'static,
+    {
         let first = Rc::clone(&self.function);
-        let second = Rc::clone(&next.function);
         RcConsumer {
             function: Rc::new(move |t: &T| {
                 first(t);
-                second(t);
+                next.accept(t);
             }),
             name: None,
         }
@@ -1010,7 +1024,7 @@ where
     fn into_arc(self) -> ArcConsumer<T>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         ArcConsumer::new(self)
     }
@@ -1044,7 +1058,7 @@ where
     fn to_arc(&self) -> ArcConsumer<T>
     where
         Self: Clone + Send + Sync + 'static,
-        T: Send + Sync + 'static,
+        T: 'static,
     {
         let self_fn = self.clone();
         ArcConsumer::new(self_fn)
@@ -1092,7 +1106,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnConsumerOps<T>: Fn(&T) + Sized {
     /// Sequentially chain another readonly consumer
     ///

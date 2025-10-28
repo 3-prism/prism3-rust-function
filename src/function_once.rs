@@ -18,7 +18,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use crate::predicate::{
     BoxPredicate,
@@ -42,7 +42,7 @@ use crate::predicate::{
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FunctionOnce<T, R> {
     /// Applies the function to the input reference, consuming self
     ///
@@ -195,7 +195,7 @@ pub trait FunctionOnce<T, R> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxFunctionOnce<T, R> {
     function: Box<dyn FnOnce(&T) -> R>,
 }
@@ -586,7 +586,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<F, T, R> FunctionOnce<T, R> for F
 where
     F: FnOnce(&T) -> R,
@@ -686,7 +686,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnFunctionOnceOps<T, R>: FnOnce(&T) -> R + Sized + 'static {
     /// Chain composition - applies self first, then after
     ///
@@ -858,5 +858,5 @@ pub trait FnFunctionOnceOps<T, R>: FnOnce(&T) -> R + Sized + 'static {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 impl<T, R, F> FnFunctionOnceOps<T, R> for F where F: FnOnce(&T) -> R + 'static {}

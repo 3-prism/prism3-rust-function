@@ -29,7 +29,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use std::cell::RefCell;
 use std::fmt;
@@ -108,7 +108,7 @@ type SendConsumerFn<T> = dyn FnMut(&T) + Send;
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait StatefulConsumer<T> {
     /// Execute consumption operation
     ///
@@ -467,7 +467,7 @@ pub trait StatefulConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxStatefulConsumer<T> {
     function: Box<dyn FnMut(&T)>,
     name: Option<String>,
@@ -545,13 +545,13 @@ where
     /// consumer.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![6]);
     /// ```
-    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    pub fn new_with_name<F>(name: &str, f: F) -> Self
     where
         F: FnMut(&T) + 'static,
     {
         BoxStatefulConsumer {
             function: Box::new(f),
-            name: Some(name.into()),
+            name: Some(name.to_string()),
         }
     }
 
@@ -988,7 +988,7 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for BoxStatefulConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct BoxConditionalStatefulConsumer<T> {
     consumer: BoxStatefulConsumer<T>,
     predicate: BoxPredicate<T>,
@@ -1210,7 +1210,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcStatefulConsumer<T> {
     function: Arc<Mutex<SendConsumerFn<T>>>,
     name: Option<String>,
@@ -1288,13 +1288,13 @@ where
     /// consumer.accept(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![6]);
     /// ```
-    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    pub fn new_with_name<F>(name: &str, f: F) -> Self
     where
         F: FnMut(&T) + Send + 'static,
     {
         ArcStatefulConsumer {
             function: Arc::new(Mutex::new(f)),
-            name: Some(name.into()),
+            name: Some(name.to_string()),
         }
     }
 
@@ -1337,14 +1337,23 @@ where
         self.name = Some(name.into());
     }
 
-    /// Sequentially chain another ArcStatefulConsumer
+    /// Sequentially chain another consumer
     ///
     /// Returns a new consumer that executes the current operation first, then the
     /// next operation. Borrows &self, does not consume the original consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxStatefulConsumer<T>`
+    ///   - An `ArcStatefulConsumer<T>`
+    ///   - An `RcStatefulConsumer<T>`
+    ///   - Any type implementing `StatefulConsumer<T> + Send`
     ///
     /// # Return Value
     ///
@@ -1373,13 +1382,15 @@ where
     /// assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     /// // (5 * 2), (5 + 10)
     /// ```
-    pub fn and_then(&self, next: &ArcStatefulConsumer<T>) -> ArcStatefulConsumer<T> {
+    pub fn and_then<C>(&self, mut next: C) -> ArcStatefulConsumer<T>
+    where
+        C: StatefulConsumer<T> + Send + 'static,
+    {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&next.function);
         ArcStatefulConsumer {
             function: Arc::new(Mutex::new(move |t: &T| {
                 first.lock().unwrap()(t);
-                second.lock().unwrap()(t);
+                next.accept(t);
             })),
             name: None,
         }
@@ -1754,7 +1765,7 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for ArcStatefulConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct ArcConditionalStatefulConsumer<T> {
     consumer: ArcStatefulConsumer<T>,
     predicate: ArcPredicate<T>,
@@ -1970,7 +1981,7 @@ impl<T> Clone for ArcConditionalStatefulConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcStatefulConsumer<T> {
     function: Rc<RefCell<ConsumerFn<T>>>,
     name: Option<String>,
@@ -2050,13 +2061,13 @@ where
     /// consumer.accept(&5);
     /// assert_eq!(*log.borrow(), vec![6]);
     /// ```
-    pub fn new_with_name<F>(name: impl Into<String>, f: F) -> Self
+    pub fn new_with_name<F>(name: &str, f: F) -> Self
     where
         F: FnMut(&T) + 'static,
     {
         RcStatefulConsumer {
             function: Rc::new(RefCell::new(f)),
-            name: Some(name.into()),
+            name: Some(name.to_string()),
         }
     }
 
@@ -2099,14 +2110,23 @@ where
         self.name = Some(name.into());
     }
 
-    /// Sequentially chain another RcStatefulConsumer
+    /// Sequentially chain another consumer
     ///
     /// Returns a new consumer that executes the current operation first, then the
     /// next operation. Borrows &self, does not consume the original consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - Consumer to execute after the current operation
+    /// * `next` - Consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T|`
+    ///   - A `BoxStatefulConsumer<T>`
+    ///   - An `RcStatefulConsumer<T>`
+    ///   - An `ArcStatefulConsumer<T>`
+    ///   - Any type implementing `StatefulConsumer<T>`
     ///
     /// # Return Value
     ///
@@ -2136,13 +2156,15 @@ where
     /// assert_eq!(*log.borrow(), vec![10, 15]);
     /// // (5 * 2), (5 + 10)
     /// ```
-    pub fn and_then(&self, next: &RcStatefulConsumer<T>) -> RcStatefulConsumer<T> {
+    pub fn and_then<C>(&self, mut next: C) -> RcStatefulConsumer<T>
+    where
+        C: StatefulConsumer<T> + 'static,
+    {
         let first = Rc::clone(&self.function);
-        let second = Rc::clone(&next.function);
         RcStatefulConsumer {
             function: Rc::new(RefCell::new(move |t: &T| {
                 first.borrow_mut()(t);
-                second.borrow_mut()(t);
+                next.accept(t);
             })),
             name: None,
         }
@@ -2511,7 +2533,7 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for RcStatefulConsumer<T> {
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub struct RcConditionalStatefulConsumer<T> {
     consumer: RcStatefulConsumer<T>,
     predicate: RcPredicate<T>,
@@ -2767,7 +2789,7 @@ where
 ///
 /// # Author
 ///
-/// Hu Haixing
+/// Haixing Hu
 pub trait FnStatefulConsumerOps<T>: FnMut(&T) + Sized {
     /// Sequentially chain another consumer
     ///

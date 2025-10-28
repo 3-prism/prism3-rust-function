@@ -1363,19 +1363,24 @@ where
         }
     }
 
-    /// Chains another ArcStatefulBiConsumer in sequence
+    /// Chains another consumer in sequence
     ///
     /// Returns a new consumer executing the current operation first, then
     /// the next operation. Borrows &self, does not consume the original
     /// consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation. **Note:
-    ///   This parameter is passed by reference, so the original consumer remains
-    ///   usable.** Can be:
-    ///   - An `ArcStatefulBiConsumer<T, U>` (passed by reference)
-    ///   - Any type implementing `BiConsumer<T, U> + Send + Sync`
+    /// * `next` - The consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - An `ArcStatefulBiConsumer<T, U>`
+    ///   - An `RcStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `StatefulBiConsumer<T, U> + Send`
     ///
     /// # Returns
     ///
@@ -1405,13 +1410,15 @@ where
     /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
     /// // second.accept(&2, &3); // Still usable
     /// ```
-    pub fn and_then(&self, next: &ArcStatefulBiConsumer<T, U>) -> ArcStatefulBiConsumer<T, U> {
+    pub fn and_then<C>(&self, mut next: C) -> ArcStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + Send + 'static,
+    {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&next.function);
         ArcStatefulBiConsumer {
             function: Arc::new(Mutex::new(move |t: &T, u: &U| {
                 first.lock().unwrap()(t, u);
-                second.lock().unwrap()(t, u);
+                next.accept(t, u);
             })),
             name: None,
         }
@@ -2100,15 +2107,24 @@ where
         }
     }
 
-    /// Chains another RcStatefulBiConsumer in sequence
+    /// Chains another consumer in sequence
     ///
     /// Returns a new consumer executing the current operation first, then
     /// the next operation. Borrows &self, does not consume the original
     /// consumer.
     ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Type of the next consumer
+    ///
     /// # Parameters
     ///
-    /// * `next` - The consumer to execute after the current operation
+    /// * `next` - The consumer to execute after the current operation. Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - An `RcStatefulBiConsumer<T, U>`
+    ///   - An `ArcStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `StatefulBiConsumer<T, U>`
     ///
     /// # Returns
     ///
@@ -2137,13 +2153,15 @@ where
     /// chained.accept(&5, &3);
     /// assert_eq!(*log.borrow(), vec![8, 15]);
     /// ```
-    pub fn and_then(&self, next: &RcStatefulBiConsumer<T, U>) -> RcStatefulBiConsumer<T, U> {
+    pub fn and_then<C>(&self, mut next: C) -> RcStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + 'static,
+    {
         let first = Rc::clone(&self.function);
-        let second = Rc::clone(&next.function);
         RcStatefulBiConsumer {
             function: Rc::new(RefCell::new(move |t: &T, u: &U| {
                 first.borrow_mut()(t, u);
-                second.borrow_mut()(t, u);
+                next.accept(t, u);
             })),
             name: None,
         }
