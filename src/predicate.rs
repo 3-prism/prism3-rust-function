@@ -2093,7 +2093,8 @@ where
 
     fn to_arc(&self) -> ArcPredicate<T>
     where
-        Self: Clone + Send + Sync,
+        Self: Clone + Send + Sync + 'static,
+        T: 'static,
     {
         let self_fn = self.clone();
         ArcPredicate::new(self_fn)
