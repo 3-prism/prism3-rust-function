@@ -10,12 +10,10 @@
 /// Generates common Consumer methods (name, set_name, noop)
 ///
 /// Generates standard name management methods and noop constructor for
-/// Consumer structs.
+/// Consumer structs. This macro should be called inside an impl block.
 ///
 /// # Parameters
 ///
-/// * `$struct_name` - The struct name
-/// * `$generic` - Generic parameter list
 /// * `$noop_fn` - Closure expression used by the noop method
 ///
 /// # Generated Methods
@@ -24,36 +22,34 @@
 /// * `set_name()` - Sets the name of the consumer
 /// * `noop()` - Creates a consumer that performs no operation
 macro_rules! impl_consumer_methods {
-    ($struct_name:ident < $($generic:ident),+ >, $noop_fn:expr) => {
-        impl<$($generic),+> $struct_name<$($generic),+> {
-            /// Get the name of this consumer
-            ///
-            /// # Return Value
-            ///
-            /// Returns `Some(&str)` if a name was set, `None` otherwise
-            pub fn name(&self) -> Option<&str> {
-                self.name.as_deref()
-            }
+    ($noop_fn:expr) => {
+        /// Get the name of this consumer
+        ///
+        /// # Return Value
+        ///
+        /// Returns `Some(&str)` if a name was set, `None` otherwise
+        pub fn name(&self) -> Option<&str> {
+            self.name.as_deref()
+        }
 
-            /// Set the name of this consumer
-            ///
-            /// # Parameters
-            ///
-            /// * `name` - The name to set
-            pub fn set_name(&mut self, name: impl Into<String>) {
-                self.name = Some(name.into());
-            }
+        /// Set the name of this consumer
+        ///
+        /// # Parameters
+        ///
+        /// * `name` - The name to set
+        pub fn set_name(&mut self, name: impl Into<String>) {
+            self.name = Some(name.into());
+        }
 
-            /// Create a no-operation consumer
-            ///
-            /// Creates a consumer that does nothing when called.
-            ///
-            /// # Return Value
-            ///
-            /// Returns a new consumer instance that performs no operation
-            pub fn noop() -> Self {
-                Self::new($noop_fn)
-            }
+        /// Create a no-operation consumer
+        ///
+        /// Creates a consumer that does nothing when called.
+        ///
+        /// # Return Value
+        ///
+        /// Returns a new consumer instance that performs no operation
+        pub fn noop() -> Self {
+            Self::new($noop_fn)
         }
     };
 }

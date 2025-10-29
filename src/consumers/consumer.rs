@@ -335,24 +335,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op consumer
-    pub fn noop() -> Self {
-        BoxConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another readonly consumer
     ///
@@ -593,24 +576,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op consumer
-    pub fn noop() -> Self {
-        ArcConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another consumer
     ///
@@ -878,24 +844,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op consumer
-    pub fn noop() -> Self {
-        RcConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another consumer
     ///
