@@ -17,7 +17,10 @@
 
 pub mod function;
 pub mod function_once;
+pub mod mutating_function;
+pub mod mutating_function_once;
 pub mod stateful_function;
+pub mod stateful_mutating_function;
 
 pub use function::{
     ArcConditionalFunction,
@@ -34,6 +37,18 @@ pub use function_once::{
     FnFunctionOnceOps,
     FunctionOnce,
 };
+pub use mutating_function::{
+    ArcMutatingFunction,
+    BoxMutatingFunction,
+    FnMutatingFunctionOps,
+    MutatingFunction,
+    RcMutatingFunction,
+};
+pub use mutating_function_once::{
+    BoxMutatingFunctionOnce,
+    FnOnceMutatingFunctionOps,
+    MutatingFunctionOnce,
+};
 pub use stateful_function::{
     ArcConditionalStatefulFunction,
     ArcStatefulFunction,
@@ -43,4 +58,11 @@ pub use stateful_function::{
     RcConditionalStatefulFunction,
     RcStatefulFunction,
     StatefulFunction,
+};
+pub use stateful_mutating_function::{
+    ArcStatefulMutatingFunction,
+    BoxStatefulMutatingFunction,
+    FnMutStatefulMutatingFunctionOps,
+    RcStatefulMutatingFunction,
+    StatefulMutatingFunction,
 };
