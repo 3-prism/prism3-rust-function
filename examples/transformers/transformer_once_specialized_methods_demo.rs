@@ -13,7 +13,7 @@
 //!
 //! # Author
 //!
-//! Hu Haixing
+//! Haixing Hu
 
 use prism3_function::{
     ArcTransformer,
