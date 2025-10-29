@@ -134,8 +134,8 @@ fn main() {
     });
 
     // Both first and second can be reused after chaining
-    let chained1 = first.and_then(&second);
-    let chained2 = first.and_then(&second);
+    let chained1 = first.and_then(second.clone());
+    let chained2 = first.and_then(second.clone());
 
     println!("  Using chained1:");
     chained1.accept(&5, &3);

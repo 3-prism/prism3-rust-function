@@ -190,8 +190,8 @@ fn main() {
     let add_ten = ArcConsumer::new(|x: &i32| println!("add_ten: {}", x + 10));
 
     // Composition does not consume original consumer
-    let pipeline1 = double.and_then(&add_ten);
-    let pipeline2 = add_ten.and_then(&double);
+    let pipeline1 = double.and_then(add_ten.clone());
+    let pipeline2 = add_ten.and_then(double.clone());
 
     let value1 = 5;
     let p1 = pipeline1;
@@ -247,8 +247,8 @@ fn main() {
     let double = RcConsumer::new(|x: &i32| println!("double: {}", x * 2));
     let add_ten = RcConsumer::new(|x: &i32| println!("add_ten: {}", x + 10));
 
-    let pipeline1 = double.and_then(&add_ten);
-    let pipeline2 = add_ten.and_then(&double);
+    let pipeline1 = double.and_then(add_ten.clone());
+    let pipeline2 = add_ten.and_then(double.clone());
 
     let value1 = 5;
     let p1 = pipeline1;

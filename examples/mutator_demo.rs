@@ -164,8 +164,8 @@ fn main() {
     let add_ten = ArcMutator::new(|x: &mut i32| *x += 10);
 
     // Composition doesn't consume the original mutator
-    let pipeline1 = double.and_then(&add_ten);
-    let pipeline2 = add_ten.and_then(&double);
+    let pipeline1 = double.and_then(add_ten.clone());
+    let pipeline2 = add_ten.and_then(double.clone());
 
     let mut value1 = 5;
     let mut p1 = pipeline1;
@@ -219,8 +219,8 @@ fn main() {
     let double = RcMutator::new(|x: &mut i32| *x *= 2);
     let add_ten = RcMutator::new(|x: &mut i32| *x += 10);
 
-    let pipeline1 = double.and_then(&add_ten);
-    let pipeline2 = add_ten.and_then(&double);
+    let pipeline1 = double.and_then(add_ten.clone());
+    let pipeline2 = add_ten.and_then(double.clone());
 
     let mut value1 = 5;
     let mut p1 = pipeline1;
