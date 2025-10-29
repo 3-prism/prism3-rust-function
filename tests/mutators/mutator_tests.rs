@@ -18,6 +18,140 @@ use prism3_function::{
 };
 
 // ============================================================================
+// Mutator Default Implementation Tests
+// ============================================================================
+
+/// Test struct that implements Mutator to test default methods
+struct TestMutator {
+    multiplier: i32,
+}
+
+impl TestMutator {
+    fn new(multiplier: i32) -> Self {
+        TestMutator { multiplier }
+    }
+}
+
+impl Mutator<i32> for TestMutator {
+    fn mutate(&self, input: &mut i32) {
+        *input *= self.multiplier;
+    }
+}
+
+impl Clone for TestMutator {
+    fn clone(&self) -> Self {
+        TestMutator {
+            multiplier: self.multiplier,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_mutator_default_impl {
+    use super::*;
+
+    #[test]
+    fn test_into_box() {
+        let mutator = TestMutator::new(2);
+        let boxed = mutator.into_box();
+
+        let mut value = 5;
+        boxed.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_rc() {
+        let mutator = TestMutator::new(3);
+        let rc = mutator.into_rc();
+
+        let mut value = 4;
+        rc.mutate(&mut value);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_into_arc() {
+        let mutator = TestMutator::new(4);
+        let arc = mutator.into_arc();
+
+        let mut value = 3;
+        arc.mutate(&mut value);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let mutator = TestMutator::new(5);
+        let closure = mutator.into_fn();
+
+        let mut value = 2;
+        closure(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_box() {
+        let mutator = TestMutator::new(2);
+        let boxed = mutator.to_box();
+
+        let mut value = 5;
+        boxed.mutate(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable since it was cloned
+        let mut value2 = 3;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_rc() {
+        let mutator = TestMutator::new(3);
+        let rc = mutator.to_rc();
+
+        let mut value = 4;
+        rc.mutate(&mut value);
+        assert_eq!(value, 12);
+
+        // Original should still be usable since it was cloned
+        let mut value2 = 2;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_arc() {
+        let mutator = TestMutator::new(4);
+        let arc = mutator.to_arc();
+
+        let mut value = 3;
+        arc.mutate(&mut value);
+        assert_eq!(value, 12);
+
+        // Original should still be usable since it was cloned
+        let mut value2 = 2;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 8);
+    }
+
+    #[test]
+    fn test_to_fn() {
+        let mutator = TestMutator::new(5);
+        let closure = mutator.to_fn();
+
+        let mut value = 2;
+        closure(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable since it was cloned
+        let mut value2 = 1;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 5);
+    }
+}
+
+// ============================================================================
 // BoxMutator Tests
 // ============================================================================
 
@@ -153,6 +287,51 @@ mod test_box_mutator {
     }
 
     #[test]
+    fn test_conditional_and_then() {
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond2 = BoxMutator::new(|x: &mut i32| *x += 5);
+        let chained = cond1.and_then(cond2);
+
+        let mut positive = 10;
+        chained.mutate(&mut positive);
+        assert_eq!(positive, 25); // (10 * 2) + 5
+
+        let mut negative = -10;
+        chained.mutate(&mut negative);
+        assert_eq!(negative, -5); // -10 + 5 (condition not met, only second mutator runs)
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let closure = conditional.into_fn();
+
+        let mut positive = 5;
+        closure(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
     fn test_into_box() {
         let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
         let boxed = mutator.into_box();
@@ -172,6 +351,35 @@ mod test_box_mutator {
 
     // Note: BoxMutator cannot be safely converted to ArcMutator because the
     // inner function may not be Send. This test has been removed.
+
+    #[test]
+    fn test_mutate_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_box_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_fn_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        let fn_once = mutator.into_fn_once();
+        let mut value = 5;
+        fn_once(&mut value);
+        assert_eq!(value, 10);
+    }
 }
 
 // ============================================================================
@@ -421,6 +629,198 @@ mod test_arc_mutator {
 
         assert_eq!(handle.join().unwrap(), 10);
     }
+
+    #[test]
+    fn test_when() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let conditional = mutator.when(|x: &i32| *x > 0);
+
+        let mut positive = 5;
+        conditional.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        conditional.mutate(&mut negative);
+        assert_eq!(negative, -5); // unchanged
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let closure = mutator.into_fn();
+
+        let mut value = 5;
+        closure(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_mutate_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_box_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_fn_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let fn_once = mutator.into_fn_once();
+        let mut value = 5;
+        fn_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_box_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let box_once = mutator.to_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable
+        let mut value2 = 3;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_fn_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        let fn_once = mutator.to_fn_once();
+        let mut value = 5;
+        fn_once(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable
+        let mut value2 = 3;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_arc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let arc = conditional.into_arc();
+
+        let mut positive = 5;
+        arc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let closure = conditional.into_fn();
+
+        let mut positive = 5;
+        closure(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_box() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let boxed = conditional.to_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_rc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let rc = conditional.to_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_arc() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let arc = conditional.to_arc();
+
+        let mut positive = 5;
+        arc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_fn() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let closure = conditional.to_fn();
+
+        let mut positive = 5;
+        closure(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_or_else() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x = -*x);
+
+        let mut positive = 10;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 20);
+
+        let mut negative = -10;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 10);
+    }
+
+    #[test]
+    fn test_conditional_clone() {
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let clone = conditional.clone();
+
+        let mut positive = 5;
+        conditional.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut value2 = 3;
+        clone.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
 }
 
 // ============================================================================
@@ -528,6 +928,89 @@ mod test_rc_mutator {
     // Send. This test has been removed.
 
     #[test]
+    fn test_when() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let conditional = mutator.when(|x: &i32| *x > 0);
+
+        let mut positive = 5;
+        conditional.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut negative = -5;
+        conditional.mutate(&mut negative);
+        assert_eq!(negative, -5); // unchanged
+    }
+
+    #[test]
+    fn test_into_fn() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let closure = mutator.into_fn();
+
+        let mut value = 5;
+        closure(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_mutate_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let mut value = 5;
+        mutator.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_box_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let box_once = mutator.into_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_fn_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let fn_once = mutator.into_fn_once();
+        let mut value = 5;
+        fn_once(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_box_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let box_once = mutator.to_box_once();
+        let mut value = 5;
+        box_once.mutate_once(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable
+        let mut value2 = 3;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
+    fn test_to_fn_once() {
+        use prism3_function::MutatorOnce;
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        let fn_once = mutator.to_fn_once();
+        let mut value = 5;
+        fn_once(&mut value);
+        assert_eq!(value, 10);
+
+        // Original should still be usable
+        let mut value2 = 3;
+        mutator.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
+
+    #[test]
     fn test_to_box() {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
         let boxed = mutator.to_box();
@@ -599,6 +1082,95 @@ mod test_rc_mutator {
         mutator.mutate(&mut value1);
         assert_eq!(value1, 15);
     }
+
+    #[test]
+    fn test_conditional_into_box() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_rc() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_into_fn() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let closure = conditional.into_fn();
+
+        let mut positive = 5;
+        closure(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_box() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let boxed = conditional.to_box();
+
+        let mut positive = 5;
+        boxed.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_rc() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let rc = conditional.to_rc();
+
+        let mut positive = 5;
+        rc.mutate(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_to_fn() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let closure = conditional.to_fn();
+
+        let mut positive = 5;
+        closure(&mut positive);
+        assert_eq!(positive, 10);
+    }
+
+    #[test]
+    fn test_conditional_or_else() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2)
+            .when(|x: &i32| *x > 0)
+            .or_else(|x: &mut i32| *x = -*x);
+
+        let mut positive = 10;
+        mutator.mutate(&mut positive);
+        assert_eq!(positive, 20);
+
+        let mut negative = -10;
+        mutator.mutate(&mut negative);
+        assert_eq!(negative, 10);
+    }
+
+    #[test]
+    fn test_conditional_clone() {
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let clone = conditional.clone();
+
+        let mut positive = 5;
+        conditional.mutate(&mut positive);
+        assert_eq!(positive, 10);
+
+        let mut value2 = 3;
+        clone.mutate(&mut value2);
+        assert_eq!(value2, 6);
+    }
 }
 
 // ============================================================================
@@ -650,6 +1222,17 @@ mod test_fn_mutator_ops {
         let arc = closure.into_arc();
         let mut value = 5;
         arc.mutate(&mut value);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_closure_to_box() {
+        // Test non-consuming conversion to BoxMutator
+        // Note: Only works with cloneable closures (no mutable captures)
+        let closure = |x: &mut i32| *x *= 2;
+        let boxed = closure.to_box();
+        let mut value = 5;
+        boxed.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
