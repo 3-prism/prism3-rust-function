@@ -414,24 +414,7 @@ where
         }
     }
 
-    /// Creates a no-op readonly bi-consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op readonly bi-consumer
-    pub fn noop() -> Self {
-        BoxBiConsumer::new(|_, _| {})
-    }
-
-    /// Gets the name of the consumer
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_, _| {});
 
     /// Chains another readonly bi-consumer in sequence
     ///
@@ -677,24 +660,7 @@ where
         }
     }
 
-    /// Creates a no-op readonly bi-consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op readonly bi-consumer
-    pub fn noop() -> Self {
-        ArcBiConsumer::new(|_, _| {})
-    }
-
-    /// Gets the name of the consumer
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_, _| {});
 
     /// Chains another consumer in sequence
     ///
@@ -972,24 +938,7 @@ where
         }
     }
 
-    /// Creates a no-op readonly bi-consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op readonly bi-consumer
-    pub fn noop() -> Self {
-        RcBiConsumer::new(|_, _| {})
-    }
-
-    /// Gets the name of the consumer
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_, _| {});
 
     /// Chains another consumer in sequence
     ///

@@ -578,44 +578,7 @@ where
         }
     }
 
-    /// Creates a no-op bi-consumer
-    ///
-    /// Returns a bi-consumer that performs no operation.
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op bi-consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    ///
-    /// let mut noop = BoxStatefulBiConsumer::<i32, i32>::noop();
-    /// noop.accept(&42, &10);
-    /// // Values unchanged
-    /// ```
-    pub fn noop() -> Self {
-        BoxStatefulBiConsumer::new(|_, _| {})
-    }
-
-    /// Gets the name of the consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_, _| {});
 
     /// Chains another consumer in sequence
     ///

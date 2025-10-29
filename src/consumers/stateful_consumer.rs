@@ -559,44 +559,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// Returns a consumer that performs no operation.
-    ///
-    /// # Return Value
-    ///
-    /// Returns a no-op consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxStatefulConsumer};
-    ///
-    /// let mut noop = BoxStatefulConsumer::<i32>::noop();
-    /// noop.accept(&42);
-    /// // Value unchanged
-    /// ```
-    pub fn noop() -> Self {
-        BoxStatefulConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    ///
-    /// # Return Value
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another consumer
     ///
@@ -1302,44 +1265,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// Returns a consumer that performs no operation.
-    ///
-    /// # Return Value
-    ///
-    /// Returns a no-op consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcStatefulConsumer};
-    ///
-    /// let mut noop = ArcStatefulConsumer::<i32>::noop();
-    /// noop.accept(&42);
-    /// // Value unchanged
-    /// ```
-    pub fn noop() -> Self {
-        ArcStatefulConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    ///
-    /// # Return Value
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another consumer
     ///
@@ -2072,44 +1998,7 @@ where
         }
     }
 
-    /// Create a no-op consumer
-    ///
-    /// Returns a consumer that performs no operation.
-    ///
-    /// # Return Value
-    ///
-    /// Returns a no-op consumer
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcStatefulConsumer};
-    ///
-    /// let mut noop = RcStatefulConsumer::<i32>::noop();
-    /// noop.accept(&42);
-    /// // Value unchanged
-    /// ```
-    pub fn noop() -> Self {
-        RcStatefulConsumer::new(|_| {})
-    }
-
-    /// Get the consumer's name
-    ///
-    /// # Return Value
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Set the consumer's name
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - Name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
+    impl_consumer_methods!(|_| {});
 
     /// Sequentially chain another consumer
     ///
