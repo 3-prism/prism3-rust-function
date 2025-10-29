@@ -94,6 +94,18 @@ mod box_consumer_once_tests {
         // Should not panic
     }
 
+    #[test]
+    fn test_new_with_name() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumerOnce::new_with_name("test_consumer", move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+        assert_eq!(consumer.name(), Some("test_consumer"));
+        consumer.accept_once(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
     // print and print_with methods have been removed
 
     #[test]
