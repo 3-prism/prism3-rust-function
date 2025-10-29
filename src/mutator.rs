@@ -1231,15 +1231,24 @@ where
         RcMutator::new(|_| {})
     }
 
-    /// Chains another RcMutator in sequence
+    /// Chains another mutator in sequence
     ///
     /// Returns a new mutator that first executes the current operation, then
     /// executes the next operation. Borrows &self, does not consume the
     /// original mutator.
     ///
+    /// # Type Parameters
+    ///
+    /// * `M` - Type of the next mutator
+    ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - An `ArcMutator<T>`
+    ///   - Any type implementing `Mutator<T>`
     ///
     /// # Returns
     ///
@@ -1253,7 +1262,7 @@ where
     /// let first = RcMutator::new(|x: &mut i32| *x *= 2);
     /// let second = RcMutator::new(|x: &mut i32| *x += 10);
     ///
-    /// let chained = first.and_then(&second);
+    /// let chained = first.and_then(second.clone());
     ///
     /// // first and second are still usable
     /// let mut value = 5;
@@ -1261,12 +1270,14 @@ where
     /// m.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &RcMutator<T>) -> RcMutator<T> {
+    pub fn and_then<M>(&self, mut next: M) -> RcMutator<T>
+    where
+        M: Mutator<T> + 'static,
+    {
         let first = self.function.clone();
-        let second = next.function.clone();
         RcMutator::new(move |t: &mut T| {
             (first.borrow_mut())(t);
-            (second.borrow_mut())(t);
+            next.mutate(t);
         })
     }
 
@@ -1773,15 +1784,24 @@ where
         ArcMutator::new(|_| {})
     }
 
-    /// Chains another ArcMutator in sequence
+    /// Chains another mutator in sequence
     ///
     /// Returns a new mutator that first executes the current operation, then
     /// executes the next operation. Borrows &self, does not consume the
     /// original mutator.
     ///
+    /// # Type Parameters
+    ///
+    /// * `M` - Type of the next mutator
+    ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation
+    /// * `next` - The mutator to execute after the current operation. Can be:
+    ///   - A closure: `|x: &mut T|`
+    ///   - A `BoxMutator<T>`
+    ///   - An `ArcMutator<T>`
+    ///   - An `RcMutator<T>`
+    ///   - Any type implementing `Mutator<T> + Send`
     ///
     /// # Returns
     ///
@@ -1795,7 +1815,7 @@ where
     /// let first = ArcMutator::new(|x: &mut i32| *x *= 2);
     /// let second = ArcMutator::new(|x: &mut i32| *x += 10);
     ///
-    /// let chained = first.and_then(&second);
+    /// let chained = first.and_then(second.clone());
     ///
     /// // first and second are still usable
     /// let mut value = 5;
@@ -1803,13 +1823,15 @@ where
     /// m.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &ArcMutator<T>) -> ArcMutator<T> {
+    pub fn and_then<M>(&self, mut next: M) -> ArcMutator<T>
+    where
+        M: Mutator<T> + Send + 'static,
+    {
         let first = Arc::clone(&self.function);
-        let second = Arc::clone(&next.function);
         ArcMutator {
             function: Arc::new(Mutex::new(move |t: &mut T| {
                 (first.lock().unwrap())(t);
-                (second.lock().unwrap())(t);
+                next.mutate(t);
             })),
         }
     }

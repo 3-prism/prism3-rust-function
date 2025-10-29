@@ -36,6 +36,8 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::consumer_once::{BoxConsumerOnce, ConsumerOnce};
+
 // ============================================================================
 // 1. Consumer Trait - Unified Consumer Interface
 // ============================================================================
@@ -476,6 +478,28 @@ impl<T> fmt::Display for BoxConsumer<T> {
     }
 }
 
+/// Implements ConsumerOnce for BoxConsumer
+///
+/// Allows BoxConsumer to be used in contexts requiring ConsumerOnce.
+/// Since Fn implements FnOnce, this is a natural conversion that
+/// enables BoxConsumer to work seamlessly with one-time consumer APIs.
+impl<T> ConsumerOnce<T> for BoxConsumer<T>
+where
+    T: 'static,
+{
+    fn accept_once(self, value: &T) {
+        self.accept(value)
+    }
+
+    fn into_box_once(self) -> BoxConsumerOnce<T> {
+        BoxConsumerOnce::new(move |t| self.accept(t))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T) {
+        move |t| self.accept(t)
+    }
+}
+
 // ============================================================================
 // 3. ArcConsumer - Thread-safe Shared Ownership Implementation
 // ============================================================================
@@ -738,6 +762,28 @@ impl<T> fmt::Display for ArcConsumer<T> {
     }
 }
 
+/// Implements ConsumerOnce for ArcConsumer
+///
+/// Allows ArcConsumer to be used in contexts requiring ConsumerOnce.
+/// Since Fn implements FnOnce, this is a natural conversion that
+/// enables ArcConsumer to work seamlessly with one-time consumer APIs.
+impl<T> ConsumerOnce<T> for ArcConsumer<T>
+where
+    T: 'static,
+{
+    fn accept_once(self, value: &T) {
+        self.accept(value)
+    }
+
+    fn into_box_once(self) -> BoxConsumerOnce<T> {
+        BoxConsumerOnce::new(move |t| self.accept(t))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T) {
+        move |t| self.accept(t)
+    }
+}
+
 // ============================================================================
 // 4. RcConsumer - Single-threaded Shared Ownership Implementation
 // ============================================================================
@@ -989,6 +1035,28 @@ impl<T> fmt::Display for RcConsumer<T> {
             Some(name) => write!(f, "RcConsumer({})", name),
             None => write!(f, "RcConsumer"),
         }
+    }
+}
+
+/// Implements ConsumerOnce for RcConsumer
+///
+/// Allows RcConsumer to be used in contexts requiring ConsumerOnce.
+/// Since Fn implements FnOnce, this is a natural conversion that
+/// enables RcConsumer to work seamlessly with one-time consumer APIs.
+impl<T> ConsumerOnce<T> for RcConsumer<T>
+where
+    T: 'static,
+{
+    fn accept_once(self, value: &T) {
+        self.accept(value)
+    }
+
+    fn into_box_once(self) -> BoxConsumerOnce<T> {
+        BoxConsumerOnce::new(move |t| self.accept(t))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T) {
+        move |t| self.accept(t)
     }
 }
 

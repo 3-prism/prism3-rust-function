@@ -39,6 +39,10 @@ use std::sync::{
     Mutex,
 };
 
+use crate::consumer_once::{
+    BoxConsumerOnce,
+    ConsumerOnce,
+};
 use crate::predicate::{
     ArcPredicate,
     BoxPredicate,
@@ -813,7 +817,7 @@ impl<T> fmt::Display for BoxStatefulConsumer<T> {
 // 9. BoxStatefulConsumer ConsumerOnce Implementation
 // ============================================================================
 
-impl<T> crate::consumer_once::ConsumerOnce<T> for BoxStatefulConsumer<T> {
+impl<T> ConsumerOnce<T> for BoxStatefulConsumer<T> {
     /// Execute one-time consumption operation
     ///
     /// Executes the consumer operation once and consumes self. This method
@@ -869,12 +873,12 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for BoxStatefulConsumer<T> {
     /// box_consumer_once.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         let mut consumer = self;
-        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+        BoxConsumerOnce::new(move |t| {
             consumer.accept(t);
         })
     }
@@ -1387,13 +1391,10 @@ where
         C: StatefulConsumer<T> + Send + 'static,
     {
         let first = Arc::clone(&self.function);
-        ArcStatefulConsumer {
-            function: Arc::new(Mutex::new(move |t: &T| {
-                first.lock().unwrap()(t);
-                next.accept(t);
-            })),
-            name: None,
-        }
+        ArcStatefulConsumer::new(move |t: &T| {
+            first.lock().unwrap()(t);
+            next.accept(t);
+        })
     }
 
     /// Creates a conditional consumer (thread-safe version)
@@ -1546,7 +1547,7 @@ impl<T> fmt::Display for ArcStatefulConsumer<T> {
 // 11. ArcStatefulConsumer ConsumerOnce Implementation
 // ============================================================================
 
-impl<T> crate::consumer_once::ConsumerOnce<T> for ArcStatefulConsumer<T> {
+impl<T> ConsumerOnce<T> for ArcStatefulConsumer<T> {
     /// Execute one-time consumption operation
     ///
     /// Executes the consumer operation once and consumes self. This method
@@ -1602,12 +1603,12 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for ArcStatefulConsumer<T> {
     /// box_consumer_once.accept_once(&5);
     /// assert_eq!(*log.lock().unwrap(), vec![5]);
     /// ```
-    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         let mut consumer = self;
-        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+        BoxConsumerOnce::new(move |t| {
             consumer.accept(t);
         })
     }
@@ -1675,12 +1676,12 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for ArcStatefulConsumer<T> {
     /// consumer.accept(&3);
     /// assert_eq!(*log.lock().unwrap(), vec![5, 3]);
     /// ```
-    fn to_box_once(&self) -> crate::consumer_once::BoxConsumerOnce<T>
+    fn to_box_once(&self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+        BoxConsumerOnce::new(move |t| {
             self_fn.lock().unwrap()(t);
         })
     }
@@ -2161,13 +2162,10 @@ where
         C: StatefulConsumer<T> + 'static,
     {
         let first = Rc::clone(&self.function);
-        RcStatefulConsumer {
-            function: Rc::new(RefCell::new(move |t: &T| {
-                first.borrow_mut()(t);
-                next.accept(t);
-            })),
-            name: None,
-        }
+        RcStatefulConsumer::new(move |t: &T| {
+            first.borrow_mut()(t);
+            next.accept(t);
+        })
     }
 
     /// Creates a conditional consumer (single-threaded shared version)
@@ -2308,7 +2306,7 @@ impl<T> fmt::Display for RcStatefulConsumer<T> {
 // 10. RcStatefulConsumer ConsumerOnce Implementation
 // ============================================================================
 
-impl<T> crate::consumer_once::ConsumerOnce<T> for RcStatefulConsumer<T> {
+impl<T> ConsumerOnce<T> for RcStatefulConsumer<T> {
     /// Execute one-time consumption operation
     ///
     /// Executes the consumer operation once and consumes self. This method
@@ -2366,12 +2364,12 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for RcStatefulConsumer<T> {
     /// box_consumer_once.accept_once(&5);
     /// assert_eq!(*log.borrow(), vec![5]);
     /// ```
-    fn into_box_once(self) -> crate::consumer_once::BoxConsumerOnce<T>
+    fn into_box_once(self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         let mut consumer = self;
-        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+        BoxConsumerOnce::new(move |t| {
             consumer.accept(t);
         })
     }
@@ -2441,12 +2439,12 @@ impl<T> crate::consumer_once::ConsumerOnce<T> for RcStatefulConsumer<T> {
     /// consumer.accept(&3);
     /// assert_eq!(*log.borrow(), vec![5, 3]);
     /// ```
-    fn to_box_once(&self) -> crate::consumer_once::BoxConsumerOnce<T>
+    fn to_box_once(&self) -> BoxConsumerOnce<T>
     where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        crate::consumer_once::BoxConsumerOnce::new(move |t| {
+        BoxConsumerOnce::new(move |t| {
             self_fn.borrow_mut()(t);
         })
     }

@@ -36,6 +36,8 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::bi_consumer_once::{BiConsumerOnce, BoxBiConsumerOnce};
+
 // ==========================================================================
 // Type Aliases
 // ==========================================================================
@@ -556,6 +558,30 @@ impl<T, U> fmt::Display for BoxBiConsumer<T, U> {
     }
 }
 
+/// Implements BiConsumerOnce for BoxBiConsumer
+///
+/// Allows BoxBiConsumer to be used in contexts requiring
+/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
+/// conversion that enables BoxBiConsumer to work seamlessly with
+/// one-time consumer APIs.
+impl<T, U> BiConsumerOnce<T, U> for BoxBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept_once(self, first: &T, second: &U) {
+        self.accept(first, second)
+    }
+
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
+        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
+        move |t, u| self.accept(t, u)
+    }
+}
+
 // =======================================================================
 // 3. ArcBiConsumer - Thread-Safe Shared Ownership
 // =======================================================================
@@ -715,13 +741,10 @@ where
         C: BiConsumer<T, U> + Send + Sync + 'static,
     {
         let first = Arc::clone(&self.function);
-        ArcBiConsumer {
-            function: Arc::new(move |t: &T, u: &U| {
-                first(t, u);
-                next.accept(t, u);
-            }),
-            name: None,
-        }
+        ArcBiConsumer::new(move |t: &T, u: &U| {
+            first(t, u);
+            next.accept(t, u);
+        })
     }
 }
 
@@ -826,6 +849,30 @@ impl<T, U> fmt::Display for ArcBiConsumer<T, U> {
             Some(name) => write!(f, "ArcBiConsumer({})", name),
             None => write!(f, "ArcBiConsumer"),
         }
+    }
+}
+
+/// Implements BiConsumerOnce for ArcBiConsumer
+///
+/// Allows ArcBiConsumer to be used in contexts requiring
+/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
+/// conversion that enables ArcBiConsumer to work seamlessly with
+/// one-time consumer APIs.
+impl<T, U> BiConsumerOnce<T, U> for ArcBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept_once(self, first: &T, second: &U) {
+        self.accept(first, second)
+    }
+
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
+        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
+        move |t, u| self.accept(t, u)
     }
 }
 
@@ -989,13 +1036,10 @@ where
         C: BiConsumer<T, U> + 'static,
     {
         let first = Rc::clone(&self.function);
-        RcBiConsumer {
-            function: Rc::new(move |t: &T, u: &U| {
-                first(t, u);
-                next.accept(t, u);
-            }),
-            name: None,
-        }
+        RcBiConsumer::new(move |t: &T, u: &U| {
+            first(t, u);
+            next.accept(t, u);
+        })
     }
 }
 
@@ -1092,6 +1136,30 @@ impl<T, U> fmt::Display for RcBiConsumer<T, U> {
     }
 }
 
+/// Implements BiConsumerOnce for RcBiConsumer
+///
+/// Allows RcBiConsumer to be used in contexts requiring
+/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
+/// conversion that enables RcBiConsumer to work seamlessly with
+/// one-time consumer APIs.
+impl<T, U> BiConsumerOnce<T, U> for RcBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept_once(self, first: &T, second: &U) {
+        self.accept(first, second)
+    }
+
+    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
+        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+    }
+
+    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
+        move |t, u| self.accept(t, u)
+    }
+}
+
 // =======================================================================
 // 5. Implement BiConsumer trait for closures
 // =======================================================================
@@ -1126,8 +1194,8 @@ where
     fn into_arc(self) -> ArcBiConsumer<T, U>
     where
         Self: Sized + Send + Sync + 'static,
-        T: Send + Sync + 'static,
-        U: Send + Sync + 'static,
+        T: 'static,
+        U: 'static,
     {
         ArcBiConsumer::new(self)
     }
