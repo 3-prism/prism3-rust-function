@@ -9,7 +9,7 @@
 
 #[cfg(test)]
 mod tests {
-    use prism3_function::bi_predicate::{
+    use prism3_function::predicates::bi_predicate::{
         ArcBiPredicate,
         BiPredicate,
         BoxBiPredicate,
@@ -1891,7 +1891,7 @@ mod tests {
 
 #[cfg(test)]
 mod to_fn_tests {
-    use prism3_function::bi_predicate::{
+    use prism3_function::predicates::bi_predicate::{
         ArcBiPredicate,
         BiPredicate,
         RcBiPredicate,

@@ -7,10 +7,6 @@
  *
  ******************************************************************************/
 
-mod comparator_tests;
-mod consumers;
-mod mutators;
-mod predicates;
-mod suppliers;
-mod tester_tests;
-mod transformers;
+mod readonly_supplier_tests;
+mod stateful_supplier_tests;
+mod supplier_once_tests;

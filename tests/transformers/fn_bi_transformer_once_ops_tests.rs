@@ -13,7 +13,7 @@ use prism3_function::{
 };
 
 #[cfg(test)]
-mod fn_bi_transformer_once_ops_tests {
+mod tests {
     use super::*;
 
     #[test]

@@ -2332,11 +2332,7 @@ mod bi_consumer_once_compat_tests {
     use prism3_function::BiConsumerOnce;
 
     // Helper function that accepts BiConsumerOnce
-    fn accept_bi_consumer_once<C: BiConsumerOnce<i32, i32>>(
-        consumer: C,
-        a: &i32,
-        b: &i32,
-    ) {
+    fn accept_bi_consumer_once<C: BiConsumerOnce<i32, i32>>(consumer: C, a: &i32, b: &i32) {
         consumer.accept_once(a, b);
     }
 

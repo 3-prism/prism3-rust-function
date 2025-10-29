@@ -1709,7 +1709,7 @@ mod test_into_fn {
 #[cfg(test)]
 mod test_conditional_execution {
     use super::*;
-    use prism3_function::predicate::{
+    use prism3_function::predicates::predicate::{
         ArcPredicate,
         BoxPredicate,
         RcPredicate,
@@ -2669,7 +2669,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_combined_predicate_types() {
-        use prism3_function::predicate::FnPredicateOps;
+        use prism3_function::predicates::predicate::FnPredicateOps;
 
         // Combine predicates: x > 0 AND x < 100
         let pred = (|x: &i32| *x > 0).and(|x: &i32| *x < 100);

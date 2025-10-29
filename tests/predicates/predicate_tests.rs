@@ -9,7 +9,7 @@
 
 //! Unit tests for the predicate module.
 
-use prism3_function::predicate::{
+use prism3_function::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     FnPredicateOps,
