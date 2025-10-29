@@ -16,6 +16,9 @@
 //!
 //! Haixing Hu
 
+#[macro_use]
+mod macros;
+
 pub mod bi_consumer;
 pub mod bi_consumer_once;
 pub mod consumer;
