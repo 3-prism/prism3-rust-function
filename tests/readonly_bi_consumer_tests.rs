@@ -163,7 +163,7 @@ mod arc_readonly_bi_consumer_tests {
             c2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second);
 
         chained.accept(&5, &3);
         assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 2);
@@ -306,7 +306,7 @@ mod rc_readonly_bi_consumer_tests {
             c2.set(c2.get() + 1);
         });
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second);
 
         chained.accept(&5, &3);
         assert_eq!(counter.get(), 2);
@@ -988,7 +988,7 @@ mod custom_readonly_bi_consumer_tests {
             *c2.lock().unwrap() += 10;
         });
 
-        let chained = rc_consumer.and_then(&second);
+        let chained = rc_consumer.and_then(second);
 
         chained.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 11); // 1 + 10
@@ -1006,7 +1006,7 @@ mod custom_readonly_bi_consumer_tests {
             *c2.lock().unwrap() += 10;
         });
 
-        let chained = arc_consumer.and_then(&second);
+        let chained = arc_consumer.and_then(second);
 
         chained.accept(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 11); // 1 + 10
@@ -1157,7 +1157,7 @@ mod noop_tests {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
         let noop = ArcBiConsumer::<i32, i32>::noop();
-        let chained = active.and_then(&noop);
+        let chained = active.and_then(noop);
         chained.accept(&1, &2);
         assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
@@ -1169,7 +1169,7 @@ mod noop_tests {
         let active = RcBiConsumer::new(move |_x: &i32, _y: &i32| {
             c.set(c.get() + 1);
         });
-        let chained = active.and_then(&RcBiConsumer::<i32, i32>::noop());
+        let chained = active.and_then(RcBiConsumer::<i32, i32>::noop());
         chained.accept(&1, &2);
         assert_eq!(counter.get(), 1);
     }

@@ -218,7 +218,7 @@ mod arc_readonly_consumer_tests {
             c2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second.clone());
         chained.accept(&5);
 
         assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 2);
@@ -375,7 +375,7 @@ mod rc_readonly_consumer_tests {
             *c2.borrow_mut() += 1;
         });
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second.clone());
         chained.accept(&5);
 
         assert_eq!(*counter.borrow(), 2);
