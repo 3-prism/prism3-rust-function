@@ -1,9 +1,9 @@
 [package]
 name = "prism3-function"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 rust-version = "1.70"
-authors = ["Hu Haixing <starfish.hu@gmail.com>"]
+authors = ["Haixing Hu <starfish.hu@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/3-prism/prism3-rust-function"
 description = "Common functional programming type aliases for Rust, providing Java-style functional interfaces"
