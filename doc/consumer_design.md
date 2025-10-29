@@ -660,9 +660,9 @@ pub trait MutatorOnce<T> {
 ```
 
 **Current Implementation Status**:
-- ✅ `ReadonlyConsumer` - Implemented (`src/readonly_consumer.rs`)
-- ✅ `Consumer` - Implemented (`src/consumer.rs`)
-- ✅ `ConsumerOnce` - Implemented (`src/consumer_once.rs`)
+- ✅ `ReadonlyConsumer` - Implemented (`src/consumers/readonly_consumer.rs`)
+- ✅ `Consumer` - Implemented (`src/consumers/consumer.rs`)
+- ✅ `ConsumerOnce` - Implemented (`src/consumers/consumer_once.rs`)
 - ✅ `Mutator` - Implemented (`src/mutator.rs`), originally named `ConsumerMut`
 - ❌ `MutatorOnce` - Not yet implemented (low priority)
 
@@ -763,7 +763,7 @@ This design provides users with the most flexible, powerful, and clear API, maki
 - This violates the core semantics of Consumer (Consumer should only observe, not modify input)
 
 **Refactoring Content**:
-1. ✅ Renamed `src/consumer_mut.rs` to `src/mutator.rs`
+1. ✅ Renamed `src/mutators/mutator.rs` to `src/mutator.rs`
 2. ✅ Renamed all types:
    - `ConsumerMut<T>` → `Mutator<T>`
    - `BoxConsumerMut<T>` → `BoxMutator<T>`

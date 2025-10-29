@@ -178,7 +178,7 @@ pub trait MutatorOnce<T> {
 ```
 
 **当前实现状态**：
-- ✅ `Mutator` - 已完整实现（`src/mutator.rs`）
+- ✅ `Mutator` - 已完整实现（`src/mutators/mutator.rs`）
   - ✅ `BoxMutator<T>` - 单一所有权
   - ✅ `ArcMutator<T>` - 线程安全共享
   - ✅ `RcMutator<T>` - 单线程共享

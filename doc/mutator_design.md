@@ -178,7 +178,7 @@ pub trait MutatorOnce<T> {
 ```
 
 **Current Implementation Status**:
-- ✅ `Mutator` - Fully implemented (`src/mutator.rs`)
+- ✅ `Mutator` - Fully implemented (`src/mutators/mutator.rs`)
   - ✅ `BoxMutator<T>` - Single ownership
   - ✅ `ArcMutator<T>` - Thread-safe sharing
   - ✅ `RcMutator<T>` - Single-thread sharing

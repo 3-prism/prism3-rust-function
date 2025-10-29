@@ -660,9 +660,9 @@ pub trait MutatorOnce<T> {
 ```
 
 **当前实现状态**：
-- ✅ `ReadonlyConsumer` - 已实现（`src/readonly_consumer.rs`）
-- ✅ `Consumer` - 已实现（`src/consumer.rs`）
-- ✅ `ConsumerOnce` - 已实现（`src/consumer_once.rs`）
+- ✅ `ReadonlyConsumer` - 已实现（`src/consumers/readonly_consumer.rs`）
+- ✅ `Consumer` - 已实现（`src/consumers/consumer.rs`）
+- ✅ `ConsumerOnce` - 已实现（`src/consumers/consumer_once.rs`）
 - ✅ `Mutator` - 已实现（`src/mutator.rs`），原名为 `ConsumerMut`
 - ❌ `MutatorOnce` - 暂未实现（低优先级）
 
@@ -763,7 +763,7 @@ pub struct RcMutator<T> { func: Rc<RefCell<dyn FnMut(&mut T)>> }
 - 这违反了 Consumer 的核心语义（Consumer 应该只观察，不修改输入）
 
 **重构内容**：
-1. ✅ 将 `src/consumer_mut.rs` 重命名为 `src/mutator.rs`
+1. ✅ 将 `src/mutators/mutator.rs` 重命名为 `src/mutator.rs`
 2. ✅ 所有类型重命名：
    - `ConsumerMut<T>` → `Mutator<T>`
    - `BoxConsumerMut<T>` → `BoxMutator<T>`
