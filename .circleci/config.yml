@@ -29,8 +29,14 @@ jobs:
             - v3-cargo-cache-nightly-{{ arch }}-{{ checksum "Cargo.toml" }}-
             - v3-cargo-cache-nightly-{{ arch }}-
       - run:
+          name: Install rustfmt component
+          command: rustup component add rustfmt
+      - run:
           name: Check code format
           command: cargo fmt -- --check
+      - run:
+          name: Install clippy component
+          command: rustup component add clippy
       - run:
           name: Run clippy (with dependency caching)
           command: |
