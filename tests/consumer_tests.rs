@@ -300,7 +300,7 @@ mod test_arc_consumer {
         let second = ArcStatefulConsumer::new(move |x: &i32| {
             l2.lock().unwrap().push(*x + 10);
         });
-        let mut chained = first.and_then(&second);
+        let mut chained = first.and_then(second);
 
         let value = 5;
         chained.accept(&value);
@@ -622,7 +622,7 @@ mod test_arc_consumer {
             l2.lock().unwrap().push(val + 10);
         });
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second);
 
         let value = Rc::new(RefCell::new(5));
         chained.accept(&value);
@@ -676,7 +676,7 @@ mod test_rc_consumer {
         let second = RcStatefulConsumer::new(move |x: &i32| {
             l2.borrow_mut().push(*x + 10);
         });
-        let mut chained = first.and_then(&second);
+        let mut chained = first.and_then(second);
 
         let value = 5;
         chained.accept(&value);
@@ -2302,5 +2302,172 @@ mod test_closure_to_methods {
 
         // This would not compile - consumer is moved
         // consumer.accept(&3); // Would not compile
+    }
+}
+
+// ============================================================================
+// ConsumerOnce Implementation Tests
+// ============================================================================
+
+#[cfg(test)]
+mod consumer_once_compat_tests {
+    use super::*;
+
+    // Helper function that accepts ConsumerOnce
+    fn accept_consumer_once<C: ConsumerOnce<i32>>(consumer: C, value: &i32) {
+        consumer.accept_once(value);
+    }
+
+    #[test]
+    fn test_box_consumer_as_consumer_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        // BoxConsumer can be used as ConsumerOnce
+        accept_consumer_once(consumer, &42);
+        assert_eq!(*log.lock().unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn test_arc_consumer_as_consumer_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 2);
+        });
+
+        // ArcConsumer can be used as ConsumerOnce
+        accept_consumer_once(consumer, &21);
+        assert_eq!(*log.lock().unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn test_rc_consumer_as_consumer_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x + 10);
+        });
+
+        // RcConsumer can be used as ConsumerOnce
+        accept_consumer_once(consumer, &32);
+        assert_eq!(*log.borrow(), vec![42]);
+    }
+
+    #[test]
+    fn test_box_consumer_accept_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        consumer.accept_once(&100);
+        assert_eq!(*log.lock().unwrap(), vec![100]);
+    }
+
+    #[test]
+    fn test_arc_consumer_accept_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 3);
+        });
+
+        consumer.accept_once(&7);
+        assert_eq!(*log.lock().unwrap(), vec![21]);
+    }
+
+    #[test]
+    fn test_rc_consumer_accept_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x - 5);
+        });
+
+        consumer.accept_once(&15);
+        assert_eq!(*log.borrow(), vec![10]);
+    }
+
+    #[test]
+    fn test_box_consumer_into_box_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let once_consumer = consumer.into_box_once();
+        once_consumer.accept_once(&77);
+        assert_eq!(*log.lock().unwrap(), vec![77]);
+    }
+
+    #[test]
+    fn test_arc_consumer_into_box_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x * 5);
+        });
+
+        let once_consumer = consumer.into_box_once();
+        once_consumer.accept_once(&8);
+        assert_eq!(*log.lock().unwrap(), vec![40]);
+    }
+
+    #[test]
+    fn test_rc_consumer_into_box_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x + 20);
+        });
+
+        let once_consumer = consumer.into_box_once();
+        once_consumer.accept_once(&22);
+        assert_eq!(*log.borrow(), vec![42]);
+    }
+
+    #[test]
+    fn test_box_consumer_into_fn_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let func = consumer.into_fn_once();
+        func(&99);
+        assert_eq!(*log.lock().unwrap(), vec![99]);
+    }
+
+    #[test]
+    fn test_arc_consumer_into_fn_once() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+        let consumer = ArcConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x / 2);
+        });
+
+        let func = consumer.into_fn_once();
+        func(&84);
+        assert_eq!(*log.lock().unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn test_rc_consumer_into_fn_once() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x - 8);
+        });
+
+        let func = consumer.into_fn_once();
+        func(&50);
+        assert_eq!(*log.borrow(), vec![42]);
     }
 }
