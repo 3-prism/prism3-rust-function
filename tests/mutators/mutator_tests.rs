@@ -7,14 +7,13 @@
  *
  ******************************************************************************/
 
-//! Unit tests for Mutator types
+//! Unit tests for Mutator types (stateless Fn(&mut T))
 
 use prism3_function::{
     ArcMutator,
     BoxMutator,
     FnMutatorOps,
     Mutator,
-    MutatorOnce,
     RcMutator,
 };
 
@@ -28,7 +27,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 1);
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 1);
         let mut value = 5;
         mutator.mutate(&mut value);
         assert_eq!(value, 6);
@@ -37,19 +36,19 @@ mod test_box_mutator {
     #[test]
     fn test_with_different_types() {
         // String
-        let mut string_mutator = BoxMutator::new(|s: &mut String| s.push('!'));
+        let string_mutator = BoxMutator::new(|s: &mut String| s.push('!'));
         let mut text = String::from("hello");
         string_mutator.mutate(&mut text);
         assert_eq!(text, "hello!");
 
         // Vec
-        let mut vec_mutator = BoxMutator::new(|v: &mut Vec<i32>| v.push(42));
+        let vec_mutator = BoxMutator::new(|v: &mut Vec<i32>| v.push(42));
         let mut numbers = vec![1, 2, 3];
         vec_mutator.mutate(&mut numbers);
         assert_eq!(numbers, vec![1, 2, 3, 42]);
 
         // bool
-        let mut bool_mutator = BoxMutator::new(|b: &mut bool| *b = !*b);
+        let bool_mutator = BoxMutator::new(|b: &mut bool| *b = !*b);
         let mut flag = true;
         bool_mutator.mutate(&mut flag);
         assert!(!flag);
@@ -57,7 +56,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_and_then() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
         let mut value = 5;
         mutator.mutate(&mut value);
@@ -66,7 +65,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_and_then_multiple_chains() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 1)
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 1)
             .and_then(|x: &mut i32| *x *= 2)
             .and_then(|x: &mut i32| *x -= 5);
 
@@ -76,10 +75,10 @@ mod test_box_mutator {
     }
 
     #[test]
-    fn test_and_then_with_box_consumer() {
+    fn test_and_then_with_box_mutator() {
         let c1 = BoxMutator::new(|x: &mut i32| *x *= 2);
         let c2 = BoxMutator::new(|x: &mut i32| *x += 10);
-        let mut combined = c1.and_then(c2);
+        let combined = c1.and_then(c2);
 
         let mut value = 5;
         combined.mutate(&mut value);
@@ -88,7 +87,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_noop() {
-        let mut noop = BoxMutator::<i32>::noop();
+        let noop = BoxMutator::<i32>::noop();
         let mut value = 42;
         noop.mutate(&mut value);
         assert_eq!(value, 42);
@@ -97,13 +96,13 @@ mod test_box_mutator {
     #[test]
     fn test_noop_with_different_types() {
         // Test with String
-        let mut noop = BoxMutator::<String>::noop();
+        let noop = BoxMutator::<String>::noop();
         let mut text = String::from("hello");
         noop.mutate(&mut text);
         assert_eq!(text, "hello");
 
         // Test with Vec
-        let mut noop = BoxMutator::<Vec<i32>>::noop();
+        let noop = BoxMutator::<Vec<i32>>::noop();
         let mut numbers = vec![1, 2, 3];
         noop.mutate(&mut numbers);
         assert_eq!(numbers, vec![1, 2, 3]);
@@ -111,7 +110,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_noop_chaining() {
-        let mut chained = BoxMutator::<i32>::noop()
+        let chained = BoxMutator::<i32>::noop()
             .and_then(|x: &mut i32| *x *= 2)
             .and_then(BoxMutator::<i32>::noop());
 
@@ -122,7 +121,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_true() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = 5;
         mutator.mutate(&mut value);
@@ -131,7 +130,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_false() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = -5;
         mutator.mutate(&mut value);
@@ -140,7 +139,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_else() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
             .when(|x: &i32| *x > 0)
             .or_else(|x: &mut i32| *x = -*x);
 
@@ -156,7 +155,7 @@ mod test_box_mutator {
     #[test]
     fn test_into_box() {
         let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.into_box();
+        let boxed = mutator.into_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
@@ -165,7 +164,7 @@ mod test_box_mutator {
     #[test]
     fn test_into_rc() {
         let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut rc = mutator.into_rc();
+        let rc = mutator.into_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -188,8 +187,7 @@ mod test_arc_mutator {
     fn test_new() {
         let mutator = ArcMutator::new(|x: &mut i32| *x += 1);
         let mut value = 5;
-        let mut c = mutator;
-        c.mutate(&mut value);
+        mutator.mutate(&mut value);
         assert_eq!(value, 6);
     }
 
@@ -200,13 +198,11 @@ mod test_arc_mutator {
         let clone2 = mutator.clone();
 
         let mut value1 = 5;
-        let mut c1 = clone1;
-        c1.mutate(&mut value1);
+        clone1.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         let mut value2 = 3;
-        let mut c2 = clone2;
-        c2.mutate(&mut value2);
+        clone2.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
@@ -215,17 +211,15 @@ mod test_arc_mutator {
         let first = ArcMutator::new(|x: &mut i32| *x *= 2);
         let second = ArcMutator::new(|x: &mut i32| *x += 10);
 
-        let chained = first.and_then(second);
+        let chained = first.and_then(&second);
 
         let mut value = 5;
-        let mut c = chained;
-        c.mutate(&mut value);
+        chained.mutate(&mut value);
         assert_eq!(value, 20); // (5 * 2) + 10
 
         // first and second are still usable
         let mut value2 = 3;
-        let mut f = first;
-        f.mutate(&mut value2);
+        first.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
@@ -236,14 +230,12 @@ mod test_arc_mutator {
 
         let handle = thread::spawn(move || {
             let mut value = 5;
-            let mut c = clone;
-            c.mutate(&mut value);
+            clone.mutate(&mut value);
             value
         });
 
         let mut value = 3;
-        let mut c = mutator;
-        c.mutate(&mut value);
+        mutator.mutate(&mut value);
         assert_eq!(value, 6);
 
         assert_eq!(handle.join().unwrap(), 10);
@@ -252,7 +244,7 @@ mod test_arc_mutator {
     #[test]
     fn test_into_box() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.into_box();
+        let boxed = mutator.into_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
@@ -261,7 +253,7 @@ mod test_arc_mutator {
     #[test]
     fn test_into_rc() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut rc = mutator.into_rc();
+        let rc = mutator.into_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -270,7 +262,7 @@ mod test_arc_mutator {
     #[test]
     fn test_into_arc() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut arc = mutator.into_arc();
+        let arc = mutator.into_arc();
         let mut value = 5;
         arc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -280,8 +272,7 @@ mod test_arc_mutator {
     fn test_noop() {
         let noop = ArcMutator::<i32>::noop();
         let mut value = 42;
-        let mut m = noop;
-        m.mutate(&mut value);
+        noop.mutate(&mut value);
         assert_eq!(value, 42);
     }
 
@@ -292,13 +283,11 @@ mod test_arc_mutator {
         let clone2 = noop.clone();
 
         let mut value1 = 42;
-        let mut m1 = clone1;
-        m1.mutate(&mut value1);
+        clone1.mutate(&mut value1);
         assert_eq!(value1, 42);
 
         let mut value2 = 100;
-        let mut m2 = clone2;
-        m2.mutate(&mut value2);
+        clone2.mutate(&mut value2);
         assert_eq!(value2, 100);
     }
 
@@ -307,18 +296,17 @@ mod test_arc_mutator {
         let noop = ArcMutator::<i32>::noop();
         let double = ArcMutator::new(|x: &mut i32| *x *= 2);
 
-        let chained = noop.and_then(double);
+        let chained = noop.and_then(&double);
 
         let mut value = 5;
-        let mut c = chained;
-        c.mutate(&mut value);
+        chained.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
     #[test]
     fn test_to_box() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.to_box();
+        let boxed = mutator.to_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
@@ -327,7 +315,7 @@ mod test_arc_mutator {
     #[test]
     fn test_to_rc() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut rc = mutator.to_rc();
+        let rc = mutator.to_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -338,8 +326,7 @@ mod test_arc_mutator {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
         let arc = mutator.to_arc();
         let mut value = 5;
-        let mut m = arc;
-        m.mutate(&mut value);
+        arc.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
@@ -354,12 +341,11 @@ mod test_arc_mutator {
     #[test]
     fn test_to_box_preserves_original() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.to_box();
+        let boxed = mutator.to_box();
 
         // Original still usable
         let mut value1 = 5;
-        let mut m = mutator;
-        m.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         // Boxed version also works
@@ -371,12 +357,11 @@ mod test_arc_mutator {
     #[test]
     fn test_to_rc_preserves_original() {
         let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut rc = mutator.to_rc();
+        let rc = mutator.to_rc();
 
         // Original still usable
         let mut value1 = 5;
-        let mut m1 = mutator;
-        m1.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         // to_rc version also works
@@ -392,14 +377,12 @@ mod test_arc_mutator {
 
         // Original still usable
         let mut value1 = 5;
-        let mut m1 = mutator;
-        m1.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         // to_arc version also works
         let mut value2 = 3;
-        let mut m2 = arc;
-        m2.mutate(&mut value2);
+        arc.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
@@ -414,8 +397,7 @@ mod test_arc_mutator {
 
         // Original still usable after to_fn (because ArcMutator is Clone)
         let mut value1 = 5;
-        let mut m = mutator;
-        m.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 15);
     }
 
@@ -429,14 +411,12 @@ mod test_arc_mutator {
 
         let handle = thread::spawn(move || {
             let mut value = 5;
-            let mut m = clone;
-            m.mutate(&mut value);
+            clone.mutate(&mut value);
             value
         });
 
         let mut value = 3;
-        let mut m = arc;
-        m.mutate(&mut value);
+        arc.mutate(&mut value);
         assert_eq!(value, 6);
 
         assert_eq!(handle.join().unwrap(), 10);
@@ -455,8 +435,7 @@ mod test_rc_mutator {
     fn test_new() {
         let mutator = RcMutator::new(|x: &mut i32| *x += 1);
         let mut value = 5;
-        let mut c = mutator;
-        c.mutate(&mut value);
+        mutator.mutate(&mut value);
         assert_eq!(value, 6);
     }
 
@@ -467,13 +446,11 @@ mod test_rc_mutator {
         let clone2 = mutator.clone();
 
         let mut value1 = 5;
-        let mut c1 = clone1;
-        c1.mutate(&mut value1);
+        clone1.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         let mut value2 = 3;
-        let mut c2 = clone2;
-        c2.mutate(&mut value2);
+        clone2.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
@@ -482,24 +459,22 @@ mod test_rc_mutator {
         let first = RcMutator::new(|x: &mut i32| *x *= 2);
         let second = RcMutator::new(|x: &mut i32| *x += 10);
 
-        let chained = first.and_then(second);
+        let chained = first.and_then(&second);
 
         let mut value = 5;
-        let mut c = chained;
-        c.mutate(&mut value);
+        chained.mutate(&mut value);
         assert_eq!(value, 20); // (5 * 2) + 10
 
         // first and second are still usable
         let mut value2 = 3;
-        let mut f = first;
-        f.mutate(&mut value2);
+        first.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
     #[test]
     fn test_into_box() {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.into_box();
+        let boxed = mutator.into_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
@@ -508,7 +483,7 @@ mod test_rc_mutator {
     #[test]
     fn test_into_rc() {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let mut rc = mutator.into_rc();
+        let rc = mutator.into_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -518,8 +493,7 @@ mod test_rc_mutator {
     fn test_noop() {
         let noop = RcMutator::<i32>::noop();
         let mut value = 42;
-        let mut m = noop;
-        m.mutate(&mut value);
+        noop.mutate(&mut value);
         assert_eq!(value, 42);
     }
 
@@ -530,13 +504,11 @@ mod test_rc_mutator {
         let clone2 = noop.clone();
 
         let mut value1 = 42;
-        let mut m1 = clone1;
-        m1.mutate(&mut value1);
+        clone1.mutate(&mut value1);
         assert_eq!(value1, 42);
 
         let mut value2 = 100;
-        let mut m2 = clone2;
-        m2.mutate(&mut value2);
+        clone2.mutate(&mut value2);
         assert_eq!(value2, 100);
     }
 
@@ -545,11 +517,10 @@ mod test_rc_mutator {
         let noop = RcMutator::<i32>::noop();
         let double = RcMutator::new(|x: &mut i32| *x *= 2);
 
-        let chained = noop.and_then(double);
+        let chained = noop.and_then(&double);
 
         let mut value = 5;
-        let mut c = chained;
-        c.mutate(&mut value);
+        chained.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
@@ -559,7 +530,7 @@ mod test_rc_mutator {
     #[test]
     fn test_to_box() {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.to_box();
+        let boxed = mutator.to_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
@@ -570,8 +541,7 @@ mod test_rc_mutator {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
         let rc = mutator.to_rc();
         let mut value = 5;
-        let mut m = rc;
-        m.mutate(&mut value);
+        rc.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
@@ -586,12 +556,11 @@ mod test_rc_mutator {
     #[test]
     fn test_to_box_preserves_original() {
         let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let mut boxed = mutator.to_box();
+        let boxed = mutator.to_box();
 
         // Original still usable
         let mut value1 = 5;
-        let mut m = mutator;
-        m.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         // Boxed version also works
@@ -607,14 +576,12 @@ mod test_rc_mutator {
 
         // Original still usable
         let mut value1 = 5;
-        let mut m1 = mutator;
-        m1.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 10);
 
         // to_rc version also works
         let mut value2 = 3;
-        let mut m2 = rc;
-        m2.mutate(&mut value2);
+        rc.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
 
@@ -629,8 +596,7 @@ mod test_rc_mutator {
 
         // Original still usable after to_fn (because RcMutator is Clone)
         let mut value1 = 5;
-        let mut m = mutator;
-        m.mutate(&mut value1);
+        mutator.mutate(&mut value1);
         assert_eq!(value1, 15);
     }
 }
@@ -644,8 +610,8 @@ mod test_fn_mutator_ops {
     use super::*;
 
     #[test]
-    fn test_closure_accept() {
-        let mut closure = |x: &mut i32| *x *= 2;
+    fn test_closure_mutate() {
+        let closure = |x: &mut i32| *x *= 2;
         let mut value = 5;
         closure.mutate(&mut value);
         assert_eq!(value, 10);
@@ -653,7 +619,7 @@ mod test_fn_mutator_ops {
 
     #[test]
     fn test_closure_and_then() {
-        let mut chained = (|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
+        let chained = (|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
         let mut value = 5;
         chained.mutate(&mut value);
@@ -663,29 +629,16 @@ mod test_fn_mutator_ops {
     #[test]
     fn test_closure_into_box() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut boxed = closure.into_box();
+        let boxed = closure.into_box();
         let mut value = 5;
         boxed.mutate(&mut value);
         assert_eq!(value, 10);
     }
 
     #[test]
-    fn test_closure_to_box_panics_or_supports() {
-        // closure.to_box() by default panics because &closure cannot be cloned.
-        // but into_box() should work. We test into_box above; here we ensure
-        // to_box() either panics (expected) or returns a BoxMutator if changed.
-        let closure = |x: &mut i32| *x *= 2;
-        let res = std::panic::catch_unwind(|| {
-            let _ = closure.to_box();
-        });
-        // Accept either panic (current behavior) or Ok (if implementation changed)
-        assert!(res.is_ok() || res.is_err());
-    }
-
-    #[test]
     fn test_closure_into_rc() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut rc = closure.into_rc();
+        let rc = closure.into_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -694,7 +647,7 @@ mod test_fn_mutator_ops {
     #[test]
     fn test_closure_into_arc() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut arc = closure.into_arc();
+        let arc = closure.into_arc();
         let mut value = 5;
         arc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -705,7 +658,7 @@ mod test_fn_mutator_ops {
         // Test non-consuming conversion to RcMutator
         // Note: Only works with cloneable closures (no mutable captures)
         let closure = |x: &mut i32| *x *= 2;
-        let mut rc = closure.to_rc();
+        let rc = closure.to_rc();
         let mut value = 5;
         rc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -716,7 +669,7 @@ mod test_fn_mutator_ops {
         // Test non-consuming conversion to ArcMutator
         // Note: Only works with cloneable closures (no mutable captures)
         let closure = |x: &mut i32| *x *= 2;
-        let mut arc = closure.to_arc();
+        let arc = closure.to_arc();
         let mut value = 5;
         arc.mutate(&mut value);
         assert_eq!(value, 10);
@@ -724,7 +677,7 @@ mod test_fn_mutator_ops {
 
     #[test]
     fn test_closure_to_fn() {
-        // Test non-consuming conversion to FnMut
+        // Test non-consuming conversion to Fn
         // Note: Only works with cloneable closures (no mutable captures)
         let closure = |x: &mut i32| *x += 10;
         let mut values = vec![1, 2, 3];
@@ -735,7 +688,7 @@ mod test_fn_mutator_ops {
     #[test]
     fn test_closure_to_rc_preserves_original() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut rc = closure.to_rc();
+        let rc = closure.to_rc();
 
         // to_rc version works
         let mut value = 5;
@@ -744,7 +697,7 @@ mod test_fn_mutator_ops {
 
         // Original closure is still usable (was copied, not moved)
         let mut value2 = 3;
-        let mut closure_copy = closure;
+        let closure_copy = closure;
         closure_copy.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
@@ -752,7 +705,7 @@ mod test_fn_mutator_ops {
     #[test]
     fn test_closure_to_arc_preserves_original() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut arc = closure.to_arc();
+        let arc = closure.to_arc();
 
         // to_arc version works
         let mut value = 5;
@@ -761,7 +714,7 @@ mod test_fn_mutator_ops {
 
         // Original closure is still usable (was copied, not moved)
         let mut value2 = 3;
-        let mut closure_copy = closure;
+        let closure_copy = closure;
         closure_copy.mutate(&mut value2);
         assert_eq!(value2, 6);
     }
@@ -778,7 +731,7 @@ mod test_fn_mutator_ops {
 
         // Original closure is still usable (was copied, not moved)
         let mut value = 5;
-        let mut closure_copy = closure;
+        let closure_copy = closure;
         closure_copy.mutate(&mut value);
         assert_eq!(value, 15);
     }
@@ -793,14 +746,12 @@ mod test_fn_mutator_ops {
 
         let handle = thread::spawn(move || {
             let mut value = 5;
-            let mut m = clone;
-            m.mutate(&mut value);
+            clone.mutate(&mut value);
             value
         });
 
         let mut value = 3;
-        let mut m = arc;
-        m.mutate(&mut value);
+        arc.mutate(&mut value);
         assert_eq!(value, 6);
 
         assert_eq!(handle.join().unwrap(), 10);
@@ -815,2133 +766,33 @@ mod test_fn_mutator_ops {
 mod test_unified_interface {
     use super::*;
 
-    fn apply_mutator<C: Mutator<i32>>(mutator: &mut C, value: i32) -> i32 {
+    fn apply_mutator<C: Mutator<i32>>(mutator: &C, value: i32) -> i32 {
         let mut val = value;
         mutator.mutate(&mut val);
         val
     }
 
     #[test]
-    fn test_with_box_consumer() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        assert_eq!(apply_mutator(&mut mutator, 5), 10);
+    fn test_with_box_mutator() {
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+        assert_eq!(apply_mutator(&mutator, 5), 10);
     }
 
     #[test]
-    fn test_with_arc_consumer() {
-        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        assert_eq!(apply_mutator(&mut mutator, 5), 10);
+    fn test_with_arc_mutator() {
+        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
+        assert_eq!(apply_mutator(&mutator, 5), 10);
     }
 
     #[test]
-    fn test_with_rc_consumer() {
-        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        assert_eq!(apply_mutator(&mut mutator, 5), 10);
+    fn test_with_rc_mutator() {
+        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
+        assert_eq!(apply_mutator(&mutator, 5), 10);
     }
 
     #[test]
     fn test_with_closure() {
-        let mut closure = |x: &mut i32| *x *= 2;
-        assert_eq!(apply_mutator(&mut closure, 5), 10);
-    }
-}
-
-// ============================================================================
-// Complex Scenarios Tests
-// ============================================================================
-
-#[cfg(test)]
-mod test_complex_scenarios {
-    use super::*;
-
-    #[test]
-    fn test_data_processing_pipeline() {
-        let mut pipeline = BoxMutator::new(|x: &mut i32| {
-            *x = (*x).clamp(0, 100);
-        })
-        .and_then(|x: &mut i32| *x /= 10)
-        .and_then(|x: &mut i32| *x = *x * *x);
-
-        let mut value1 = -50;
-        pipeline.mutate(&mut value1);
-        assert_eq!(value1, 0);
-
-        let mut value2 = 200;
-        pipeline.mutate(&mut value2);
-        assert_eq!(value2, 100);
-
-        let mut value3 = 30;
-        pipeline.mutate(&mut value3);
-        assert_eq!(value3, 9);
-    }
-
-    #[test]
-    fn test_string_processing() {
-        let mut processor = BoxMutator::new(|s: &mut String| s.retain(|c| !c.is_whitespace()))
-            .and_then(|s: &mut String| *s = s.to_lowercase())
-            .and_then(|s: &mut String| s.push_str("!!!"));
-
-        let mut text = String::from("Hello World");
-        processor.mutate(&mut text);
-        assert_eq!(text, "helloworld!!!");
-    }
-
-    #[test]
-    fn test_conditional_processing() {
-        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
-        let mut processor = cond1.and_then(cond2);
-
-        let mut small = 5;
-        processor.mutate(&mut small);
-        assert_eq!(small, 10);
-
-        let mut large = 60;
-        processor.mutate(&mut large);
-        assert_eq!(large, 100);
-    }
-
-    #[test]
-    fn test_mixed_operations() {
-        let cond = BoxMutator::new(|x: &mut i32| *x -= 20).when(|x: &i32| *x > 50);
-        let mut processor = BoxMutator::new(|x: &mut i32| *x += 10)
-            .and_then(|x: &mut i32| *x *= 2)
-            .and_then(cond);
-
-        let mut value1 = 5;
-        processor.mutate(&mut value1);
-        assert_eq!(value1, 30); // (5 + 10) * 2 = 30
-
-        let mut value2 = 20;
-        processor.mutate(&mut value2);
-        assert_eq!(value2, 40); // (20 + 10) * 2 = 60, 60 > 50 so 60 - 20 = 40
-    }
-
-    #[test]
-    fn test_arc_mutator_reuse() {
-        let double = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let add_ten = ArcMutator::new(|x: &mut i32| *x += 10);
-
-        let pipeline1 = double.and_then(add_ten.clone());
-        let pipeline2 = add_ten.and_then(double.clone());
-
-        let mut value1 = 5;
-        let mut p1 = pipeline1;
-        p1.mutate(&mut value1);
-        assert_eq!(value1, 20); // (5 * 2) + 10
-
-        let mut value2 = 5;
-        let mut p2 = pipeline2;
-        p2.mutate(&mut value2);
-        assert_eq!(value2, 30); // (5 + 10) * 2
-    }
-
-    #[test]
-    fn test_rc_mutator_reuse() {
-        let double = RcMutator::new(|x: &mut i32| *x *= 2);
-        let add_ten = RcMutator::new(|x: &mut i32| *x += 10);
-
-        let pipeline1 = double.and_then(add_ten.clone());
-        let pipeline2 = add_ten.and_then(double.clone());
-
-        let mut value1 = 5;
-        let mut p1 = pipeline1;
-        p1.mutate(&mut value1);
-        assert_eq!(value1, 20); // (5 * 2) + 10
-
-        let mut value2 = 5;
-        let mut p2 = pipeline2;
-        p2.mutate(&mut value2);
-        assert_eq!(value2, 30); // (5 + 10) * 2
-    }
-}
-
-// ============================================================================
-// Custom Types Tests
-// ============================================================================
-
-#[cfg(test)]
-mod test_custom_types {
-    use super::*;
-
-    #[derive(Debug, Clone, PartialEq)]
-    struct Point {
-        x: i32,
-        y: i32,
-    }
-
-    #[test]
-    fn test_with_custom_struct() {
-        let mut mutator = BoxMutator::new(|p: &mut Point| {
-            p.x += 10;
-            p.y += 10;
-        });
-
-        let mut point = Point { x: 5, y: 15 };
-        mutator.mutate(&mut point);
-        assert_eq!(point, Point { x: 15, y: 25 });
-    }
-
-    #[test]
-    fn test_chaining_with_custom_struct() {
-        let mut processor = BoxMutator::new(|p: &mut Point| p.x *= 2)
-            .and_then(|p: &mut Point| p.y *= 2)
-            .and_then(|p: &mut Point| p.x += p.y);
-
-        let mut point = Point { x: 3, y: 4 };
-        processor.mutate(&mut point);
-        assert_eq!(point, Point { x: 14, y: 8 });
-    }
-
-    #[test]
-    fn test_conditional_with_custom_struct() {
-        let mut normalizer = BoxMutator::new(|p: &mut Point| {
-            if p.x < 0 {
-                p.x = 0;
-            }
-            if p.y < 0 {
-                p.y = 0;
-            }
-        })
-        .when(|p: &Point| p.x < 0 || p.y < 0);
-
-        let mut point1 = Point { x: -5, y: 10 };
-        normalizer.mutate(&mut point1);
-        assert_eq!(point1, Point { x: 0, y: 10 });
-
-        let mut point2 = Point { x: 5, y: -10 };
-        normalizer.mutate(&mut point2);
-        assert_eq!(point2, Point { x: 5, y: 0 });
-
-        let mut point3 = Point { x: 5, y: 10 };
-        normalizer.mutate(&mut point3);
-        assert_eq!(point3, Point { x: 5, y: 10 });
-    }
-}
-
-// ============================================================================
-// Edge Cases Tests
-// ============================================================================
-
-#[cfg(test)]
-mod test_edge_cases {
-    use super::*;
-
-    #[test]
-    fn test_with_zero() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x += 1);
-        let mut value = 0;
-        mutator.mutate(&mut value);
-        assert_eq!(value, 1);
-    }
-
-    #[test]
-    fn test_with_negative() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x = x.abs());
-        let mut value = -42;
-        mutator.mutate(&mut value);
-        assert_eq!(value, 42);
-    }
-
-    #[test]
-    fn test_with_max_value() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x = x.saturating_add(1));
-        let mut value = i32::MAX;
-        mutator.mutate(&mut value);
-        assert_eq!(value, i32::MAX);
-    }
-
-    #[test]
-    fn test_with_min_value() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x = x.saturating_sub(1));
-        let mut value = i32::MIN;
-        mutator.mutate(&mut value);
-        assert_eq!(value, i32::MIN);
-    }
-
-    #[test]
-    fn test_with_empty_string() {
-        let mut mutator = BoxMutator::new(|s: &mut String| s.push_str("added"));
-        let mut text = String::new();
-        mutator.mutate(&mut text);
-        assert_eq!(text, "added");
-    }
-
-    #[test]
-    fn test_with_empty_vec() {
-        let mut mutator = BoxMutator::new(|v: &mut Vec<i32>| v.push(1));
-        let mut numbers = Vec::new();
-        mutator.mutate(&mut numbers);
-        assert_eq!(numbers, vec![1]);
-    }
-
-    #[test]
-    fn test_unicode() {
-        let mut mutator = BoxMutator::new(|s: &mut String| *s = s.to_uppercase());
-        let mut text = String::from("héllo world");
-        mutator.mutate(&mut text);
-        assert_eq!(text, "HÉLLO WORLD");
-    }
-}
-
-// ============================================================================
-// Custom Mutator with Default into_xxx() Implementation Tests
-// ============================================================================
-
-#[cfg(test)]
-mod test_custom_mutator_default_impl {
-    use super::*;
-
-    /// Custom mutator for testing default implementations
-    ///
-    /// This mutator demonstrates using the default trait method implementations
-    /// for `into_box()`, `into_rc()`, `into_arc()`, and `into_fn()`.
-    #[derive(Clone)]
-    struct DoubleMutator {
-        multiplier: i32,
-    }
-
-    impl DoubleMutator {
-        fn new(multiplier: i32) -> Self {
-            Self { multiplier }
-        }
-    }
-
-    impl Mutator<i32> for DoubleMutator {
-        fn mutate(&mut self, value: &mut i32) {
-            *value *= self.multiplier;
-        }
-
-        // Note: All into_xxx() methods use the default implementations from the trait
-        // We don't need to implement them here
-    }
-
-    #[test]
-    fn test_custom_mutator_basic() {
-        let mut mutator = DoubleMutator::new(3);
-        let mut value = 5;
-        mutator.mutate(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_custom_mutator_into_box() {
-        let mutator = DoubleMutator::new(3);
-        let mut boxed = mutator.into_box();
-
-        let mut value = 5;
-        boxed.mutate(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_custom_mutator_into_rc() {
-        let mutator = DoubleMutator::new(3);
-        let rc = mutator.into_rc();
-
-        let clone1 = rc.clone();
-        let clone2 = rc.clone();
-
-        let mut value1 = 5;
-        let mut m1 = clone1;
-        m1.mutate(&mut value1);
-        assert_eq!(value1, 15);
-
-        let mut value2 = 10;
-        let mut m2 = clone2;
-        m2.mutate(&mut value2);
-        assert_eq!(value2, 30);
-    }
-
-    #[test]
-    fn test_custom_mutator_into_arc() {
-        let mutator = DoubleMutator::new(3);
-        let arc = mutator.into_arc();
-
-        let clone1 = arc.clone();
-        let clone2 = arc.clone();
-
-        let mut value1 = 5;
-        let mut m1 = clone1;
-        m1.mutate(&mut value1);
-        assert_eq!(value1, 15);
-
-        let mut value2 = 10;
-        let mut m2 = clone2;
-        m2.mutate(&mut value2);
-        assert_eq!(value2, 30);
-    }
-
-    #[test]
-    fn test_custom_mutator_into_fn() {
-        let mutator = DoubleMutator::new(3);
-        let mut values = vec![1, 2, 3, 4, 5];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![3, 6, 9, 12, 15]);
-    }
-
-    #[test]
-    fn test_custom_mutator_to_box_rc_arc_to_fn() {
-        // Test non-consuming conversions provided by default impls (to_box/to_rc/to_arc/to_fn)
-        let mutator = DoubleMutator::new(2);
-
-        // to_box
-        let mut b = mutator.to_box();
-        let mut v = 5;
-        b.mutate(&mut v);
-        assert_eq!(v, 10);
-
-        // to_rc (from custom mutator, not from BoxMutator)
-        let mutator2 = DoubleMutator::new(2);
-        let r = mutator2.to_rc();
-        let mut r1 = r.clone();
-        r1.mutate(&mut v);
-        assert_eq!(v, 20);
-
-        // to_arc (from custom mutator, not from RcMutator)
-        let mutator3 = DoubleMutator::new(2);
-        let a = mutator3.to_arc();
-        let mut a1 = a.clone();
-        a1.mutate(&mut v);
-        assert_eq!(v, 40);
-
-        // to_fn
-        let mutator4 = DoubleMutator::new(2);
-        let mut values = vec![1, 1];
-        values.iter_mut().for_each(mutator4.to_fn());
-        // after two calls multiplier=2: 1*2 = 2, then again 2*2 = 4? We just ensure it runs
-        assert_eq!(values, vec![2, 2]);
-    }
-
-    #[test]
-    fn test_custom_mutator_chaining() {
-        // Test chaining with BoxMutator
-        let custom = DoubleMutator::new(2);
-        let boxed = custom.into_box();
-        let mut chained = boxed.and_then(|x: &mut i32| *x += 10);
-
-        let mut value = 5;
-        chained.mutate(&mut value);
-        assert_eq!(value, 20); // (5 * 2) + 10
-    }
-
-    #[test]
-    fn test_custom_mutator_with_condition() {
-        let custom = DoubleMutator::new(2);
-        let boxed = custom.into_box();
-        let mut conditional = boxed.when(|x: &i32| *x > 0);
-
-        let mut positive = 5;
-        conditional.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        conditional.mutate(&mut negative);
-        assert_eq!(negative, -5); // Unchanged
-    }
-
-    /// Custom mutator with state to test stateful operations
-    struct CountingMutator {
-        count: i32,
-    }
-
-    impl CountingMutator {
-        fn new() -> Self {
-            Self { count: 0 }
-        }
-    }
-
-    impl Mutator<i32> for CountingMutator {
-        fn mutate(&mut self, value: &mut i32) {
-            self.count += 1;
-            *value += self.count;
-        }
-    }
-
-    #[test]
-    fn test_stateful_mutator() {
-        let mut mutator = CountingMutator::new();
-
-        let mut value1 = 10;
-        mutator.mutate(&mut value1);
-        assert_eq!(value1, 11); // 10 + 1
-
-        let mut value2 = 10;
-        mutator.mutate(&mut value2);
-        assert_eq!(value2, 12); // 10 + 2
-
-        let mut value3 = 10;
-        mutator.mutate(&mut value3);
-        assert_eq!(value3, 13); // 10 + 3
-    }
-
-    #[test]
-    fn test_stateful_mutator_into_box() {
-        let mutator = CountingMutator::new();
-        let mut boxed = mutator.into_box();
-
-        let mut value1 = 10;
-        boxed.mutate(&mut value1);
-        assert_eq!(value1, 11); // 10 + 1
-
-        let mut value2 = 10;
-        boxed.mutate(&mut value2);
-        assert_eq!(value2, 12); // 10 + 2
-
-        let mut value3 = 10;
-        boxed.mutate(&mut value3);
-        assert_eq!(value3, 13); // 10 + 3
-    }
-
-    #[test]
-    fn test_stateful_mutator_into_fn() {
-        let mutator = CountingMutator::new();
-        let mut values = vec![10, 10, 10];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![11, 12, 13]); // 10+1, 10+2, 10+3
-    }
-
-    /// Custom mutator with complex type
-    #[derive(Debug, Clone, PartialEq)]
-    struct Point {
-        x: i32,
-        y: i32,
-    }
-
-    struct OffsetMutator {
-        dx: i32,
-        dy: i32,
-    }
-
-    impl OffsetMutator {
-        fn new(dx: i32, dy: i32) -> Self {
-            Self { dx, dy }
-        }
-    }
-
-    impl Mutator<Point> for OffsetMutator {
-        fn mutate(&mut self, point: &mut Point) {
-            point.x += self.dx;
-            point.y += self.dy;
-        }
-    }
-
-    #[test]
-    fn test_custom_mutator_with_complex_type() {
-        let mut mutator = OffsetMutator::new(10, 20);
-        let mut point = Point { x: 5, y: 15 };
-
-        mutator.mutate(&mut point);
-        assert_eq!(point, Point { x: 15, y: 35 });
-    }
-
-    #[test]
-    fn test_custom_mutator_complex_type_into_box() {
-        let mutator = OffsetMutator::new(10, 20);
-        let mut boxed = mutator.into_box();
-
-        let mut point = Point { x: 5, y: 15 };
-        boxed.mutate(&mut point);
-        assert_eq!(point, Point { x: 15, y: 35 });
-    }
-
-    #[test]
-    fn test_custom_mutator_complex_type_into_fn() {
-        let mutator = OffsetMutator::new(10, 20);
-        let mut points = vec![
-            Point { x: 0, y: 0 },
-            Point { x: 5, y: 10 },
-            Point { x: -5, y: -10 },
-        ];
-
-        points.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(
-            points,
-            vec![
-                Point { x: 10, y: 20 },
-                Point { x: 15, y: 30 },
-                Point { x: 5, y: 10 },
-            ]
-        );
-    }
-
-    #[test]
-    fn test_custom_mutator_thread_safety() {
-        use std::thread;
-
-        let mutator = DoubleMutator::new(2);
-        let arc = mutator.into_arc();
-
-        let clone = arc.clone();
-        let handle = thread::spawn(move || {
-            let mut value = 5;
-            let mut m = clone;
-            m.mutate(&mut value);
-            value
-        });
-
-        let mut value = 10;
-        let mut m = arc;
-        m.mutate(&mut value);
-        assert_eq!(value, 20);
-
-        assert_eq!(handle.join().unwrap(), 10);
-    }
-
-    /// Generic custom mutator
-    struct GenericMutator<F>
-    where
-        F: FnMut(&mut i32),
-    {
-        func: F,
-    }
-
-    impl<F> GenericMutator<F>
-    where
-        F: FnMut(&mut i32),
-    {
-        fn new(func: F) -> Self {
-            Self { func }
-        }
-    }
-
-    impl<F> Mutator<i32> for GenericMutator<F>
-    where
-        F: FnMut(&mut i32),
-    {
-        fn mutate(&mut self, value: &mut i32) {
-            (self.func)(value);
-        }
-    }
-
-    #[test]
-    fn test_generic_custom_mutator() {
-        let mut mutator = GenericMutator::new(|x: &mut i32| *x *= 3);
-        let mut value = 5;
-        mutator.mutate(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_generic_custom_mutator_into_box() {
-        let mutator = GenericMutator::new(|x: &mut i32| *x *= 3);
-        let mut boxed = mutator.into_box();
-
-        let mut value = 5;
-        boxed.mutate(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_generic_custom_mutator_with_capture() {
-        let multiplier = 4;
-        let mutator = GenericMutator::new(move |x: &mut i32| *x *= multiplier);
-        let mut boxed = mutator.into_box();
-
-        let mut value = 5;
-        boxed.mutate(&mut value);
-        assert_eq!(value, 20);
-    }
-}
-
-// ============================================================================
-// into_fn Tests
-// ============================================================================
-
-#[cfg(test)]
-mod test_into_fn {
-    use super::*;
-
-    #[test]
-    fn test_box_mutator_into_fn() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut values = vec![1, 2, 3, 4, 5];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![2, 4, 6, 8, 10]);
-    }
-
-    #[test]
-    fn test_box_mutator_into_fn_complex() {
-        let processor = BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
-
-        let mut values = vec![1, 2, 3];
-        values.iter_mut().for_each(processor.into_fn());
-
-        assert_eq!(values, vec![12, 14, 16]); // (1*2)+10, (2*2)+10, (3*2)+10
-    }
-
-    #[test]
-    fn test_arc_mutator_into_fn() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut values = vec![1, 2, 3];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![2, 4, 6]);
-    }
-
-    #[test]
-    fn test_arc_mutator_into_fn_composition() {
-        let is_positive = ArcMutator::new(|x: &mut i32| {
-            if *x < 0 {
-                *x = 0;
-            }
-        });
-        let double = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let combined = is_positive.and_then(double);
-
-        let mut values = vec![-5, 1, 3, -2, 4];
-        values.iter_mut().for_each(combined.into_fn());
-
-        assert_eq!(values, vec![0, 2, 6, 0, 8]);
-    }
-
-    #[test]
-    fn test_rc_mutator_into_fn() {
-        let mutator = RcMutator::new(|x: &mut i32| *x += 10);
-        let mut values = vec![1, 2, 3];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![11, 12, 13]);
-    }
-
-    #[test]
-    fn test_rc_mutator_into_fn_chained() {
-        let first = RcMutator::new(|x: &mut i32| *x *= 3);
-        let second = RcMutator::new(|x: &mut i32| *x -= 1);
-        let chained = first.and_then(second);
-
-        let mut values = vec![2, 4, 6];
-        values.iter_mut().for_each(chained.into_fn());
-
-        assert_eq!(values, vec![5, 11, 17]); // (2*3)-1, (4*3)-1, (6*3)-1
-    }
-
-    #[test]
-    fn test_closure_into_fn() {
         let closure = |x: &mut i32| *x *= 2;
-        let mut values = vec![1, 2, 3, 4];
-
-        values.iter_mut().for_each(closure.into_fn());
-
-        assert_eq!(values, vec![2, 4, 6, 8]);
-    }
-
-    #[test]
-    fn test_closure_into_fn_direct() {
-        // Test that closure.into_fn() returns the closure itself
-        let closure = |x: &mut i32| *x *= 2;
-        let mut fn_result = closure.into_fn();
-
-        let mut value = 5;
-        fn_result(&mut value);
-        assert_eq!(value, 10);
-
-        // Can be called multiple times
-        let mut value2 = 3;
-        fn_result(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_closure_into_fn_with_state() {
-        // Test closure with captured state
-        let mut count = 0;
-        let closure = move |x: &mut i32| {
-            count += 1;
-            *x += count;
-        };
-
-        let mut fn_result = closure.into_fn();
-
-        let mut value1 = 10;
-        fn_result(&mut value1);
-        assert_eq!(value1, 11); // 10 + 1
-
-        let mut value2 = 10;
-        fn_result(&mut value2);
-        assert_eq!(value2, 12); // 10 + 2
-    }
-
-    #[test]
-    fn test_into_fn_with_strings() {
-        let mutator = BoxMutator::new(|s: &mut String| s.push('!'));
-        let mut strings = vec![
-            String::from("hello"),
-            String::from("world"),
-            String::from("rust"),
-        ];
-
-        strings.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(
-            strings,
-            vec![
-                String::from("hello!"),
-                String::from("world!"),
-                String::from("rust!")
-            ]
-        );
-    }
-
-    #[test]
-    fn test_into_fn_with_vec() {
-        let mutator = BoxMutator::new(|v: &mut Vec<i32>| v.push(0));
-        let mut vecs = vec![vec![1], vec![2, 3], vec![4, 5, 6]];
-
-        vecs.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(vecs, vec![vec![1, 0], vec![2, 3, 0], vec![4, 5, 6, 0]]);
-    }
-
-    #[test]
-    fn test_into_fn_with_empty_iterator() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut values: Vec<i32> = vec![];
-
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, Vec::<i32>::new());
-    }
-
-    #[test]
-    fn test_into_fn_with_conditional() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    #[test]
-    fn test_into_fn_with_transform() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x = *x * *x);
-
-        let mut values = vec![1, 2, 3, 4, 5];
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![1, 4, 9, 16, 25]);
-    }
-
-    #[test]
-    fn test_into_fn_pipeline() {
-        let mutator = BoxMutator::new(|x: &mut i32| {
-            if *x < 0 {
-                *x = 0;
-            }
-        })
-        .and_then(|x: &mut i32| *x += 5)
-        .and_then(|x: &mut i32| *x *= 2);
-
-        let mut values = vec![-10, -5, 0, 5, 10];
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![10, 10, 10, 20, 30]);
-        // -10 -> 0 -> 5 -> 10
-        // -5 -> 0 -> 5 -> 10
-        // 0 -> 0 -> 5 -> 10
-        // 5 -> 5 -> 10 -> 20
-        // 10 -> 10 -> 15 -> 30
-    }
-
-    #[test]
-    fn test_arc_mutator_into_fn_thread_safe() {
-        use std::thread;
-
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let clone = mutator.clone();
-
-        let handle = thread::spawn(move || {
-            let mut values = vec![1, 2, 3];
-            values.iter_mut().for_each(clone.into_fn());
-            values
-        });
-
-        let result = handle.join().unwrap();
-        assert_eq!(result, vec![2, 4, 6]);
-    }
-
-    #[test]
-    fn test_into_fn_with_filter_map() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut values = vec![1, 2, 3, 4, 5];
-
-        // Use with iter_mut
-        values.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(values, vec![2, 4, 6, 8, 10]);
-    }
-
-    #[test]
-    fn test_into_fn_with_complex_types() {
-        #[derive(Debug, Clone, PartialEq)]
-        struct Point {
-            x: i32,
-            y: i32,
-        }
-
-        let mutator = BoxMutator::new(|p: &mut Point| {
-            p.x *= 2;
-            p.y *= 2;
-        });
-
-        let mut points = vec![Point { x: 1, y: 2 }, Point { x: 3, y: 4 }];
-
-        points.iter_mut().for_each(mutator.into_fn());
-
-        assert_eq!(points, vec![Point { x: 2, y: 4 }, Point { x: 6, y: 8 }]);
-    }
-}
-
-// ============================================================================
-// Conditional Execution Tests (when/or_else with various parameter types)
-// ============================================================================
-
-#[cfg(test)]
-mod test_conditional_execution {
-    use super::*;
-    use prism3_function::predicates::predicate::{
-        ArcPredicate,
-        BoxPredicate,
-        RcPredicate,
-    };
-
-    // Helper function pointer for testing
-    fn is_positive(x: &i32) -> bool {
-        *x > 0
-    }
-
-    fn negate(x: &mut i32) {
-        *x = -*x;
-    }
-
-    // ========================================================================
-    // BoxMutator::when() tests
-    // ========================================================================
-
-    #[test]
-    fn test_box_when_with_closure() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_box_when_with_function_pointer() {
-        let mut mutator =
-            BoxMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_box_when_with_box_predicate() {
-        let pred = BoxPredicate::new(|x: &i32| *x > 0);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_box_when_with_rc_predicate() {
-        let pred = RcPredicate::new(|x: &i32| *x > 0);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_box_when_with_arc_predicate() {
-        let pred = ArcPredicate::new(|x: &i32| *x > 0);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    // ========================================================================
-    // BoxConditionalMutator::or_else() tests
-    // ========================================================================
-
-    #[test]
-    fn test_box_or_else_with_closure() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &mut i32| *x -= 1);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -6);
-    }
-
-    #[test]
-    fn test_box_or_else_with_function_pointer() {
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(negate as fn(&mut i32));
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 5);
-    }
-
-    #[test]
-    fn test_box_or_else_with_box_mutator() {
-        let else_mutator = BoxMutator::new(|x: &mut i32| *x = 0);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 0);
-    }
-
-    #[test]
-    fn test_box_or_else_with_rc_mutator() {
-        let else_mutator = RcMutator::new(|x: &mut i32| *x = 100);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 100);
-    }
-
-    #[test]
-    fn test_box_or_else_with_arc_mutator() {
-        let else_mutator = ArcMutator::new(|x: &mut i32| *x = 200);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 200);
-    }
-
-    // ========================================================================
-    // BoxConditionalMutator::and_then() tests
-    // ========================================================================
-
-    #[test]
-    fn test_box_conditional_and_then_with_closure() {
-        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut chained = cond1.and_then(|x: &mut i32| *x += 10);
-
-        let mut positive = 5;
-        chained.mutate(&mut positive);
-        assert_eq!(positive, 20); // 5 * 2 + 10
-
-        let mut negative = -5;
-        chained.mutate(&mut negative);
-        assert_eq!(negative, 5); // -5 + 10 (not doubled)
-    }
-
-    #[test]
-    fn test_box_conditional_and_then_with_box_mutator() {
-        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let next = BoxMutator::new(|x: &mut i32| *x += 100);
-        let mut chained = cond1.and_then(next);
-
-        let mut positive = 10;
-        chained.mutate(&mut positive);
-        assert_eq!(positive, 120); // 10 * 2 + 100
-
-        let mut negative = -10;
-        chained.mutate(&mut negative);
-        assert_eq!(negative, 90); // -10 + 100 (not doubled)
-    }
-
-    #[test]
-    fn test_box_conditional_and_then_conditional() {
-        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let cond2 = BoxMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
-        let mut chained = cond1.and_then(cond2);
-
-        let mut small = 5;
-        chained.mutate(&mut small);
-        assert_eq!(small, 10); // 5 * 2 = 10 (< 100, not capped)
-
-        let mut large = 60;
-        chained.mutate(&mut large);
-        assert_eq!(large, 100); // 60 * 2 = 120 (> 100, capped)
-    }
-
-    // ========================================================================
-    // RcMutator::when() tests
-    // ========================================================================
-
-    #[test]
-    fn test_rc_when_with_closure() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_when_with_function_pointer() {
-        let conditional =
-            RcMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_when_with_rc_predicate() {
-        let pred = RcPredicate::new(|x: &i32| *x > 0);
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(pred);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_when_with_box_predicate() {
-        let pred = BoxPredicate::new(|x: &i32| *x > 0);
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(pred);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    // ========================================================================
-    // RcConditionalMutator::or_else() tests
-    // ========================================================================
-
-    #[test]
-    fn test_rc_or_else_with_closure() {
-        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &mut i32| *x -= 1);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -6);
-    }
-
-    #[test]
-    fn test_rc_or_else_with_function_pointer() {
-        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(negate as fn(&mut i32));
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 5);
-    }
-
-    #[test]
-    fn test_rc_or_else_with_rc_mutator() {
-        let else_mutator = RcMutator::new(|x: &mut i32| *x = 100);
-        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 100);
-    }
-
-    #[test]
-    fn test_rc_or_else_with_box_mutator() {
-        let else_mutator = BoxMutator::new(|x: &mut i32| *x = 200);
-        let mut mutator = RcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 200);
-    }
-
-    // ========================================================================
-    // RcConditionalMutator::clone() tests
-    // ========================================================================
-
-    #[test]
-    fn test_rc_conditional_clone() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut clone1 = conditional.clone();
-        let mut clone2 = conditional.clone();
-
-        let mut value1 = 5;
-        clone1.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        let mut value2 = -5;
-        clone2.mutate(&mut value2);
-        assert_eq!(value2, -5);
-    }
-
-    // ========================================================================
-    // ArcMutator::when() tests
-    // ========================================================================
-
-    #[test]
-    fn test_arc_when_with_closure() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_when_with_function_pointer() {
-        let conditional =
-            ArcMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_when_with_arc_predicate() {
-        let pred = ArcPredicate::new(|x: &i32| *x > 0);
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(pred);
-        let mut m = conditional.clone();
-
-        let mut positive = 5;
-        m.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        m.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    // ========================================================================
-    // ArcConditionalMutator::or_else() tests
-    // ========================================================================
-
-    #[test]
-    fn test_arc_or_else_with_closure() {
-        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &mut i32| *x -= 1);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -6);
-    }
-
-    #[test]
-    fn test_arc_or_else_with_function_pointer() {
-        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(negate as fn(&mut i32));
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 5);
-    }
-
-    #[test]
-    fn test_arc_or_else_with_arc_mutator() {
-        let else_mutator = ArcMutator::new(|x: &mut i32| *x = 100);
-        let mut mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(else_mutator);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, 100);
-    }
-
-    // Note: BoxMutator is not Send, so it cannot be used with ArcMutator::or_else()
-
-    // ========================================================================
-    // ArcConditionalMutator::clone() tests
-    // ========================================================================
-
-    #[test]
-    fn test_arc_conditional_clone() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut clone1 = conditional.clone();
-        let mut clone2 = conditional.clone();
-
-        let mut value1 = 5;
-        clone1.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        let mut value2 = -5;
-        clone2.mutate(&mut value2);
-        assert_eq!(value2, -5);
-    }
-
-    // ========================================================================
-    // Thread safety tests for ArcConditionalMutator
-    // ========================================================================
-
-    #[test]
-    fn test_arc_conditional_thread_safety() {
-        use std::thread;
-
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let clone = conditional.clone();
-
-        let handle = thread::spawn(move || {
-            let mut value = 5;
-            let mut m = clone;
-            m.mutate(&mut value);
-            value
-        });
-
-        let mut value = -5;
-        let mut m = conditional;
-        m.mutate(&mut value);
-        assert_eq!(value, -5);
-
-        assert_eq!(handle.join().unwrap(), 10);
-    }
-
-    #[test]
-    fn test_arc_or_else_thread_safety() {
-        use std::thread;
-
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &mut i32| *x = 0);
-
-        let clone = mutator.clone();
-
-        let handle = thread::spawn(move || {
-            let mut value = -5;
-            let mut m = clone;
-            m.mutate(&mut value);
-            value
-        });
-
-        let mut value = 5;
-        let mut m = mutator;
-        m.mutate(&mut value);
-        assert_eq!(value, 10);
-
-        assert_eq!(handle.join().unwrap(), 0);
-    }
-
-    // ========================================================================
-    // Type conversion tests for ConditionalMutator
-    // ========================================================================
-
-    #[test]
-    fn test_box_conditional_into_box() {
-        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.into_box();
-
-        let mut positive = 5;
-        boxed.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        boxed.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_box_conditional_into_rc() {
-        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.into_rc();
-
-        let mut positive = 5;
-        rc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        rc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_conditional_into_box() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.into_box();
-
-        let mut positive = 5;
-        boxed.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        boxed.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_conditional_into_rc() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.into_rc();
-
-        let mut positive = 5;
-        rc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        rc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_into_box() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.into_box();
-
-        let mut positive = 5;
-        boxed.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        boxed.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_into_rc() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.into_rc();
-
-        let mut positive = 5;
-        rc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        rc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_into_arc() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut arc = conditional.into_arc();
-
-        let mut positive = 5;
-        arc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        arc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    // ========================================================================
-    // into_fn tests for ConditionalMutator
-    // ========================================================================
-
-    #[test]
-    fn test_box_conditional_into_fn() {
-        let conditional = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-
-        values.iter_mut().for_each(conditional.into_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    #[test]
-    fn test_rc_conditional_into_fn() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-
-        values.iter_mut().for_each(conditional.into_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    #[test]
-    fn test_arc_conditional_into_fn() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-
-        values.iter_mut().for_each(conditional.into_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    // ========================================================================
-    // to_xxx tests for RcConditionalMutator
-    // ========================================================================
-
-    #[test]
-    fn test_rc_conditional_to_box() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.to_box();
-
-        let mut positive = 5;
-        boxed.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        boxed.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_conditional_to_rc() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.to_rc();
-
-        let mut positive = 5;
-        rc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        rc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_rc_conditional_to_fn() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-
-        values.iter_mut().for_each(conditional.to_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    #[test]
-    fn test_rc_conditional_to_box_preserves_original() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.to_box();
-
-        // Original still usable
-        let mut value1 = 5;
-        let mut m = conditional;
-        m.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        // Boxed version also works
-        let mut value2 = 3;
-        boxed.mutate(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_rc_conditional_to_rc_preserves_original() {
-        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.to_rc();
-
-        // Original still usable
-        let mut value1 = 5;
-        let mut m1 = conditional;
-        m1.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        // to_rc version also works
-        let mut value2 = 3;
-        rc.mutate(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_rc_conditional_to_fn_preserves_original() {
-        let conditional = RcMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
-
-        // to_fn version works
-        let mut values = vec![1, 2, -3];
-        values.iter_mut().for_each(conditional.to_fn());
-        assert_eq!(values, vec![11, 12, -3]);
-
-        // Original still usable after to_fn (because RcConditionalMutator is Clone)
-        let mut value1 = 5;
-        let mut m = conditional;
-        m.mutate(&mut value1);
-        assert_eq!(value1, 15);
-    }
-
-    // ========================================================================
-    // to_xxx tests for ArcConditionalMutator
-    // ========================================================================
-
-    #[test]
-    fn test_arc_conditional_to_box() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.to_box();
-
-        let mut positive = 5;
-        boxed.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        boxed.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_rc() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.to_rc();
-
-        let mut positive = 5;
-        rc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        rc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_arc() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut arc = conditional.to_arc();
-
-        let mut positive = 5;
-        arc.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        arc.mutate(&mut negative);
-        assert_eq!(negative, -5);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_fn() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut values = vec![-2, -1, 0, 1, 2, 3];
-
-        values.iter_mut().for_each(conditional.to_fn());
-
-        assert_eq!(values, vec![-2, -1, 0, 2, 4, 6]);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_box_preserves_original() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut boxed = conditional.to_box();
-
-        // Original still usable
-        let mut value1 = 5;
-        let mut m = conditional;
-        m.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        // Boxed version also works
-        let mut value2 = 3;
-        boxed.mutate(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_rc_preserves_original() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut rc = conditional.to_rc();
-
-        // Original still usable
-        let mut value1 = 5;
-        let mut m1 = conditional;
-        m1.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        // to_rc version also works
-        let mut value2 = 3;
-        rc.mutate(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_arc_preserves_original() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let mut arc = conditional.to_arc();
-
-        // Original still usable
-        let mut value1 = 5;
-        let mut m1 = conditional;
-        m1.mutate(&mut value1);
-        assert_eq!(value1, 10);
-
-        // to_arc version also works
-        let mut value2 = 3;
-        arc.mutate(&mut value2);
-        assert_eq!(value2, 6);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_fn_preserves_original() {
-        let conditional = ArcMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
-
-        // to_fn version works
-        let mut values = vec![1, 2, -3];
-        values.iter_mut().for_each(conditional.to_fn());
-        assert_eq!(values, vec![11, 12, -3]);
-
-        // Original still usable after to_fn (because ArcConditionalMutator is Clone)
-        let mut value1 = 5;
-        let mut m = conditional;
-        m.mutate(&mut value1);
-        assert_eq!(value1, 15);
-    }
-
-    #[test]
-    fn test_arc_conditional_to_arc_thread_safe() {
-        use std::thread;
-
-        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
-        let arc = conditional.to_arc();
-        let clone = arc.clone();
-
-        let handle = thread::spawn(move || {
-            let mut value = 5;
-            let mut m = clone;
-            m.mutate(&mut value);
-            value
-        });
-
-        let mut value = -5;
-        let mut m = arc;
-        m.mutate(&mut value);
-        assert_eq!(value, -5);
-
-        assert_eq!(handle.join().unwrap(), 10);
-    }
-
-    // ========================================================================
-    // Complex conditional composition tests
-    // ========================================================================
-
-    #[test]
-    fn test_nested_conditionals() {
-        // When x > 0: multiply by 2, then if result > 10: cap at 10
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .and_then(BoxMutator::new(|x: &mut i32| *x = 10).when(|x: &i32| *x > 10));
-
-        let mut small = 3;
-        mutator.mutate(&mut small);
-        assert_eq!(small, 6); // 3 * 2 = 6 (not capped)
-
-        let mut medium = 5;
-        mutator.mutate(&mut medium);
-        assert_eq!(medium, 10); // 5 * 2 = 10 (not capped)
-
-        let mut large = 8;
-        mutator.mutate(&mut large);
-        assert_eq!(large, 10); // 8 * 2 = 16 -> capped to 10
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -5); // Not doubled (condition failed)
-    }
-
-    #[test]
-    fn test_or_else_chaining() {
-        // If positive: double, else: triple
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &mut i32| *x *= 3);
-
-        let mut positive = 5;
-        mutator.mutate(&mut positive);
-        assert_eq!(positive, 10);
-
-        let mut negative = -5;
-        mutator.mutate(&mut negative);
-        assert_eq!(negative, -15);
-
-        let mut zero = 0;
-        mutator.mutate(&mut zero);
-        assert_eq!(zero, 0); // 0 * 3
-    }
-
-    #[test]
-    fn test_combined_predicate_types() {
-        use prism3_function::predicates::predicate::FnPredicateOps;
-
-        // Combine predicates: x > 0 AND x < 100
-        let pred = (|x: &i32| *x > 0).and(|x: &i32| *x < 100);
-        let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2).when(pred);
-
-        let mut in_range = 50;
-        mutator.mutate(&mut in_range);
-        assert_eq!(in_range, 100); // Doubled
-
-        let mut too_small = -10;
-        mutator.mutate(&mut too_small);
-        assert_eq!(too_small, -10); // Not doubled
-
-        let mut too_large = 150;
-        mutator.mutate(&mut too_large);
-        assert_eq!(too_large, 150); // Not doubled
-    }
-}
-
-// ============================================================================
-// MutatorOnce Tests for BoxMutator, RcMutator, ArcMutator
-// ============================================================================
-
-#[cfg(test)]
-mod test_mutator_once_implementations {
-    use super::*;
-
-    // ========================================================================
-    // BoxMutator MutatorOnce Tests
-    // ========================================================================
-
-    #[test]
-    fn test_box_mutator_mutate_once() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let mut value = 5;
-        mutator.mutate_once(&mut value);
-        assert_eq!(value, 10);
-    }
-
-    #[test]
-    fn test_box_mutator_into_box_once() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x += 10);
-        let box_once = mutator.into_box_once();
-        let mut value = 5;
-        box_once.mutate_once(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_box_mutator_into_fn_once() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 3);
-        let closure = mutator.into_fn_once();
-        let mut value = 4;
-        closure(&mut value);
-        assert_eq!(value, 12);
-    }
-
-    #[test]
-    fn test_box_mutator_with_different_types() {
-        // String
-        let mutator = BoxMutator::new(|s: &mut String| s.push_str(" world"));
-        let mut text = String::from("hello");
-        mutator.mutate_once(&mut text);
-        assert_eq!(text, "hello world");
-
-        // Vec
-        let mutator = BoxMutator::new(|v: &mut Vec<i32>| v.extend(vec![4, 5, 6]));
-        let mut numbers = vec![1, 2, 3];
-        mutator.mutate_once(&mut numbers);
-        assert_eq!(numbers, vec![1, 2, 3, 4, 5, 6]);
-    }
-
-    // ========================================================================
-    // RcMutator MutatorOnce Tests
-    // ========================================================================
-
-    #[test]
-    fn test_rc_mutator_mutate_once() {
-        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let mut value = 5;
-        mutator.mutate_once(&mut value);
-        assert_eq!(value, 10);
-    }
-
-    #[test]
-    fn test_rc_mutator_into_box_once() {
-        let mutator = RcMutator::new(|x: &mut i32| *x += 10);
-        let box_once = mutator.into_box_once();
-        let mut value = 5;
-        box_once.mutate_once(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_rc_mutator_into_fn_once() {
-        let mutator = RcMutator::new(|x: &mut i32| *x *= 3);
-        let closure = mutator.into_fn_once();
-        let mut value = 4;
-        closure(&mut value);
-        assert_eq!(value, 12);
-    }
-
-    #[test]
-    fn test_rc_mutator_to_box_once() {
-        let mutator = RcMutator::new(|x: &mut i32| *x += 5);
-        let box_once = mutator.to_box_once();
-        let mut value = 10;
-        box_once.mutate_once(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_rc_mutator_to_fn_once() {
-        let mutator = RcMutator::new(|x: &mut i32| *x *= 2);
-        let closure = mutator.to_fn_once();
-        let mut value = 7;
-        closure(&mut value);
-        assert_eq!(value, 14);
-    }
-
-    #[test]
-    fn test_rc_mutator_with_different_types() {
-        // String
-        let mutator = RcMutator::new(|s: &mut String| s.push('!'));
-        let mut text = String::from("hello");
-        mutator.mutate_once(&mut text);
-        assert_eq!(text, "hello!");
-
-        // Vec
-        let mutator = RcMutator::new(|v: &mut Vec<i32>| v.push(99));
-        let mut numbers = vec![1, 2, 3];
-        mutator.mutate_once(&mut numbers);
-        assert_eq!(numbers, vec![1, 2, 3, 99]);
-    }
-
-    // ========================================================================
-    // ArcMutator MutatorOnce Tests
-    // ========================================================================
-
-    #[test]
-    fn test_arc_mutator_mutate_once() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut value = 5;
-        mutator.mutate_once(&mut value);
-        assert_eq!(value, 10);
-    }
-
-    #[test]
-    fn test_arc_mutator_into_box_once() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x += 10);
-        let box_once = mutator.into_box_once();
-        let mut value = 5;
-        box_once.mutate_once(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_arc_mutator_into_fn_once() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 3);
-        let closure = mutator.into_fn_once();
-        let mut value = 4;
-        closure(&mut value);
-        assert_eq!(value, 12);
-    }
-
-    #[test]
-    fn test_arc_mutator_to_box_once() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x += 5);
-        let box_once = mutator.to_box_once();
-        let mut value = 10;
-        box_once.mutate_once(&mut value);
-        assert_eq!(value, 15);
-    }
-
-    #[test]
-    fn test_arc_mutator_to_fn_once() {
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let closure = mutator.to_fn_once();
-        let mut value = 7;
-        closure(&mut value);
-        assert_eq!(value, 14);
-    }
-
-    #[test]
-    fn test_arc_mutator_with_different_types() {
-        // String
-        let mutator = ArcMutator::new(|s: &mut String| s.push('!'));
-        let mut text = String::from("hello");
-        mutator.mutate_once(&mut text);
-        assert_eq!(text, "hello!");
-
-        // Vec
-        let mutator = ArcMutator::new(|v: &mut Vec<i32>| v.push(99));
-        let mut numbers = vec![1, 2, 3];
-        mutator.mutate_once(&mut numbers);
-        assert_eq!(numbers, vec![1, 2, 3, 99]);
-    }
-
-    // ========================================================================
-    // Cross-type conversion tests
-    // ========================================================================
-
-    #[test]
-    fn test_box_to_rc_mutator_once() {
-        let box_mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
-        let rc_mutator = box_mutator.into_rc();
-        let mut value = 5;
-        rc_mutator.mutate_once(&mut value);
-        assert_eq!(value, 10);
-    }
-
-    #[test]
-    fn test_rc_to_arc_mutator_once() {
-        let rc_mutator = RcMutator::new(|x: &mut i32| *x += 3);
-        // Note: RcMutator cannot be converted to ArcMutator due to Send requirement
-        // This test demonstrates the limitation
-        let mut value = 7;
-        rc_mutator.mutate_once(&mut value);
-        assert_eq!(value, 10);
-    }
-
-    #[test]
-    fn test_arc_to_box_mutator_once() {
-        let arc_mutator = ArcMutator::new(|x: &mut i32| *x -= 2);
-        let box_mutator = arc_mutator.into_box();
-        let mut value = 8;
-        box_mutator.mutate_once(&mut value);
-        assert_eq!(value, 6);
-    }
-
-    // ========================================================================
-    // Complex mutation tests
-    // ========================================================================
-
-    #[test]
-    fn test_complex_mutation_with_move() {
-        let mutator = BoxMutator::new(|x: &mut Vec<i32>| {
-            x.extend(vec![1, 2, 3, 4, 5]);
-            x.sort();
-        });
-
-        let mut target = vec![0];
-        mutator.mutate_once(&mut target);
-        assert_eq!(target, vec![0, 1, 2, 3, 4, 5]);
-    }
-
-    #[test]
-    fn test_string_concatenation() {
-        let suffix = String::from(" world");
-        let mutator = RcMutator::new(move |s: &mut String| {
-            s.push_str(&suffix);
-        });
-
-        let mut text = String::from("hello");
-        mutator.mutate_once(&mut text);
-        assert_eq!(text, "hello world");
-    }
-
-    #[test]
-    fn test_thread_safe_mutation() {
-        use std::thread;
-
-        let mutator = ArcMutator::new(|x: &mut i32| *x *= 2);
-        let mut value = 5;
-
-        // Test that ArcMutator can be used in thread-safe context
-        let handle = thread::spawn(move || {
-            mutator.mutate_once(&mut value);
-            value
-        });
-
-        let result = handle.join().unwrap();
-        assert_eq!(result, 10);
+        assert_eq!(apply_mutator(&closure, 5), 10);
     }
 }

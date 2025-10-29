@@ -6,35 +6,39 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! # Mutator Types
+//! # Mutator Types (Stateless)
 //!
 //! Provides Java-like `Mutator` interface implementations for performing
-//! operations that accept a single mutable input parameter and return no result.
+//! **stateless** operations that accept a single mutable input parameter and
+//! return no result.
 //!
 //! This module provides a unified `Mutator` trait and three concrete
 //! implementations based on different ownership models:
 //!
 //! - **`BoxMutator<T>`**: Box-based single ownership implementation for
 //!   one-time use scenarios and builder patterns
-//! - **`ArcMutator<T>`**: Arc<Mutex<>>-based thread-safe shared ownership
+//! - **`ArcMutator<T>`**: Arc-based thread-safe shared ownership
 //!   implementation for multi-threaded scenarios
-//! - **`RcMutator<T>`**: Rc<RefCell<>>-based single-threaded shared
+//! - **`RcMutator<T>`**: Rc-based single-threaded shared
 //!   ownership implementation with no lock overhead
 //!
 //! # Design Philosophy
 //!
-//! Unlike `Consumer` which observes values without modifying them (`FnMut(&T)`),
-//! `Mutator` is designed to **modify input values** using `FnMut(&mut T)`.
+//! `Mutator` is designed for **stateless** operations using `Fn(&mut T)`.
+//! Unlike `StatefulMutator` which uses `FnMut(&mut T)` and can maintain internal
+//! state, `Mutator` operations are pure transformations without side effects on
+//! the mutator itself.
 //!
-//! ## Mutator vs Consumer
+//! ## Mutator vs StatefulMutator vs Consumer
 //!
 //! | Type | Input | Modifies Input? | Modifies Self? | Use Cases |
 //! |------|-------|----------------|----------------|-----------|
 //! | **Consumer** | `&T` | ❌ | ✅ | Observe, log, count, notify |
-//! | **Mutator** | `&mut T` | ✅ | ✅ | Modify, transform, update |
+//! | **Mutator** | `&mut T` | ✅ | ❌ | Pure transform, validate, normalize |
+//! | **StatefulMutator** | `&mut T` | ✅ | ✅ | Stateful transform, accumulate |
 //!
-//! **Key Insight**: If you need to modify input values, use `Mutator`.
-//! If you only need to observe or accumulate state, use `Consumer`.
+//! **Key Insight**: Use `Mutator` for stateless transformations,
+//! `StatefulMutator` for stateful operations, and `Consumer` for observation.
 //!
 //! # Comparison Table
 //!
@@ -43,9 +47,9 @@
 //! | Ownership        | Single     | Shared     | Shared    |
 //! | Cloneable        | ❌         | ✅         | ✅        |
 //! | Thread-Safe      | ❌         | ✅         | ❌        |
-//! | Interior Mut.    | N/A        | Mutex      | RefCell   |
+//! | Interior Mut.    | N/A        | N/A        | N/A       |
 //! | `and_then` API   | `self`     | `&self`    | `&self`   |
-//! | Lock Overhead    | None       | Yes        | None      |
+//! | Lock Overhead    | None       | None       | None      |
 //!
 //! # Use Cases
 //!
@@ -192,12 +196,8 @@
 //!
 //! Haixing Hu
 
-use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 
 use crate::mutators::mutator_once::{
     BoxMutatorOnce,
@@ -214,31 +214,29 @@ use crate::predicates::predicate::{
 // 1. Mutator Trait - Unified Mutator Interface
 // ============================================================================
 
-/// Mutator trait - Unified mutator interface
+/// Mutator trait - Unified stateless mutator interface
 ///
-/// Defines the core behavior of all mutator types. Performs operations that
-/// accept a mutable reference and modify the input value (not just side effects).
+/// Defines the core behavior of all stateless mutator types. Performs operations
+/// that accept a mutable reference and modify the input value without maintaining
+/// internal state.
 ///
 /// This trait is automatically implemented by:
-/// - All closures implementing `FnMut(&mut T)`
+/// - All closures implementing `Fn(&mut T)` (stateless)
 /// - `BoxMutator<T>`, `ArcMutator<T>`, and `RcMutator<T>`
 ///
 /// # Design Rationale
 ///
-/// The trait provides a unified abstraction over different ownership models,
-/// allowing generic code to work with any mutator type. Type conversion
-/// methods (`into_box`, `into_arc`, `into_rc`) enable flexible ownership
-/// transitions based on usage requirements.
+/// The trait provides a unified abstraction over different ownership models for
+/// **stateless** operations. Unlike `StatefulMutator` which uses `FnMut` and can
+/// modify its internal state, `Mutator` uses `Fn` for pure transformations.
 ///
 /// # Features
 ///
-/// - **Unified Interface**: All mutator types share the same `mutate`
-///   method signature
-/// - **Automatic Implementation**: Closures automatically implement this
-///   trait with zero overhead
+/// - **Stateless Operations**: No internal state modification (`&self` not `&mut self`)
+/// - **Unified Interface**: All mutator types share the same `mutate` method signature
+/// - **Automatic Implementation**: Closures automatically implement this trait
 /// - **Type Conversions**: Easy conversion between ownership models
-/// - **Generic Programming**: Write functions that work with any mutator
-///   type
+/// - **Generic Programming**: Write functions that work with any mutator type
 ///
 /// # Examples
 ///
@@ -284,10 +282,10 @@ use crate::predicates::predicate::{
 ///
 /// Haixing Hu
 pub trait Mutator<T> {
-    /// Performs the mutation operation
+    /// Performs the stateless mutation operation
     ///
-    /// Executes an operation on the given mutable reference. The operation
-    /// typically modifies the input value or produces side effects.
+    /// Executes an operation on the given mutable reference without modifying
+    /// the mutator's internal state. This is a pure transformation operation.
     ///
     /// # Parameters
     ///
@@ -298,12 +296,12 @@ pub trait Mutator<T> {
     /// ```rust
     /// use prism3_function::{Mutator, BoxMutator};
     ///
-    /// let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+    /// let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
     /// let mut value = 5;
     /// mutator.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn mutate(&mut self, value: &mut T);
+    fn mutate(&self, value: &mut T);
 
     /// Convert this mutator into a `BoxMutator<T>`.
     ///
@@ -333,7 +331,7 @@ pub trait Mutator<T> {
     /// boxed.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_box(mut self) -> BoxMutator<T>
+    fn into_box(self) -> BoxMutator<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -367,7 +365,7 @@ pub trait Mutator<T> {
     /// rc.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_rc(mut self) -> RcMutator<T>
+    fn into_rc(self) -> RcMutator<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -401,15 +399,15 @@ pub trait Mutator<T> {
     /// arc.mutate(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn into_arc(mut self) -> ArcMutator<T>
+    fn into_arc(self) -> ArcMutator<T>
     where
-        Self: Sized + Send + 'static,
+        Self: Sized + Send + Sync + 'static,
         T: Send + 'static,
     {
         ArcMutator::new(move |t| self.mutate(t))
     }
 
-    /// Consume the mutator and return an `FnMut(&mut T)` closure.
+    /// Consume the mutator and return an `Fn(&mut T)` closure.
     ///
     /// The returned closure forwards calls to the original mutator and is
     /// suitable for use with iterator adapters such as `for_each`.
@@ -421,7 +419,7 @@ pub trait Mutator<T> {
     ///
     /// # Returns
     ///
-    /// A closure implementing `FnMut(&mut T)` which forwards to the
+    /// A closure implementing `Fn(&mut T)` which forwards to the
     /// original mutator.
     ///
     /// # Examples
@@ -434,7 +432,7 @@ pub trait Mutator<T> {
     /// values.iter_mut().for_each(mutator.into_fn());
     /// assert_eq!(values, vec![2, 4, 6, 8, 10]);
     /// ```
-    fn into_fn(mut self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -478,7 +476,7 @@ pub trait Mutator<T> {
 
     /// Create a non-consuming `ArcMutator<T>` that forwards to `self`.
     ///
-    /// The default implementation clones `self` (requires `Clone + Send`) and
+    /// The default implementation clones `self` (requires `Clone + Send + Sync`) and
     /// returns an `Arc`-wrapped mutator that forwards calls to the clone.
     /// Override when a more efficient conversion is available.
     ///
@@ -487,13 +485,13 @@ pub trait Mutator<T> {
     /// An `ArcMutator<T>` that forwards to a clone of `self`.
     fn to_arc(&self) -> ArcMutator<T>
     where
-        Self: Sized + Clone + Send + 'static,
+        Self: Sized + Clone + Send + Sync + 'static,
         T: Send + 'static,
     {
         self.clone().into_arc()
     }
 
-    /// Create a boxed `FnMut(&mut T)` closure that forwards to `self`.
+    /// Create a boxed `Fn(&mut T)` closure that forwards to `self`.
     ///
     /// The default implementation clones `self` (requires `Clone`) and
     /// returns a boxed closure that invokes the cloned instance. Override to
@@ -501,9 +499,9 @@ pub trait Mutator<T> {
     ///
     /// # Returns
     ///
-    /// A closure implementing `FnMut(&mut T)` which forwards to the
+    /// A closure implementing `Fn(&mut T)` which forwards to the
     /// original mutator.
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -516,11 +514,11 @@ pub trait Mutator<T> {
 // 2. Type Aliases
 // ============================================================================
 
-/// Type alias for Arc-wrapped mutable mutator function
-type ArcMutMutatorFn<T> = Arc<Mutex<dyn FnMut(&mut T) + Send>>;
+/// Type alias for Arc-wrapped stateless mutator function
+type ArcMutatorFn<T> = Arc<dyn Fn(&mut T) + Send + Sync>;
 
-/// Type alias for Rc-wrapped mutable mutator function
-type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
+/// Type alias for Rc-wrapped stateless mutator function
+type RcMutatorFn<T> = Rc<dyn Fn(&mut T)>;
 
 // ============================================================================
 // 3. BoxMutator - Single Ownership Implementation
@@ -528,7 +526,7 @@ type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
 
 /// BoxMutator struct
 ///
-/// A mutator implementation based on `Box<dyn FnMut(&mut T)>` for single
+/// A stateless mutator implementation based on `Box<dyn Fn(&mut T)>` for single
 /// ownership scenarios. This is the simplest and most efficient mutator
 /// type when sharing is not required.
 ///
@@ -536,14 +534,14 @@ type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
 ///
 /// - **Single Ownership**: Not cloneable, ownership moves on use
 /// - **Zero Overhead**: No reference counting or locking
-/// - **Mutable State**: Can modify captured environment via `FnMut`
+/// - **Stateless**: Cannot modify captured environment (uses `Fn` not `FnMut`)
 /// - **Builder Pattern**: Method chaining consumes `self` naturally
 /// - **Factory Methods**: Convenient constructors for common patterns
 ///
 /// # Use Cases
 ///
 /// Choose `BoxMutator` when:
-/// - The mutator is used only once or in a linear flow
+/// - The mutator is used for stateless transformations
 /// - Building pipelines where ownership naturally flows
 /// - No need to share the mutator across contexts
 /// - Performance is critical and no sharing overhead is acceptable
@@ -561,7 +559,7 @@ type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
 /// ```rust
 /// use prism3_function::{Mutator, BoxMutator};
 ///
-/// let mut mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
+/// let mutator = BoxMutator::new(|x: &mut i32| *x *= 2);
 /// let mut value = 5;
 /// mutator.mutate(&mut value);
 /// assert_eq!(value, 10);
@@ -571,7 +569,7 @@ type RcMutMutatorFn<T> = Rc<RefCell<dyn FnMut(&mut T)>>;
 ///
 /// Haixing Hu
 pub struct BoxMutator<T> {
-    function: Box<dyn FnMut(&mut T)>,
+    function: Box<dyn Fn(&mut T)>,
 }
 
 impl<T> BoxMutator<T>
@@ -582,7 +580,7 @@ where
     ///
     /// # Parameters
     ///
-    /// * `f` - The closure to wrap
+    /// * `f` - The stateless closure to wrap
     ///
     /// # Returns
     ///
@@ -593,14 +591,14 @@ where
     /// ```rust
     /// use prism3_function::{Mutator, BoxMutator};
     ///
-    /// let mut mutator = BoxMutator::new(|x: &mut i32| *x += 1);
+    /// let mutator = BoxMutator::new(|x: &mut i32| *x += 1);
     /// let mut value = 5;
     /// mutator.mutate(&mut value);
     /// assert_eq!(value, 6);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T) + 'static,
+        F: Fn(&mut T) + 'static,
     {
         BoxMutator {
             function: Box::new(f),
@@ -609,7 +607,7 @@ where
 
     /// Creates a no-op mutator
     ///
-    /// Returns a mutator that performs no operation.
+    /// Returns a stateless mutator that performs no operation.
     ///
     /// # Returns
     ///
@@ -620,7 +618,7 @@ where
     /// ```rust
     /// use prism3_function::{Mutator, BoxMutator};
     ///
-    /// let mut noop = BoxMutator::<i32>::noop();
+    /// let noop = BoxMutator::<i32>::noop();
     /// let mut value = 42;
     /// noop.mutate(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
@@ -691,11 +689,11 @@ where
     where
         C: Mutator<T> + 'static,
     {
-        let mut first = self.function;
-        let mut second = next.into_fn();
+        let first = self.function;
+        let second = next.into_fn();
         BoxMutator::new(move |t| {
             (first)(t);
-            second(t);
+            (second)(t);
         })
     }
 
@@ -784,7 +782,7 @@ where
 }
 
 impl<T> Mutator<T> for BoxMutator<T> {
-    fn mutate(&mut self, value: &mut T) {
+    fn mutate(&self, value: &mut T) {
         (self.function)(value)
     }
 
@@ -799,14 +797,14 @@ impl<T> Mutator<T> for BoxMutator<T> {
     where
         T: 'static,
     {
-        let mut self_fn = self.function;
-        RcMutator::new(move |t| self_fn(t))
+        let self_fn = self.function;
+        RcMutator::new(move |t| (self_fn)(t))
     }
 
     // do NOT override Mutator::into_arc() because BoxMutator is not Send + Sync
     // and calling BoxMutator::into_arc() will cause a compile error
 
-    fn into_fn(mut self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -841,19 +839,19 @@ where
     /// mutator.mutate_once(&mut value);
     /// assert_eq!(value, 10);
     /// ```
-    fn mutate_once(mut self, value: &mut T) {
+    fn mutate_once(self, value: &mut T) {
         (self.function)(value)
     }
 
     /// Converts to `BoxMutatorOnce` (consuming)
     ///
     /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. This is an
-    /// identity conversion since `BoxMutator` already uses `Box<dyn FnMut>`.
+    /// identity conversion since `BoxMutator` already uses `Box<dyn Fn>`.
     ///
     /// # Returns
     ///
     /// Returns `self` as `BoxMutatorOnce<T>`
-    fn into_box_once(mut self) -> BoxMutatorOnce<T>
+    fn into_box_once(self) -> BoxMutatorOnce<T>
     where
         Self: Sized + 'static,
         T: 'static,
@@ -870,7 +868,7 @@ where
     ///
     /// A closure implementing `FnOnce(&mut T)` which forwards to the original
     /// mutator.
-    fn into_fn_once(mut self) -> impl FnOnce(&mut T)
+    fn into_fn_once(self) -> impl FnOnce(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -1015,11 +1013,11 @@ where
     where
         C: Mutator<T> + 'static,
     {
-        let mut first = self;
-        let mut second = next.into_fn();
+        let first = self;
+        let second = next.into_fn();
         BoxMutator::new(move |t| {
             first.mutate(t);
-            second(t);
+            (second)(t);
         })
     }
 
@@ -1067,8 +1065,8 @@ where
         C: Mutator<T> + 'static,
     {
         let pred = self.predicate;
-        let mut then_mut = self.mutator;
-        let mut else_mut = else_mutator;
+        let then_mut = self.mutator;
+        let else_mut = else_mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
                 then_mut.mutate(t);
@@ -1083,7 +1081,7 @@ impl<T> Mutator<T> for BoxConditionalMutator<T>
 where
     T: 'static,
 {
-    fn mutate(&mut self, value: &mut T) {
+    fn mutate(&self, value: &mut T) {
         if self.predicate.test(value) {
             self.mutator.mutate(value);
         }
@@ -1091,7 +1089,7 @@ where
 
     fn into_box(self) -> BoxMutator<T> {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -1102,10 +1100,9 @@ where
     fn into_rc(self) -> RcMutator<T> {
         let pred = self.predicate.into_rc();
         let mutator = self.mutator.into_rc();
-        let mut mutator_fn = mutator;
         RcMutator::new(move |t| {
             if pred.test(t) {
-                mutator_fn.mutate(t);
+                mutator.mutate(t);
             }
         })
     }
@@ -1113,9 +1110,9 @@ where
     // do NOT override Mutator::into_arc() because BoxConditionalMutator is not Send + Sync
     // and calling BoxConditionalMutator::into_arc() will cause a compile error
 
-    fn into_fn(self) -> impl FnMut(&mut T) {
+    fn into_fn(self) -> impl Fn(&mut T) {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         move |t: &mut T| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -1133,7 +1130,7 @@ where
 
 /// RcMutator struct
 ///
-/// A mutator implementation based on `Rc<RefCell<dyn FnMut(&mut T)>>` for
+/// A stateless mutator implementation based on `Rc<dyn Fn(&mut T)>` for
 /// single-threaded shared ownership scenarios. This type allows multiple
 /// references to the same mutator without the overhead of thread safety.
 ///
@@ -1141,15 +1138,14 @@ where
 ///
 /// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
 /// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
-/// - **Interior Mutability**: Uses `RefCell` for runtime borrow checking
-/// - **Mutable State**: Can modify captured environment via `FnMut`
+/// - **Stateless**: Cannot modify captured environment (uses `Fn` not `FnMut`)
 /// - **Chainable**: Method chaining via `&self` (non-consuming)
 /// - **Performance**: More efficient than `ArcMutator` (no locking)
 ///
 /// # Use Cases
 ///
 /// Choose `RcMutator` when:
-/// - The mutator needs to be shared within a single thread
+/// - The mutator needs to be shared within a single thread for stateless operations
 /// - Thread safety is not required
 /// - Performance is important (avoiding lock overhead)
 ///
@@ -1162,8 +1158,7 @@ where
 /// let clone = mutator.clone();
 ///
 /// let mut value = 5;
-/// let mut m = mutator;
-/// m.mutate(&mut value);
+/// mutator.mutate(&mut value);
 /// assert_eq!(value, 10);
 /// ```
 ///
@@ -1171,7 +1166,7 @@ where
 ///
 /// Haixing Hu
 pub struct RcMutator<T> {
-    function: RcMutMutatorFn<T>,
+    function: RcMutatorFn<T>,
 }
 
 impl<T> RcMutator<T>
@@ -1182,7 +1177,7 @@ where
     ///
     /// # Parameters
     ///
-    /// * `f` - The closure to wrap
+    /// * `f` - The stateless closure to wrap
     ///
     /// # Returns
     ///
@@ -1195,22 +1190,21 @@ where
     ///
     /// let mutator = RcMutator::new(|x: &mut i32| *x += 1);
     /// let mut value = 5;
-    /// let mut m = mutator;
-    /// m.mutate(&mut value);
+    /// mutator.mutate(&mut value);
     /// assert_eq!(value, 6);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T) + 'static,
+        F: Fn(&mut T) + 'static,
     {
         RcMutator {
-            function: Rc::new(RefCell::new(f)),
+            function: Rc::new(f),
         }
     }
 
     /// Creates a no-op mutator
     ///
-    /// Returns a mutator that performs no operation.
+    /// Returns a stateless mutator that performs no operation.
     ///
     /// # Returns
     ///
@@ -1223,32 +1217,22 @@ where
     ///
     /// let noop = RcMutator::<i32>::noop();
     /// let mut value = 42;
-    /// let mut m = noop;
-    /// m.mutate(&mut value);
+    /// noop.mutate(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
     /// ```
     pub fn noop() -> Self {
         RcMutator::new(|_| {})
     }
 
-    /// Chains another mutator in sequence
+    /// Chains another RcMutator in sequence
     ///
     /// Returns a new mutator that first executes the current operation, then
     /// executes the next operation. Borrows &self, does not consume the
     /// original mutator.
     ///
-    /// # Type Parameters
-    ///
-    /// * `M` - Type of the next mutator
-    ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation. Can be:
-    ///   - A closure: `|x: &mut T|`
-    ///   - A `BoxMutator<T>`
-    ///   - An `RcMutator<T>`
-    ///   - An `ArcMutator<T>`
-    ///   - Any type implementing `Mutator<T>`
+    /// * `next` - The mutator to execute after the current operation
     ///
     /// # Returns
     ///
@@ -1262,22 +1246,19 @@ where
     /// let first = RcMutator::new(|x: &mut i32| *x *= 2);
     /// let second = RcMutator::new(|x: &mut i32| *x += 10);
     ///
-    /// let chained = first.and_then(second.clone());
+    /// let chained = first.and_then(&second);
     ///
     /// // first and second are still usable
     /// let mut value = 5;
-    /// let mut m = chained;
-    /// m.mutate(&mut value);
+    /// chained.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then<M>(&self, mut next: M) -> RcMutator<T>
-    where
-        M: Mutator<T> + 'static,
-    {
+    pub fn and_then(&self, next: &RcMutator<T>) -> RcMutator<T> {
         let first = self.function.clone();
+        let second = next.function.clone();
         RcMutator::new(move |t: &mut T| {
-            (first.borrow_mut())(t);
-            next.mutate(t);
+            (first)(t);
+            (second)(t);
         })
     }
 
@@ -1327,15 +1308,15 @@ where
 }
 
 impl<T> Mutator<T> for RcMutator<T> {
-    fn mutate(&mut self, value: &mut T) {
-        (self.function.borrow_mut())(value)
+    fn mutate(&self, value: &mut T) {
+        (self.function)(value)
     }
 
     fn into_box(self) -> BoxMutator<T>
     where
         T: 'static,
     {
-        BoxMutator::new(move |t| self.function.borrow_mut()(t))
+        BoxMutator::new(move |t| (self.function)(t))
     }
 
     fn into_rc(self) -> RcMutator<T>
@@ -1348,12 +1329,12 @@ impl<T> Mutator<T> for RcMutator<T> {
     // do NOT override Mutator::into_arc() because RcMutator is not Send + Sync
     // and calling RcMutator::into_arc() will cause a compile error
 
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.function.borrow_mut()(t)
+        move |t| (self.function)(t)
     }
 
     fn to_box(&self) -> BoxMutator<T>
@@ -1362,7 +1343,7 @@ impl<T> Mutator<T> for RcMutator<T> {
         T: 'static,
     {
         let self_fn = self.function.clone();
-        BoxMutator::new(move |t| self_fn.borrow_mut()(t))
+        BoxMutator::new(move |t| (self_fn)(t))
     }
 
     fn to_rc(&self) -> RcMutator<T>
@@ -1376,13 +1357,13 @@ impl<T> Mutator<T> for RcMutator<T> {
     // do NOT override Mutator::to_arc() because RcMutator is not Send + Sync
     // and calling RcMutator::to_arc() will cause a compile error
 
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
         let self_fn = self.function.clone();
-        move |t| self_fn.borrow_mut()(t)
+        move |t| (self_fn)(t)
     }
 }
 
@@ -1422,13 +1403,13 @@ where
     /// assert_eq!(value, 10);
     /// ```
     fn mutate_once(self, value: &mut T) {
-        (self.function.borrow_mut())(value)
+        (self.function)(value)
     }
 
     /// Converts to `BoxMutatorOnce` (consuming)
     ///
     /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The underlying
-    /// function is extracted from the `Rc<RefCell<>>` wrapper.
+    /// function is extracted from the `Rc` wrapper.
     ///
     /// # Returns
     ///
@@ -1438,7 +1419,7 @@ where
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxMutatorOnce::new(move |t| self.function.borrow_mut()(t))
+        BoxMutatorOnce::new(move |t| (self.function)(t))
     }
 
     /// Converts to a consuming closure `FnOnce(&mut T)`
@@ -1455,7 +1436,7 @@ where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.function.borrow_mut()(t)
+        move |t| (self.function)(t)
     }
 
     /// Non-consuming adapter to `BoxMutatorOnce`
@@ -1472,7 +1453,7 @@ where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        BoxMutatorOnce::new(move |t| self_fn.borrow_mut()(t))
+        BoxMutatorOnce::new(move |t| (self_fn)(t))
     }
 
     /// Non-consuming adapter to a callable `FnOnce(&mut T)`
@@ -1490,7 +1471,7 @@ where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        move |t| self_fn.borrow_mut()(t)
+        move |t| (self_fn)(t)
     }
 }
 
@@ -1541,7 +1522,7 @@ impl<T> Mutator<T> for RcConditionalMutator<T>
 where
     T: 'static,
 {
-    fn mutate(&mut self, value: &mut T) {
+    fn mutate(&self, value: &mut T) {
         if self.predicate.test(value) {
             self.mutator.mutate(value);
         }
@@ -1549,7 +1530,7 @@ where
 
     fn into_box(self) -> BoxMutator<T> {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -1559,7 +1540,7 @@ where
 
     fn into_rc(self) -> RcMutator<T> {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         RcMutator::new(move |t| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -1570,9 +1551,9 @@ where
     // do NOT override Mutator::into_arc() because RcConditionalMutator is not Send + Sync
     // and calling RcConditionalMutator::into_arc() will cause a compile error
 
-    fn into_fn(self) -> impl FnMut(&mut T) {
+    fn into_fn(self) -> impl Fn(&mut T) {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         move |t: &mut T| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -1599,7 +1580,7 @@ where
     // do NOT override Mutator::to_arc() because RcMutator is not Send + Sync
     // and calling RcMutator::to_arc() will cause a compile error
 
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -1655,8 +1636,8 @@ where
         C: Mutator<T> + 'static,
     {
         let pred = self.predicate;
-        let mut then_mut = self.mutator;
-        let mut else_mut = else_mutator;
+        let then_mut = self.mutator;
+        let else_mut = else_mutator;
 
         RcMutator::new(move |t: &mut T| {
             if pred.test(t) {
@@ -1687,7 +1668,7 @@ impl<T> Clone for RcConditionalMutator<T> {
 
 /// ArcMutator struct
 ///
-/// A mutator implementation based on `Arc<Mutex<dyn FnMut(&mut T) + Send>>`
+/// A stateless mutator implementation based on `Arc<dyn Fn(&mut T) + Send + Sync>`
 /// for thread-safe shared ownership scenarios. This type allows the mutator
 /// to be safely shared and used across multiple threads.
 ///
@@ -1695,14 +1676,13 @@ impl<T> Clone for RcConditionalMutator<T> {
 ///
 /// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
 /// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
-/// - **Interior Mutability**: Uses `Mutex` for safe concurrent mutations
-/// - **Mutable State**: Can modify captured environment via `FnMut`
+/// - **Stateless**: Cannot modify captured environment (uses `Fn` not `FnMut`)
 /// - **Chainable**: Method chaining via `&self` (non-consuming)
 ///
 /// # Use Cases
 ///
 /// Choose `ArcMutator` when:
-/// - The mutator needs to be shared across multiple threads
+/// - The mutator needs to be shared across multiple threads for stateless operations
 /// - Concurrent task processing (e.g., thread pools)
 /// - Thread safety is required (Send + Sync)
 ///
@@ -1715,8 +1695,7 @@ impl<T> Clone for RcConditionalMutator<T> {
 /// let clone = mutator.clone();
 ///
 /// let mut value = 5;
-/// let mut m = mutator;
-/// m.mutate(&mut value);
+/// mutator.mutate(&mut value);
 /// assert_eq!(value, 10);
 /// ```
 ///
@@ -1724,7 +1703,7 @@ impl<T> Clone for RcConditionalMutator<T> {
 ///
 /// Haixing Hu
 pub struct ArcMutator<T> {
-    function: ArcMutMutatorFn<T>,
+    function: ArcMutatorFn<T>,
 }
 
 impl<T> ArcMutator<T>
@@ -1735,7 +1714,7 @@ where
     ///
     /// # Parameters
     ///
-    /// * `f` - The closure to wrap
+    /// * `f` - The stateless closure to wrap
     ///
     /// # Returns
     ///
@@ -1748,22 +1727,21 @@ where
     ///
     /// let mutator = ArcMutator::new(|x: &mut i32| *x += 1);
     /// let mut value = 5;
-    /// let mut m = mutator;
-    /// m.mutate(&mut value);
+    /// mutator.mutate(&mut value);
     /// assert_eq!(value, 6);
     /// ```
     pub fn new<F>(f: F) -> Self
     where
-        F: FnMut(&mut T) + Send + 'static,
+        F: Fn(&mut T) + Send + Sync + 'static,
     {
         ArcMutator {
-            function: Arc::new(Mutex::new(f)),
+            function: Arc::new(f),
         }
     }
 
     /// Creates a no-op mutator
     ///
-    /// Returns a mutator that performs no operation.
+    /// Returns a stateless mutator that performs no operation.
     ///
     /// # Returns
     ///
@@ -1776,32 +1754,22 @@ where
     ///
     /// let noop = ArcMutator::<i32>::noop();
     /// let mut value = 42;
-    /// let mut m = noop;
-    /// m.mutate(&mut value);
+    /// noop.mutate(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
     /// ```
     pub fn noop() -> Self {
         ArcMutator::new(|_| {})
     }
 
-    /// Chains another mutator in sequence
+    /// Chains another ArcMutator in sequence
     ///
     /// Returns a new mutator that first executes the current operation, then
     /// executes the next operation. Borrows &self, does not consume the
     /// original mutator.
     ///
-    /// # Type Parameters
-    ///
-    /// * `M` - Type of the next mutator
-    ///
     /// # Parameters
     ///
-    /// * `next` - The mutator to execute after the current operation. Can be:
-    ///   - A closure: `|x: &mut T|`
-    ///   - A `BoxMutator<T>`
-    ///   - An `ArcMutator<T>`
-    ///   - An `RcMutator<T>`
-    ///   - Any type implementing `Mutator<T> + Send`
+    /// * `next` - The mutator to execute after the current operation
     ///
     /// # Returns
     ///
@@ -1815,24 +1783,21 @@ where
     /// let first = ArcMutator::new(|x: &mut i32| *x *= 2);
     /// let second = ArcMutator::new(|x: &mut i32| *x += 10);
     ///
-    /// let chained = first.and_then(second.clone());
+    /// let chained = first.and_then(&second);
     ///
     /// // first and second are still usable
     /// let mut value = 5;
-    /// let mut m = chained;
-    /// m.mutate(&mut value);
+    /// chained.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then<M>(&self, mut next: M) -> ArcMutator<T>
-    where
-        M: Mutator<T> + Send + 'static,
-    {
+    pub fn and_then(&self, next: &ArcMutator<T>) -> ArcMutator<T> {
         let first = Arc::clone(&self.function);
+        let second = Arc::clone(&next.function);
         ArcMutator {
-            function: Arc::new(Mutex::new(move |t: &mut T| {
-                (first.lock().unwrap())(t);
-                next.mutate(t);
-            })),
+            function: Arc::new(move |t: &mut T| {
+                (first)(t);
+                (second)(t);
+            }),
         }
     }
 
@@ -1883,22 +1848,22 @@ where
 }
 
 impl<T> Mutator<T> for ArcMutator<T> {
-    fn mutate(&mut self, value: &mut T) {
-        (self.function.lock().unwrap())(value)
+    fn mutate(&self, value: &mut T) {
+        (self.function)(value)
     }
 
     fn into_box(self) -> BoxMutator<T>
     where
         T: 'static,
     {
-        BoxMutator::new(move |t| self.function.lock().unwrap()(t))
+        BoxMutator::new(move |t| (self.function)(t))
     }
 
     fn into_rc(self) -> RcMutator<T>
     where
         T: 'static,
     {
-        RcMutator::new(move |t| self.function.lock().unwrap()(t))
+        RcMutator::new(move |t| (self.function)(t))
     }
 
     fn into_arc(self) -> ArcMutator<T>
@@ -1908,12 +1873,12 @@ impl<T> Mutator<T> for ArcMutator<T> {
         self
     }
 
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.function.lock().unwrap()(t)
+        move |t| (self.function)(t)
     }
 
     fn to_box(&self) -> BoxMutator<T>
@@ -1922,7 +1887,7 @@ impl<T> Mutator<T> for ArcMutator<T> {
         T: 'static,
     {
         let self_fn = self.function.clone();
-        BoxMutator::new(move |t| self_fn.lock().unwrap()(t))
+        BoxMutator::new(move |t| (self_fn)(t))
     }
 
     fn to_rc(&self) -> RcMutator<T>
@@ -1931,7 +1896,7 @@ impl<T> Mutator<T> for ArcMutator<T> {
         T: 'static,
     {
         let self_fn = self.function.clone();
-        RcMutator::new(move |t| self_fn.lock().unwrap()(t))
+        RcMutator::new(move |t| (self_fn)(t))
     }
 
     fn to_arc(&self) -> ArcMutator<T>
@@ -1942,13 +1907,13 @@ impl<T> Mutator<T> for ArcMutator<T> {
         self.clone()
     }
 
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
     {
         let self_fn = self.function.clone();
-        move |t| self_fn.lock().unwrap()(t)
+        move |t| (self_fn)(t)
     }
 }
 
@@ -1988,13 +1953,13 @@ where
     /// assert_eq!(value, 10);
     /// ```
     fn mutate_once(self, value: &mut T) {
-        (self.function.lock().unwrap())(value)
+        (self.function)(value)
     }
 
     /// Converts to `BoxMutatorOnce` (consuming)
     ///
     /// Consumes `self` and returns an owned `BoxMutatorOnce<T>`. The underlying
-    /// function is extracted from the `Arc<Mutex<>>` wrapper.
+    /// function is extracted from the `Arc` wrapper.
     ///
     /// # Returns
     ///
@@ -2004,7 +1969,7 @@ where
         Self: Sized + 'static,
         T: 'static,
     {
-        BoxMutatorOnce::new(move |t| self.function.lock().unwrap()(t))
+        BoxMutatorOnce::new(move |t| (self.function)(t))
     }
 
     /// Converts to a consuming closure `FnOnce(&mut T)`
@@ -2021,7 +1986,7 @@ where
         Self: Sized + 'static,
         T: 'static,
     {
-        move |t| self.function.lock().unwrap()(t)
+        move |t| (self.function)(t)
     }
 
     /// Non-consuming adapter to `BoxMutatorOnce`
@@ -2038,7 +2003,7 @@ where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        BoxMutatorOnce::new(move |t| self_fn.lock().unwrap()(t))
+        BoxMutatorOnce::new(move |t| (self_fn)(t))
     }
 
     /// Non-consuming adapter to a callable `FnOnce(&mut T)`
@@ -2056,7 +2021,7 @@ where
         T: 'static,
     {
         let self_fn = self.function.clone();
-        move |t| self_fn.lock().unwrap()(t)
+        move |t| (self_fn)(t)
     }
 }
 
@@ -2107,7 +2072,7 @@ impl<T> Mutator<T> for ArcConditionalMutator<T>
 where
     T: Send + 'static,
 {
-    fn mutate(&mut self, value: &mut T) {
+    fn mutate(&self, value: &mut T) {
         if self.predicate.test(value) {
             self.mutator.mutate(value);
         }
@@ -2118,7 +2083,7 @@ where
         T: 'static,
     {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         BoxMutator::new(move |t| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -2132,10 +2097,9 @@ where
     {
         let pred = self.predicate.to_rc();
         let mutator = self.mutator.into_rc();
-        let mut mutator_fn = mutator;
         RcMutator::new(move |t| {
             if pred.test(t) {
-                mutator_fn.mutate(t);
+                mutator.mutate(t);
             }
         })
     }
@@ -2145,7 +2109,7 @@ where
         T: Send + 'static,
     {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         ArcMutator::new(move |t| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -2153,12 +2117,12 @@ where
         })
     }
 
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         T: 'static,
     {
         let pred = self.predicate;
-        let mut mutator = self.mutator;
+        let mutator = self.mutator;
         move |t: &mut T| {
             if pred.test(t) {
                 mutator.mutate(t);
@@ -2190,7 +2154,7 @@ where
         self.clone().into_arc()
     }
 
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -2244,12 +2208,12 @@ where
     /// ```
     pub fn or_else<C>(&self, else_mutator: C) -> ArcMutator<T>
     where
-        C: Mutator<T> + Send + 'static,
+        C: Mutator<T> + Send + Sync + 'static,
         T: Send + Sync,
     {
         let pred = self.predicate.clone();
-        let mut then_mut = self.mutator.clone();
-        let mut else_mut = else_mutator;
+        let then_mut = self.mutator.clone();
+        let else_mut = else_mutator;
         ArcMutator::new(move |t: &mut T| {
             if pred.test(t) {
                 then_mut.mutate(t);
@@ -2279,9 +2243,9 @@ impl<T> Clone for ArcConditionalMutator<T> {
 
 impl<T, F> Mutator<T> for F
 where
-    F: FnMut(&mut T),
+    F: Fn(&mut T),
 {
-    fn mutate(&mut self, value: &mut T) {
+    fn mutate(&self, value: &mut T) {
         self(value)
     }
 
@@ -2303,13 +2267,13 @@ where
 
     fn into_arc(self) -> ArcMutator<T>
     where
-        Self: Sized + Send + 'static,
+        Self: Sized + Send + Sync + 'static,
         T: Send + 'static,
     {
         ArcMutator::new(self)
     }
 
-    fn into_fn(self) -> impl FnMut(&mut T)
+    fn into_fn(self) -> impl Fn(&mut T)
     where
         Self: Sized + 'static,
         T: 'static,
@@ -2337,14 +2301,14 @@ where
 
     fn to_arc(&self) -> ArcMutator<T>
     where
-        Self: Sized + Clone + Send + 'static,
+        Self: Sized + Clone + Send + Sync + 'static,
         T: Send + 'static,
     {
         let cloned = self.clone();
         ArcMutator::new(cloned)
     }
 
-    fn to_fn(&self) -> impl FnMut(&mut T)
+    fn to_fn(&self) -> impl Fn(&mut T)
     where
         Self: Sized + Clone + 'static,
         T: 'static,
@@ -2364,7 +2328,7 @@ where
 /// Extension trait providing mutator composition methods for closures
 ///
 /// Provides `and_then` and other composition methods for all closures that
-/// implement `FnMut(&mut T)`, enabling direct method chaining on closures
+/// implement `Fn(&mut T)`, enabling direct method chaining on closures
 /// without explicit wrapper types.
 ///
 /// # Features
@@ -2373,7 +2337,7 @@ where
 /// - **Returns BoxMutator**: Composition results are `BoxMutator<T>` for
 ///   continued chaining
 /// - **Zero Cost**: No overhead when composing closures
-/// - **Automatic Implementation**: All `FnMut(&mut T)` closures get these
+/// - **Automatic Implementation**: All `Fn(&mut T)` closures get these
 ///   methods automatically
 ///
 /// # Examples
@@ -2384,15 +2348,14 @@ where
 /// let chained = (|x: &mut i32| *x *= 2)
 ///     .and_then(|x: &mut i32| *x += 10);
 /// let mut value = 5;
-/// let mut result = chained;
-/// result.mutate(&mut value);
+/// chained.mutate(&mut value);
 /// assert_eq!(value, 20); // (5 * 2) + 10
 /// ```
 ///
 /// # Author
 ///
 /// Haixing Hu
-pub trait FnMutatorOps<T>: FnMut(&mut T) + Sized {
+pub trait FnMutatorOps<T>: Fn(&mut T) + Sized {
     /// Chains another mutator in sequence
     ///
     /// Returns a new mutator that first executes the current operation, then
@@ -2421,12 +2384,10 @@ pub trait FnMutatorOps<T>: FnMut(&mut T) + Sized {
     /// use prism3_function::{Mutator, FnMutatorOps};
     ///
     /// let chained = (|x: &mut i32| *x *= 2)
-    ///     .and_then(|x: &mut i32| *x += 10)
-    ///     .and_then(|x: &mut i32| println!("Result: {}", x));
+    ///     .and_then(|x: &mut i32| *x += 10);
     ///
     /// let mut value = 5;
-    /// let mut result = chained;
-    /// result.mutate(&mut value); // Prints: Result: 20
+    /// chained.mutate(&mut value);
     /// assert_eq!(value, 20);
     /// ```
     fn and_then<C>(self, next: C) -> BoxMutator<T>
@@ -2435,14 +2396,14 @@ pub trait FnMutatorOps<T>: FnMut(&mut T) + Sized {
         C: Mutator<T> + 'static,
         T: 'static,
     {
-        let mut first = self;
-        let mut second = next.into_fn();
+        let first = self;
+        let second = next.into_fn();
         BoxMutator::new(move |t| {
             (first)(t);
-            second(t);
+            (second)(t);
         })
     }
 }
 
 /// Implements FnMutatorOps for all closure types
-impl<T, F> FnMutatorOps<T> for F where F: FnMut(&mut T) {}
+impl<T, F> FnMutatorOps<T> for F where F: Fn(&mut T) {}
