@@ -207,7 +207,7 @@ pub trait StatefulConsumer<T> {
     fn into_arc(self) -> ArcStatefulConsumer<T>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static,
+        T: 'static,
     {
         let mut consumer = self;
         ArcStatefulConsumer::new(move |t| consumer.accept(t))
@@ -372,7 +372,7 @@ pub trait StatefulConsumer<T> {
     fn to_arc(&self) -> ArcStatefulConsumer<T>
     where
         Self: Sized + Clone + Send + 'static,
-        T: Send + 'static,
+        T: 'static,
     {
         self.clone().into_arc()
     }
@@ -1222,7 +1222,7 @@ pub struct ArcStatefulConsumer<T> {
 
 impl<T> ArcStatefulConsumer<T>
 where
-    T: Send + 'static,
+    T: 'static,
 {
     /// Create a new ArcStatefulConsumer
     ///
@@ -1468,7 +1468,7 @@ impl<T> StatefulConsumer<T> for ArcStatefulConsumer<T> {
 
     fn into_arc(self) -> ArcStatefulConsumer<T>
     where
-        T: Send + 'static,
+        T: 'static,
     {
         self
     }
@@ -1501,7 +1501,7 @@ impl<T> StatefulConsumer<T> for ArcStatefulConsumer<T> {
 
     fn to_arc(&self) -> ArcStatefulConsumer<T>
     where
-        T: Send + 'static,
+        T: 'static,
     {
         self.clone()
     }
@@ -2692,7 +2692,7 @@ where
     fn into_arc(self) -> ArcStatefulConsumer<T>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static,
+        T: 'static,
     {
         ArcStatefulConsumer::new(self)
     }
@@ -2726,7 +2726,7 @@ where
     fn to_arc(&self) -> ArcStatefulConsumer<T>
     where
         Self: Sized + Clone + Send + 'static,
-        T: Send + 'static,
+        T: 'static,
     {
         let cloned = self.clone();
         ArcStatefulConsumer::new(cloned)

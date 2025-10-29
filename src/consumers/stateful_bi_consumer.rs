@@ -215,8 +215,8 @@ pub trait StatefulBiConsumer<T, U> {
     fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         let mut consumer = self;
         ArcStatefulBiConsumer::new(move |t, u| consumer.accept(t, u))
@@ -387,8 +387,8 @@ pub trait StatefulBiConsumer<T, U> {
     fn to_arc(&self) -> ArcStatefulBiConsumer<T, U>
     where
         Self: Sized + Clone + Send + 'static,
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         self.clone().into_arc()
     }
@@ -1231,8 +1231,8 @@ pub struct ArcStatefulBiConsumer<T, U> {
 
 impl<T, U> ArcStatefulBiConsumer<T, U>
 where
-    T: Send + 'static,
-    U: Send + 'static,
+    T: 'static,
+    U: 'static,
 {
     /// Creates a new ArcStatefulBiConsumer
     ///
@@ -1507,8 +1507,8 @@ impl<T, U> StatefulBiConsumer<T, U> for ArcStatefulBiConsumer<T, U> {
 
     fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
     where
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         self
     }
@@ -1542,8 +1542,8 @@ impl<T, U> StatefulBiConsumer<T, U> for ArcStatefulBiConsumer<T, U> {
 
     fn to_arc(&self) -> ArcStatefulBiConsumer<T, U>
     where
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         self.clone()
     }
@@ -2641,8 +2641,8 @@ where
     fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
     where
         Self: Sized + Send + 'static,
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         ArcStatefulBiConsumer::new(self)
     }
@@ -2679,8 +2679,8 @@ where
     fn to_arc(&self) -> ArcStatefulBiConsumer<T, U>
     where
         Self: Sized + Clone + Send + 'static,
-        T: Send + 'static,
-        U: Send + 'static,
+        T: 'static,
+        U: 'static,
     {
         let cloned = self.clone();
         ArcStatefulBiConsumer::new(cloned)
