@@ -9,6 +9,7 @@
 
 mod comparator_tests;
 mod consumers;
+mod functions;
 mod mutators;
 mod predicates;
 mod suppliers;
