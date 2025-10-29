@@ -16,6 +16,75 @@ use prism3_function::{
 };
 
 // ============================================================================
+// MutatingFunctionOnce Default Implementation Tests
+// ============================================================================
+
+/// Test struct that implements MutatingFunctionOnce to test default methods
+#[derive(Clone)]
+struct TestMutatingFunctionOnce {
+    multiplier: i32,
+}
+
+impl TestMutatingFunctionOnce {
+    fn new(multiplier: i32) -> Self {
+        TestMutatingFunctionOnce { multiplier }
+    }
+}
+
+impl MutatingFunctionOnce<i32, i32> for TestMutatingFunctionOnce {
+    fn apply_once(self, input: &mut i32) -> i32 {
+        let old_value = *input;
+        *input *= self.multiplier;
+        old_value
+    }
+}
+
+#[cfg(test)]
+mod test_mutating_function_once_default_impl {
+    use super::*;
+
+    #[test]
+    fn test_into_box_once() {
+        let func = TestMutatingFunctionOnce::new(2);
+        let boxed = func.into_box_once();
+
+        let mut value = 5;
+        assert_eq!(boxed.apply_once(&mut value), 5);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_into_fn_once() {
+        let func = TestMutatingFunctionOnce::new(3);
+        let closure = func.into_fn_once();
+
+        let mut value = 4;
+        assert_eq!(closure(&mut value), 4);
+        assert_eq!(value, 12);
+    }
+
+    #[test]
+    fn test_to_box_once() {
+        let func = TestMutatingFunctionOnce::new(2);
+        let boxed = func.to_box_once();
+
+        let mut value = 5;
+        assert_eq!(boxed.apply_once(&mut value), 5);
+        assert_eq!(value, 10);
+    }
+
+    #[test]
+    fn test_to_fn_once() {
+        let func = TestMutatingFunctionOnce::new(3);
+        let closure = func.to_fn_once();
+
+        let mut value = 4;
+        assert_eq!(closure(&mut value), 4);
+        assert_eq!(value, 12);
+    }
+}
+
+// ============================================================================
 // BoxMutatingFunctionOnce Tests
 // ============================================================================
 
@@ -236,6 +305,54 @@ mod test_closure {
     }
 
     #[test]
+    fn test_closure_into_fn_once() {
+        let data = vec![1, 2, 3];
+        let closure = move |x: &mut Vec<i32>| {
+            let old_len = x.len();
+            x.extend(data);
+            old_len
+        };
+        let fn_closure = closure.into_fn_once();
+
+        let mut target = vec![0];
+        let old_len = fn_closure(&mut target);
+        assert_eq!(old_len, 1);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_box_once() {
+        let data = vec![1, 2, 3];
+        let closure = move |x: &mut Vec<i32>| {
+            let old_len = x.len();
+            x.extend(data);
+            old_len
+        };
+        let box_func = closure.to_box_once();
+
+        let mut target = vec![0];
+        let old_len = box_func.apply_once(&mut target);
+        assert_eq!(old_len, 1);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_closure_to_fn_once() {
+        let data = vec![1, 2, 3];
+        let closure = move |x: &mut Vec<i32>| {
+            let old_len = x.len();
+            x.extend(data);
+            old_len
+        };
+        let fn_closure = closure.to_fn_once();
+
+        let mut target = vec![0];
+        let old_len = fn_closure(&mut target);
+        assert_eq!(old_len, 1);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
     fn test_move_semantics() {
         let data = vec![1, 2, 3];
         let closure = move |x: &mut Vec<i32>| {
@@ -247,6 +364,40 @@ mod test_closure {
 
         let mut target = vec![0];
         let old_len = closure.apply_once(&mut target);
+        assert_eq!(old_len, 1);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_into_box_once() {
+        let data = vec![1, 2, 3];
+        let func = BoxMutatingFunctionOnce::new(move |x: &mut Vec<i32>| {
+            let old_len = x.len();
+            x.extend(data);
+            old_len
+        });
+
+        let box_func = func.into_box_once();
+
+        let mut target = vec![0];
+        let old_len = box_func.apply_once(&mut target);
+        assert_eq!(old_len, 1);
+        assert_eq!(target, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_into_fn_once() {
+        let data = vec![1, 2, 3];
+        let func = BoxMutatingFunctionOnce::new(move |x: &mut Vec<i32>| {
+            let old_len = x.len();
+            x.extend(data);
+            old_len
+        });
+
+        let closure = func.into_fn_once();
+
+        let mut target = vec![0];
+        let old_len = closure(&mut target);
         assert_eq!(old_len, 1);
         assert_eq!(target, vec![0, 1, 2, 3]);
     }
