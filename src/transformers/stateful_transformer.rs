@@ -30,13 +30,13 @@ use std::sync::{
     Mutex,
 };
 
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,
     RcPredicate,
 };
-use crate::transformer_once::{
+use crate::transformers::transformer_once::{
     BoxTransformerOnce,
     TransformerOnce,
 };

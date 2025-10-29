@@ -38,7 +38,7 @@
 
 use std::fmt;
 
-use crate::bi_predicate::{
+use crate::predicates::bi_predicate::{
     BiPredicate,
     BoxBiPredicate,
 };

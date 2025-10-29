@@ -27,13 +27,13 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,
     RcPredicate,
 };
-use crate::transformer_once::BoxTransformerOnce;
+use crate::transformers::transformer_once::BoxTransformerOnce;
 
 // ============================================================================
 // Core Trait
@@ -652,7 +652,7 @@ impl<T, R> Transformer<T, R> for BoxTransformer<T, R> {
 // BoxTransformer TransformerOnce implementation
 // ============================================================================
 
-use crate::transformer_once::TransformerOnce;
+use crate::transformers::transformer_once::TransformerOnce;
 
 impl<T, R> TransformerOnce<T, R> for BoxTransformer<T, R>
 where

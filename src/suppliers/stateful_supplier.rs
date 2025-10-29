@@ -124,11 +124,11 @@ use std::sync::{
     Mutex,
 };
 
-use crate::stateful_transformer::StatefulTransformer;
-use crate::supplier_once::{
+use crate::suppliers::supplier_once::{
     BoxSupplierOnce,
     SupplierOnce,
 };
+use crate::transformers::stateful_transformer::StatefulTransformer;
 
 // ==========================================================================
 // Supplier Trait

@@ -27,73 +27,50 @@
 //!
 //! Haixing Hu
 
-pub mod bi_consumer;
-pub mod bi_consumer_once;
-pub mod bi_predicate;
-pub mod bi_transformer;
-pub mod bi_transformer_once;
+// Module declarations
 pub mod comparator;
-pub mod consumer;
-pub mod consumer_once;
-pub mod function;
-pub mod function_once;
-pub mod mutator;
-pub mod mutator_once;
-pub mod predicate;
-pub mod stateful_bi_consumer;
-pub mod stateful_bi_transformer;
-pub mod stateful_consumer;
-pub mod stateful_function;
-pub mod stateful_mutator;
-pub mod stateful_supplier;
-pub mod stateful_transformer;
-pub mod supplier;
-pub mod supplier_once;
+pub mod consumers;
+pub mod functions;
+pub mod mutators;
+pub mod predicates;
+pub mod suppliers;
 pub mod tester;
-pub mod transformer;
-pub mod transformer_once;
+pub mod transformers;
+
+// Re-export all types from submodules for backward compatibility
 
 // BiConsumer - Fn(&T, &U)
-pub use bi_consumer::{
+pub use consumers::{
     ArcBiConsumer,
+    ArcStatefulBiConsumer,
     BiConsumer,
-    BoxBiConsumer,
-    FnBiConsumerOps,
-    RcBiConsumer,
-};
-pub use bi_consumer_once::{
     BiConsumerOnce,
+    BoxBiConsumer,
     BoxBiConsumerOnce,
+    BoxStatefulBiConsumer,
     FnBiConsumerOnceOps,
+    FnBiConsumerOps,
+    FnStatefulBiConsumerOps,
+    RcBiConsumer,
+    RcStatefulBiConsumer,
+    StatefulBiConsumer,
 };
 
-// BiPredicate - Fn(&T, &U) -> bool
-pub use bi_predicate::{
-    ArcBiPredicate,
-    BiPredicate,
-    BoxBiPredicate,
-    FnBiPredicateOps,
-    RcBiPredicate,
-};
-
-// BiTransformer - Fn(T, U) -> R
-pub use bi_transformer::{
-    ArcBiTransformer,
-    ArcBinaryOperator,
-    BiTransformer,
-    BinaryOperator,
-    BoxBiTransformer,
-    BoxBinaryOperator,
-    FnBiTransformerOps,
-    RcBiTransformer,
-    RcBinaryOperator,
-};
-pub use bi_transformer_once::{
-    BiTransformerOnce,
-    BinaryOperatorOnce,
-    BoxBiTransformerOnce,
-    BoxBinaryOperatorOnce,
-    FnBiTransformerOnceOps,
+// Consumer - Fn(&T)
+pub use consumers::{
+    ArcConsumer,
+    ArcStatefulConsumer,
+    BoxConsumer,
+    BoxConsumerOnce,
+    BoxStatefulConsumer,
+    Consumer,
+    ConsumerOnce,
+    FnConsumerOnceOps,
+    FnConsumerOps,
+    FnStatefulConsumerOps,
+    RcConsumer,
+    RcStatefulConsumer,
+    StatefulConsumer,
 };
 
 // Comparator - Fn(&T, &T) -> Ordering
@@ -105,124 +82,79 @@ pub use comparator::{
     RcComparator,
 };
 
-// Consumer - Fn(&T)
-pub use consumer::{
-    ArcConsumer,
-    BoxConsumer,
-    Consumer,
-    FnConsumerOps,
-    RcConsumer,
-};
-pub use consumer_once::{
-    BoxConsumerOnce,
-    ConsumerOnce,
-    FnConsumerOnceOps,
-};
-
 // Function - Fn(&T) -> R
-pub use function::{
+pub use functions::{
     ArcConditionalFunction,
-    ArcFunction,
-    BoxConditionalFunction,
-    BoxFunction,
-    FnFunctionOps,
-    Function,
-    RcConditionalFunction,
-    RcFunction,
-};
-pub use function_once::{
-    BoxFunctionOnce,
-    FnFunctionOnceOps,
-    FunctionOnce,
-};
-
-// Mutator - Fn(&mut T)
-pub use mutator::{
-    ArcConditionalMutator,
-    ArcMutator,
-    BoxConditionalMutator,
-    BoxMutator,
-    FnMutatorOps,
-    Mutator,
-    RcConditionalMutator,
-    RcMutator,
-};
-pub use mutator_once::{
-    BoxConditionalMutatorOnce,
-    BoxMutatorOnce,
-    FnMutatorOnceOps,
-    MutatorOnce,
-};
-
-// Predicate - Fn(&T) -> bool
-pub use predicate::{
-    ArcPredicate,
-    BoxPredicate,
-    FnPredicateOps,
-    Predicate,
-    RcPredicate,
-};
-
-// StatefulBiConsumer - FnMut(&T, &U)
-pub use stateful_bi_consumer::{
-    ArcStatefulBiConsumer,
-    BoxStatefulBiConsumer,
-    FnStatefulBiConsumerOps,
-    RcStatefulBiConsumer,
-    StatefulBiConsumer,
-};
-
-// StatefulConsumer - FnMut(&T)
-pub use stateful_consumer::{
-    ArcStatefulConsumer,
-    BoxStatefulConsumer,
-    FnStatefulConsumerOps,
-    RcStatefulConsumer,
-    StatefulConsumer,
-};
-
-// StatefulFunction - FnMut(&T) -> R
-pub use stateful_function::{
     ArcConditionalStatefulFunction,
+    ArcFunction,
     ArcStatefulFunction,
+    BoxConditionalFunction,
     BoxConditionalStatefulFunction,
+    BoxFunction,
+    BoxFunctionOnce,
     BoxStatefulFunction,
+    FnFunctionOnceOps,
+    FnFunctionOps,
     FnStatefulFunctionOps,
+    Function,
+    FunctionOnce,
+    RcConditionalFunction,
     RcConditionalStatefulFunction,
+    RcFunction,
     RcStatefulFunction,
     StatefulFunction,
 };
 
-// StatefulSupplier - FnMut() -> R
-pub use stateful_supplier::{
-    ArcStatefulSupplier,
-    BoxStatefulSupplier,
-    FnStatefulSupplierOps,
-    RcStatefulSupplier,
-    StatefulSupplier,
+// Mutator - Fn(&mut T)
+pub use mutators::{
+    ArcConditionalMutator,
+    ArcConditionalStatefulMutator,
+    ArcMutator,
+    ArcStatefulMutator,
+    BoxConditionalMutator,
+    BoxConditionalMutatorOnce,
+    BoxConditionalStatefulMutator,
+    BoxMutator,
+    BoxMutatorOnce,
+    BoxStatefulMutator,
+    FnMutStatefulMutatorOps,
+    FnMutatorOnceOps,
+    FnMutatorOps,
+    Mutator,
+    MutatorOnce,
+    RcConditionalMutator,
+    RcConditionalStatefulMutator,
+    RcMutator,
+    RcStatefulMutator,
+    StatefulMutator,
 };
 
-// StatefulTransformer - FnMut(T) -> R
-pub use stateful_transformer::{
-    ArcConditionalStatefulTransformer,
-    ArcStatefulTransformer,
-    BoxConditionalStatefulTransformer,
-    BoxStatefulTransformer,
-    FnStatefulTransformerOps,
-    RcConditionalStatefulTransformer,
-    RcStatefulTransformer,
-    StatefulTransformer,
+// Predicate - Fn(&T) -> bool
+pub use predicates::{
+    ArcBiPredicate,
+    ArcPredicate,
+    BiPredicate,
+    BoxBiPredicate,
+    BoxPredicate,
+    FnBiPredicateOps,
+    FnPredicateOps,
+    Predicate,
+    RcBiPredicate,
+    RcPredicate,
 };
 
 // Supplier - Fn() -> R
-pub use supplier::{
+pub use suppliers::{
+    ArcStatefulSupplier,
     ArcSupplier,
+    BoxStatefulSupplier,
     BoxSupplier,
-    RcSupplier,
-    Supplier,
-};
-pub use supplier_once::{
     BoxSupplierOnce,
+    FnStatefulSupplierOps,
+    RcStatefulSupplier,
+    RcSupplier,
+    StatefulSupplier,
+    Supplier,
     SupplierOnce,
 };
 
@@ -236,25 +168,53 @@ pub use tester::{
 };
 
 // Transformer - Fn(T) -> R
-pub use transformer::{
+pub use transformers::{
+    ArcBiTransformer,
+    ArcBinaryOperator,
+    ArcConditionalStatefulBiTransformer,
+    ArcConditionalStatefulTransformer,
     ArcConditionalTransformer,
+    ArcStatefulBiTransformer,
+    ArcStatefulTransformer,
     ArcTransformer,
     ArcUnaryOperator,
+    BiTransformer,
+    BiTransformerOnce,
+    BinaryOperator,
+    BinaryOperatorOnce,
+    BoxBiTransformer,
+    BoxBiTransformerOnce,
+    BoxBinaryOperator,
+    BoxBinaryOperatorOnce,
+    BoxConditionalStatefulBiTransformer,
+    BoxConditionalStatefulTransformer,
     BoxConditionalTransformer,
+    BoxConditionalTransformerOnce,
+    BoxStatefulBiTransformer,
+    BoxStatefulTransformer,
     BoxTransformer,
+    BoxTransformerOnce,
     BoxUnaryOperator,
+    BoxUnaryOperatorOnce,
+    FnBiTransformerOnceOps,
+    FnBiTransformerOps,
+    FnStatefulBiTransformerOps,
+    FnStatefulTransformerOps,
+    FnTransformerOnceOps,
     FnTransformerOps,
+    RcBiTransformer,
+    RcBinaryOperator,
+    RcConditionalStatefulBiTransformer,
+    RcConditionalStatefulTransformer,
     RcConditionalTransformer,
+    RcStatefulBiTransformer,
+    RcStatefulTransformer,
     RcTransformer,
     RcUnaryOperator,
+    StatefulBiTransformer,
+    StatefulTransformer,
     Transformer,
-    UnaryOperator,
-};
-pub use transformer_once::{
-    BoxConditionalTransformerOnce,
-    BoxTransformerOnce,
-    BoxUnaryOperatorOnce,
-    FnTransformerOnceOps,
     TransformerOnce,
+    UnaryOperator,
     UnaryOperatorOnce,
 };

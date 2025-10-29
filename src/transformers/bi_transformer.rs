@@ -26,13 +26,13 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::bi_predicate::{
+use crate::predicates::bi_predicate::{
     ArcBiPredicate,
     BiPredicate,
     BoxBiPredicate,
     RcBiPredicate,
 };
-use crate::bi_transformer_once::{
+use crate::transformers::bi_transformer_once::{
     BiTransformerOnce,
     BoxBiTransformerOnce,
 };
@@ -334,7 +334,7 @@ where
     pub fn and_then<S, F>(self, after: F) -> BoxBiTransformer<T, U, S>
     where
         S: 'static,
-        F: crate::transformer::Transformer<R, S> + 'static,
+        F: crate::transformers::transformer::Transformer<R, S> + 'static,
     {
         let self_fn = self.function;
         BoxBiTransformer::new(move |t: T, u: U| after.apply(self_fn(t, u)))
@@ -500,9 +500,7 @@ where
         R: 'static,
     {
         // Zero-cost: directly return itself
-        BoxBiTransformerOnce::new(move |t: T, u: U| {
-            (self.function)(t, u)
-        })
+        BoxBiTransformerOnce::new(move |t: T, u: U| (self.function)(t, u))
     }
 
     fn into_fn_once(self) -> impl FnOnce(T, U) -> R
@@ -732,7 +730,7 @@ where
     pub fn and_then<S, F>(&self, after: F) -> ArcBiTransformer<T, U, S>
     where
         S: Send + Sync + 'static,
-        F: crate::transformer::Transformer<R, S> + Send + Sync + 'static,
+        F: crate::transformers::transformer::Transformer<R, S> + Send + Sync + 'static,
     {
         let self_clone = Arc::clone(&self.function);
         ArcBiTransformer {
@@ -952,9 +950,7 @@ where
         U: 'static,
         R: 'static,
     {
-        BoxBiTransformerOnce::new(move |t: T, u: U| {
-            (self.function)(t, u)
-        })
+        BoxBiTransformerOnce::new(move |t: T, u: U| (self.function)(t, u))
     }
 
     fn into_fn_once(self) -> impl FnOnce(T, U) -> R
@@ -1215,7 +1211,7 @@ where
     pub fn and_then<S, F>(&self, after: F) -> RcBiTransformer<T, U, S>
     where
         S: 'static,
-        F: crate::transformer::Transformer<R, S> + 'static,
+        F: crate::transformers::transformer::Transformer<R, S> + 'static,
     {
         let self_clone = Rc::clone(&self.function);
         RcBiTransformer {
@@ -1421,9 +1417,7 @@ where
         U: 'static,
         R: 'static,
     {
-        BoxBiTransformerOnce::new(move |t: T, u: U| {
-            (self.function)(t, u)
-        })
+        BoxBiTransformerOnce::new(move |t: T, u: U| (self.function)(t, u))
     }
 
     fn into_fn_once(self) -> impl FnOnce(T, U) -> R
@@ -1787,7 +1781,7 @@ pub trait FnBiTransformerOps<T, U, R>: Fn(T, U) -> R + Sized + 'static {
     fn and_then<S, F>(self, after: F) -> BoxBiTransformer<T, U, S>
     where
         S: 'static,
-        F: crate::transformer::Transformer<R, S> + 'static,
+        F: crate::transformers::transformer::Transformer<R, S> + 'static,
         T: 'static,
         U: 'static,
         R: 'static,

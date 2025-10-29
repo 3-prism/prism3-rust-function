@@ -36,7 +36,10 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::consumer_once::{BoxConsumerOnce, ConsumerOnce};
+use crate::consumers::consumer_once::{
+    BoxConsumerOnce,
+    ConsumerOnce,
+};
 
 // ============================================================================
 // 1. Consumer Trait - Unified Consumer Interface

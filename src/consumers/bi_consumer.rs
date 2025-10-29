@@ -36,7 +36,10 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::bi_consumer_once::{BiConsumerOnce, BoxBiConsumerOnce};
+use crate::consumers::bi_consumer_once::{
+    BiConsumerOnce,
+    BoxBiConsumerOnce,
+};
 
 // ==========================================================================
 // Type Aliases

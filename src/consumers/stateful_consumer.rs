@@ -39,11 +39,11 @@ use std::sync::{
     Mutex,
 };
 
-use crate::consumer_once::{
+use crate::consumers::consumer_once::{
     BoxConsumerOnce,
     ConsumerOnce,
 };
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,

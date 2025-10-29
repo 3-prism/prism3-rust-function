@@ -21,7 +21,7 @@
 //!
 //! Haixing Hu
 
-use crate::bi_predicate::{
+use crate::predicates::bi_predicate::{
     BiPredicate,
     BoxBiPredicate,
 };
@@ -247,7 +247,7 @@ where
     pub fn and_then<S, F>(self, after: F) -> BoxBiTransformerOnce<T, U, S>
     where
         S: 'static,
-        F: crate::transformer_once::TransformerOnce<R, S> + 'static,
+        F: crate::transformers::transformer_once::TransformerOnce<R, S> + 'static,
     {
         let self_fn = self.function;
         BoxBiTransformerOnce::new(move |t: T, u: U| after.apply_once(self_fn(t, u)))
@@ -643,7 +643,7 @@ pub trait FnBiTransformerOnceOps<T, U, R>: FnOnce(T, U) -> R + Sized + 'static {
     fn and_then<S, F>(self, after: F) -> BoxBiTransformerOnce<T, U, S>
     where
         S: 'static,
-        F: crate::transformer_once::TransformerOnce<R, S> + 'static,
+        F: crate::transformers::transformer_once::TransformerOnce<R, S> + 'static,
         T: 'static,
         U: 'static,
         R: 'static,

@@ -25,11 +25,11 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::function_once::{
+use crate::functions::function_once::{
     BoxFunctionOnce,
     FunctionOnce,
 };
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,

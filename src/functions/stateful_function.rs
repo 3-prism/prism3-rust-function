@@ -30,7 +30,7 @@ use std::sync::{
 };
 
 // StatefulFunction does not have a "once" variant since it already uses FnMut
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,

@@ -122,7 +122,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::transformer::Transformer;
+use crate::transformers::transformer::Transformer;
 
 // ======================================================================
 // Supplier Trait

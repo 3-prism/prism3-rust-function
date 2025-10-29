@@ -38,8 +38,8 @@ use std::sync::{
     Mutex,
 };
 
-use crate::bi_consumer_once::BiConsumerOnce;
-use crate::bi_predicate::{
+use crate::consumers::bi_consumer_once::BiConsumerOnce;
+use crate::predicates::bi_predicate::{
     ArcBiPredicate,
     BiPredicate,
     BoxBiPredicate,
@@ -847,13 +847,15 @@ where
     /// box_once.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
-        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self.accept_once(t, u))
+        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
+            self.accept_once(t, u)
+        })
     }
 
     /// Converts to a closure
@@ -1644,14 +1646,16 @@ where
     /// box_once.accept_once(&5, &3);
     /// assert_eq!(*log.lock().unwrap(), vec![8]);
     /// ```
-    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
         let self_fn = self.function;
-        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self_fn.lock().unwrap()(t, u))
+        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
+            self_fn.lock().unwrap()(t, u)
+        })
     }
 
     /// Converts to a closure
@@ -2376,14 +2380,16 @@ where
     /// box_once.accept_once(&5, &3);
     /// assert_eq!(*log.borrow(), vec![8]);
     /// ```
-    fn into_box_once(self) -> crate::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
     where
         Self: Sized + 'static,
         T: 'static,
         U: 'static,
     {
         let self_fn = self.function;
-        crate::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| self_fn.borrow_mut()(t, u))
+        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
+            self_fn.borrow_mut()(t, u)
+        })
     }
 
     /// Converts to a closure

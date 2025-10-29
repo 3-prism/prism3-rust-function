@@ -199,11 +199,11 @@ use std::sync::{
     Mutex,
 };
 
-use crate::mutator_once::{
+use crate::mutators::mutator_once::{
     BoxMutatorOnce,
     MutatorOnce,
 };
-use crate::predicate::{
+use crate::predicates::predicate::{
     ArcPredicate,
     BoxPredicate,
     Predicate,

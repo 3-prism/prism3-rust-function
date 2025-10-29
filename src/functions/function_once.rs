@@ -20,7 +20,7 @@
 //!
 //! Haixing Hu
 
-use crate::predicate::{
+use crate::predicates::predicate::{
     BoxPredicate,
     Predicate,
 };

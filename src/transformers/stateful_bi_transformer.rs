@@ -25,19 +25,22 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
-use crate::bi_predicate::{
+use crate::predicates::bi_predicate::{
     ArcBiPredicate,
     BiPredicate,
     BoxBiPredicate,
     RcBiPredicate,
 };
-use crate::bi_transformer_once::{
+use crate::transformers::bi_transformer_once::{
     BiTransformerOnce,
     BoxBiTransformerOnce,
 };
-use crate::stateful_transformer::StatefulTransformer;
+use crate::transformers::stateful_transformer::StatefulTransformer;
 
 // ============================================================================
 // Core Trait
@@ -469,7 +472,7 @@ impl<T, U, R> StatefulBiTransformer<T, U, R> for BoxStatefulBiTransformer<T, U, 
         U: 'static,
         R: 'static,
     {
-       self.function
+        self.function
     }
 
     // do NOT override BoxStatefulBiTransformer::to_xxx() because BoxStatefulBiTransformer is not Clone
@@ -913,7 +916,6 @@ impl<T, U, R> Clone for ArcStatefulBiTransformer<T, U, R> {
     }
 }
 
-
 // ============================================================================
 // ArcStatefulBiTransformer BiTransformerOnce Implementation
 // ============================================================================
@@ -989,7 +991,6 @@ where
         }
     }
 }
-
 
 // ============================================================================
 // ArcConditionalStatefulBiTransformer - Arc-based Conditional StatefulBiTransformer
