@@ -628,6 +628,48 @@ fn test_rc_mapper_into_rc() {
     assert_eq!(rc_mapper.apply(10), 12);
 }
 
+#[test]
+fn test_rc_mapper_to_rc() {
+    let mut counter = 0;
+    let mapper = RcStatefulTransformer::new(move |x: i32| {
+        counter += 1;
+        x * counter
+    });
+
+    // Non-consuming conversion
+    let rc_mapper = mapper.to_rc();
+    let mut rc1 = rc_mapper.clone();
+    let mut rc2 = rc_mapper.clone();
+
+    // Both share the same state
+    assert_eq!(rc1.apply(10), 10); // 10 * 1
+    assert_eq!(rc2.apply(10), 20); // 10 * 2
+    assert_eq!(rc1.apply(10), 30); // 10 * 3
+
+    // Original mapper is still available
+    let mut original = mapper;
+    assert_eq!(original.apply(10), 40); // 10 * 4 (shared state)
+}
+
+#[test]
+fn test_rc_mapper_to_rc_preserves_original() {
+    let mut sum = 0;
+    let mapper = RcStatefulTransformer::new(move |x: i32| {
+        sum += x;
+        sum
+    });
+
+    // to_rc() doesn't consume the original
+    let rc_mapper = mapper.to_rc();
+    let mut rc1 = rc_mapper.clone();
+    assert_eq!(rc1.apply(5), 5);
+    assert_eq!(rc1.apply(10), 15);
+
+    // Original mapper shares the same state
+    let mut original = mapper;
+    assert_eq!(original.apply(3), 18);
+}
+
 // ============================================================================
 // Closure StatefulTransformer Tests
 // ============================================================================
@@ -938,6 +980,7 @@ fn test_with_rc_predicate() {
 // ============================================================================
 
 /// Custom StatefulTransformer struct for testing default into_xxx() methods
+#[derive(Clone)]
 struct CustomStatefulTransformer {
     multiplier: i32,
 }
@@ -950,6 +993,7 @@ impl StatefulTransformer<i32, i32> for CustomStatefulTransformer {
 }
 
 /// Custom thread-safe StatefulTransformer struct
+#[derive(Clone)]
 struct CustomSendStatefulTransformer {
     multiplier: i32,
 }
@@ -963,6 +1007,7 @@ impl StatefulTransformer<i32, i32> for CustomSendStatefulTransformer {
 
 // Implement Send for CustomSendStatefulTransformer to allow conversion to ArcStatefulTransformer
 unsafe impl Send for CustomSendStatefulTransformer {}
+unsafe impl Sync for CustomSendStatefulTransformer {}
 
 #[test]
 fn test_custom_mapper_into_box() {
@@ -1057,6 +1102,7 @@ fn test_custom_mapper_conditional() {
 }
 
 /// Test custom StatefulTransformer with string types
+#[derive(Clone)]
 struct StringLengthStatefulTransformer {
     total_length: usize,
 }
@@ -1917,4 +1963,85 @@ fn test_arc_mapper_multiple_clones_one_consumed() {
 
     let mut clone1_mut = clone1.clone();
     assert_eq!(clone1_mut.apply(10), 30); // 10 * 3
+}
+
+// ============================================================================
+// Custom Struct Tests - StatefulTransformer Default Implementation to_xxx()
+// ============================================================================
+
+#[test]
+fn test_custom_mapper_to_box() {
+    let mapper = CustomStatefulTransformer { multiplier: 0 };
+    let mut boxed = mapper.to_box();
+    assert_eq!(boxed.apply(10), 10); // 10 * 1
+    assert_eq!(boxed.apply(10), 20); // 10 * 2
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
+}
+
+#[test]
+fn test_custom_mapper_to_rc() {
+    let mapper = CustomStatefulTransformer { multiplier: 0 };
+    let mut rc = mapper.to_rc();
+    assert_eq!(rc.apply(10), 10); // 10 * 1
+    assert_eq!(rc.apply(10), 20); // 10 * 2
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
+}
+
+#[test]
+fn test_custom_send_mapper_to_arc() {
+    let mapper = CustomSendStatefulTransformer { multiplier: 0 };
+    let mut arc = mapper.to_arc();
+    assert_eq!(arc.apply(10), 10); // 10 * 1
+    assert_eq!(arc.apply(10), 20); // 10 * 2
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
+}
+
+#[test]
+fn test_custom_mapper_to_fn() {
+    let mapper = CustomStatefulTransformer { multiplier: 0 };
+    let mut closure = mapper.to_fn();
+    assert_eq!(closure(10), 10); // 10 * 1
+    assert_eq!(closure(10), 20); // 10 * 2
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
+}
+
+#[test]
+fn test_custom_string_mapper_to_box() {
+    let mapper = StringLengthStatefulTransformer { total_length: 0 };
+    let mut boxed = mapper.to_box();
+    assert_eq!(boxed.apply("hello".to_string()), "[5] hello");
+    assert_eq!(boxed.apply("world".to_string()), "[10] world");
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply("test".to_string()), "[4] test");
+}
+
+#[test]
+fn test_custom_string_mapper_to_rc() {
+    let mapper = StringLengthStatefulTransformer { total_length: 0 };
+    let mut rc = mapper.to_rc();
+    assert_eq!(rc.apply("hello".to_string()), "[5] hello");
+    assert_eq!(rc.apply("world".to_string()), "[10] world");
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply("test".to_string()), "[4] test");
+}
+
+#[test]
+fn test_custom_string_mapper_to_fn() {
+    let mapper = StringLengthStatefulTransformer { total_length: 0 };
+    let mut closure = mapper.to_fn();
+    assert_eq!(closure("hello".to_string()), "[5] hello");
+    assert_eq!(closure("world".to_string()), "[10] world");
+    // Original mapper is still usable (was cloned)
+    let mut mapper_clone = mapper.clone();
+    assert_eq!(mapper_clone.apply("test".to_string()), "[4] test");
 }
