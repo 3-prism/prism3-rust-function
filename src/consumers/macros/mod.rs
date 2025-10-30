@@ -38,4 +38,3 @@ pub(crate) use consumer_common_methods::impl_consumer_common_methods;
 pub(crate) use consumer_debug_display::impl_consumer_debug_display;
 pub(crate) use shared_conditional_consumer::impl_shared_conditional_consumer;
 pub(crate) use shared_consumer_methods::impl_shared_consumer_methods;
-

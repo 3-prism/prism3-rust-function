@@ -200,6 +200,36 @@ pub trait Consumer<T> {
         move |t| self.accept(t)
     }
 
+    /// Convert to ConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    ///
+    /// Converts a reusable readonly consumer to a one-time consumer that consumes itself on use.
+    /// This enables passing `Consumer` to functions that require `ConsumerOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxConsumerOnce<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    ///
+    /// fn takes_once<C: ConsumerOnce<i32>>(consumer: C, value: &i32) {
+    ///     consumer.accept(value);
+    /// }
+    ///
+    /// let consumer = BoxConsumer::new(|x: &i32| println!("{}", x));
+    /// takes_once(consumer.into_once(), &5);
+    /// ```
+    fn into_once(self) -> BoxConsumerOnce<T>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+    {
+        BoxConsumerOnce::new(move |t| self.accept(t))
+    }
+
     /// Non-consuming conversion to `BoxConsumer`
     ///
     /// **⚠️ Does NOT consume `self`**: This method clones `self` and returns a
@@ -266,36 +296,6 @@ pub trait Consumer<T> {
         T: 'static,
     {
         self.clone().into_fn()
-    }
-
-    /// Convert to ConsumerOnce
-    ///
-    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
-    ///
-    /// Converts a reusable readonly consumer to a one-time consumer that consumes itself on use.
-    /// This enables passing `Consumer` to functions that require `ConsumerOnce`.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `BoxConsumerOnce<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    ///
-    /// fn takes_once<C: ConsumerOnce<i32>>(consumer: C, value: &i32) {
-    ///     consumer.accept(value);
-    /// }
-    ///
-    /// let consumer = BoxConsumer::new(|x: &i32| println!("{}", x));
-    /// takes_once(consumer.into_once(), &5);
-    /// ```
-    fn into_once(self) -> BoxConsumerOnce<T>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-    {
-        BoxConsumerOnce::new(move |t| self.accept(t))
     }
 
     /// Convert to ConsumerOnce without consuming self

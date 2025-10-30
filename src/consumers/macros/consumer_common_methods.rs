@@ -125,10 +125,9 @@ macro_rules! impl_consumer_common_methods {
         |$f:ident| $wrapper_expr:expr,
         $type_desc:literal
     ) => {
-        /// Creates a new $type_desc.
+        #[doc = concat!("Creates a new ", $type_desc, ".")]
         ///
-        /// Wraps the provided closure in the appropriate smart pointer
-        /// type for this $type_desc implementation.
+        #[doc = concat!("Wraps the provided closure in the appropriate smart pointer type for this ", $type_desc, " implementation.")]
         ///
         /// # Type Parameters
         ///
@@ -140,7 +139,7 @@ macro_rules! impl_consumer_common_methods {
         ///
         /// # Returns
         ///
-        /// Returns a new $type_desc instance wrapping the closure.
+        #[doc = concat!("Returns a new ", $type_desc, " instance wrapping the closure.")]
         pub fn new<F>($f: F) -> Self
         where
             F: $($fn_trait_with_bounds)+,
@@ -151,7 +150,7 @@ macro_rules! impl_consumer_common_methods {
             }
         }
 
-        /// Creates a new named $type_desc.
+        #[doc = concat!("Creates a new named ", $type_desc, ".")]
         ///
         /// Wraps the provided closure and assigns it a name, which is
         /// useful for debugging and logging purposes.
@@ -162,12 +161,12 @@ macro_rules! impl_consumer_common_methods {
         ///
         /// # Parameters
         ///
-        /// * `name` - The name for this $type_desc
+        #[doc = concat!("* `name` - The name for this ", $type_desc)]
         /// * `f` - The closure to wrap
         ///
         /// # Returns
         ///
-        /// Returns a new named $type_desc instance wrapping the closure.
+        #[doc = concat!("Returns a new named ", $type_desc, " instance wrapping the closure.")]
         pub fn new_with_name<F>(name: &str, $f: F) -> Self
         where
             F: $($fn_trait_with_bounds)+,
@@ -180,8 +179,8 @@ macro_rules! impl_consumer_common_methods {
     };
 
     // Internal rule: generates name and set_name methods
-    (@name_methods) => {
-        /// Gets the name of this consumer.
+    (@name_methods $type_desc:literal) => {
+        #[doc = concat!("Gets the name of this ", $type_desc, ".")]
         ///
         /// # Returns
         ///
@@ -190,11 +189,11 @@ macro_rules! impl_consumer_common_methods {
             self.name.as_deref()
         }
 
-        /// Sets the name of this consumer.
+        #[doc = concat!("Sets the name of this ", $type_desc, ".")]
         ///
         /// # Parameters
         ///
-        /// * `name` - The name to set for this consumer
+        #[doc = concat!("* `name` - The name to set for this ", $type_desc)]
         pub fn set_name(&mut self, name: impl Into<String>) {
             self.name = Some(name.into());
         }
@@ -212,7 +211,7 @@ macro_rules! impl_consumer_common_methods {
             "consumer"
         );
 
-        impl_consumer_common_methods!(@name_methods);
+        impl_consumer_common_methods!(@name_methods "consumer");
 
         /// Creates a no-operation consumer.
         ///
@@ -222,14 +221,6 @@ macro_rules! impl_consumer_common_methods {
         /// # Returns
         ///
         /// Returns a new consumer instance that performs no operation.
-        ///
-        /// # Examples
-        ///
-        /// ```rust
-        /// # use prism3_function::BoxConsumer;
-        /// let noop = BoxConsumer::<i32>::noop();
-        /// noop.accept(&42); // Does nothing
-        /// ```
         pub fn noop() -> Self {
             Self::new(|_| {})
         }
@@ -247,7 +238,7 @@ macro_rules! impl_consumer_common_methods {
             "bi-consumer"
         );
 
-        impl_consumer_common_methods!(@name_methods);
+        impl_consumer_common_methods!(@name_methods "bi-consumer");
 
         /// Creates a no-operation bi-consumer.
         ///
@@ -256,16 +247,7 @@ macro_rules! impl_consumer_common_methods {
         ///
         /// # Returns
         ///
-        /// Returns a new bi-consumer instance that performs no
-        /// operation.
-        ///
-        /// # Examples
-        ///
-        /// ```rust
-        /// # use prism3_function::BoxBiConsumer;
-        /// let noop = BoxBiConsumer::<i32, i32>::noop();
-        /// noop.accept(&1, &2); // Does nothing
-        /// ```
+        /// Returns a new bi-consumer instance that performs no operation.
         pub fn noop() -> Self {
             Self::new(|_, _| {})
         }

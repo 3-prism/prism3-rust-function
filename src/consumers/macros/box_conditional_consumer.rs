@@ -92,27 +92,62 @@ macro_rules! impl_box_conditional_consumer {
         {
             /// Chains another consumer in sequence
             ///
-            /// Combines the current conditional consumer with another consumer into a new
-            /// consumer. The current conditional consumer executes first, followed by the
-            /// next consumer.
+            /// Combines the current conditional consumer with another consumer
+            /// into a new consumer that implements the following semantics:
+            ///
+            /// When the returned consumer is called with an argument:
+            /// 1. First, it checks the predicate of this conditional consumer
+            /// 2. If the predicate is satisfied, it executes the internal
+            ///    consumer of this conditional consumer
+            /// 3. Then, **regardless of whether the predicate was satisfied**,
+            ///    it unconditionally executes the `next` consumer
+            ///
+            /// In other words, this creates a consumer that conditionally
+            /// executes the first action (based on the predicate), and then
+            /// always executes the second action.
             ///
             /// # Parameters
             ///
-            /// * `next` - The next consumer to execute
+            /// * `next` - The next consumer to execute (always executed)
             ///
             /// # Returns
             ///
             /// Returns a new combined consumer
+            ///
+            /// # Examples
+            ///
+            /// ```ignore
+            /// use std::sync::atomic::{AtomicI32, Ordering};
+            ///
+            /// let result = AtomicI32::new(0);
+            ///
+            /// let consumer1 = BoxConsumer::new(|x: &i32| {
+            ///     result.fetch_add(*x, Ordering::SeqCst);
+            /// });
+            ///
+            /// let consumer2 = BoxConsumer::new(|x: &i32| {
+            ///     result.fetch_add(2 * (*x), Ordering::SeqCst);
+            /// });
+            ///
+            /// let conditional = consumer1.when(|x| *x > 0);
+            /// let chained = conditional.and_then(consumer2);
+            ///
+            /// chained.accept(&5);  // result = 5 + (2*5) = 15
+            /// result.store(0, Ordering::SeqCst);  // reset
+            /// chained.accept(&-5); // result = 0 + (2*-5) = -10 (not -15!)
+            /// ```
             #[allow(unused_mut)]
-            pub fn and_then<C>(self, next: C) -> $consumer_type<$t>
+            pub fn and_then<C>(self, mut next: C) -> $consumer_type<$t>
             where
                 C: $consumer_trait<$t> + 'static,
             {
-                let mut first = self;
-                let mut second = next;
+                let first_predicate = self.predicate;
+                let mut first_consumer = self.consumer;
                 $consumer_type::new(move |t| {
-                    first.accept(t);
-                    second.accept(t);
+                    if first_predicate.test(t) {
+                        first_consumer.accept(t);
+                    }
+                    next.accept(t);
                 })
             }
 
@@ -128,18 +163,16 @@ macro_rules! impl_box_conditional_consumer {
             /// # Returns
             ///
             /// Returns a new consumer with if-then-else logic
-            pub fn or_else<C>(self, else_consumer: C) -> $consumer_type<$t>
+            #[allow(unused_mut)]
+            pub fn or_else<C>(self, mut else_consumer: C) -> $consumer_type<$t>
             where
                 C: $consumer_trait<$t> + 'static,
             {
-                let pred = self.predicate;
-                #[allow(unused_mut)]
-                let mut then_cons = self.consumer;
-                #[allow(unused_mut)]
-                let mut else_consumer = else_consumer;
+                let predicate = self.predicate;
+                let mut then_consumer = self.consumer;
                 $consumer_type::new(move |t| {
-                    if pred.test(t) {
-                        then_cons.accept(t);
+                    if predicate.test(t) {
+                        then_consumer.accept(t);
                     } else {
                         else_consumer.accept(t);
                     }
@@ -161,28 +194,65 @@ macro_rules! impl_box_conditional_consumer {
         {
             /// Chains another bi-consumer in sequence
             ///
-            /// Combines the current conditional bi-consumer with another bi-consumer into a new
-            /// bi-consumer. The current conditional bi-consumer executes first, followed by the
-            /// next bi-consumer.
+            /// Combines the current conditional bi-consumer with another
+            /// bi-consumer into a new bi-consumer that implements the
+            /// following semantics:
+            ///
+            /// When the returned bi-consumer is called with two arguments:
+            /// 1. First, it checks the predicate of this conditional
+            ///    bi-consumer
+            /// 2. If the predicate is satisfied, it executes the internal
+            ///    bi-consumer of this conditional bi-consumer
+            /// 3. Then, **regardless of whether the predicate was
+            ///    satisfied**, it unconditionally executes the `next`
+            ///    bi-consumer
+            ///
+            /// In other words, this creates a bi-consumer that conditionally
+            /// executes the first action (based on the predicate), and then
+            /// always executes the second action.
             ///
             /// # Parameters
             ///
-            /// * `next` - The next bi-consumer to execute
+            /// * `next` - The next bi-consumer to execute (always executed)
             ///
             /// # Returns
             ///
             /// Returns a new combined bi-consumer
-            pub fn and_then<C>(self, next: C) -> $consumer_type<$t, $u>
+            ///
+            /// # Examples
+            ///
+            /// ```ignore
+            /// use std::sync::atomic::{AtomicI32, Ordering};
+            ///
+            /// let result = AtomicI32::new(0);
+            ///
+            /// let consumer1 = BoxBiConsumer::new(|x: &i32, y: &i32| {
+            ///     result.fetch_add(x + y, Ordering::SeqCst);
+            /// });
+            ///
+            /// let consumer2 = BoxBiConsumer::new(|x: &i32, y: &i32| {
+            ///     result.fetch_add(2 * (x + y), Ordering::SeqCst);
+            /// });
+            ///
+            /// let conditional = consumer1.when(|x, y| *x > 0 && *y > 0);
+            /// let chained = conditional.and_then(consumer2);
+            ///
+            /// chained.accept(&5, &3);  // result = (5+3) + 2*(5+3) = 24
+            /// result.store(0, Ordering::SeqCst);  // reset
+            /// chained.accept(&-5, &3); // result = 0 + 2*(-5+3) = -4 (not -8!)
+            /// ```
+            #[allow(unused_mut)]
+            pub fn and_then<C>(self, mut next: C) -> $consumer_type<$t, $u>
             where
                 C: $consumer_trait<$t, $u> + 'static,
             {
-                #[allow(unused_mut)]
-                let mut first = self;
-                #[allow(unused_mut)]
-                let mut second = next;
+                let first_predicate = self.predicate;
+                let mut first_consumer = self.consumer;
                 $consumer_type::new(move |t, u| {
-                    first.accept(t, u);
-                    second.accept(t, u);
+                    if first_predicate.test(t, u) {
+                        first_consumer.accept(t, u);
+                    }
+                    next.accept(t, u);
                 })
             }
 
@@ -199,15 +269,14 @@ macro_rules! impl_box_conditional_consumer {
             ///
             /// Returns a new bi-consumer with if-then-else logic
             #[allow(unused_mut)]
-            pub fn or_else<C>(self, else_consumer: C) -> $consumer_type<$t, $u>
+            pub fn or_else<C>(self, mut else_consumer: C) -> $consumer_type<$t, $u>
             where
                 C: $consumer_trait<$t, $u> + 'static,
             {
-                let pred = self.predicate;
+                let predicate = self.predicate;
                 let mut then_consumer = self.consumer;
-                let mut else_consumer = else_consumer;
                 $consumer_type::new(move |t, u| {
-                    if pred.test(t, u) {
+                    if predicate.test(t, u) {
                         then_consumer.accept(t, u);
                     } else {
                         else_consumer.accept(t, u);
