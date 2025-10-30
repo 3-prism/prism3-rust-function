@@ -1630,7 +1630,7 @@ where
     where
         T: 'static,
     {
-        let pred = self.predicate.to_rc();
+        let pred = self.predicate.into_rc();
         let consumer = self.consumer.into_rc();
         let mut consumer_fn = consumer;
         RcStatefulConsumer::new(move |t| {

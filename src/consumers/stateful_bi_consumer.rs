@@ -1518,7 +1518,7 @@ where
         T: 'static,
         U: 'static,
     {
-        let pred = self.predicate.to_rc();
+        let pred = self.predicate.into_rc();
         let consumer = self.consumer.into_rc();
         let mut consumer_fn = consumer;
         RcStatefulBiConsumer::new(move |t, u| {
