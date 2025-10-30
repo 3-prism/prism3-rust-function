@@ -767,7 +767,7 @@ impl<T, U> StatefulBiConsumer<T, U> for ArcStatefulBiConsumer<T, U> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(ArcStatefulBiConsumer<T, U>, Arc::clone);
+impl_consumer_clone!(ArcStatefulBiConsumer<T, U>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(ArcStatefulBiConsumer<T, U>);
@@ -896,7 +896,7 @@ impl<T, U> StatefulBiConsumer<T, U> for RcStatefulBiConsumer<T, U> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(RcStatefulBiConsumer<T, U>, Rc::clone);
+impl_consumer_clone!(RcStatefulBiConsumer<T, U>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(RcStatefulBiConsumer<T, U>);

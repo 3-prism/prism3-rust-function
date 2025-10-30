@@ -630,7 +630,7 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(ArcBiConsumer<T, U>, Arc::clone);
+impl_consumer_clone!(ArcBiConsumer<T, U>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(ArcBiConsumer<T, U>);
@@ -774,7 +774,7 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(RcBiConsumer<T, U>, Rc::clone);
+impl_consumer_clone!(RcBiConsumer<T, U>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(RcBiConsumer<T, U>);

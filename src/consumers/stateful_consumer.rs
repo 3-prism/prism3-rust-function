@@ -811,7 +811,7 @@ impl<T> StatefulConsumer<T> for ArcStatefulConsumer<T> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(ArcStatefulConsumer<T>, Arc::clone);
+impl_consumer_clone!(ArcStatefulConsumer<T>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(ArcStatefulConsumer<T>);
@@ -1025,7 +1025,7 @@ impl<T> StatefulConsumer<T> for RcStatefulConsumer<T> {
 }
 
 // Use macro to generate Clone implementation
-impl_consumer_clone!(RcStatefulConsumer<T>, Rc::clone);
+impl_consumer_clone!(RcStatefulConsumer<T>);
 
 // Use macro to generate Debug and Display implementations
 impl_consumer_debug_display!(RcStatefulConsumer<T>);

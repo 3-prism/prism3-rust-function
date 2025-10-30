@@ -233,8 +233,7 @@ macro_rules! impl_box_consumer_methods {
         ///     }
         /// });
         ///
-        /// let conditional = bi_consumer.when(|key: &String, value: &i32|
-        ///     *value > 0);
+        /// let conditional = bi_consumer.when(|key: &String, value: &i32| *value > 0);
         /// conditional.accept(&"increment".to_string(), &5);  // counter = 5
         /// conditional.accept(&"increment".to_string(), &-2); // not executed
         /// ```
