@@ -40,12 +40,15 @@ use std::sync::{
 
 use crate::consumers::consumer_once::BoxConsumerOnce;
 use crate::consumers::macros::{
+    impl_box_conditional_consumer,
     impl_box_consumer_methods,
     impl_conditional_consumer_clone,
+    impl_conditional_consumer_conversions,
     impl_conditional_consumer_debug_display,
     impl_consumer_clone,
-    impl_consumer_debug_display,
     impl_consumer_common_methods,
+    impl_consumer_debug_display,
+    impl_shared_conditional_consumer,
     impl_shared_consumer_methods,
 };
 use crate::predicates::predicate::{
@@ -548,11 +551,9 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        BoxStatefulConsumer<T>,
-        (FnMut(&T) + 'static),
-        |f| Box::new(f)
-    );
+    impl_consumer_common_methods!(BoxStatefulConsumer<T>, (FnMut(&T) + 'static), |f| Box::new(
+        f
+    ));
 
     // Generates: when() and and_then() methods that consume self
     impl_box_consumer_methods!(
@@ -667,11 +668,9 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        ArcStatefulConsumer<T>,
-        (FnMut(&T) + Send + 'static),
-        |f| Arc::new(Mutex::new(f))
-    );
+    impl_consumer_common_methods!(ArcStatefulConsumer<T>, (FnMut(&T) + Send + 'static), |f| {
+        Arc::new(Mutex::new(f))
+    });
 
     // Generates: when() and and_then() methods that borrow &self (Arc can clone)
     impl_shared_consumer_methods!(
@@ -895,11 +894,9 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        RcStatefulConsumer<T>,
-        (FnMut(&T) + 'static),
-        |f| Rc::new(RefCell::new(f))
-    );
+    impl_consumer_common_methods!(RcStatefulConsumer<T>, (FnMut(&T) + 'static), |f| Rc::new(
+        RefCell::new(f)
+    ));
 
     // Generates: when() and and_then() methods that borrow &self (Rc can clone)
     impl_shared_consumer_methods!(
@@ -1328,116 +1325,12 @@ pub struct BoxConditionalStatefulConsumer<T> {
     predicate: BoxPredicate<T>,
 }
 
-impl<T> BoxConditionalStatefulConsumer<T>
-where
-    T: 'static,
-{
-    /// Chains another consumer in sequence
-    ///
-    /// Combines the current conditional consumer with another consumer into a new
-    /// consumer. The current conditional consumer executes first, followed by the
-    /// next consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The next consumer to execute
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxStatefulConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxStatefulConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let cond1 = BoxStatefulConsumer::new(move |x: &i32| {
-    ///     l1.lock().unwrap().push(*x * 2);
-    /// }).when(|x: &i32| *x > 0);
-    /// let cond2 = BoxStatefulConsumer::new(move |x: &i32| {
-    ///     l2.lock().unwrap().push(*x + 100);
-    /// }).when(|x: &i32| *x > 10);
-    /// let mut chained = cond1.and_then(cond2);
-    ///
-    /// chained.accept(&6);
-    /// assert_eq!(*log.lock().unwrap(), vec![12, 106]);
-    /// // First *2 = 12, then +100 = 106
-    /// ```
-    pub fn and_then<C>(self, next: C) -> BoxStatefulConsumer<T>
-    where
-        C: StatefulConsumer<T> + 'static,
-    {
-        let mut first = self;
-        let mut second = next;
-        BoxStatefulConsumer::new(move |t| {
-            first.accept(t);
-            second.accept(t);
-        })
-    }
-
-    /// Adds an else branch
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T|`
-    ///   - `BoxStatefulConsumer<T>`, `RcStatefulConsumer<T>`, `ArcStatefulConsumer<T>`
-    ///   - Any type implementing `Consumer<T>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `BoxStatefulConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, BoxStatefulConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
-    ///     l1.lock().unwrap().push(*x);
-    /// })
-    /// .when(|x: &i32| *x > 0)
-    /// .or_else(move |x: &i32| {
-    ///     l2.lock().unwrap().push(-*x);
-    /// });
-    ///
-    /// consumer.accept(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    /// // Condition satisfied, execute first
-    ///
-    /// consumer.accept(&-5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]);
-    /// // Condition not satisfied, execute else
-    /// ```
-    pub fn or_else<C>(self, else_consumer: C) -> BoxStatefulConsumer<T>
-    where
-        C: StatefulConsumer<T> + 'static,
-    {
-        let pred = self.predicate;
-        let mut then_cons = self.consumer;
-        let mut else_cons = else_consumer;
-        BoxStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                then_cons.accept(t);
-            } else {
-                else_cons.accept(t);
-            }
-        })
-    }
-}
+// Use macro to generate and_then and or_else methods
+impl_box_conditional_consumer!(
+    BoxConditionalStatefulConsumer<T>,
+    BoxStatefulConsumer,
+    StatefulConsumer
+);
 
 impl<T> StatefulConsumer<T> for BoxConditionalStatefulConsumer<T>
 where
@@ -1449,42 +1342,8 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulConsumer<T> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulConsumer<T> {
-        let pred = self.predicate.into_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer_fn.accept(t);
-            }
-        })
-    }
-
-    // do NOT override Consumer::into_arc() because BoxConditionalStatefulConsumer is not Send + Sync
-    // and calling BoxConditionalStatefulConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        }
-    }
-
-    // do NOT override Consumer::to_xxx() because BoxConditionalStatefulConsumer is not Clone
-    // and calling BoxConditionalStatefulConsumer::to_xxx() will cause a compile error
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxStatefulConsumer<T>, RcStatefulConsumer, FnMut);
 }
 
 // Use macro to generate Debug and Display implementations
@@ -1539,69 +1398,14 @@ pub struct ArcConditionalStatefulConsumer<T> {
     predicate: ArcPredicate<T>,
 }
 
-impl<T> ArcConditionalStatefulConsumer<T>
-where
-    T: Send + 'static,
-{
-    /// Adds an else branch (thread-safe version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T|` (must be `Send`)
-    ///   - `ArcStatefulConsumer<T>`, `BoxStatefulConsumer<T>`
-    ///   - Any type implementing `Consumer<T> + Send`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `ArcStatefulConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, ArcStatefulConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
-    ///     l1.lock().unwrap().push(*x);
-    /// })
-    /// .when(|x: &i32| *x > 0)
-    /// .or_else(move |x: &i32| {
-    ///     l2.lock().unwrap().push(-*x);
-    /// });
-    ///
-    /// consumer.accept(&5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5]);
-    ///
-    /// consumer.accept(&-5);
-    /// assert_eq!(*log.lock().unwrap(), vec![5, 5]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> ArcStatefulConsumer<T>
-    where
-        C: StatefulConsumer<T> + Send + 'static,
-        T: Send + Sync,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        ArcStatefulConsumer::new(move |t: &T| {
-            if pred.test(t) {
-                then_cons.accept(t);
-            } else {
-                else_cons.accept(t);
-            }
-        })
-    }
-}
+// Use macro to generate and_then and or_else methods
+impl_shared_conditional_consumer!(
+    ArcConditionalStatefulConsumer<T>,
+    ArcStatefulConsumer,
+    StatefulConsumer,
+    into_arc,
+    Send + Sync + 'static
+);
 
 impl<T> StatefulConsumer<T> for ArcConditionalStatefulConsumer<T>
 where
@@ -1613,60 +1417,8 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulConsumer<T>
-    where
-        T: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulConsumer<T>
-    where
-        T: 'static,
-    {
-        let pred = self.predicate.into_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer_fn.accept(t);
-            }
-        })
-    }
-
-    fn into_arc(self) -> ArcStatefulConsumer<T>
-    where
-        T: Send + 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        ArcStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        })
-    }
-
-    fn into_fn(self) -> impl FnMut(&T)
-    where
-        T: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        }
-    }
-
-    // inherit the default implementation of to_xxx() from Consumer
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxStatefulConsumer<T>, RcStatefulConsumer, FnMut);
 }
 
 // Use macro to generate Clone implementation
@@ -1725,69 +1477,14 @@ pub struct RcConditionalStatefulConsumer<T> {
     predicate: RcPredicate<T>,
 }
 
-impl<T> RcConditionalStatefulConsumer<T>
-where
-    T: 'static,
-{
-    /// Adds an else branch (single-threaded shared version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch, can be:
-    ///   - Closure: `|x: &T|`
-    ///   - `RcStatefulConsumer<T>`, `BoxStatefulConsumer<T>`
-    ///   - Any type implementing `Consumer<T>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `RcStatefulConsumer<T>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{Consumer, RcStatefulConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = RcStatefulConsumer::new(move |x: &i32| {
-    ///     l1.borrow_mut().push(*x);
-    /// })
-    /// .when(|x: &i32| *x > 0)
-    /// .or_else(move |x: &i32| {
-    ///     l2.borrow_mut().push(-*x);
-    /// });
-    ///
-    /// consumer.accept(&5);
-    /// assert_eq!(*log.borrow(), vec![5]);
-    ///
-    /// consumer.accept(&-5);
-    /// assert_eq!(*log.borrow(), vec![5, 5]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> RcStatefulConsumer<T>
-    where
-        C: StatefulConsumer<T> + 'static,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        RcStatefulConsumer::new(move |t: &T| {
-            if pred.test(t) {
-                then_cons.accept(t);
-            } else {
-                else_cons.accept(t);
-            }
-        })
-    }
-}
+// Use macro to generate and_then and or_else methods
+impl_shared_conditional_consumer!(
+    RcConditionalStatefulConsumer<T>,
+    RcStatefulConsumer,
+    StatefulConsumer,
+    into_rc,
+    'static
+);
 
 impl<T> StatefulConsumer<T> for RcConditionalStatefulConsumer<T>
 where
@@ -1799,40 +1496,8 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulConsumer<T> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulConsumer<T> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        RcStatefulConsumer::new(move |t| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        })
-    }
-
-    // do NOT override Consumer::into_arc() because RcConditionalStatefulConsumer is not Send + Sync
-    // and calling RcConditionalStatefulConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T| {
-            if pred.test(t) {
-                consumer.accept(t);
-            }
-        }
-    }
-
-    // inherit the default implementation of to_xxx() from Consumer
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxStatefulConsumer<T>, RcStatefulConsumer, FnMut);
 }
 
 // Use macro to generate Clone implementation

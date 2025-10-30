@@ -37,15 +37,16 @@ use std::sync::Arc;
 
 use crate::consumers::consumer_once::BoxConsumerOnce;
 use crate::consumers::macros::{
+    impl_box_conditional_consumer,
     impl_box_consumer_methods,
     impl_conditional_consumer_clone,
+    impl_conditional_consumer_conversions,
     impl_conditional_consumer_debug_display,
     impl_consumer_clone,
     impl_consumer_common_methods,
     impl_consumer_debug_display,
-    impl_shared_consumer_methods,
-    impl_box_conditional_consumer,
     impl_shared_conditional_consumer,
+    impl_shared_consumer_methods,
 };
 use crate::predicates::predicate::{
     ArcPredicate,
@@ -373,18 +374,10 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        BoxConsumer<T>,
-        (Fn(&T) + 'static),
-        |f| Box::new(f)
-    );
+    impl_consumer_common_methods!(BoxConsumer<T>, (Fn(&T) + 'static), |f| Box::new(f));
 
     // Generates: when() and and_then() methods that consume self
-    impl_box_consumer_methods!(
-        BoxConsumer<T>,
-        BoxConditionalConsumer,
-        Consumer
-    );
+    impl_box_consumer_methods!(BoxConsumer<T>, BoxConditionalConsumer, Consumer);
 }
 
 impl<T> Consumer<T> for BoxConsumer<T> {
@@ -478,11 +471,9 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        ArcConsumer<T>,
-        (Fn(&T) + Send + Sync + 'static),
-        |f| Arc::new(f)
-    );
+    impl_consumer_common_methods!(ArcConsumer<T>, (Fn(&T) + Send + Sync + 'static), |f| {
+        Arc::new(f)
+    });
 
     // Generates: when() and and_then() methods that borrow &self (Arc can clone)
     impl_shared_consumer_methods!(
@@ -623,11 +614,7 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        RcConsumer<T>,
-        (Fn(&T) + 'static),
-        |f| Rc::new(f)
-    );
+    impl_consumer_common_methods!(RcConsumer<T>, (Fn(&T) + 'static), |f| Rc::new(f));
 
     // Generates: when() and and_then() methods that borrow &self (Rc can clone)
     impl_shared_consumer_methods!(
@@ -930,6 +917,21 @@ pub struct BoxConditionalConsumer<T> {
 // Use macro to generate conditional consumer implementations
 impl_box_conditional_consumer!(BoxConditionalConsumer<T>, BoxConsumer, Consumer);
 
+// Hand-written Consumer trait implementation
+impl<T> Consumer<T> for BoxConditionalConsumer<T>
+where
+    T: 'static,
+{
+    fn accept(&self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxConsumer<T>, RcConsumer, Fn);
+}
+
 // ============================================================================
 // 8. ArcConditionalConsumer - Arc-based Conditional Consumer
 // ============================================================================
@@ -1000,6 +1002,21 @@ impl_shared_conditional_consumer!(
     into_arc,
     Send + Sync + 'static
 );
+
+// Hand-written Consumer trait implementation
+impl<T> Consumer<T> for ArcConditionalConsumer<T>
+where
+    T: 'static,
+{
+    fn accept(&self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxConsumer<T>, RcConsumer, Fn);
+}
 
 // Use macro to generate Clone implementation
 impl_conditional_consumer_clone!(ArcConditionalConsumer<T>);
@@ -1077,6 +1094,21 @@ impl_shared_conditional_consumer!(
     into_rc,
     'static
 );
+
+// Hand-written Consumer trait implementation
+impl<T> Consumer<T> for RcConditionalConsumer<T>
+where
+    T: 'static,
+{
+    fn accept(&self, value: &T) {
+        if self.predicate.test(value) {
+            self.consumer.accept(value);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(BoxConsumer<T>, RcConsumer, Fn);
+}
 
 // Use macro to generate Clone implementation
 impl_conditional_consumer_clone!(RcConditionalConsumer<T>);

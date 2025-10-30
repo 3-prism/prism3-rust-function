@@ -37,15 +37,16 @@ use std::sync::Arc;
 
 use crate::consumers::bi_consumer_once::BoxBiConsumerOnce;
 use crate::consumers::macros::{
+    impl_box_conditional_consumer,
     impl_box_consumer_methods,
     impl_conditional_consumer_clone,
+    impl_conditional_consumer_conversions,
     impl_conditional_consumer_debug_display,
     impl_consumer_clone,
-    impl_consumer_debug_display,
     impl_consumer_common_methods,
-    impl_shared_consumer_methods,
-    impl_box_conditional_consumer,
+    impl_consumer_debug_display,
     impl_shared_conditional_consumer,
+    impl_shared_consumer_methods,
 };
 use crate::predicates::bi_predicate::{
     ArcBiPredicate,
@@ -1024,6 +1025,26 @@ impl_box_conditional_consumer!(
     BiConsumer
 );
 
+// Hand-written BiConsumer trait implementation
+impl<T, U> BiConsumer<T, U> for BoxConditionalBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(&self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxBiConsumer<T, U>,
+        RcBiConsumer,
+        Fn
+    );
+}
+
 // Use macro to generate Debug and Display implementations
 impl_conditional_consumer_debug_display!(BoxConditionalBiConsumer<T, U>);
 
@@ -1060,6 +1081,26 @@ impl_shared_conditional_consumer!(
     into_arc,
     Send + Sync + 'static
 );
+
+// Hand-written BiConsumer trait implementation
+impl<T, U> BiConsumer<T, U> for ArcConditionalBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(&self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxBiConsumer<T, U>,
+        RcBiConsumer,
+        Fn
+    );
+}
 
 // Use macro to generate Clone implementation
 impl_conditional_consumer_clone!(ArcConditionalBiConsumer<T, U>);
@@ -1100,6 +1141,26 @@ impl_shared_conditional_consumer!(
     into_rc,
     'static
 );
+
+// Hand-written BiConsumer trait implementation
+impl<T, U> BiConsumer<T, U> for RcConditionalBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(&self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxBiConsumer<T, U>,
+        RcBiConsumer,
+        Fn
+    );
+}
 
 // Use macro to generate Clone implementation
 impl_conditional_consumer_clone!(RcConditionalBiConsumer<T, U>);

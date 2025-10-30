@@ -40,8 +40,8 @@ use crate::{
     consumers::macros::{
         impl_box_consumer_methods,
         impl_conditional_consumer_debug_display,
-        impl_consumer_debug_display,
         impl_consumer_common_methods,
+        impl_consumer_debug_display,
     },
     predicates::bi_predicate::{
         BiPredicate,

@@ -38,12 +38,15 @@ use std::sync::{
 };
 
 use crate::consumers::macros::{
+    impl_box_conditional_consumer,
     impl_box_consumer_methods,
     impl_conditional_consumer_clone,
+    impl_conditional_consumer_conversions,
     impl_conditional_consumer_debug_display,
     impl_consumer_clone,
-    impl_consumer_debug_display,
     impl_consumer_common_methods,
+    impl_consumer_debug_display,
+    impl_shared_conditional_consumer,
     impl_shared_consumer_methods,
 };
 use crate::predicates::bi_predicate::{
@@ -1170,154 +1173,12 @@ pub struct BoxConditionalStatefulBiConsumer<T, U> {
     predicate: BoxBiPredicate<T, U>,
 }
 
-impl<T, U> BoxConditionalStatefulBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Chains another consumer in sequence
-    ///
-    /// Combines the current conditional consumer with another consumer into a new
-    /// consumer. The current conditional consumer executes first, followed by the
-    /// next consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The next consumer to execute. **Note: This parameter is passed
-    ///   by value and will transfer ownership.** If you need to preserve the
-    ///   original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Direct value passing (ownership transfer)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // second is moved here
-    /// let mut chained = cond.and_then(second);
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    /// // second.accept(&2, &3); // Would not compile - moved
-    /// ```
-    ///
-    /// ## Preserving original with clone
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // Clone to preserve original
-    /// let mut chained = cond.and_then(second.clone());
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    ///
-    /// // Original still usable
-    /// second.accept(&2, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
-    /// ```
-    pub fn and_then<C>(self, next: C) -> BoxStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let mut first = self;
-        let mut second = next.into_fn();
-        BoxStatefulBiConsumer::new(move |t, u| {
-            first.accept(t, u);
-            second(t, u);
-        })
-    }
-
-    /// Adds an else branch
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `BoxStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]); // Condition satisfied
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]); // Condition not satisfied
-    /// ```
-    pub fn or_else<C>(self, else_consumer: C) -> BoxStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let pred = self.predicate;
-        let mut then_cons = self.consumer;
-        let mut else_cons = else_consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
+// Use macro to generate conditional bi-consumer implementations
+impl_box_conditional_consumer!(
+    BoxConditionalStatefulBiConsumer<T, U>,
+    BoxStatefulBiConsumer,
+    StatefulBiConsumer
+);
 
 impl<T, U> StatefulBiConsumer<T, U> for BoxConditionalStatefulBiConsumer<T, U>
 where
@@ -1330,42 +1191,12 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
-        let pred = self.predicate.into_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer_fn.accept(t, u);
-            }
-        })
-    }
-
-    // do NOT override BiConsumer::into_arc() because BoxConditionalBiConsumer is not Send + Sync
-    // and calling BoxConditionalBiConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T, &U) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // do NOT override BiConsumer::to_xxx() because BoxConditionalBiConsumer is not Clone
-    // and calling BoxConditionalBiConsumer::to_xxx() will cause a compile error
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxStatefulBiConsumer<T, U>,
+        RcStatefulBiConsumer,
+        FnMut
+    );
 }
 
 // Use macro to generate Debug and Display implementations
@@ -1419,74 +1250,14 @@ pub struct ArcConditionalStatefulBiConsumer<T, U> {
     predicate: ArcBiPredicate<T, U>,
 }
 
-impl<T, U> ArcConditionalStatefulBiConsumer<T, U>
-where
-    T: Send + 'static,
-    U: Send + 'static,
-{
-    /// Adds an else branch (thread-safe version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`).
-    ///   Must be `Send`, can be:
-    ///   - A closure: `|x: &T, y: &U|` (must be `Send`)
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U> + Send`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `ArcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> ArcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + Send + 'static,
-        T: Send + Sync,
-        U: Send + Sync,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        ArcStatefulBiConsumer::new(move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
+// Use macro to generate and_then and or_else methods
+impl_shared_conditional_consumer!(
+    ArcConditionalStatefulBiConsumer<T, U>,
+    ArcStatefulBiConsumer,
+    StatefulBiConsumer,
+    into_arc,
+    Send + Sync + 'static
+);
 
 impl<T, U> StatefulBiConsumer<T, U> for ArcConditionalStatefulBiConsumer<T, U>
 where
@@ -1499,64 +1270,12 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate.into_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer_fn.accept(t, u);
-            }
-        })
-    }
-
-    fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        ArcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_fn(self) -> impl FnMut(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // Use the default implementation of to_xxx() from BiConsumer
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxStatefulBiConsumer<T, U>,
+        RcStatefulBiConsumer,
+        FnMut
+    );
 }
 
 // Use macro to generate Clone implementation
@@ -1614,72 +1333,14 @@ pub struct RcConditionalStatefulBiConsumer<T, U> {
     predicate: RcBiPredicate<T, U>,
 }
 
-impl<T, U> RcConditionalStatefulBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Adds an else branch (single-threaded shared version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `RcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.borrow_mut().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.borrow_mut().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.borrow(), vec![8, -15]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> RcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        RcStatefulBiConsumer::new(move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
+// Use macro to generate and_then and or_else methods
+impl_shared_conditional_consumer!(
+    RcConditionalStatefulBiConsumer<T, U>,
+    RcStatefulBiConsumer,
+    StatefulBiConsumer,
+    into_rc,
+    'static
+);
 
 impl<T, U> StatefulBiConsumer<T, U> for RcConditionalStatefulBiConsumer<T, U>
 where
@@ -1692,40 +1353,12 @@ where
         }
     }
 
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    // do NOT override BiConsumer::into_arc() because RcConditionalStatefulBiConsumer is not Send + Sync
-    // and calling RcConditionalStatefulBiConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T, &U) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // Use the default implementation of to_xxx() from BiConsumer
+    // Generates: into_box(), into_rc(), into_fn()
+    impl_conditional_consumer_conversions!(
+        BoxStatefulBiConsumer<T, U>,
+        RcStatefulBiConsumer,
+        FnMut
+    );
 }
 
 // Use macro to generate Clone implementation

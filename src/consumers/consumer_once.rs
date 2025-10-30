@@ -322,18 +322,10 @@ where
     T: 'static,
 {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        BoxConsumerOnce<T>,
-        (FnOnce(&T) + 'static),
-        |f| Box::new(f)
-    );
+    impl_consumer_common_methods!(BoxConsumerOnce<T>, (FnOnce(&T) + 'static), |f| Box::new(f));
 
     // Generates: when() and and_then() methods that consume self
-    impl_box_consumer_methods!(
-        BoxConsumerOnce<T>,
-        BoxConditionalConsumerOnce,
-        ConsumerOnce
-    );
+    impl_box_consumer_methods!(BoxConsumerOnce<T>, BoxConditionalConsumerOnce, ConsumerOnce);
 }
 
 impl<T> ConsumerOnce<T> for BoxConsumerOnce<T> {
