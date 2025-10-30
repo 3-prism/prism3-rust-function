@@ -1745,11 +1745,12 @@ mod box_conditional_bi_consumer_tests {
             l1.lock().unwrap().push(*x + *y);
         });
 
-        let conditional = consumer
-            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-            .or_else(move |x: &i32, y: &i32| {
-                l2.lock().unwrap().push(*x * *y);
-            });
+        let conditional =
+            consumer
+                .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+                .or_else(move |x: &i32, y: &i32| {
+                    l2.lock().unwrap().push(*x * *y);
+                });
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
@@ -1874,11 +1875,11 @@ mod arc_conditional_bi_consumer_tests {
             c1.fetch_add(1, Ordering::SeqCst);
         });
 
-        let conditional = consumer
-            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-            .or_else(move |_x: &i32, _y: &i32| {
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(
+            move |_x: &i32, _y: &i32| {
                 c2.fetch_add(100, Ordering::SeqCst);
-            });
+            },
+        );
 
         conditional.accept(&5, &3);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
@@ -2099,11 +2100,12 @@ mod rc_conditional_bi_consumer_tests {
             l1.borrow_mut().push(*x + *y);
         });
 
-        let conditional = consumer
-            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-            .or_else(move |x: &i32, y: &i32| {
-                l2.borrow_mut().push(*x * *y);
-            });
+        let conditional =
+            consumer
+                .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+                .or_else(move |x: &i32, y: &i32| {
+                    l2.borrow_mut().push(*x * *y);
+                });
 
         conditional.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);

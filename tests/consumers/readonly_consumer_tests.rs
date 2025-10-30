@@ -1266,11 +1266,9 @@ mod box_conditional_consumer_tests {
             l1.lock().unwrap().push(*x);
         });
 
-        let conditional = consumer
-            .when(|x: &i32| *x > 0)
-            .or_else(move |x: &i32| {
-                l2.lock().unwrap().push(*x * 10);
-            });
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 10);
+        });
 
         conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
