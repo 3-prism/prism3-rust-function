@@ -132,7 +132,7 @@ mod box_bi_consumer_tests {
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -308,7 +308,7 @@ mod arc_bi_consumer_tests {
             l.lock().unwrap().push(*x + *y);
         });
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -713,7 +713,7 @@ mod rc_bi_consumer_tests {
             l.borrow_mut().push(*x + *y);
         });
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
     }
@@ -938,7 +938,7 @@ mod closure_tests {
         let closure = move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         };
-        let func = BiConsumer::into_fn(closure);
+        let mut func = BiConsumer::into_fn(closure);
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -1017,7 +1017,7 @@ mod closure_tests {
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
         // Original consumer is cloneable, test with clone
@@ -1037,7 +1037,7 @@ mod closure_tests {
             l.lock().unwrap().push(*x + *y);
         });
         // Using BiConsumer trait method explicitly
-        let func = BiConsumer::to_fn(&consumer);
+        let mut func = BiConsumer::to_fn(&consumer);
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -1052,7 +1052,7 @@ mod closure_tests {
             l.borrow_mut().push(*x + *y);
         });
         // Using BiConsumer trait method explicitly
-        let func = BiConsumer::to_fn(&consumer);
+        let mut func = BiConsumer::to_fn(&consumer);
         func(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
     }
@@ -1233,7 +1233,7 @@ mod edge_cases_tests {
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -1247,7 +1247,7 @@ mod edge_cases_tests {
         let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             l.borrow_mut().push(*x + *y);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -1466,7 +1466,7 @@ mod trait_default_impl_tests {
             l.lock().unwrap().push(*x + *y);
         });
         // This may use the overridden implementation in ArcBiConsumer
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -1522,7 +1522,7 @@ mod trait_default_impl_tests {
             l.borrow_mut().push(*x + *y);
         });
         // RcBiConsumer overrides to_fn()
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
     }
@@ -1568,7 +1568,7 @@ mod additional_conversion_tests {
         let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("x: {}, y: {}", x, y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&10, &20);
     }
 
@@ -1586,7 +1586,7 @@ mod additional_conversion_tests {
         let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("x: {}, y: {}", x, y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&10, &20);
     }
 
@@ -1965,7 +1965,7 @@ mod to_xxx_tests {
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
         // Original consumer still usable
@@ -2011,7 +2011,7 @@ mod to_xxx_tests {
         let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             l.borrow_mut().push(*x + *y);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
         // Original consumer still usable
@@ -2078,7 +2078,7 @@ mod to_xxx_tests {
             l.lock().unwrap().push(*x + *y);
         });
 
-        let func = arc_consumer.to_fn();
+        let mut func = arc_consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
         // Original still usable
@@ -2228,7 +2228,7 @@ mod direct_closure_to_xxx_tests {
             println!("{} + {} = {}", x, y, x + y);
         }
         let fp = add_consumer;
-        let func = BiConsumer::to_fn(&fp);
+        let mut func = BiConsumer::to_fn(&fp);
         func(&5, &3);
         // Original function pointer still usable
         fp(&2, &1);
@@ -2312,7 +2312,7 @@ mod direct_closure_to_xxx_tests {
             l.lock().unwrap().push(*x + *y);
         });
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
 
@@ -2333,7 +2333,7 @@ mod bi_consumer_once_compat_tests {
 
     // Helper function that accepts BiConsumerOnce
     fn accept_bi_consumer_once<C: BiConsumerOnce<i32, i32>>(consumer: C, a: &i32, b: &i32) {
-        consumer.accept_once(a, b);
+        consumer.accept(a, b);
     }
 
     #[test]
@@ -2345,7 +2345,7 @@ mod bi_consumer_once_compat_tests {
         });
 
         // BoxBiConsumer can be used as BiConsumerOnce
-        accept_bi_consumer_once(consumer, &5, &3);
+        accept_bi_consumer_once(consumer.into_once(), &5, &3);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 
@@ -2358,7 +2358,7 @@ mod bi_consumer_once_compat_tests {
         });
 
         // ArcBiConsumer can be used as BiConsumerOnce
-        accept_bi_consumer_once(consumer, &5, &3);
+        accept_bi_consumer_once(consumer.into_once(), &5, &3);
         assert_eq!(*log.lock().unwrap(), vec![15]);
     }
 
@@ -2371,7 +2371,7 @@ mod bi_consumer_once_compat_tests {
         });
 
         // RcBiConsumer can be used as BiConsumerOnce
-        accept_bi_consumer_once(consumer, &5, &3);
+        accept_bi_consumer_once(consumer.into_once(), &5, &3);
         assert_eq!(*log.borrow(), vec![2]);
     }
 
@@ -2383,7 +2383,7 @@ mod bi_consumer_once_compat_tests {
             l.lock().unwrap().push(*x + *y);
         });
 
-        consumer.accept_once(&10, &20);
+        consumer.accept(&10, &20);
         assert_eq!(*log.lock().unwrap(), vec![30]);
     }
 
@@ -2395,7 +2395,7 @@ mod bi_consumer_once_compat_tests {
             l.lock().unwrap().push(*x * *y);
         });
 
-        consumer.accept_once(&4, &7);
+        consumer.accept(&4, &7);
         assert_eq!(*log.lock().unwrap(), vec![28]);
     }
 
@@ -2407,84 +2407,84 @@ mod bi_consumer_once_compat_tests {
             l.borrow_mut().push(*x - *y);
         });
 
-        consumer.accept_once(&15, &8);
+        consumer.accept(&15, &8);
         assert_eq!(*log.borrow(), vec![7]);
     }
 
     #[test]
-    fn test_box_bi_consumer_into_box_once() {
+    fn test_box_bi_consumer_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
 
-        let once_consumer = consumer.into_box_once();
-        once_consumer.accept_once(&3, &4);
+        let once_consumer = consumer.into_box();
+        once_consumer.accept(&3, &4);
         assert_eq!(*log.lock().unwrap(), vec![7]);
     }
 
     #[test]
-    fn test_arc_bi_consumer_into_box_once() {
+    fn test_arc_bi_consumer_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x * *y);
         });
 
-        let once_consumer = consumer.into_box_once();
-        once_consumer.accept_once(&6, &7);
+        let once_consumer = consumer.into_box();
+        once_consumer.accept(&6, &7);
         assert_eq!(*log.lock().unwrap(), vec![42]);
     }
 
     #[test]
-    fn test_rc_bi_consumer_into_box_once() {
+    fn test_rc_bi_consumer_into_box() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
         let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             l.borrow_mut().push(*x - *y);
         });
 
-        let once_consumer = consumer.into_box_once();
-        once_consumer.accept_once(&20, &12);
+        let once_consumer = consumer.into_box();
+        once_consumer.accept(&20, &12);
         assert_eq!(*log.borrow(), vec![8]);
     }
 
     #[test]
-    fn test_box_bi_consumer_into_fn_once() {
+    fn test_box_bi_consumer_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
 
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&11, &22);
         assert_eq!(*log.lock().unwrap(), vec![33]);
     }
 
     #[test]
-    fn test_arc_bi_consumer_into_fn_once() {
+    fn test_arc_bi_consumer_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x * *y);
         });
 
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&9, &8);
         assert_eq!(*log.lock().unwrap(), vec![72]);
     }
 
     #[test]
-    fn test_rc_bi_consumer_into_fn_once() {
+    fn test_rc_bi_consumer_into_fn() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
         let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             l.borrow_mut().push(*x - *y);
         });
 
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&50, &30);
         assert_eq!(*log.borrow(), vec![20]);
     }

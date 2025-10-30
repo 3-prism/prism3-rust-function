@@ -31,14 +31,21 @@
 //! Haixing Hu
 
 use std::cell::RefCell;
-use std::fmt;
 use std::rc::Rc;
 use std::sync::{
     Arc,
     Mutex,
 };
 
-use crate::consumers::bi_consumer_once::BiConsumerOnce;
+use crate::consumers::macros::{
+    impl_box_consumer_methods,
+    impl_conditional_consumer_clone,
+    impl_conditional_consumer_debug_display,
+    impl_consumer_clone,
+    impl_consumer_debug_display,
+    impl_consumer_common_methods,
+    impl_shared_consumer_methods,
+};
 use crate::predicates::bi_predicate::{
     ArcBiPredicate,
     BiPredicate,
@@ -436,6 +443,45 @@ pub trait StatefulBiConsumer<T, U> {
     {
         self.clone().into_fn()
     }
+
+    /// Convert to BiConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    ///
+    /// Converts a reusable stateful bi-consumer to a one-time consumer that consumes itself on use.
+    /// This enables passing `StatefulBiConsumer` to functions that require `BiConsumerOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxBiConsumerOnce<T, U>`
+    fn into_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
+            let mut consumer = self;
+            consumer.accept(t, u);
+        })
+    }
+
+    /// Convert to BiConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement `Clone`.
+    /// Clones the current consumer and converts the clone to a one-time consumer.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxBiConsumerOnce<T, U>`
+    fn to_once(&self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_once()
+    }
 }
 
 // =======================================================================
@@ -500,201 +546,19 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new BoxStatefulBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxStatefulBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x * 2 + *y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![13]);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&T, &U) + 'static,
-    {
-        BoxStatefulBiConsumer {
-            function: Box::new(f),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        BoxStatefulBiConsumer<T, U>,
+        (FnMut(&T, &U) + 'static),
+        |f| Box::new(f)
+    );
 
-    /// Creates a new BoxStatefulBiConsumer with a name
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name of the consumer
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxStatefulBiConsumer<T, U>` instance with the specified name
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = BoxStatefulBiConsumer::new_with_name("sum_logger", move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// assert_eq!(consumer.name(), Some("sum_logger"));
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    pub fn new_with_name<F>(name: &str, f: F) -> Self
-    where
-        F: FnMut(&T, &U) + 'static,
-    {
-        BoxStatefulBiConsumer {
-            function: Box::new(f),
-            name: Some(name.to_string()),
-        }
-    }
-
-    impl_consumer_methods!(|_, _| {});
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Consumes self.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - The type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. **Note:
-    ///   This parameter is passed by value and will transfer ownership.** If you
-    ///   need to preserve the original consumer, clone it first (if it implements
-    ///   `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `BoxStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Direct value passing (ownership transfer)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let first = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// });
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // second is moved here
-    /// let mut chained = first.and_then(second);
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    /// // second.accept(&2, &3); // Would not compile - moved
-    /// ```
-    ///
-    /// ## Preserving original with clone
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let first = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// });
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // Clone to preserve original
-    /// let mut chained = first.and_then(second.clone());
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    ///
-    /// // Original still usable
-    /// second.accept(&2, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
-    /// ```
-    pub fn and_then<C>(self, next: C) -> Self
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let mut first = self.function;
-        let mut second = next;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            first(t, u);
-            second.accept(t, u);
-        })
-    }
-
-    /// Creates a conditional bi-consumer
-    ///
-    /// Returns a bi-consumer that only executes when a predicate is satisfied.
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The condition to check. **Note: This parameter is passed
-    ///   by value and will transfer ownership.** If you need to preserve the
-    ///   original bi-predicate, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U| -> bool`
-    ///   - A function pointer: `fn(&T, &U) -> bool`
-    ///   - A `BoxBiPredicate<T, U>`
-    ///   - An `RcBiPredicate<T, U>`
-    ///   - An `ArcBiPredicate<T, U>`
-    ///   - Any type implementing `BiPredicate<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns `BoxConditionalBiConsumer<T, U>`
-    pub fn when<P>(self, predicate: P) -> BoxConditionalBiConsumer<T, U>
-    where
-        P: BiPredicate<T, U> + 'static,
-    {
-        BoxConditionalBiConsumer {
-            consumer: self,
-            predicate: predicate.into_box(),
-        }
-    }
+    // Generates: when() and and_then() methods that consume self
+    impl_box_consumer_methods!(
+        BoxStatefulBiConsumer<T, U>,
+        BoxConditionalStatefulBiConsumer,
+        StatefulBiConsumer
+    );
 }
 
 impl<T, U> StatefulBiConsumer<T, U> for BoxStatefulBiConsumer<T, U> {
@@ -734,402 +598,11 @@ impl<T, U> StatefulBiConsumer<T, U> for BoxStatefulBiConsumer<T, U> {
     // and calling BoxStatefulBiConsumer::to_xxx() will cause a compile error
 }
 
-impl<T, U> fmt::Debug for BoxStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BoxStatefulBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for BoxStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "BoxStatefulBiConsumer({})", name),
-            None => write!(f, "BoxStatefulBiConsumer"),
-        }
-    }
-}
-
-impl<T, U> BiConsumerOnce<T, U> for BoxStatefulBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Performs the one-time consumption operation
-    ///
-    /// Executes the underlying function once and consumes the consumer.
-    /// After calling this method, the consumer is no longer available.
-    ///
-    /// # Parameters
-    ///
-    /// * `first` - Reference to the first value to consume
-    /// * `second` - Reference to the second value to consume
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// consumer.accept_once(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn accept_once(self, first: &T, second: &U) {
-        let mut function = self.function;
-        function(first, second)
-    }
-
-    /// Converts to BoxBiConsumerOnce
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// let box_once = consumer.into_box_once();
-    /// box_once.accept_once(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
-            self.accept_once(t, u)
-        })
-    }
-
-    /// Converts to a closure
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// Converts the bi-consumer to a closure usable with standard library
-    /// methods requiring `FnOnce`.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `FnOnce(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// let func = consumer.into_fn_once();
-    /// func(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn into_fn_once(self) -> impl FnOnce(&T, &U)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        self.function
-    }
-}
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(BoxStatefulBiConsumer<T, U>);
 
 // =======================================================================
-// 3. BoxConditionalBiConsumer - Box-based Conditional BiConsumer
-// =======================================================================
-
-/// BoxConditionalBiConsumer struct
-///
-/// A conditional bi-consumer that only executes when a predicate is satisfied.
-/// Uses `BoxStatefulBiConsumer` and `BoxBiPredicate` for single ownership semantics.
-///
-/// This type is typically created by calling `BoxStatefulBiConsumer::when()` and is
-/// designed to work with the `or_else()` method to create if-then-else logic.
-///
-/// # Features
-///
-/// - **Single Ownership**: Not cloneable, consumes `self` on use
-/// - **Conditional Execution**: Only consumes when predicate returns `true`
-/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
-/// - **Implements BiConsumer**: Can be used anywhere a `BiConsumer` is expected
-///
-/// # Examples
-///
-/// ## Basic Conditional Execution
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-/// use std::sync::{Arc, Mutex};
-///
-/// let log = Arc::new(Mutex::new(Vec::new()));
-/// let l = log.clone();
-/// let consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-///     l.lock().unwrap().push(*x + *y);
-/// });
-/// let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-///
-/// conditional.accept(&5, &3);
-/// assert_eq!(*log.lock().unwrap(), vec![8]); // Executed
-///
-/// conditional.accept(&-5, &3);
-/// assert_eq!(*log.lock().unwrap(), vec![8]); // Not executed
-/// ```
-///
-/// ## With or_else Branch
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-/// use std::sync::{Arc, Mutex};
-///
-/// let log = Arc::new(Mutex::new(Vec::new()));
-/// let l1 = log.clone();
-/// let l2 = log.clone();
-/// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-///     l1.lock().unwrap().push(*x + *y);
-/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-///   .or_else(move |x: &i32, y: &i32| {
-///     l2.lock().unwrap().push(*x * *y);
-/// });
-///
-/// consumer.accept(&5, &3);
-/// assert_eq!(*log.lock().unwrap(), vec![8]); // when branch executed
-///
-/// consumer.accept(&-5, &3);
-/// assert_eq!(*log.lock().unwrap(), vec![8, -15]); // or_else branch executed
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct BoxConditionalBiConsumer<T, U> {
-    consumer: BoxStatefulBiConsumer<T, U>,
-    predicate: BoxBiPredicate<T, U>,
-}
-
-impl<T, U> StatefulBiConsumer<T, U> for BoxConditionalBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    fn accept(&mut self, first: &T, second: &U) {
-        if self.predicate.test(first, second) {
-            self.consumer.accept(first, second);
-        }
-    }
-
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
-        let pred = self.predicate.into_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer_fn.accept(t, u);
-            }
-        })
-    }
-
-    // do NOT override BiConsumer::into_arc() because BoxConditionalBiConsumer is not Send + Sync
-    // and calling BoxConditionalBiConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T, &U) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // do NOT override BiConsumer::to_xxx() because BoxConditionalBiConsumer is not Clone
-    // and calling BoxConditionalBiConsumer::to_xxx() will cause a compile error
-}
-
-impl<T, U> BoxConditionalBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Chains another consumer in sequence
-    ///
-    /// Combines the current conditional consumer with another consumer into a new
-    /// consumer. The current conditional consumer executes first, followed by the
-    /// next consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The next consumer to execute. **Note: This parameter is passed
-    ///   by value and will transfer ownership.** If you need to preserve the
-    ///   original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Direct value passing (ownership transfer)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // second is moved here
-    /// let mut chained = cond.and_then(second);
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    /// // second.accept(&2, &3); // Would not compile - moved
-    /// ```
-    ///
-    /// ## Preserving original with clone
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // Clone to preserve original
-    /// let mut chained = cond.and_then(second.clone());
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    ///
-    /// // Original still usable
-    /// second.accept(&2, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
-    /// ```
-    pub fn and_then<C>(self, next: C) -> BoxStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let mut first = self;
-        let mut second = next;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            first.accept(t, u);
-            second.accept(t, u);
-        })
-    }
-
-    /// Adds an else branch
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `BoxStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]); // Condition satisfied
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]); // Condition not satisfied
-    /// ```
-    pub fn or_else<C>(self, else_consumer: C) -> BoxStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let pred = self.predicate;
-        let mut then_cons = self.consumer;
-        let mut else_cons = else_consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
-
-// =======================================================================
-// 4. ArcStatefulBiConsumer - Thread-Safe Shared Ownership Implementation
+// 3. ArcStatefulBiConsumer - Thread-Safe Shared Ownership Implementation
 // =======================================================================
 
 /// ArcStatefulBiConsumer struct
@@ -1197,252 +670,21 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new ArcStatefulBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `ArcStatefulBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x * 2 + *y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![13]);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&T, &U) + Send + 'static,
-    {
-        ArcStatefulBiConsumer {
-            function: Arc::new(Mutex::new(f)),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        ArcStatefulBiConsumer<T, U>,
+        (FnMut(&T, &U) + Send + 'static),
+        |f| Arc::new(Mutex::new(f))
+    );
 
-    /// Creates a new ArcStatefulBiConsumer with a name
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name of the consumer
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `ArcStatefulBiConsumer<T, U>` instance with the specified name
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = ArcStatefulBiConsumer::new_with_name("sum_logger", move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// assert_eq!(consumer.name(), Some("sum_logger"));
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    pub fn new_with_name<F>(name: &str, f: F) -> Self
-    where
-        F: FnMut(&T, &U) + Send + 'static,
-    {
-        ArcStatefulBiConsumer {
-            function: Arc::new(Mutex::new(f)),
-            name: Some(name.to_string()),
-        }
-    }
-
-    /// Gets the name of the consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
-
-    /// Converts to a closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function via Arc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `FnMut(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    ///
-    /// let mut func = consumer.to_fn();
-    /// func(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    pub fn to_fn(&self) -> impl FnMut(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let func = Arc::clone(&self.function);
-        move |t: &T, u: &U| {
-            func.lock().unwrap()(t, u);
-        }
-    }
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Borrows &self, does not consume the original
-    /// consumer.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - Type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `StatefulBiConsumer<T, U> + Send`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `ArcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let first = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// });
-    /// let second = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// // second is passed by reference, so it remains usable
-    /// let mut chained = first.and_then(&second);
-    ///
-    /// // first and second still usable after chaining
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
-    /// // second.accept(&2, &3); // Still usable
-    /// ```
-    pub fn and_then<C>(&self, mut next: C) -> ArcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + Send + 'static,
-    {
-        let first = Arc::clone(&self.function);
-        ArcStatefulBiConsumer {
-            function: Arc::new(Mutex::new(move |t: &T, u: &U| {
-                first.lock().unwrap()(t, u);
-                next.accept(t, u);
-            })),
-            name: None,
-        }
-    }
-
-    /// Creates a conditional bi-consumer (thread-safe version)
-    ///
-    /// Returns a bi-consumer that only executes when a predicate is satisfied.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The condition to check. **Note: This parameter is passed
-    ///   by value and will transfer ownership.** If you need to preserve the
-    ///   original bi-predicate, clone it first (if it implements `Clone`).
-    ///   Must be `Send + Sync`, can be:
-    ///   - A closure: `|x: &T, y: &U| -> bool` (requires `Send + Sync`)
-    ///   - A function pointer: `fn(&T, &U) -> bool`
-    ///   - An `ArcBiPredicate<T, U>`
-    ///   - Any type implementing `BiPredicate<T, U> + Send + Sync`
-    ///
-    /// # Returns
-    ///
-    /// Returns `ArcConditionalBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    ///
-    /// let conditional_clone = conditional.clone();
-    ///
-    /// let mut positive = 5;
-    /// let mut m = conditional;
-    /// m.accept(&positive, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    pub fn when<P>(&self, predicate: P) -> ArcConditionalBiConsumer<T, U>
-    where
-        P: BiPredicate<T, U> + Send + Sync + 'static,
-        T: Send + Sync,
-        U: Send + Sync,
-    {
-        ArcConditionalBiConsumer {
-            consumer: self.clone(),
-            predicate: predicate.into_arc(),
-        }
-    }
+    // Generates: when() and and_then() methods that borrow &self (Arc can clone)
+    impl_shared_consumer_methods!(
+        ArcStatefulBiConsumer<T, U>,
+        ArcConditionalStatefulBiConsumer,
+        into_arc,
+        StatefulBiConsumer,
+        Send + Sync + 'static
+    );
 }
 
 impl<T, U> StatefulBiConsumer<T, U> for ArcStatefulBiConsumer<T, U> {
@@ -1521,347 +763,14 @@ impl<T, U> StatefulBiConsumer<T, U> for ArcStatefulBiConsumer<T, U> {
     }
 }
 
-impl<T, U> Clone for ArcStatefulBiConsumer<T, U> {
-    /// Clones the ArcStatefulBiConsumer
-    ///
-    /// Creates a new ArcStatefulBiConsumer sharing the underlying function with
-    /// the original instance.
-    fn clone(&self) -> Self {
-        ArcStatefulBiConsumer {
-            function: self.function.clone(),
-            name: self.name.clone(),
-        }
-    }
-}
+// Use macro to generate Clone implementation
+impl_consumer_clone!(ArcStatefulBiConsumer<T, U>, Arc::clone);
 
-impl<T, U> fmt::Debug for ArcStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ArcStatefulBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for ArcStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "ArcStatefulBiConsumer({})", name),
-            None => write!(f, "ArcStatefulBiConsumer"),
-        }
-    }
-}
-
-impl<T, U> BiConsumerOnce<T, U> for ArcStatefulBiConsumer<T, U>
-where
-    T: Send + 'static,
-    U: Send + 'static,
-{
-    /// Performs the one-time consumption operation
-    ///
-    /// Executes the underlying function once and consumes the consumer.
-    /// After calling this method, the consumer is no longer available.
-    ///
-    /// # Parameters
-    ///
-    /// * `first` - Reference to the first value to consume
-    /// * `second` - Reference to the second value to consume
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// consumer.accept_once(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn accept_once(self, first: &T, second: &U) {
-        (self.function.lock().unwrap())(first, second)
-    }
-
-    /// Converts to BoxBiConsumerOnce
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// let box_once = consumer.into_box_once();
-    /// box_once.accept_once(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function;
-        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
-            self_fn.lock().unwrap()(t, u)
-        })
-    }
-
-    /// Converts to a closure
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// Converts the bi-consumer to a closure usable with standard library
-    /// methods requiring `FnOnce`.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `FnOnce(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.lock().unwrap().push(*x + *y);
-    /// });
-    /// let func = consumer.into_fn_once();
-    /// func(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    /// ```
-    fn into_fn_once(self) -> impl FnOnce(&T, &U)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function;
-        move |t, u| self_fn.lock().unwrap()(t, u)
-    }
-}
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(ArcStatefulBiConsumer<T, U>);
 
 // =======================================================================
-// 5. ArcConditionalBiConsumer - Arc-based Conditional BiConsumer
-// =======================================================================
-
-/// ArcConditionalBiConsumer struct
-///
-/// A thread-safe conditional bi-consumer that only executes when a predicate is
-/// satisfied. Uses `ArcStatefulBiConsumer` and `ArcBiPredicate` for shared ownership across
-/// threads.
-///
-/// This type is typically created by calling `ArcStatefulBiConsumer::when()` and is
-/// designed to work with the `or_else()` method to create if-then-else logic.
-///
-/// # Features
-///
-/// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
-/// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
-/// - **Conditional Execution**: Only consumes when predicate returns `true`
-/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-/// use std::sync::{Arc, Mutex};
-///
-/// let log = Arc::new(Mutex::new(Vec::new()));
-/// let l = log.clone();
-/// let conditional = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-///     l.lock().unwrap().push(*x + *y);
-/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-///
-/// let conditional_clone = conditional.clone();
-///
-/// let mut value = 5;
-/// let mut m = conditional;
-/// m.accept(&value, &3);
-/// assert_eq!(*log.lock().unwrap(), vec![8]);
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct ArcConditionalBiConsumer<T, U> {
-    consumer: ArcStatefulBiConsumer<T, U>,
-    predicate: ArcBiPredicate<T, U>,
-}
-
-impl<T, U> StatefulBiConsumer<T, U> for ArcConditionalBiConsumer<T, U>
-where
-    T: Send + 'static,
-    U: Send + 'static,
-{
-    fn accept(&mut self, first: &T, second: &U) {
-        if self.predicate.test(first, second) {
-            self.consumer.accept(first, second);
-        }
-    }
-
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate.to_rc();
-        let consumer = self.consumer.into_rc();
-        let mut consumer_fn = consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer_fn.accept(t, u);
-            }
-        })
-    }
-
-    fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
-    where
-        T: Send + 'static,
-        U: Send + 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        ArcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_fn(self) -> impl FnMut(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // Use the default implementation of to_xxx() from BiConsumer
-}
-
-impl<T, U> ArcConditionalBiConsumer<T, U>
-where
-    T: Send + 'static,
-    U: Send + 'static,
-{
-    /// Adds an else branch (thread-safe version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`).
-    ///   Must be `Send`, can be:
-    ///   - A closure: `|x: &T, y: &U|` (must be `Send`)
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U> + Send`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `ArcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let log = Arc::new(Mutex::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.lock().unwrap().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.lock().unwrap().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8]);
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> ArcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + Send + 'static,
-        T: Send + Sync,
-        U: Send + Sync,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        ArcStatefulBiConsumer::new(move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
-
-impl<T, U> Clone for ArcConditionalBiConsumer<T, U> {
-    /// Clones the conditional consumer
-    ///
-    /// Creates a new instance that shares the underlying consumer and predicate
-    /// with the original instance.
-    fn clone(&self) -> Self {
-        ArcConditionalBiConsumer {
-            consumer: self.consumer.clone(),
-            predicate: self.predicate.clone(),
-        }
-    }
-}
-
-// =======================================================================
-// 6. RcStatefulBiConsumer - Single-Threaded Shared Ownership Implementation
+// 4. RcStatefulBiConsumer - Single-Threaded Shared Ownership Implementation
 // =======================================================================
 
 /// RcStatefulBiConsumer struct
@@ -1940,253 +849,21 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new RcStatefulBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `RcStatefulBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x * 2 + *y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![13]);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: FnMut(&T, &U) + 'static,
-    {
-        RcStatefulBiConsumer {
-            function: Rc::new(RefCell::new(f)),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        RcStatefulBiConsumer<T, U>,
+        (FnMut(&T, &U) + 'static),
+        |f| Rc::new(RefCell::new(f))
+    );
 
-    /// Creates a new RcStatefulBiConsumer with a name
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name of the consumer
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `RcStatefulBiConsumer<T, U>` instance with the specified name
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let mut consumer = RcStatefulBiConsumer::new_with_name("sum_logger", move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    /// assert_eq!(consumer.name(), Some("sum_logger"));
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    pub fn new_with_name<F>(name: &str, f: F) -> Self
-    where
-        F: FnMut(&T, &U) + 'static,
-    {
-        RcStatefulBiConsumer {
-            function: Rc::new(RefCell::new(f)),
-            name: Some(name.to_string()),
-        }
-    }
-
-    /// Gets the name of the consumer
-    ///
-    /// # Returns
-    ///
-    /// Returns the consumer's name, or `None` if not set
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    /// Sets the name of the consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `name` - The name to set
-    pub fn set_name(&mut self, name: impl Into<String>) {
-        self.name = Some(name.into());
-    }
-
-    /// Converts to a closure (without consuming self)
-    ///
-    /// Creates a new closure that calls the underlying function via Rc.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `FnMut(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    ///
-    /// let mut func = consumer.to_fn();
-    /// func(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    pub fn to_fn(&self) -> impl FnMut(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let func = Rc::clone(&self.function);
-        move |t: &T, u: &U| {
-            func.borrow_mut()(t, u);
-        }
-    }
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Borrows &self, does not consume the original
-    /// consumer.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - Type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - An `ArcStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `StatefulBiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `RcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let first = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.borrow_mut().push(*x + *y);
-    /// });
-    /// let second = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l2.borrow_mut().push(*x * *y);
-    /// });
-    ///
-    /// let mut chained = first.and_then(&second);
-    ///
-    /// // first and second still usable after chaining
-    /// chained.accept(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8, 15]);
-    /// ```
-    pub fn and_then<C>(&self, mut next: C) -> RcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let first = Rc::clone(&self.function);
-        RcStatefulBiConsumer {
-            function: Rc::new(RefCell::new(move |t: &T, u: &U| {
-                first.borrow_mut()(t, u);
-                next.accept(t, u);
-            })),
-            name: None,
-        }
-    }
-
-    /// Creates a conditional bi-consumer (single-threaded shared version)
-    ///
-    /// Returns a bi-consumer that only executes when a predicate is satisfied.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `P` - The predicate type
-    ///
-    /// # Parameters
-    ///
-    /// * `predicate` - The condition to check. **Note: This parameter is passed
-    ///   by value and will transfer ownership.** If you need to preserve the
-    ///   original bi-predicate, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U| -> bool`
-    ///   - A function pointer: `fn(&T, &U) -> bool`
-    ///   - An `RcBiPredicate<T, U>`
-    ///   - A `BoxBiPredicate<T, U>`
-    ///   - Any type implementing `BiPredicate<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns `RcConditionalBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    /// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-    ///
-    /// let conditional_clone = conditional.clone();
-    ///
-    /// let mut positive = 5;
-    /// let mut m = conditional;
-    /// m.accept(&positive, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    pub fn when<P>(&self, predicate: P) -> RcConditionalBiConsumer<T, U>
-    where
-        P: BiPredicate<T, U> + 'static,
-    {
-        RcConditionalBiConsumer {
-            consumer: self.clone(),
-            predicate: predicate.into_rc(),
-        }
-    }
+    // Generates: when() and and_then() methods that borrow &self (Rc can clone)
+    impl_shared_consumer_methods!(
+        RcStatefulBiConsumer<T, U>,
+        RcConditionalStatefulBiConsumer,
+        into_rc,
+        StatefulBiConsumer,
+        'static
+    );
 }
 
 impl<T, U> StatefulBiConsumer<T, U> for RcStatefulBiConsumer<T, U> {
@@ -2203,375 +880,26 @@ impl<T, U> StatefulBiConsumer<T, U> for RcStatefulBiConsumer<T, U> {
         BoxStatefulBiConsumer::new(move |t, u| self_fn.borrow_mut()(t, u))
     }
 
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        self
-    }
-
-    // do NOT override BiConsumer::into_arc() because RcStatefulBiConsumer is not Send + Sync
-    // and calling RcStatefulBiConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T, &U)
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function;
-        move |t, u| self_fn.borrow_mut()(t, u)
-    }
-
-    fn to_box(&self) -> BoxStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function.clone();
-        BoxStatefulBiConsumer::new(move |t, u| self_fn.borrow_mut()(t, u))
-    }
-
-    fn to_rc(&self) -> RcStatefulBiConsumer<T, U>
-    where
-        T: 'static,
-        U: 'static,
-    {
-        self.clone()
-    }
-
-    // do NOT override BiConsumer::to_arc() because RcStatefulBiConsumer is not Send + Sync
-    // and calling RcStatefulBiConsumer::to_arc() will cause a compile error
-
     fn to_fn(&self) -> impl FnMut(&T, &U)
     where
         T: 'static,
         U: 'static,
     {
-        let self_fn = self.function.clone();
-        move |t, u| self_fn.borrow_mut()(t, u)
-    }
-}
-
-impl<T, U> Clone for RcStatefulBiConsumer<T, U> {
-    /// Clones the RcStatefulBiConsumer
-    ///
-    /// Creates a new RcStatefulBiConsumer sharing the underlying function with the
-    /// original instance.
-    fn clone(&self) -> Self {
-        RcStatefulBiConsumer {
-            function: Rc::clone(&self.function),
-            name: self.name.clone(),
-        }
-    }
-}
-
-impl<T, U> fmt::Debug for RcStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RcStatefulBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for RcStatefulBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "RcStatefulBiConsumer({})", name),
-            None => write!(f, "RcStatefulBiConsumer"),
-        }
-    }
-}
-
-impl<T, U> BiConsumerOnce<T, U> for RcStatefulBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Performs the one-time consumption operation
-    ///
-    /// Executes the underlying function once and consumes the consumer.
-    /// After calling this method, the consumer is no longer available.
-    ///
-    /// # Parameters
-    ///
-    /// * `first` - Reference to the first value to consume
-    /// * `second` - Reference to the second value to consume
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    /// consumer.accept_once(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    fn accept_once(self, first: &T, second: &U) {
-        (self.function.borrow_mut())(first, second)
-    }
-
-    /// Converts to BoxBiConsumerOnce
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// # Returns
-    ///
-    /// Returns the wrapped `BoxBiConsumerOnce<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    /// let box_once = consumer.into_box_once();
-    /// box_once.accept_once(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    fn into_box_once(self) -> crate::consumers::bi_consumer_once::BoxBiConsumerOnce<T, U>
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function;
-        crate::consumers::bi_consumer_once::BoxBiConsumerOnce::new(move |t, u| {
-            self_fn.borrow_mut()(t, u)
-        })
-    }
-
-    /// Converts to a closure
-    ///
-    /// **⚠️ Consumes `self`**: Original consumer becomes unavailable after
-    /// calling this method.
-    ///
-    /// Converts the bi-consumer to a closure usable with standard library
-    /// methods requiring `FnOnce`.
-    ///
-    /// # Returns
-    ///
-    /// Returns a closure implementing `FnOnce(&T, &U)`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumerOnce, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l = log.clone();
-    /// let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l.borrow_mut().push(*x + *y);
-    /// });
-    /// let func = consumer.into_fn_once();
-    /// func(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    /// ```
-    fn into_fn_once(self) -> impl FnOnce(&T, &U)
-    where
-        Self: Sized + 'static,
-        T: 'static,
-        U: 'static,
-    {
-        let self_fn = self.function;
-        move |t, u| self_fn.borrow_mut()(t, u)
-    }
-}
-
-// =======================================================================
-// 7. RcConditionalBiConsumer - Rc-based Conditional BiConsumer
-// =======================================================================
-
-/// RcConditionalBiConsumer struct
-///
-/// A single-threaded conditional bi-consumer that only executes when a predicate is
-/// satisfied. Uses `RcStatefulBiConsumer` and `RcBiPredicate` for shared ownership within a
-/// single thread.
-///
-/// This type is typically created by calling `RcStatefulBiConsumer::when()` and is
-/// designed to work with the `or_else()` method to create if-then-else logic.
-///
-/// # Features
-///
-/// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
-/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
-/// - **Conditional Execution**: Only consumes when predicate returns `true`
-/// - **No Lock Overhead**: More efficient than `ArcConditionalBiConsumer`
-///
-/// # Examples
-///
-/// ```rust
-/// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-/// use std::rc::Rc;
-/// use std::cell::RefCell;
-///
-/// let log = Rc::new(RefCell::new(Vec::new()));
-/// let l = log.clone();
-/// let conditional = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-///     l.borrow_mut().push(*x + *y);
-/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
-///
-/// let conditional_clone = conditional.clone();
-///
-/// let mut value = 5;
-/// let mut m = conditional;
-/// m.accept(&value, &3);
-/// assert_eq!(*log.borrow(), vec![8]);
-/// ```
-///
-/// # Author
-///
-/// Haixing Hu
-pub struct RcConditionalBiConsumer<T, U> {
-    consumer: RcStatefulBiConsumer<T, U>,
-    predicate: RcBiPredicate<T, U>,
-}
-
-impl<T, U> StatefulBiConsumer<T, U> for RcConditionalBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    fn accept(&mut self, first: &T, second: &U) {
-        if self.predicate.test(first, second) {
-            self.consumer.accept(first, second);
-        }
-    }
-
-    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        BoxStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
-        RcStatefulBiConsumer::new(move |t, u| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        })
-    }
-
-    // do NOT override BiConsumer::into_arc() because RcConditionalBiConsumer is not Send + Sync
-    // and calling RcConditionalBiConsumer::into_arc() will cause a compile error
-
-    fn into_fn(self) -> impl FnMut(&T, &U) {
-        let pred = self.predicate;
-        let mut consumer = self.consumer;
+        let func = Rc::clone(&self.function);
         move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                consumer.accept(t, u);
-            }
-        }
-    }
-
-    // Use the default implementation of to_xxx() from BiConsumer
-}
-
-impl<T, U> RcConditionalBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    /// Adds an else branch (single-threaded shared version)
-    ///
-    /// Executes the original consumer when the condition is satisfied, otherwise
-    /// executes else_consumer.
-    ///
-    /// # Parameters
-    ///
-    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
-    ///   is passed by value and will transfer ownership.** If you need to preserve
-    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - An `RcStatefulBiConsumer<T, U>`
-    ///   - A `BoxStatefulBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns the composed `RcStatefulBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Using a closure (recommended)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
-    /// use std::rc::Rc;
-    /// use std::cell::RefCell;
-    ///
-    /// let log = Rc::new(RefCell::new(Vec::new()));
-    /// let l1 = log.clone();
-    /// let l2 = log.clone();
-    /// let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-    ///     l1.borrow_mut().push(*x + *y);
-    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-    ///   .or_else(move |x: &i32, y: &i32| {
-    ///     l2.borrow_mut().push(*x * *y);
-    /// });
-    ///
-    /// consumer.accept(&5, &3);
-    /// assert_eq!(*log.borrow(), vec![8]);
-    ///
-    /// consumer.accept(&-5, &3);
-    /// assert_eq!(*log.borrow(), vec![8, -15]);
-    /// ```
-    pub fn or_else<C>(&self, else_consumer: C) -> RcStatefulBiConsumer<T, U>
-    where
-        C: StatefulBiConsumer<T, U> + 'static,
-    {
-        let pred = self.predicate.clone();
-        let mut then_cons = self.consumer.clone();
-        let mut else_cons = else_consumer;
-
-        RcStatefulBiConsumer::new(move |t: &T, u: &U| {
-            if pred.test(t, u) {
-                then_cons.accept(t, u);
-            } else {
-                else_cons.accept(t, u);
-            }
-        })
-    }
-}
-
-impl<T, U> Clone for RcConditionalBiConsumer<T, U> {
-    /// Clones the conditional consumer
-    ///
-    /// Creates a new instance that shares the underlying consumer and predicate
-    /// with the original instance.
-    fn clone(&self) -> Self {
-        RcConditionalBiConsumer {
-            consumer: self.consumer.clone(),
-            predicate: self.predicate.clone(),
+            func.borrow_mut()(t, u);
         }
     }
 }
+
+// Use macro to generate Clone implementation
+impl_consumer_clone!(RcStatefulBiConsumer<T, U>, Rc::clone);
+
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(RcStatefulBiConsumer<T, U>);
 
 // =======================================================================
-// 9. Implement BiConsumer trait for closures
+// 5. Implement BiConsumer trait for closures
 // =======================================================================
 
 /// Implements BiConsumer for all FnMut(&T, &U)
@@ -2660,7 +988,7 @@ where
 }
 
 // =======================================================================
-// 10. Provide extension methods for closures
+// 6. Provide extension methods for closures
 // =======================================================================
 
 /// Extension trait providing bi-consumer composition methods for closures
@@ -2769,3 +1097,639 @@ pub trait FnStatefulBiConsumerOps<T, U>: FnMut(&T, &U) + Sized {
 
 /// Implements FnStatefulBiConsumerOps for all closure types
 impl<T, U, F> FnStatefulBiConsumerOps<T, U> for F where F: FnMut(&T, &U) {}
+
+// =======================================================================
+// 7. BoxConditionalBiConsumer - Box-based Conditional BiConsumer
+// =======================================================================
+
+/// BoxConditionalBiConsumer struct
+///
+/// A conditional bi-consumer that only executes when a predicate is satisfied.
+/// Uses `BoxStatefulBiConsumer` and `BoxBiPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxStatefulBiConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements BiConsumer**: Can be used anywhere a `BiConsumer` is expected
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
+/// });
+/// let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+///
+/// conditional.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]); // Executed
+///
+/// conditional.accept(&-5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]); // Not executed
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l1 = log.clone();
+/// let l2 = log.clone();
+/// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+///     l1.lock().unwrap().push(*x + *y);
+/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+///   .or_else(move |x: &i32, y: &i32| {
+///     l2.lock().unwrap().push(*x * *y);
+/// });
+///
+/// consumer.accept(&5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]); // when branch executed
+///
+/// consumer.accept(&-5, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8, -15]); // or_else branch executed
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct BoxConditionalStatefulBiConsumer<T, U> {
+    consumer: BoxStatefulBiConsumer<T, U>,
+    predicate: BoxBiPredicate<T, U>,
+}
+
+impl<T, U> BoxConditionalStatefulBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    /// Chains another consumer in sequence
+    ///
+    /// Combines the current conditional consumer with another consumer into a new
+    /// consumer. The current conditional consumer executes first, followed by the
+    /// next consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `next` - The next consumer to execute. **Note: This parameter is passed
+    ///   by value and will transfer ownership.** If you need to preserve the
+    ///   original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - An `ArcStatefulBiConsumer<T, U>`
+    ///   - An `RcStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `BoxStatefulBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ## Direct value passing (ownership transfer)
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// // second is moved here
+    /// let mut chained = cond.and_then(second);
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    /// // second.accept(&2, &3); // Would not compile - moved
+    /// ```
+    ///
+    /// ## Preserving original with clone
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let cond = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+    /// let second = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// // Clone to preserve original
+    /// let mut chained = cond.and_then(second.clone());
+    /// chained.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+    ///
+    /// // Original still usable
+    /// second.accept(&2, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, 15, 6]);
+    /// ```
+    pub fn and_then<C>(self, next: C) -> BoxStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + 'static,
+    {
+        let mut first = self;
+        let mut second = next.into_fn();
+        BoxStatefulBiConsumer::new(move |t, u| {
+            first.accept(t, u);
+            second(t, u);
+        })
+    }
+
+    /// Adds an else branch
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - An `RcStatefulBiConsumer<T, U>`
+    ///   - An `ArcStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `BoxStatefulBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, BoxStatefulBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+    ///   .or_else(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]); // Condition satisfied
+    ///
+    /// consumer.accept(&-5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]); // Condition not satisfied
+    /// ```
+    pub fn or_else<C>(self, else_consumer: C) -> BoxStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + 'static,
+    {
+        let pred = self.predicate;
+        let mut then_cons = self.consumer;
+        let mut else_cons = else_consumer;
+        BoxStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                then_cons.accept(t, u);
+            } else {
+                else_cons.accept(t, u);
+            }
+        })
+    }
+}
+
+impl<T, U> StatefulBiConsumer<T, U> for BoxConditionalStatefulBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(&mut self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
+        let pred = self.predicate.into_rc();
+        let consumer = self.consumer.into_rc();
+        let mut consumer_fn = consumer;
+        RcStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer_fn.accept(t, u);
+            }
+        })
+    }
+
+    // do NOT override BiConsumer::into_arc() because BoxConditionalBiConsumer is not Send + Sync
+    // and calling BoxConditionalBiConsumer::into_arc() will cause a compile error
+
+    fn into_fn(self) -> impl FnMut(&T, &U) {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        }
+    }
+
+    // do NOT override BiConsumer::to_xxx() because BoxConditionalBiConsumer is not Clone
+    // and calling BoxConditionalBiConsumer::to_xxx() will cause a compile error
+}
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(BoxConditionalStatefulBiConsumer<T, U>);
+
+// =======================================================================
+// 8. ArcConditionalStatefulBiConsumer - Arc-based Conditional BiConsumer
+// =======================================================================
+
+/// ArcConditionalStatefulBiConsumer struct
+///
+/// A thread-safe conditional bi-consumer that only executes when a predicate is
+/// satisfied. Uses `ArcStatefulBiConsumer` and `ArcBiPredicate` for shared ownership across
+/// threads.
+///
+/// This type is typically created by calling `ArcStatefulBiConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Arc`, multiple owners allowed
+/// - **Thread-Safe**: Implements `Send + Sync`, safe for concurrent use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
+/// use std::sync::{Arc, Mutex};
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let l = log.clone();
+/// let conditional = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.lock().unwrap().push(*x + *y);
+/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// let mut value = 5;
+/// let mut m = conditional;
+/// m.accept(&value, &3);
+/// assert_eq!(*log.lock().unwrap(), vec![8]);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct ArcConditionalStatefulBiConsumer<T, U> {
+    consumer: ArcStatefulBiConsumer<T, U>,
+    predicate: ArcBiPredicate<T, U>,
+}
+
+impl<T, U> ArcConditionalStatefulBiConsumer<T, U>
+where
+    T: Send + 'static,
+    U: Send + 'static,
+{
+    /// Adds an else branch (thread-safe version)
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`).
+    ///   Must be `Send`, can be:
+    ///   - A closure: `|x: &T, y: &U|` (must be `Send`)
+    ///   - An `ArcStatefulBiConsumer<T, U>`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U> + Send`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `ArcStatefulBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, ArcStatefulBiConsumer};
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let log = Arc::new(Mutex::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.lock().unwrap().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+    ///   .or_else(move |x: &i32, y: &i32| {
+    ///     l2.lock().unwrap().push(*x * *y);
+    /// });
+    ///
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8]);
+    ///
+    /// consumer.accept(&-5, &3);
+    /// assert_eq!(*log.lock().unwrap(), vec![8, -15]);
+    /// ```
+    pub fn or_else<C>(&self, else_consumer: C) -> ArcStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + Send + 'static,
+        T: Send + Sync,
+        U: Send + Sync,
+    {
+        let pred = self.predicate.clone();
+        let mut then_cons = self.consumer.clone();
+        let mut else_cons = else_consumer;
+
+        ArcStatefulBiConsumer::new(move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                then_cons.accept(t, u);
+            } else {
+                else_cons.accept(t, u);
+            }
+        })
+    }
+}
+
+impl<T, U> StatefulBiConsumer<T, U> for ArcConditionalStatefulBiConsumer<T, U>
+where
+    T: Send + 'static,
+    U: Send + 'static,
+{
+    fn accept(&mut self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    fn into_box(self) -> BoxStatefulBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcStatefulBiConsumer<T, U>
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let pred = self.predicate.to_rc();
+        let consumer = self.consumer.into_rc();
+        let mut consumer_fn = consumer;
+        RcStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer_fn.accept(t, u);
+            }
+        })
+    }
+
+    fn into_arc(self) -> ArcStatefulBiConsumer<T, U>
+    where
+        T: Send + 'static,
+        U: Send + 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        ArcStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    fn into_fn(self) -> impl FnMut(&T, &U)
+    where
+        T: 'static,
+        U: 'static,
+    {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        }
+    }
+
+    // Use the default implementation of to_xxx() from BiConsumer
+}
+
+// Use macro to generate Clone implementation
+impl_conditional_consumer_clone!(ArcConditionalStatefulBiConsumer<T, U>);
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(ArcConditionalStatefulBiConsumer<T, U>);
+
+// =======================================================================
+// 9. RcConditionalStatefulBiConsumer - Rc-based Conditional BiConsumer
+// =======================================================================
+
+/// RcConditionalStatefulBiConsumer struct
+///
+/// A single-threaded conditional bi-consumer that only executes when a predicate is
+/// satisfied. Uses `RcStatefulBiConsumer` and `RcBiPredicate` for shared ownership within a
+/// single thread.
+///
+/// This type is typically created by calling `RcStatefulBiConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable via `Rc`, multiple owners allowed
+/// - **Single-Threaded**: Not thread-safe, cannot be sent across threads
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **No Lock Overhead**: More efficient than `ArcConditionalStatefulBiConsumer`
+///
+/// # Examples
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
+/// use std::rc::Rc;
+/// use std::cell::RefCell;
+///
+/// let log = Rc::new(RefCell::new(Vec::new()));
+/// let l = log.clone();
+/// let conditional = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+///     l.borrow_mut().push(*x + *y);
+/// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+///
+/// let conditional_clone = conditional.clone();
+///
+/// let mut value = 5;
+/// let mut m = conditional;
+/// m.accept(&value, &3);
+/// assert_eq!(*log.borrow(), vec![8]);
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct RcConditionalStatefulBiConsumer<T, U> {
+    consumer: RcStatefulBiConsumer<T, U>,
+    predicate: RcBiPredicate<T, U>,
+}
+
+impl<T, U> RcConditionalStatefulBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    /// Adds an else branch (single-threaded shared version)
+    ///
+    /// Executes the original consumer when the condition is satisfied, otherwise
+    /// executes else_consumer.
+    ///
+    /// # Parameters
+    ///
+    /// * `else_consumer` - The consumer for the else branch. **Note: This parameter
+    ///   is passed by value and will transfer ownership.** If you need to preserve
+    ///   the original consumer, clone it first (if it implements `Clone`). Can be:
+    ///   - A closure: `|x: &T, y: &U|`
+    ///   - An `RcStatefulBiConsumer<T, U>`
+    ///   - A `BoxStatefulBiConsumer<T, U>`
+    ///   - Any type implementing `BiConsumer<T, U>`
+    ///
+    /// # Returns
+    ///
+    /// Returns the composed `RcStatefulBiConsumer<T, U>`
+    ///
+    /// # Examples
+    ///
+    /// ## Using a closure (recommended)
+    ///
+    /// ```rust
+    /// use prism3_function::{BiConsumer, RcStatefulBiConsumer};
+    /// use std::rc::Rc;
+    /// use std::cell::RefCell;
+    ///
+    /// let log = Rc::new(RefCell::new(Vec::new()));
+    /// let l1 = log.clone();
+    /// let l2 = log.clone();
+    /// let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+    ///     l1.borrow_mut().push(*x + *y);
+    /// }).when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+    ///   .or_else(move |x: &i32, y: &i32| {
+    ///     l2.borrow_mut().push(*x * *y);
+    /// });
+    ///
+    /// consumer.accept(&5, &3);
+    /// assert_eq!(*log.borrow(), vec![8]);
+    ///
+    /// consumer.accept(&-5, &3);
+    /// assert_eq!(*log.borrow(), vec![8, -15]);
+    /// ```
+    pub fn or_else<C>(&self, else_consumer: C) -> RcStatefulBiConsumer<T, U>
+    where
+        C: StatefulBiConsumer<T, U> + 'static,
+    {
+        let pred = self.predicate.clone();
+        let mut then_cons = self.consumer.clone();
+        let mut else_cons = else_consumer;
+
+        RcStatefulBiConsumer::new(move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                then_cons.accept(t, u);
+            } else {
+                else_cons.accept(t, u);
+            }
+        })
+    }
+}
+
+impl<T, U> StatefulBiConsumer<T, U> for RcConditionalStatefulBiConsumer<T, U>
+where
+    T: 'static,
+    U: 'static,
+{
+    fn accept(&mut self, first: &T, second: &U) {
+        if self.predicate.test(first, second) {
+            self.consumer.accept(first, second);
+        }
+    }
+
+    fn into_box(self) -> BoxStatefulBiConsumer<T, U> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        BoxStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    fn into_rc(self) -> RcStatefulBiConsumer<T, U> {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        RcStatefulBiConsumer::new(move |t, u| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        })
+    }
+
+    // do NOT override BiConsumer::into_arc() because RcConditionalStatefulBiConsumer is not Send + Sync
+    // and calling RcConditionalStatefulBiConsumer::into_arc() will cause a compile error
+
+    fn into_fn(self) -> impl FnMut(&T, &U) {
+        let pred = self.predicate;
+        let mut consumer = self.consumer;
+        move |t: &T, u: &U| {
+            if pred.test(t, u) {
+                consumer.accept(t, u);
+            }
+        }
+    }
+
+    // Use the default implementation of to_xxx() from BiConsumer
+}
+
+// Use macro to generate Clone implementation
+impl_conditional_consumer_clone!(RcConditionalStatefulBiConsumer<T, U>);
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(RcConditionalStatefulBiConsumer<T, U>);

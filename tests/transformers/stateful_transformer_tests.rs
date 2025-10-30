@@ -1975,7 +1975,7 @@ fn test_custom_mapper_to_box() {
     let mut boxed = mapper.to_box();
     assert_eq!(boxed.apply(10), 10); // 10 * 1
     assert_eq!(boxed.apply(10), 20); // 10 * 2
-    // Original mapper is still usable (was cloned)
+                                     // Original mapper is still usable (was cloned)
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
 }
@@ -1986,7 +1986,7 @@ fn test_custom_mapper_to_rc() {
     let mut rc = mapper.to_rc();
     assert_eq!(rc.apply(10), 10); // 10 * 1
     assert_eq!(rc.apply(10), 20); // 10 * 2
-    // Original mapper is still usable (was cloned)
+                                  // Original mapper is still usable (was cloned)
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
 }
@@ -1997,7 +1997,7 @@ fn test_custom_send_mapper_to_arc() {
     let mut arc = mapper.to_arc();
     assert_eq!(arc.apply(10), 10); // 10 * 1
     assert_eq!(arc.apply(10), 20); // 10 * 2
-    // Original mapper is still usable (was cloned)
+                                   // Original mapper is still usable (was cloned)
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
 }
@@ -2008,7 +2008,7 @@ fn test_custom_mapper_to_fn() {
     let mut closure = mapper.to_fn();
     assert_eq!(closure(10), 10); // 10 * 1
     assert_eq!(closure(10), 20); // 10 * 2
-    // Original mapper is still usable (was cloned)
+                                 // Original mapper is still usable (was cloned)
     let mut mapper_clone = mapper.clone();
     assert_eq!(mapper_clone.apply(10), 10); // 10 * 1 (independent state)
 }

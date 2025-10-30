@@ -690,6 +690,7 @@ where
     pub fn and_then<C>(self, next: C) -> Self
     where
         C: StatefulMutator<T> + 'static,
+        T: 'static,
     {
         let mut first = self.function;
         let mut second = next.into_fn();
@@ -775,6 +776,7 @@ where
     pub fn when<P>(self, predicate: P) -> BoxConditionalStatefulMutator<T>
     where
         P: Predicate<T> + 'static,
+        T: 'static,
     {
         BoxConditionalStatefulMutator {
             mutator: self,
@@ -1261,12 +1263,16 @@ where
     /// m.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &RcStatefulMutator<T>) -> RcStatefulMutator<T> {
+    pub fn and_then<M>(&self, next: M) -> RcStatefulMutator<T>
+    where
+        M: StatefulMutator<T> + 'static,
+        T: 'static,
+    {
         let first = self.function.clone();
-        let second = next.function.clone();
+        let mut second = next.into_fn();
         RcStatefulMutator::new(move |t: &mut T| {
             (first.borrow_mut())(t);
-            (second.borrow_mut())(t);
+            second(t);
         })
     }
 
@@ -1639,9 +1645,10 @@ where
     /// mutator.mutate(&mut negative);
     /// assert_eq!(negative, -6);
     /// ```
-    pub fn or_else<C>(self, else_mutator: C) -> RcStatefulMutator<T>
+    pub fn or_else<M>(self, else_mutator: M) -> RcStatefulMutator<T>
     where
-        C: StatefulMutator<T> + 'static,
+        M: StatefulMutator<T> + 'static,
+        T: 'static,
     {
         let pred = self.predicate;
         let mut then_mut = self.mutator;
@@ -1769,7 +1776,10 @@ where
     /// m.mutate(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
     /// ```
-    pub fn noop() -> Self {
+    pub fn noop() -> Self
+    where
+        T: Send + 'static,
+    {
         ArcStatefulMutator::new(|_| {})
     }
 
@@ -1803,7 +1813,10 @@ where
     /// m.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &ArcStatefulMutator<T>) -> ArcStatefulMutator<T> {
+    pub fn and_then(&self, next: &ArcStatefulMutator<T>) -> ArcStatefulMutator<T>
+    where
+        T: Send + 'static,
+    {
         let first = Arc::clone(&self.function);
         let second = Arc::clone(&next.function);
         ArcStatefulMutator {
@@ -2220,10 +2233,10 @@ where
     /// mutator.mutate(&mut negative);
     /// assert_eq!(negative, -6);
     /// ```
-    pub fn or_else<C>(&self, else_mutator: C) -> ArcStatefulMutator<T>
+    pub fn or_else<M>(&self, else_mutator: M) -> ArcStatefulMutator<T>
     where
-        C: StatefulMutator<T> + Send + 'static,
-        T: Send + Sync,
+        M: StatefulMutator<T> + Send + 'static,
+        T: Send + 'static,
     {
         let pred = self.predicate.clone();
         let mut then_mut = self.mutator.clone();

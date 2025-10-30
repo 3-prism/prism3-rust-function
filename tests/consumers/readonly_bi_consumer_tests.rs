@@ -67,7 +67,7 @@ mod box_readonly_bi_consumer_tests {
         let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
     }
 
@@ -177,7 +177,7 @@ mod arc_readonly_bi_consumer_tests {
             c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
@@ -236,7 +236,7 @@ mod arc_readonly_bi_consumer_tests {
         let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
     }
 
@@ -248,7 +248,7 @@ mod arc_readonly_bi_consumer_tests {
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             l.lock().unwrap().push(*x + *y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
         func(&10, &20);
         assert_eq!(*log.lock().unwrap(), vec![8, 30]);
@@ -320,7 +320,7 @@ mod rc_readonly_bi_consumer_tests {
             c.set(c.get() + 1);
         });
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5, &3);
         assert_eq!(counter.get(), 1);
     }
@@ -370,7 +370,7 @@ mod rc_readonly_bi_consumer_tests {
         let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5, &3);
     }
 
@@ -418,7 +418,7 @@ mod closure_tests {
         let closure = |x: &i32, y: &i32| {
             println!("Sum: {}", x + y);
         };
-        let func = closure.into_fn();
+        let mut func = closure.into_fn();
         func(&5, &3);
     }
 
@@ -581,7 +581,7 @@ mod edge_cases_tests {
         let consumer = ArcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.lock().unwrap() += x + y;
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -595,7 +595,7 @@ mod edge_cases_tests {
         let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
             *c.borrow_mut() += x + y;
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -949,7 +949,7 @@ mod custom_readonly_bi_consumer_tests {
         let custom = CustomBiConsumer::new(counter.clone());
 
         // Test default into_fn implementation
-        let func = custom.into_fn();
+        let mut func = custom.into_fn();
         func(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 1);
 
@@ -1067,7 +1067,7 @@ mod custom_readonly_bi_consumer_tests {
         let custom = CustomBiConsumer::new(counter.clone());
 
         // Convert to function and call multiple times
-        let func = custom.into_fn();
+        let mut func = custom.into_fn();
 
         // Simulate usage in different contexts
         let simulate_usage = |f: &dyn Fn(&i32, &i32)| {
@@ -1246,7 +1246,7 @@ mod to_methods_tests {
             *c.lock().unwrap() += x + y;
         });
 
-        let func = arc_consumer.to_fn();
+        let mut func = arc_consumer.to_fn();
         func(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 8);
 
@@ -1263,7 +1263,7 @@ mod to_methods_tests {
             *c.lock().unwrap() += x + y;
         });
 
-        let func = arc_consumer.to_fn();
+        let mut func = arc_consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -1316,7 +1316,7 @@ mod to_methods_tests {
             *c.borrow_mut() += x + y;
         });
 
-        let func = rc_consumer.to_fn();
+        let mut func = rc_consumer.to_fn();
         func(&5, &3);
         assert_eq!(*counter.borrow(), 8);
 
@@ -1333,7 +1333,7 @@ mod to_methods_tests {
             *c.borrow_mut() += x + y;
         });
 
-        let func = rc_consumer.to_fn();
+        let mut func = rc_consumer.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -1403,7 +1403,7 @@ mod to_methods_tests {
             *c.lock().unwrap() += x + y;
         };
 
-        let func = closure.to_fn();
+        let mut func = closure.to_fn();
         func(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 8);
 
@@ -1418,12 +1418,12 @@ mod to_methods_tests {
 
     /// Custom BiConsumer implementation for testing default to_xxx methods
     #[derive(Clone)]
-    struct CustomConsumer {
+    pub struct CustomConsumer {
         counter: Arc<std::sync::Mutex<i32>>,
     }
 
     impl CustomConsumer {
-        fn new(counter: Arc<std::sync::Mutex<i32>>) -> Self {
+        pub fn new(counter: Arc<std::sync::Mutex<i32>>) -> Self {
             Self { counter }
         }
     }
@@ -1485,7 +1485,7 @@ mod to_methods_tests {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let custom = CustomConsumer::new(counter.clone());
 
-        let func = custom.to_fn();
+        let mut func = custom.to_fn();
         func(&5, &3);
         assert_eq!(*counter.lock().unwrap(), 8);
 
@@ -1499,7 +1499,7 @@ mod to_methods_tests {
         let counter = Arc::new(std::sync::Mutex::new(0));
         let custom = CustomConsumer::new(counter.clone());
 
-        let func = custom.to_fn();
+        let mut func = custom.to_fn();
         func(&1, &2);
         func(&3, &4);
         func(&5, &6);
@@ -1604,7 +1604,7 @@ mod to_methods_tests {
         let box_consumer = custom.to_box();
         let rc_consumer = custom.to_rc();
         let arc_consumer = custom.to_arc();
-        let func = custom.to_fn();
+        let mut func = custom.to_fn();
 
         box_consumer.accept(&1, &1);
         assert_eq!(*counter.lock().unwrap(), 2);
@@ -1664,5 +1664,586 @@ mod to_methods_tests {
         // Original custom is still usable
         custom.accept(&"d".to_string(), &4);
         assert_eq!(*counter.lock().unwrap(), "a:1,b:2,c:3,d:4");
+    }
+}
+
+// ============================================================================
+// to_once Tests - Testing BiConsumer trait default to_once implementation
+// ============================================================================
+
+#[cfg(test)]
+mod to_once_tests {
+    use super::*;
+    use prism3_function::BiConsumerOnce;
+    use std::sync::Mutex;
+
+    #[test]
+    fn test_custom_bi_consumer_to_once() {
+        let counter = Arc::new(Mutex::new(0));
+        let custom = super::to_methods_tests::CustomConsumer::new(counter.clone());
+
+        // Test to_once() - should not consume the original
+        let once_consumer = custom.to_once();
+        once_consumer.accept(&1, &2);
+        assert_eq!(*counter.lock().unwrap(), 3);
+
+        // Original consumer should still be usable
+        custom.accept(&3, &4);
+        assert_eq!(*counter.lock().unwrap(), 10);
+    }
+
+    #[test]
+    fn test_custom_bi_consumer_into_once() {
+        let counter = Arc::new(Mutex::new(0));
+        let custom = super::to_methods_tests::CustomConsumer::new(counter.clone());
+
+        // Test into_once() - should consume the original
+        let once_consumer = custom.into_once();
+        once_consumer.accept(&1, &2);
+        assert_eq!(*counter.lock().unwrap(), 3);
+    }
+}
+
+// ============================================================================
+// Conditional BiConsumer Tests
+// ============================================================================
+
+#[cfg(test)]
+mod box_conditional_bi_consumer_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    #[test]
+    fn test_box_conditional_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let chained = conditional.and_then(move |x: &i32, y: &i32| {
+            l2.lock().unwrap().push(*x * *y);
+        });
+
+        chained.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15]);
+
+        chained.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, 15, -15]);
+    }
+
+    #[test]
+    fn test_box_conditional_or_else() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer
+            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+            .or_else(move |x: &i32, y: &i32| {
+                l2.lock().unwrap().push(*x * *y);
+            });
+
+        conditional.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8, -15]);
+    }
+
+    #[test]
+    fn test_box_conditional_accept() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+
+        conditional.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        boxed.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        rc.accept(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().unwrap().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.into_fn();
+
+        func(&5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+
+        func(&-5, &3);
+        assert_eq!(*log.lock().unwrap(), vec![8]);
+    }
+}
+
+#[cfg(test)]
+mod arc_conditional_bi_consumer_tests {
+    use super::*;
+    use std::sync::atomic::{
+        AtomicUsize,
+        Ordering,
+    };
+
+    #[test]
+    fn test_arc_conditional_and_then() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c1.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let chained = conditional.and_then(move |_x: &i32, _y: &i32| {
+            c2.fetch_add(10, Ordering::SeqCst);
+        });
+
+        chained.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 11);
+
+        chained.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 21);
+    }
+
+    #[test]
+    fn test_arc_conditional_or_else() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c1.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer
+            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+            .or_else(move |_x: &i32, _y: &i32| {
+                c2.fetch_add(100, Ordering::SeqCst);
+            });
+
+        conditional.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 101);
+    }
+
+    #[test]
+    fn test_arc_conditional_accept() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+
+        conditional.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        boxed.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_rc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        rc.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let arc = conditional.into_arc();
+
+        arc.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        arc.accept(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.into_fn();
+
+        func(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        func(&-5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.to_box();
+
+        boxed.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_rc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let rc = conditional.to_rc();
+
+        rc.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let arc = conditional.to_arc();
+
+        arc.accept(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcBiConsumer::new(move |_x: &i32, _y: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.to_fn();
+
+        func(&5, &3);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+}
+
+#[cfg(test)]
+mod rc_conditional_bi_consumer_tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[test]
+    fn test_rc_conditional_and_then() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let chained = conditional.and_then(move |x: &i32, y: &i32| {
+            l2.borrow_mut().push(*x * *y);
+        });
+
+        chained.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8, 15]);
+
+        chained.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8, 15, -15]);
+    }
+
+    #[test]
+    fn test_rc_conditional_or_else() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer
+            .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+            .or_else(move |x: &i32, y: &i32| {
+                l2.borrow_mut().push(*x * *y);
+            });
+
+        conditional.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8, -15]);
+    }
+
+    #[test]
+    fn test_rc_conditional_accept() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+
+        conditional.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        conditional.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        boxed.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        rc.accept(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.into_fn();
+
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        func(&-5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let boxed = conditional.to_box();
+
+        boxed.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(*log.borrow(), vec![8, 30]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let rc = conditional.to_rc();
+
+        rc.accept(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(*log.borrow(), vec![8, 30]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
+
+        let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let func = conditional.to_fn();
+
+        func(&5, &3);
+        assert_eq!(*log.borrow(), vec![8]);
+
+        // Original conditional still usable
+        conditional.accept(&10, &20);
+        assert_eq!(*log.borrow(), vec![8, 30]);
     }
 }

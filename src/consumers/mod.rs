@@ -16,7 +16,7 @@
 //!
 //! Haixing Hu
 
-#[macro_use]
+// do NOT use obsleted `#[macro_use]` syntax
 mod macros;
 
 pub mod bi_consumer;

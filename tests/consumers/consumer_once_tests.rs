@@ -38,7 +38,7 @@ mod box_consumer_once_tests {
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
-        consumer.accept_once(&5);
+        consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -49,7 +49,7 @@ mod box_consumer_once_tests {
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         });
-        consumer.accept_once(&5);
+        consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
@@ -64,7 +64,7 @@ mod box_consumer_once_tests {
         .and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x + 10);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     }
 
@@ -83,14 +83,14 @@ mod box_consumer_once_tests {
         .and_then(move |x: &i32| {
             l3.lock().unwrap().push(*x - 1);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15, 4]);
     }
 
     #[test]
     fn test_noop() {
         let noop = BoxConsumerOnce::<i32>::noop();
-        noop.accept_once(&42);
+        noop.accept(&42);
         // Should not panic
     }
 
@@ -102,7 +102,7 @@ mod box_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         assert_eq!(consumer.name(), Some("test_consumer"));
-        consumer.accept_once(&5);
+        consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -116,7 +116,7 @@ mod box_consumer_once_tests {
             l.lock().unwrap().push(*x + 1);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        conditional.accept_once(&5);
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![6]);
     }
 
@@ -128,7 +128,7 @@ mod box_consumer_once_tests {
             l.lock().unwrap().push(*x + 1);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        conditional.accept_once(&-5);
+        conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -143,7 +143,7 @@ mod box_consumer_once_tests {
         let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
             l2.lock().unwrap().push(*x - 1);
         });
-        conditional.accept_once(&5);
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![6]);
     }
 
@@ -158,7 +158,7 @@ mod box_consumer_once_tests {
         let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
             l2.lock().unwrap().push(*x - 1);
         });
-        conditional.accept_once(&-5);
+        conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), vec![-6]);
     }
 
@@ -169,8 +169,8 @@ mod box_consumer_once_tests {
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
             l.lock().unwrap().push(*x);
         });
-        let boxed = consumer.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = consumer.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -181,7 +181,7 @@ mod box_consumer_once_tests {
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         });
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
@@ -193,7 +193,7 @@ mod box_consumer_once_tests {
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         });
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         // FnOnce can only be called once, so we call it once
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
@@ -216,7 +216,7 @@ mod closure_tests {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         };
-        closure.accept_once(&5);
+        closure.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
@@ -231,7 +231,7 @@ mod closure_tests {
         .and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x + 10);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     }
 
@@ -242,8 +242,8 @@ mod closure_tests {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         };
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = closure.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
@@ -254,7 +254,7 @@ mod closure_tests {
         let closure = move |x: &i32| {
             l.lock().unwrap().push(*x * 2);
         };
-        let func = closure.into_fn_once();
+        let mut func = closure.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
@@ -274,7 +274,7 @@ mod closure_tests {
         .and_then(move |x: &i32| {
             l3.lock().unwrap().push(*x / 2);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15, 2]);
     }
 }
@@ -321,8 +321,8 @@ mod debug_display_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = conditional.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -334,7 +334,7 @@ mod debug_display_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
@@ -351,7 +351,7 @@ mod debug_display_tests {
         let chained = conditional.and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x * 2);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5, 10]);
     }
 }
@@ -377,11 +377,11 @@ mod custom_consumer_once_tests {
     }
 
     impl ConsumerOnce<i32> for CustomConsumer {
-        fn accept_once(self, value: &i32) {
+        fn accept(self, value: &i32) {
             self.log.lock().unwrap().push(*value * self.multiplier);
         }
 
-        // Note: We do not override into_box_once() and into_fn_once(),
+        // Note: We do not override into_box() and into_fn(),
         // but use the default implementations provided by the trait
     }
 
@@ -389,7 +389,7 @@ mod custom_consumer_once_tests {
     fn test_custom_consumer_accept() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CustomConsumer::new(log.clone(), 3);
-        consumer.accept_once(&5);
+        consumer.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![15]);
     }
 
@@ -397,8 +397,8 @@ mod custom_consumer_once_tests {
     fn test_custom_consumer_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CustomConsumer::new(log.clone(), 2);
-        let boxed = consumer.into_box_once();
-        boxed.accept_once(&7);
+        let boxed = consumer.into_box();
+        boxed.accept(&7);
         assert_eq!(*log.lock().unwrap(), vec![14]);
     }
 
@@ -406,7 +406,7 @@ mod custom_consumer_once_tests {
     fn test_custom_consumer_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CustomConsumer::new(log.clone(), 4);
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&3);
         assert_eq!(*log.lock().unwrap(), vec![12]);
     }
@@ -417,11 +417,11 @@ mod custom_consumer_once_tests {
         let l1 = log.clone();
         let l2 = log.clone();
         let consumer = CustomConsumer::new(l1, 2);
-        let boxed = consumer.into_box_once();
+        let boxed = consumer.into_box();
         let chained = boxed.and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x + 100);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 105]);
     }
 
@@ -433,7 +433,7 @@ mod custom_consumer_once_tests {
         where
             C: ConsumerOnce<i32>,
         {
-            consumer.accept_once(value);
+            consumer.accept(value);
         }
 
         let consumer = CustomConsumer::new(log.clone(), 5);
@@ -446,11 +446,11 @@ mod custom_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
 
         fn process_with_box_consumer(consumer: BoxConsumerOnce<i32>, value: &i32) {
-            consumer.accept_once(value);
+            consumer.accept(value);
         }
 
         let consumer = CustomConsumer::new(log.clone(), 3);
-        let boxed = consumer.into_box_once();
+        let boxed = consumer.into_box();
         process_with_box_consumer(boxed, &8);
         assert_eq!(*log.lock().unwrap(), vec![24]);
     }
@@ -464,10 +464,8 @@ mod custom_consumer_once_tests {
         let consumer1 = CustomConsumer::new(l1, 2);
         let consumer2 = CustomConsumer::new(l2, 3);
 
-        let chained = consumer1
-            .into_box_once()
-            .and_then(consumer2.into_box_once());
-        chained.accept_once(&5);
+        let chained = consumer1.into_box().and_then(consumer2.into_box());
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15]);
     }
 
@@ -487,7 +485,7 @@ mod custom_consumer_once_tests {
     }
 
     impl ConsumerOnce<String> for StringLogger {
-        fn accept_once(self, value: &String) {
+        fn accept(self, value: &String) {
             self.log
                 .lock()
                 .unwrap()
@@ -499,8 +497,8 @@ mod custom_consumer_once_tests {
     fn test_custom_string_consumer_into_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = StringLogger::new(log.clone(), "Log: ");
-        let boxed = consumer.into_box_once();
-        boxed.accept_once(&"Hello".to_string());
+        let boxed = consumer.into_box();
+        boxed.accept(&"Hello".to_string());
         assert_eq!(*log.lock().unwrap(), vec!["Log: Hello".to_string()]);
     }
 
@@ -508,7 +506,7 @@ mod custom_consumer_once_tests {
     fn test_custom_string_consumer_into_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = StringLogger::new(log.clone(), "Info: ");
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&"World".to_string());
         assert_eq!(*log.lock().unwrap(), vec!["Info: World".to_string()]);
     }
@@ -526,7 +524,7 @@ mod custom_consumer_once_tests {
     }
 
     impl ConsumerOnce<i32> for CountingConsumer {
-        fn accept_once(self, value: &i32) {
+        fn accept(self, value: &i32) {
             *self.counter.lock().unwrap() += 1;
             self.value_log.lock().unwrap().push(*value);
         }
@@ -537,8 +535,8 @@ mod custom_consumer_once_tests {
         let counter = Arc::new(Mutex::new(0));
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CountingConsumer::new(counter.clone(), log.clone());
-        let boxed = consumer.into_box_once();
-        boxed.accept_once(&42);
+        let boxed = consumer.into_box();
+        boxed.accept(&42);
         assert_eq!(*counter.lock().unwrap(), 1);
         assert_eq!(*log.lock().unwrap(), vec![42]);
     }
@@ -548,7 +546,7 @@ mod custom_consumer_once_tests {
         let counter = Arc::new(Mutex::new(0));
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CountingConsumer::new(counter.clone(), log.clone());
-        let func = consumer.into_fn_once();
+        let mut func = consumer.into_fn();
         func(&99);
         assert_eq!(*counter.lock().unwrap(), 1);
         assert_eq!(*log.lock().unwrap(), vec![99]);
@@ -573,7 +571,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        conditional.accept_once(&-5);
+        conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -585,7 +583,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        conditional.accept_once(&5);
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -598,7 +596,7 @@ mod box_conditional_consumer_once_tests {
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
         // Test boundary case - predicate checks > 0, so 0 should be false
-        conditional.accept_once(&0);
+        conditional.accept(&0);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -612,8 +610,8 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = conditional.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -625,8 +623,8 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&-5);
+        let boxed = conditional.into_box();
+        boxed.accept(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -638,8 +636,8 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&0);
+        let boxed = conditional.into_box();
+        boxed.accept(&0);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -653,7 +651,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
@@ -666,7 +664,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
@@ -679,7 +677,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&0);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
@@ -694,8 +692,8 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x * 2);
         });
         let conditional = consumer.when(|x: &i32| *x % 2 == 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&4);
+        let boxed = conditional.into_box();
+        boxed.accept(&4);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
 
@@ -707,8 +705,8 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x * 2);
         });
         let conditional = consumer.when(|x: &i32| *x % 2 == 0);
-        let boxed = conditional.into_box_once();
-        boxed.accept_once(&3);
+        let boxed = conditional.into_box();
+        boxed.accept(&3);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -720,7 +718,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x * 2);
         });
         let conditional = consumer.when(|x: &i32| *x % 2 == 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&4);
         assert_eq!(*log.lock().unwrap(), vec![8]);
     }
@@ -733,7 +731,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x * 2);
         });
         let conditional = consumer.when(|x: &i32| *x % 2 == 0);
-        let func = conditional.into_fn_once();
+        let mut func = conditional.into_fn();
         func(&3);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
@@ -748,7 +746,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|_: &i32| true);
-        conditional.accept_once(&42);
+        conditional.accept(&42);
         assert_eq!(*log.lock().unwrap(), vec![42]);
     }
 
@@ -760,7 +758,7 @@ mod box_conditional_consumer_once_tests {
             l.lock().unwrap().push(*x);
         });
         let conditional = consumer.when(|_: &i32| false);
-        conditional.accept_once(&42);
+        conditional.accept(&42);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -773,7 +771,7 @@ mod box_conditional_consumer_once_tests {
         });
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
-        conditional.accept_once(&4);
+        conditional.accept(&4);
         assert_eq!(*log.lock().unwrap(), vec![40]);
     }
 
@@ -787,7 +785,7 @@ mod box_conditional_consumer_once_tests {
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
         // Test with odd number - fails the even check
-        conditional.accept_once(&3);
+        conditional.accept(&3);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -801,7 +799,7 @@ mod box_conditional_consumer_once_tests {
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
         // Test with negative even number - fails the positive check
-        conditional.accept_once(&-4);
+        conditional.accept(&-4);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -821,7 +819,7 @@ mod box_conditional_consumer_once_tests {
             l2.lock().unwrap().push(*x * 2);
         });
 
-        chained.accept_once(&5);
+        chained.accept(&5);
         // First consumer executes (5), second consumer executes (10)
         assert_eq!(*log.lock().unwrap(), vec![5, 10]);
     }
@@ -840,7 +838,7 @@ mod box_conditional_consumer_once_tests {
             l2.lock().unwrap().push(*x * 2);
         });
 
-        chained.accept_once(&-5);
+        chained.accept(&-5);
         // First consumer doesn't execute (predicate false), second consumer still executes (-10)
         assert_eq!(*log.lock().unwrap(), vec![-10]);
     }
@@ -869,7 +867,7 @@ mod box_conditional_consumer_once_tests {
             });
 
         // Test with 6: positive (first passes), even (second passes), third always executes
-        chained.accept_once(&6);
+        chained.accept(&6);
         assert_eq!(*log.lock().unwrap(), vec![6, 12, 106]);
     }
 }
@@ -896,7 +894,7 @@ mod custom_consumer_to_methods_tests {
     }
 
     impl ConsumerOnce<i32> for CloneableConsumer {
-        fn accept_once(self, value: &i32) {
+        fn accept(self, value: &i32) {
             self.log.lock().unwrap().push(*value * self.multiplier);
         }
     }
@@ -907,8 +905,8 @@ mod custom_consumer_to_methods_tests {
     fn test_custom_consumer_to_box() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CloneableConsumer::new(log.clone(), 2);
-        let boxed = consumer.to_box_once();
-        boxed.accept_once(&7);
+        let boxed = consumer.to_box();
+        boxed.accept(&7);
         assert_eq!(*log.lock().unwrap(), vec![14]);
     }
 
@@ -918,11 +916,11 @@ mod custom_consumer_to_methods_tests {
         let consumer = CloneableConsumer::new(log.clone(), 3);
 
         // to_box() should allow being called multiple times since the consumer is Clone
-        let boxed1 = consumer.to_box_once();
-        let boxed2 = consumer.to_box_once();
+        let boxed1 = consumer.to_box();
+        let boxed2 = consumer.to_box();
 
-        boxed1.accept_once(&5);
-        boxed2.accept_once(&6);
+        boxed1.accept(&5);
+        boxed2.accept(&6);
         assert_eq!(*log.lock().unwrap(), vec![15, 18]);
     }
 
@@ -931,11 +929,11 @@ mod custom_consumer_to_methods_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CloneableConsumer::new(log.clone(), 2);
 
-        let boxed = consumer.to_box_once();
-        boxed.accept_once(&5);
+        let boxed = consumer.to_box();
+        boxed.accept(&5);
 
         // Original consumer should still be usable since to_box() borrows, not consumes
-        consumer.accept_once(&10);
+        consumer.accept(&10);
         assert_eq!(*log.lock().unwrap(), vec![10, 20]);
     }
 
@@ -945,7 +943,7 @@ mod custom_consumer_to_methods_tests {
     fn test_custom_consumer_to_fn() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CloneableConsumer::new(log.clone(), 4);
-        let func = consumer.to_fn_once();
+        let mut func = consumer.to_fn();
         func(&3);
         assert_eq!(*log.lock().unwrap(), vec![12]);
     }
@@ -955,11 +953,11 @@ mod custom_consumer_to_methods_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CloneableConsumer::new(log.clone(), 2);
 
-        let func = consumer.to_fn_once();
+        let mut func = consumer.to_fn();
         func(&5);
 
         // Original consumer should still be usable since to_fn() borrows, not consumes
-        consumer.accept_once(&10);
+        consumer.accept(&10);
         assert_eq!(*log.lock().unwrap(), vec![10, 20]);
     }
 
@@ -969,11 +967,11 @@ mod custom_consumer_to_methods_tests {
         let l1 = log.clone();
         let l2 = log.clone();
         let consumer = CloneableConsumer::new(l1, 2);
-        let boxed = consumer.to_box_once();
+        let boxed = consumer.to_box();
         let chained = boxed.and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x + 100);
         });
-        chained.accept_once(&5);
+        chained.accept(&5);
         // First consumer: 5 * 2 = 10
         // Second consumer receives original value: 5 + 100 = 105
         assert_eq!(*log.lock().unwrap(), vec![10, 105]);
@@ -1002,7 +1000,7 @@ mod closure_to_methods_tests {
         }
 
         impl ConsumerOnce<i32> for ClonableClosure {
-            fn accept_once(self, value: &i32) {
+            fn accept(self, value: &i32) {
                 self.log.lock().unwrap().push(*value * self.multiplier);
             }
         }
@@ -1012,8 +1010,8 @@ mod closure_to_methods_tests {
             log: log_clone,
             multiplier: 2,
         };
-        let boxed = consumer.to_box_once();
-        boxed.accept_once(&5);
+        let boxed = consumer.to_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
@@ -1027,8 +1025,8 @@ mod closure_to_methods_tests {
         };
 
         // into_box() works directly on closures
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = closure.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 
@@ -1041,7 +1039,7 @@ mod closure_to_methods_tests {
         };
 
         // into_fn() works directly on closures
-        let func = closure.into_fn_once();
+        let mut func = closure.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
@@ -1061,7 +1059,7 @@ mod closure_to_methods_tests {
         }
 
         impl<F: Clone + Fn(&i32)> ConsumerOnce<i32> for ClosureWrapper<F> {
-            fn accept_once(self, value: &i32) {
+            fn accept(self, value: &i32) {
                 (self.f)(value);
                 self.log.lock().unwrap().push(*value);
             }
@@ -1072,8 +1070,8 @@ mod closure_to_methods_tests {
             log: l,
         };
 
-        let boxed = wrapper.to_box_once();
-        boxed.accept_once(&5);
+        let boxed = wrapper.to_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -1088,10 +1086,10 @@ mod closure_to_methods_tests {
         };
 
         // This will NOT compile because closure doesn't implement Clone:
-        // let boxed = closure.to_box_once();  // Compile error!
+        // let boxed = closure.to_box();  // Compile error!
         // Workaround: Use into_box() instead
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = closure.into_box();
+        boxed.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10]);
     }
 }
@@ -1113,8 +1111,8 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x * 3);
         };
 
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&7);
+        let boxed = closure.into_box();
+        boxed.accept(&7);
         assert_eq!(*log.lock().unwrap(), vec![21]);
     }
 
@@ -1127,7 +1125,7 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x + 100);
         };
 
-        let func = closure.into_fn_once();
+        let mut func = closure.into_fn();
         func(&5);
         assert_eq!(*log.lock().unwrap(), vec![105]);
     }
@@ -1146,7 +1144,7 @@ mod closure_to_xxx_methods_tests {
             l2.lock().unwrap().push(*x + 50);
         });
 
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 55]);
     }
 
@@ -1168,7 +1166,7 @@ mod closure_to_xxx_methods_tests {
             l3.lock().unwrap().push(*x * 3);
         });
 
-        chained.accept_once(&5);
+        chained.accept(&5);
         // First: 5 * 2 = 10
         // Second: 5 + 10 = 15 (operates on original value, not on result of first)
         // Third: 5 * 3 = 15 (operates on original value, not on result of second)
@@ -1185,9 +1183,9 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x);
         };
 
-        let boxed = closure.into_box_once();
+        let boxed = closure.into_box();
         let conditional = boxed.when(|x: &i32| *x > 0);
-        conditional.accept_once(&5);
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5]);
     }
 
@@ -1201,9 +1199,9 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x);
         };
 
-        let boxed = closure.into_box_once();
+        let boxed = closure.into_box();
         let conditional = boxed.when(|x: &i32| *x > 0);
-        conditional.accept_once(&-5);
+        conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), Vec::<i32>::new());
     }
 
@@ -1218,12 +1216,12 @@ mod closure_to_xxx_methods_tests {
             l1.lock().unwrap().push(*x);
         };
 
-        let boxed = closure.into_box_once();
+        let boxed = closure.into_box();
         let conditional = boxed.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
             l2.lock().unwrap().push(-*x);
         });
 
-        conditional.accept_once(&-5);
+        conditional.accept(&-5);
         assert_eq!(*log.lock().unwrap(), vec![5]); // or_else branch executed
     }
 
@@ -1243,7 +1241,7 @@ mod closure_to_xxx_methods_tests {
 
         let boxed = chained;
         let conditional = boxed.when(|x: &i32| *x < 15);
-        conditional.accept_once(&5);
+        conditional.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![10, 15]); // Both execute because condition is true (5 < 15)
     }
 
@@ -1257,11 +1255,11 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x);
         };
 
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&5);
+        let boxed = closure.into_box();
+        boxed.accept(&5);
 
         let noop = BoxConsumerOnce::<i32>::noop();
-        noop.accept_once(&10);
+        noop.accept(&10);
 
         // Only first consumer added value
         assert_eq!(*log.lock().unwrap(), vec![5]);
@@ -1283,11 +1281,11 @@ mod closure_to_xxx_methods_tests {
         };
 
         // Convert first to box
-        let boxed1 = closure1.into_box_once();
-        boxed1.accept_once(&5);
+        let boxed1 = closure1.into_box();
+        boxed1.accept(&5);
 
         // Use second directly
-        closure2.accept_once(&5);
+        closure2.accept(&5);
 
         assert_eq!(*log.lock().unwrap(), vec![5, 5]);
     }
@@ -1302,7 +1300,7 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x * 2);
         };
 
-        let func = closure.into_fn_once();
+        let mut func = closure.into_fn();
         // func can only be called once (FnOnce)
         func(&5);
 
@@ -1322,8 +1320,8 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(*x * multiplier + addition);
         };
 
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&3);
+        let boxed = closure.into_box();
+        boxed.accept(&3);
 
         assert_eq!(*log.lock().unwrap(), vec![25]); // 3 * 5 + 10 = 25
     }
@@ -1338,8 +1336,8 @@ mod closure_to_xxx_methods_tests {
             l.lock().unwrap().push(s.clone());
         };
 
-        let boxed = closure.into_box_once();
-        boxed.accept_once(&"Hello".to_string());
+        let boxed = closure.into_box();
+        boxed.accept(&"Hello".to_string());
 
         assert_eq!(*log.lock().unwrap(), vec!["Hello".to_string()]);
     }
@@ -1359,8 +1357,8 @@ mod closure_to_xxx_methods_tests {
         }
 
         // Function pointers are Copy, can call to_box()
-        let boxed = increment_counter.to_box_once();
-        boxed.accept_once(&1);
+        let boxed = increment_counter.to_box();
+        boxed.accept(&1);
 
         assert_eq!(COUNTER.load(Ordering::SeqCst), 1);
     }
@@ -1380,7 +1378,7 @@ mod closure_to_xxx_methods_tests {
         }
 
         // Function pointers are Copy, can call to_fn()
-        let func = increment_counter.to_fn_once();
+        let mut func = increment_counter.to_fn();
         func(&1);
 
         assert_eq!(COUNTER.load(Ordering::SeqCst), 1);
@@ -1401,11 +1399,11 @@ mod closure_to_xxx_methods_tests {
         }
 
         // to_box() doesn't consume the function pointer
-        let boxed = increment_counter2.to_box_once();
-        boxed.accept_once(&1);
+        let boxed = increment_counter2.to_box();
+        boxed.accept(&1);
 
         // Original function pointer can still be used
-        increment_counter2.accept_once(&2);
+        increment_counter2.accept(&2);
 
         assert_eq!(COUNTER2.load(Ordering::SeqCst), 2);
     }
@@ -1425,11 +1423,11 @@ mod closure_to_xxx_methods_tests {
         }
 
         // to_fn() doesn't consume the function pointer
-        let func = increment_counter3.to_fn_once();
+        let mut func = increment_counter3.to_fn();
         func(&1);
 
         // Original function pointer can still be used
-        increment_counter3.accept_once(&2);
+        increment_counter3.accept(&2);
 
         assert_eq!(COUNTER3.load(Ordering::SeqCst), 2);
     }
@@ -1449,11 +1447,11 @@ mod closure_to_xxx_methods_tests {
         }
 
         // Function pointers are Copy, can call to_box() multiple times
-        let boxed1 = increment_counter4.to_box_once();
-        let boxed2 = increment_counter4.to_box_once();
+        let boxed1 = increment_counter4.to_box();
+        let boxed2 = increment_counter4.to_box();
 
-        boxed1.accept_once(&1);
-        boxed2.accept_once(&2);
+        boxed1.accept(&1);
+        boxed2.accept(&2);
 
         assert_eq!(COUNTER4.load(Ordering::SeqCst), 2);
     }
@@ -1473,8 +1471,8 @@ mod closure_to_xxx_methods_tests {
         }
 
         // Function pointers are Copy, can call to_fn() multiple times
-        let func1 = increment_counter5.to_fn_once();
-        let func2 = increment_counter5.to_fn_once();
+        let func1 = increment_counter5.to_fn();
+        let func2 = increment_counter5.to_fn();
 
         func1(&1);
         func2(&2);
@@ -1503,7 +1501,7 @@ mod advanced_to_methods_tests {
     }
 
     impl ConsumerOnce<i32> for CountingCloneableConsumer {
-        fn accept_once(self, value: &i32) {
+        fn accept(self, value: &i32) {
             self.log.lock().unwrap().push(*value);
         }
     }
@@ -1515,12 +1513,12 @@ mod advanced_to_methods_tests {
         let l2 = log.clone();
 
         let consumer = CountingCloneableConsumer::new(l1);
-        let boxed = consumer.to_box_once();
+        let boxed = consumer.to_box();
         let chained = boxed.and_then(move |x: &i32| {
             l2.lock().unwrap().push(*x * 2);
         });
 
-        chained.accept_once(&5);
+        chained.accept(&5);
         assert_eq!(*log.lock().unwrap(), vec![5, 10]);
     }
 
@@ -1528,7 +1526,7 @@ mod advanced_to_methods_tests {
     fn test_to_fn_then_call() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CountingCloneableConsumer::new(log.clone());
-        let func = consumer.to_fn_once();
+        let mut func = consumer.to_fn();
         func(&7);
         assert_eq!(*log.lock().unwrap(), vec![7]);
     }
@@ -1539,14 +1537,14 @@ mod advanced_to_methods_tests {
         let consumer = CountingCloneableConsumer::new(log.clone());
 
         // Call to_box() multiple times
-        let boxed1 = consumer.to_box_once();
-        let boxed2 = consumer.to_box_once();
+        let boxed1 = consumer.to_box();
+        let boxed2 = consumer.to_box();
 
-        boxed1.accept_once(&1);
-        boxed2.accept_once(&2);
+        boxed1.accept(&1);
+        boxed2.accept(&2);
 
         // Original can still be used
-        consumer.accept_once(&3);
+        consumer.accept(&3);
 
         assert_eq!(*log.lock().unwrap(), vec![1, 2, 3]);
     }
@@ -1557,14 +1555,14 @@ mod advanced_to_methods_tests {
         let consumer = CountingCloneableConsumer::new(log.clone());
 
         // Call to_fn() multiple times
-        let func1 = consumer.to_fn_once();
-        let func2 = consumer.to_fn_once();
+        let func1 = consumer.to_fn();
+        let func2 = consumer.to_fn();
 
         func1(&10);
         func2(&20);
 
         // Original can still be used
-        consumer.accept_once(&30);
+        consumer.accept(&30);
 
         assert_eq!(*log.lock().unwrap(), vec![10, 20, 30]);
     }
@@ -1581,7 +1579,7 @@ mod advanced_to_methods_tests {
         }
 
         impl ConsumerOnce<i32> for SimpleConsumer {
-            fn accept_once(self, value: &i32) {
+            fn accept(self, value: &i32) {
                 self.log.lock().unwrap().push(*value * self.multiplier);
             }
         }
@@ -1592,8 +1590,8 @@ mod advanced_to_methods_tests {
         };
 
         // Uses default to_box() implementation which calls accept()
-        let boxed = consumer.to_box_once();
-        boxed.accept_once(&4);
+        let boxed = consumer.to_box();
+        boxed.accept(&4);
 
         assert_eq!(*log.lock().unwrap(), vec![20]);
     }
@@ -1609,7 +1607,7 @@ mod advanced_to_methods_tests {
         }
 
         impl ConsumerOnce<i32> for SimpleConsumer {
-            fn accept_once(self, value: &i32) {
+            fn accept(self, value: &i32) {
                 self.log.lock().unwrap().push(*value * self.multiplier);
             }
         }
@@ -1620,7 +1618,7 @@ mod advanced_to_methods_tests {
         };
 
         // Uses default to_fn() implementation which calls accept()
-        let func = consumer.to_fn_once();
+        let mut func = consumer.to_fn();
         func(&6);
 
         assert_eq!(*log.lock().unwrap(), vec![18]);

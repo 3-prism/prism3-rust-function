@@ -32,13 +32,26 @@
 //! # Author
 //!
 //! Haixing Hu
-use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::consumers::bi_consumer_once::{
-    BiConsumerOnce,
-    BoxBiConsumerOnce,
+use crate::consumers::bi_consumer_once::BoxBiConsumerOnce;
+use crate::consumers::macros::{
+    impl_box_consumer_methods,
+    impl_conditional_consumer_clone,
+    impl_conditional_consumer_debug_display,
+    impl_consumer_clone,
+    impl_consumer_debug_display,
+    impl_consumer_common_methods,
+    impl_shared_consumer_methods,
+    impl_box_conditional_consumer,
+    impl_shared_conditional_consumer,
+};
+use crate::predicates::bi_predicate::{
+    ArcBiPredicate,
+    BiPredicate,
+    BoxBiPredicate,
+    RcBiPredicate,
 };
 
 // ==========================================================================
@@ -331,6 +344,42 @@ pub trait BiConsumer<T, U> {
     {
         self.clone().into_fn()
     }
+
+    /// Convert to BiConsumerOnce
+    ///
+    /// **⚠️ Consumes `self`**: The original consumer will be unavailable after calling this method.
+    ///
+    /// Converts a reusable readonly bi-consumer to a one-time consumer that consumes itself on use.
+    /// This enables passing `BiConsumer` to functions that require `BiConsumerOnce`.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxBiConsumerOnce<T, U>`
+    fn into_once(self) -> BoxBiConsumerOnce<T, U>
+    where
+        Self: Sized + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
+    }
+
+    /// Convert to BiConsumerOnce without consuming self
+    ///
+    /// **⚠️ Requires Clone**: This method requires `Self` to implement `Clone`.
+    /// Clones the current consumer and converts the clone to a one-time consumer.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `BoxBiConsumerOnce<T, U>`
+    fn to_once(&self) -> BoxBiConsumerOnce<T, U>
+    where
+        Self: Clone + 'static,
+        T: 'static,
+        U: 'static,
+    {
+        self.clone().into_once()
+    }
 }
 
 // =======================================================================
@@ -380,117 +429,19 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new BoxBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `BoxBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxBiConsumer};
-    ///
-    /// let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Product: {}", x * y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&T, &U) + 'static,
-    {
-        BoxBiConsumer {
-            function: Box::new(f),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        BoxBiConsumer<T, U>,
+        (Fn(&T, &U) + 'static),
+        |f| Box::new(f)
+    );
 
-    impl_consumer_methods!(|_, _| {});
-
-    /// Chains another readonly bi-consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Consumes self.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - The type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. **Note:
-    ///   This parameter is passed by value and will transfer ownership.** If you
-    ///   need to preserve the original consumer, clone it first (if it implements
-    ///   `Clone`). Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxBiConsumer<T, U>`
-    ///   - An `RcBiConsumer<T, U>`
-    ///   - An `ArcBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `BoxBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ## Direct value passing (ownership transfer)
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxBiConsumer};
-    ///
-    /// let first = BoxBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("First: {}, {}", x, y);
-    /// });
-    /// let second = BoxBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Second: sum = {}", x + y);
-    /// });
-    ///
-    /// // second is moved here
-    /// let chained = first.and_then(second);
-    /// chained.accept(&5, &3);
-    /// // second.accept(&2, &3); // Would not compile - moved
-    /// ```
-    ///
-    /// ## Preserving original with clone
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, BoxBiConsumer, RcBiConsumer};
-    ///
-    /// let first = BoxBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("First: {}, {}", x, y);
-    /// });
-    /// let second = RcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Second: sum = {}", x + y);
-    /// });
-    ///
-    /// // Clone to preserve original
-    /// let chained = first.and_then(second.clone());
-    /// chained.accept(&5, &3);
-    ///
-    /// // Original still usable
-    /// second.accept(&2, &3);
-    /// ```
-    pub fn and_then<C>(self, next: C) -> Self
-    where
-        C: BiConsumer<T, U> + 'static,
-    {
-        let first = self.function;
-        let second = next;
-        BoxBiConsumer::new(move |t, u| {
-            first(t, u);
-            second.accept(t, u);
-        })
-    }
+    // Generates: when() and and_then() methods that consume self
+    impl_box_consumer_methods!(
+        BoxBiConsumer<T, U>,
+        BoxConditionalBiConsumer,
+        BiConsumer
+    );
 }
 
 impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
@@ -526,47 +477,8 @@ impl<T, U> BiConsumer<T, U> for BoxBiConsumer<T, U> {
     }
 }
 
-impl<T, U> fmt::Debug for BoxBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BoxBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for BoxBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "BoxBiConsumer({})", name),
-            None => write!(f, "BoxBiConsumer"),
-        }
-    }
-}
-
-/// Implements BiConsumerOnce for BoxBiConsumer
-///
-/// Allows BoxBiConsumer to be used in contexts requiring
-/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
-/// conversion that enables BoxBiConsumer to work seamlessly with
-/// one-time consumer APIs.
-impl<T, U> BiConsumerOnce<T, U> for BoxBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    fn accept_once(self, first: &T, second: &U) {
-        self.accept(first, second)
-    }
-
-    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
-        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
-    }
-
-    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
-        move |t, u| self.accept(t, u)
-    }
-}
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(BoxBiConsumer<T, U>);
 
 // =======================================================================
 // 3. ArcBiConsumer - Thread-Safe Shared Ownership
@@ -626,95 +538,21 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new ArcBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `ArcBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcBiConsumer};
-    ///
-    /// let consumer = ArcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Product: {}", x * y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&T, &U) + Send + Sync + 'static,
-    {
-        ArcBiConsumer {
-            function: Arc::new(f),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        ArcBiConsumer<T, U>,
+        (Fn(&T, &U) + Send + Sync + 'static),
+        |f| Arc::new(f)
+    );
 
-    impl_consumer_methods!(|_, _| {});
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Borrows &self, does not consume the original
-    /// consumer.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - Type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxBiConsumer<T, U>`
-    ///   - An `ArcBiConsumer<T, U>`
-    ///   - An `RcBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U> + Send + Sync`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `ArcBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, ArcBiConsumer};
-    ///
-    /// let first = ArcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("First: {}, {}", x, y);
-    /// });
-    /// let second = ArcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Second: sum = {}", x + y);
-    /// });
-    ///
-    /// // second is passed by reference, so it remains usable
-    /// let chained = first.and_then(&second);
-    ///
-    /// // first and second still usable after chaining
-    /// chained.accept(&5, &3);
-    /// first.accept(&2, &3); // Still usable
-    /// second.accept(&7, &8); // Still usable
-    /// ```
-    pub fn and_then<C>(&self, next: C) -> ArcBiConsumer<T, U>
-    where
-        C: BiConsumer<T, U> + Send + Sync + 'static,
-    {
-        let first = Arc::clone(&self.function);
-        ArcBiConsumer::new(move |t: &T, u: &U| {
-            first(t, u);
-            next.accept(t, u);
-        })
-    }
+    // Generates: when() and and_then() methods that borrow &self (Arc can clone)
+    impl_shared_consumer_methods!(
+        ArcBiConsumer<T, U>,
+        ArcConditionalBiConsumer,
+        into_arc,
+        BiConsumer,
+        Send + Sync + 'static
+    );
 }
 
 impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
@@ -790,60 +628,11 @@ impl<T, U> BiConsumer<T, U> for ArcBiConsumer<T, U> {
     }
 }
 
-impl<T, U> Clone for ArcBiConsumer<T, U> {
-    /// Clones the ArcBiConsumer
-    ///
-    /// Creates a new ArcBiConsumer sharing the underlying function
-    /// with the original instance.
-    fn clone(&self) -> Self {
-        Self {
-            function: Arc::clone(&self.function),
-            name: self.name.clone(),
-        }
-    }
-}
+// Use macro to generate Clone implementation
+impl_consumer_clone!(ArcBiConsumer<T, U>, Arc::clone);
 
-impl<T, U> fmt::Debug for ArcBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ArcBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for ArcBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "ArcBiConsumer({})", name),
-            None => write!(f, "ArcBiConsumer"),
-        }
-    }
-}
-
-/// Implements BiConsumerOnce for ArcBiConsumer
-///
-/// Allows ArcBiConsumer to be used in contexts requiring
-/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
-/// conversion that enables ArcBiConsumer to work seamlessly with
-/// one-time consumer APIs.
-impl<T, U> BiConsumerOnce<T, U> for ArcBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    fn accept_once(self, first: &T, second: &U) {
-        self.accept(first, second)
-    }
-
-    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
-        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
-    }
-
-    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
-        move |t, u| self.accept(t, u)
-    }
-}
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(ArcBiConsumer<T, U>);
 
 // =======================================================================
 // 4. RcBiConsumer - Single-Threaded Shared Ownership
@@ -904,95 +693,21 @@ where
     T: 'static,
     U: 'static,
 {
-    /// Creates a new RcBiConsumer
-    ///
-    /// # Type Parameters
-    ///
-    /// * `F` - The closure type
-    ///
-    /// # Parameters
-    ///
-    /// * `f` - The closure to wrap
-    ///
-    /// # Returns
-    ///
-    /// Returns a new `RcBiConsumer<T, U>` instance
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcBiConsumer};
-    ///
-    /// let consumer = RcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Product: {}", x * y);
-    /// });
-    /// consumer.accept(&5, &3);
-    /// ```
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&T, &U) + 'static,
-    {
-        RcBiConsumer {
-            function: Rc::new(f),
-            name: None,
-        }
-    }
+    // Generates: new(), new_with_name(), name(), set_name(), noop()
+    impl_consumer_common_methods!(
+        RcBiConsumer<T, U>,
+        (Fn(&T, &U) + 'static),
+        |f| Rc::new(f)
+    );
 
-    impl_consumer_methods!(|_, _| {});
-
-    /// Chains another consumer in sequence
-    ///
-    /// Returns a new consumer executing the current operation first, then
-    /// the next operation. Borrows &self, does not consume the original
-    /// consumer.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `C` - Type of the next consumer
-    ///
-    /// # Parameters
-    ///
-    /// * `next` - The consumer to execute after the current operation. Can be:
-    ///   - A closure: `|x: &T, y: &U|`
-    ///   - A `BoxBiConsumer<T, U>`
-    ///   - An `RcBiConsumer<T, U>`
-    ///   - An `ArcBiConsumer<T, U>`
-    ///   - Any type implementing `BiConsumer<T, U>`
-    ///
-    /// # Returns
-    ///
-    /// Returns a new composed `RcBiConsumer<T, U>`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{BiConsumer, RcBiConsumer};
-    ///
-    /// let first = RcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("First: {}, {}", x, y);
-    /// });
-    /// let second = RcBiConsumer::new(|x: &i32, y: &i32| {
-    ///     println!("Second: sum = {}", x + y);
-    /// });
-    ///
-    /// // second is passed by reference, so it remains usable
-    /// let chained = first.and_then(&second);
-    ///
-    /// // first and second still usable after chaining
-    /// chained.accept(&5, &3);
-    /// first.accept(&2, &3); // Still usable
-    /// second.accept(&7, &8); // Still usable
-    /// ```
-    pub fn and_then<C>(&self, next: C) -> RcBiConsumer<T, U>
-    where
-        C: BiConsumer<T, U> + 'static,
-    {
-        let first = Rc::clone(&self.function);
-        RcBiConsumer::new(move |t: &T, u: &U| {
-            first(t, u);
-            next.accept(t, u);
-        })
-    }
+    // Generates: when() and and_then() methods that borrow &self (Rc can clone)
+    impl_shared_consumer_methods!(
+        RcBiConsumer<T, U>,
+        RcConditionalBiConsumer,
+        into_rc,
+        BiConsumer,
+        'static
+    );
 }
 
 impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
@@ -1057,60 +772,11 @@ impl<T, U> BiConsumer<T, U> for RcBiConsumer<T, U> {
     }
 }
 
-impl<T, U> Clone for RcBiConsumer<T, U> {
-    /// Clones the RcBiConsumer
-    ///
-    /// Creates a new RcBiConsumer sharing the underlying function
-    /// with the original instance.
-    fn clone(&self) -> Self {
-        Self {
-            function: Rc::clone(&self.function),
-            name: self.name.clone(),
-        }
-    }
-}
+// Use macro to generate Clone implementation
+impl_consumer_clone!(RcBiConsumer<T, U>, Rc::clone);
 
-impl<T, U> fmt::Debug for RcBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RcBiConsumer")
-            .field("name", &self.name)
-            .field("function", &"<function>")
-            .finish()
-    }
-}
-
-impl<T, U> fmt::Display for RcBiConsumer<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.name {
-            Some(name) => write!(f, "RcBiConsumer({})", name),
-            None => write!(f, "RcBiConsumer"),
-        }
-    }
-}
-
-/// Implements BiConsumerOnce for RcBiConsumer
-///
-/// Allows RcBiConsumer to be used in contexts requiring
-/// BiConsumerOnce. Since Fn implements FnOnce, this is a natural
-/// conversion that enables RcBiConsumer to work seamlessly with
-/// one-time consumer APIs.
-impl<T, U> BiConsumerOnce<T, U> for RcBiConsumer<T, U>
-where
-    T: 'static,
-    U: 'static,
-{
-    fn accept_once(self, first: &T, second: &U) {
-        self.accept(first, second)
-    }
-
-    fn into_box_once(self) -> BoxBiConsumerOnce<T, U> {
-        BoxBiConsumerOnce::new(move |t, u| self.accept(t, u))
-    }
-
-    fn into_fn_once(self) -> impl FnOnce(&T, &U) {
-        move |t, u| self.accept(t, u)
-    }
-}
+// Use macro to generate Debug and Display implementations
+impl_consumer_debug_display!(RcBiConsumer<T, U>);
 
 // =======================================================================
 // 5. Implement BiConsumer trait for closures
@@ -1289,3 +955,154 @@ pub trait FnBiConsumerOps<T, U>: Fn(&T, &U) + Sized {
 
 /// Implements FnBiConsumerOps for all closure types
 impl<T, U, F> FnBiConsumerOps<T, U> for F where F: Fn(&T, &U) {}
+
+// =======================================================================
+// 7. BoxConditionalBiConsumer - Box-based Conditional BiConsumer
+// =======================================================================
+
+/// BoxConditionalBiConsumer struct
+///
+/// A conditional readonly bi-consumer that only executes when a predicate is satisfied.
+/// Uses `BoxBiConsumer` and `BoxBiPredicate` for single ownership semantics.
+///
+/// This type is typically created by calling `BoxBiConsumer::when()` and is
+/// designed to work with the `or_else()` method to create if-then-else logic.
+///
+/// # Features
+///
+/// - **Single Ownership**: Not cloneable, consumes `self` on use
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Chainable**: Can add `or_else` branch to create if-then-else logic
+/// - **Implements BiConsumer**: Can be used anywhere a `BiConsumer` is expected
+/// - **Readonly**: Neither modifies itself nor input values
+///
+/// # Examples
+///
+/// ## Basic Conditional Execution
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, BoxBiConsumer};
+///
+/// let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
+///     println!("Both positive: {} + {} = {}", x, y, x + y);
+/// });
+/// let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+///
+/// conditional.accept(&5, &3);  // Prints: Both positive: 5 + 3 = 8
+/// conditional.accept(&-5, &3); // Does nothing
+/// ```
+///
+/// ## With or_else Branch
+///
+/// ```rust
+/// use prism3_function::{BiConsumer, BoxBiConsumer};
+///
+/// let consumer = BoxBiConsumer::new(|x: &i32, y: &i32| {
+///     println!("Both positive: {} + {} = {}", x, y, x + y);
+/// })
+/// .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
+/// .or_else(|x: &i32, y: &i32| {
+///     println!("Not both positive: {} and {}", x, y);
+/// });
+///
+/// consumer.accept(&5, &3);  // Prints: Both positive: 5 + 3 = 8
+/// consumer.accept(&-5, &3); // Prints: Not both positive: -5 and 3
+/// ```
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct BoxConditionalBiConsumer<T, U> {
+    consumer: BoxBiConsumer<T, U>,
+    predicate: BoxBiPredicate<T, U>,
+}
+
+// Use macro to generate conditional bi-consumer implementations
+impl_box_conditional_consumer!(
+    BoxConditionalBiConsumer<T, U>,
+    BoxBiConsumer,
+    BiConsumer
+);
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(BoxConditionalBiConsumer<T, U>);
+
+// =======================================================================
+// 8. ArcConditionalBiConsumer - Arc-based Conditional BiConsumer
+// =======================================================================
+
+/// ArcConditionalBiConsumer struct
+///
+/// A conditional bi-consumer that wraps an `ArcBiConsumer` and only executes
+/// when a predicate is satisfied. Based on `Arc` for thread-safe shared ownership.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable through `Arc`, allows multiple owners
+/// - **Thread Safe**: Implements `Send + Sync`, can be safely used concurrently
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Implements BiConsumer**: Can be used anywhere a `BiConsumer` is expected
+/// - **Readonly**: Neither modifies itself nor input values
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct ArcConditionalBiConsumer<T, U> {
+    consumer: ArcBiConsumer<T, U>,
+    predicate: ArcBiPredicate<T, U>,
+}
+
+// Use macro to generate conditional bi-consumer implementations
+impl_shared_conditional_consumer!(
+    ArcConditionalBiConsumer<T, U>,
+    ArcBiConsumer,
+    BiConsumer,
+    into_arc,
+    Send + Sync + 'static
+);
+
+// Use macro to generate Clone implementation
+impl_conditional_consumer_clone!(ArcConditionalBiConsumer<T, U>);
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(ArcConditionalBiConsumer<T, U>);
+
+// =======================================================================
+// 9. RcConditionalBiConsumer - Rc-based Conditional BiConsumer
+// =======================================================================
+
+/// RcConditionalBiConsumer struct
+///
+/// A conditional bi-consumer that wraps an `RcBiConsumer` and only executes
+/// when a predicate is satisfied. Based on `Rc` for single-threaded shared ownership.
+///
+/// # Features
+///
+/// - **Shared Ownership**: Cloneable through `Rc`, allows multiple owners
+/// - **Single-Threaded**: Not thread-safe, more efficient than Arc in single-threaded contexts
+/// - **Conditional Execution**: Only consumes when predicate returns `true`
+/// - **Implements BiConsumer**: Can be used anywhere a `BiConsumer` is expected
+/// - **Readonly**: Neither modifies itself nor input values
+///
+/// # Author
+///
+/// Haixing Hu
+pub struct RcConditionalBiConsumer<T, U> {
+    consumer: RcBiConsumer<T, U>,
+    predicate: RcBiPredicate<T, U>,
+}
+
+// Use macro to generate conditional bi-consumer implementations
+impl_shared_conditional_consumer!(
+    RcConditionalBiConsumer<T, U>,
+    RcBiConsumer,
+    BiConsumer,
+    into_rc,
+    'static
+);
+
+// Use macro to generate Clone implementation
+impl_conditional_consumer_clone!(RcConditionalBiConsumer<T, U>);
+
+// Use macro to generate Debug and Display implementations
+impl_conditional_consumer_debug_display!(RcConditionalBiConsumer<T, U>);

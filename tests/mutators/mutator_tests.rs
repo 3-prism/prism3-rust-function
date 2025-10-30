@@ -859,7 +859,7 @@ mod test_rc_mutator {
         let first = RcMutator::new(|x: &mut i32| *x *= 2);
         let second = RcMutator::new(|x: &mut i32| *x += 10);
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second.clone());
 
         let mut value = 5;
         chained.mutate(&mut value);
@@ -917,7 +917,7 @@ mod test_rc_mutator {
         let noop = RcMutator::<i32>::noop();
         let double = RcMutator::new(|x: &mut i32| *x *= 2);
 
-        let chained = noop.and_then(&double);
+        let chained = noop.and_then(double.clone());
 
         let mut value = 5;
         chained.mutate(&mut value);

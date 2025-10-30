@@ -483,7 +483,7 @@ mod test_rc_mutator {
         let first = RcStatefulMutator::new(|x: &mut i32| *x *= 2);
         let second = RcStatefulMutator::new(|x: &mut i32| *x += 10);
 
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second.clone());
 
         let mut value = 5;
         let mut c = chained;
@@ -546,7 +546,7 @@ mod test_rc_mutator {
         let noop = RcStatefulMutator::<i32>::noop();
         let double = RcStatefulMutator::new(|x: &mut i32| *x *= 2);
 
-        let chained = noop.and_then(&double);
+        let chained = noop.and_then(double.clone());
 
         let mut value = 5;
         let mut c = chained;
@@ -943,8 +943,8 @@ mod test_complex_scenarios {
         let double = RcStatefulMutator::new(|x: &mut i32| *x *= 2);
         let add_ten = RcStatefulMutator::new(|x: &mut i32| *x += 10);
 
-        let pipeline1 = double.and_then(&add_ten.clone());
-        let pipeline2 = add_ten.and_then(&double.clone());
+        let pipeline1 = double.and_then(add_ten.clone());
+        let pipeline2 = add_ten.and_then(double.clone());
 
         let mut value1 = 5;
         let mut p1 = pipeline1;
@@ -1520,7 +1520,7 @@ mod test_into_fn {
     fn test_rc_mutator_into_fn_chained() {
         let first = RcStatefulMutator::new(|x: &mut i32| *x *= 3);
         let second = RcStatefulMutator::new(|x: &mut i32| *x -= 1);
-        let chained = first.and_then(&second);
+        let chained = first.and_then(second.clone());
 
         let mut values = vec![2, 4, 6];
         values.iter_mut().for_each(chained.into_fn());

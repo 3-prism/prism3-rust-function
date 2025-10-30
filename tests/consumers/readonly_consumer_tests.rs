@@ -124,7 +124,7 @@ mod box_readonly_consumer_tests {
         let consumer = BoxConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5);
     }
 
@@ -261,7 +261,7 @@ mod arc_readonly_consumer_tests {
         let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5);
     }
 
@@ -270,7 +270,7 @@ mod arc_readonly_consumer_tests {
         let consumer = ArcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5);
 
         // Original consumer remains usable
@@ -409,7 +409,7 @@ mod rc_readonly_consumer_tests {
         let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
-        let func = consumer.into_fn();
+        let mut func = consumer.into_fn();
         func(&5);
     }
 
@@ -418,7 +418,7 @@ mod rc_readonly_consumer_tests {
         let consumer = RcConsumer::new(|x: &i32| {
             println!("Value: {}", x);
         });
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&5);
 
         // Original consumer remains usable
@@ -495,7 +495,7 @@ mod closure_tests {
         let closure = |x: &i32| {
             println!("Value: {}", x);
         };
-        let func = closure.into_fn();
+        let mut func = closure.into_fn();
         func(&5);
     }
 
@@ -782,12 +782,12 @@ mod custom_struct_tests {
     };
     use std::sync::Arc;
 
-    struct MyConsumer {
+    pub struct MyConsumer {
         counter: Arc<AtomicUsize>,
     }
 
     impl MyConsumer {
-        fn new(counter: Arc<AtomicUsize>) -> Self {
+        pub fn new(counter: Arc<AtomicUsize>) -> Self {
             Self { counter }
         }
     }
@@ -822,7 +822,7 @@ mod custom_struct_tests {
 
         // into_fn()
         let my4 = MyConsumer::new(counter.clone());
-        let func = my4.into_fn();
+        let mut func = my4.into_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
     }
@@ -857,7 +857,7 @@ mod custom_struct_tests {
         assert_eq!(counter.load(Ordering::SeqCst), 3);
 
         // to_fn() - Does not consume the original object
-        let func = my.to_fn();
+        let mut func = my.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
@@ -946,7 +946,7 @@ mod to_xxx_methods_tests {
         });
 
         // to_fn() does not consume the original object
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
@@ -1000,7 +1000,7 @@ mod to_xxx_methods_tests {
         });
 
         // to_fn() does not consume the original object
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&1);
         assert_eq!(*counter.borrow(), 1);
 
@@ -1088,7 +1088,7 @@ mod to_xxx_methods_tests {
         };
 
         // to_fn() does not consume the original closure
-        let func = closure.to_fn();
+        let mut func = closure.to_fn();
         func(&1);
         assert_eq!(counter.load(Ordering::SeqCst), 1);
 
@@ -1118,7 +1118,7 @@ mod to_xxx_methods_tests {
         arc_consumer.accept(&3);
         assert_eq!(counter.load(Ordering::SeqCst), 3);
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&4);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
@@ -1144,7 +1144,7 @@ mod to_xxx_methods_tests {
         rc_consumer.accept(&2);
         assert_eq!(*counter.borrow(), 2);
 
-        let func = consumer.to_fn();
+        let mut func = consumer.to_fn();
         func(&3);
         assert_eq!(*counter.borrow(), 3);
 
@@ -1175,12 +1175,592 @@ mod to_xxx_methods_tests {
         arc_consumer.accept(&3);
         assert_eq!(counter.load(Ordering::SeqCst), 3);
 
-        let func = closure.to_fn();
+        let mut func = closure.to_fn();
         func(&4);
         assert_eq!(counter.load(Ordering::SeqCst), 4);
 
         // Finally verify the original closure remains usable
         closure.accept(&5);
         assert_eq!(counter.load(Ordering::SeqCst), 5);
+    }
+}
+
+// ============================================================================
+// to_once Tests - Testing Consumer trait default to_once implementation
+// ============================================================================
+
+#[cfg(test)]
+mod to_once_tests {
+    use super::*;
+    use prism3_function::ConsumerOnce;
+    use std::sync::atomic::{
+        AtomicUsize,
+        Ordering,
+    };
+
+    #[test]
+    fn test_custom_consumer_to_once() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let my_consumer = super::custom_struct_tests::MyConsumer::new(counter.clone());
+
+        // Test to_once() - should not consume the original
+        let once_consumer = my_consumer.to_once();
+        once_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original consumer should still be usable
+        my_consumer.accept(&2);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_custom_consumer_into_once() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let my_consumer = super::custom_struct_tests::MyConsumer::new(counter.clone());
+
+        // Test into_once() - should consume the original
+        let once_consumer = my_consumer.into_once();
+        once_consumer.accept(&1);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+}
+
+// ============================================================================
+// Conditional Consumer Tests
+// ============================================================================
+
+#[cfg(test)]
+mod box_conditional_consumer_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    #[test]
+    fn test_box_conditional_and_then() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let chained = conditional.and_then(move |x: &i32| {
+            l2.lock().unwrap().push(*x * 2);
+        });
+
+        chained.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10]);
+
+        chained.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5, 10, -10]);
+    }
+
+    #[test]
+    fn test_box_conditional_or_else() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l1.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer
+            .when(|x: &i32| *x > 0)
+            .or_else(move |x: &i32| {
+                l2.lock().unwrap().push(*x * 10);
+            });
+
+        conditional.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+
+        conditional.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5, -50]);
+    }
+
+    #[test]
+    fn test_box_conditional_accept() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+
+        conditional.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+
+        conditional.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_box() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+
+        boxed.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_rc() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+
+        rc.accept(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+
+    #[test]
+    fn test_box_conditional_into_fn() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = BoxConsumer::new(move |x: &i32| {
+            l.lock().unwrap().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+
+        func(&5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+
+        func(&-5);
+        assert_eq!(*log.lock().unwrap(), vec![5]);
+    }
+}
+
+#[cfg(test)]
+mod arc_conditional_consumer_tests {
+    use super::*;
+    use std::sync::atomic::{
+        AtomicUsize,
+        Ordering,
+    };
+
+    #[test]
+    fn test_arc_conditional_and_then() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c1.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let chained = conditional.and_then(move |_x: &i32| {
+            c2.fetch_add(10, Ordering::SeqCst);
+        });
+
+        chained.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 11);
+
+        chained.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 21);
+    }
+
+    #[test]
+    fn test_arc_conditional_or_else() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c1 = counter.clone();
+        let c2 = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c1.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |_x: &i32| {
+            c2.fetch_add(100, Ordering::SeqCst);
+        });
+
+        conditional.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        conditional.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 101);
+    }
+
+    #[test]
+    fn test_arc_conditional_accept() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+
+        conditional.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        conditional.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        boxed.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_rc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        rc.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let arc = conditional.into_arc();
+
+        arc.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        arc.accept(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_into_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+
+        func(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        func(&-5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_box() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.to_box();
+
+        boxed.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_rc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let rc = conditional.to_rc();
+
+        rc.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_arc() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let arc = conditional.to_arc();
+
+        arc.accept(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn test_arc_conditional_to_fn() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let c = counter.clone();
+
+        let consumer = ArcConsumer::new(move |_x: &i32| {
+            c.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.to_fn();
+
+        func(&5);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+}
+
+#[cfg(test)]
+mod rc_conditional_consumer_tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[test]
+    fn test_rc_conditional_and_then() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l1.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let chained = conditional.and_then(move |x: &i32| {
+            l2.borrow_mut().push(*x * 2);
+        });
+
+        chained.accept(&5);
+        assert_eq!(*log.borrow(), vec![5, 10]);
+
+        chained.accept(&-5);
+        assert_eq!(*log.borrow(), vec![5, 10, -10]);
+    }
+
+    #[test]
+    fn test_rc_conditional_or_else() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l1 = log.clone();
+        let l2 = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l1.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.borrow_mut().push(*x * 10);
+        });
+
+        conditional.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        conditional.accept(&-5);
+        assert_eq!(*log.borrow(), vec![5, -50]);
+    }
+
+    #[test]
+    fn test_rc_conditional_accept() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+
+        conditional.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        conditional.accept(&-5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.into_box();
+
+        boxed.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        boxed.accept(&-5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let rc = conditional.into_rc();
+
+        rc.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        rc.accept(&-5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_rc_conditional_into_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.into_fn();
+
+        func(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        func(&-5);
+        assert_eq!(*log.borrow(), vec![5]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_box() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let boxed = conditional.to_box();
+
+        boxed.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(*log.borrow(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_rc() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let rc = conditional.to_rc();
+
+        rc.accept(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(*log.borrow(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_rc_conditional_to_fn() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let l = log.clone();
+
+        let consumer = RcConsumer::new(move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
+
+        let conditional = consumer.when(|x: &i32| *x > 0);
+        let func = conditional.to_fn();
+
+        func(&5);
+        assert_eq!(*log.borrow(), vec![5]);
+
+        // Original conditional still usable
+        conditional.accept(&10);
+        assert_eq!(*log.borrow(), vec![5, 10]);
     }
 }

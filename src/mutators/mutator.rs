@@ -605,27 +605,7 @@ where
         }
     }
 
-    /// Creates a no-op mutator
-    ///
-    /// Returns a stateless mutator that performs no operation.
-    ///
-    /// # Returns
-    ///
-    /// Returns a no-op mutator
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use prism3_function::{Mutator, BoxMutator};
-    ///
-    /// let noop = BoxMutator::<i32>::noop();
-    /// let mut value = 42;
-    /// noop.mutate(&mut value);
-    /// assert_eq!(value, 42); // Value unchanged
-    /// ```
-    pub fn noop() -> Self {
-        BoxMutator::new(|_| {})
-    }
+    impl_mutator_noop!(new);
 
     /// Chains another mutator in sequence
     ///
@@ -688,6 +668,7 @@ where
     pub fn and_then<C>(self, next: C) -> Self
     where
         C: Mutator<T> + 'static,
+        T: 'static,
     {
         let first = self.function;
         let second = next.into_fn();
@@ -773,6 +754,7 @@ where
     pub fn when<P>(self, predicate: P) -> BoxConditionalMutator<T>
     where
         P: Predicate<T> + 'static,
+        T: 'static,
     {
         BoxConditionalMutator {
             mutator: self,
@@ -1253,9 +1235,13 @@ where
     /// chained.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &RcMutator<T>) -> RcMutator<T> {
+    pub fn and_then<M>(&self, next: M) -> RcMutator<T>
+    where
+        M: Mutator<T> + 'static,
+        T: 'static,
+    {
         let first = self.function.clone();
-        let second = next.function.clone();
+        let second = next.into_fn();
         RcMutator::new(move |t: &mut T| {
             (first)(t);
             (second)(t);
@@ -1299,6 +1285,7 @@ where
     pub fn when<P>(&self, predicate: P) -> RcConditionalMutator<T>
     where
         P: Predicate<T> + 'static,
+        T: 'static,
     {
         RcConditionalMutator {
             mutator: self.clone(),
@@ -1631,9 +1618,10 @@ where
     /// mutator.mutate(&mut negative);
     /// assert_eq!(negative, -6);
     /// ```
-    pub fn or_else<C>(self, else_mutator: C) -> RcMutator<T>
+    pub fn or_else<M>(self, else_mutator: M) -> RcMutator<T>
     where
-        C: Mutator<T> + 'static,
+        M: Mutator<T> + 'static,
+        T: 'static,
     {
         let pred = self.predicate;
         let then_mut = self.mutator;
@@ -1757,7 +1745,10 @@ where
     /// noop.mutate(&mut value);
     /// assert_eq!(value, 42); // Value unchanged
     /// ```
-    pub fn noop() -> Self {
+    pub fn noop() -> Self
+    where
+        T: Send + 'static,
+    {
         ArcMutator::new(|_| {})
     }
 
@@ -1790,7 +1781,10 @@ where
     /// chained.mutate(&mut value);
     /// assert_eq!(value, 20); // (5 * 2) + 10
     /// ```
-    pub fn and_then(&self, next: &ArcMutator<T>) -> ArcMutator<T> {
+    pub fn and_then(&self, next: &ArcMutator<T>) -> ArcMutator<T>
+    where
+        T: Send + 'static,
+    {
         let first = Arc::clone(&self.function);
         let second = Arc::clone(&next.function);
         ArcMutator {
@@ -2206,10 +2200,10 @@ where
     /// mutator.mutate(&mut negative);
     /// assert_eq!(negative, -6);
     /// ```
-    pub fn or_else<C>(&self, else_mutator: C) -> ArcMutator<T>
+    pub fn or_else<M>(&self, else_mutator: M) -> ArcMutator<T>
     where
-        C: Mutator<T> + Send + Sync + 'static,
-        T: Send + Sync,
+        M: Mutator<T> + Send + Sync + 'static,
+        T: Send + 'static,
     {
         let pred = self.predicate.clone();
         let then_mut = self.mutator.clone();

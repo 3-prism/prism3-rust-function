@@ -11,7 +11,10 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 use prism3_function::{
     ArcPredicate,
@@ -994,7 +997,7 @@ fn test_custom_stateful_function_to_box() {
     let mut boxed = custom.to_box();
     assert_eq!(boxed.apply(&10), 10); // 10 * 1
     assert_eq!(boxed.apply(&10), 20); // 10 * 2
-    // Original custom is still usable (was cloned)
+                                      // Original custom is still usable (was cloned)
     let mut custom_clone = custom.clone();
     assert_eq!(custom_clone.apply(&10), 10); // 10 * 1 (independent state)
 }
@@ -1006,7 +1009,7 @@ fn test_custom_stateful_function_to_rc() {
     let mut rc = custom.to_rc();
     assert_eq!(rc.apply(&10), 10); // 10 * 1
     assert_eq!(rc.apply(&10), 20); // 10 * 2
-    // Original custom is still usable (was cloned)
+                                   // Original custom is still usable (was cloned)
     let mut custom_clone = custom.clone();
     assert_eq!(custom_clone.apply(&10), 10); // 10 * 1 (independent state)
 }
@@ -1018,7 +1021,7 @@ fn test_custom_stateful_function_to_arc() {
     let mut arc = custom.to_arc();
     assert_eq!(arc.apply(&10), 10); // 10 * 1
     assert_eq!(arc.apply(&10), 20); // 10 * 2
-    // Original custom is still usable (was cloned)
+                                    // Original custom is still usable (was cloned)
     let mut custom_clone = custom.clone();
     assert_eq!(custom_clone.apply(&10), 10); // 10 * 1 (independent state)
 }
@@ -1030,7 +1033,7 @@ fn test_custom_stateful_function_to_fn() {
     let mut func = custom.to_fn();
     assert_eq!(func(&10), 10); // 10 * 1
     assert_eq!(func(&10), 20); // 10 * 2
-    // Original custom is still usable (was cloned)
+                               // Original custom is still usable (was cloned)
     let mut custom_clone = custom.clone();
     assert_eq!(custom_clone.apply(&10), 10); // 10 * 1 (independent state)
 }

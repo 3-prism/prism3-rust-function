@@ -1875,7 +1875,7 @@ fn test_custom_stateful_bi_transformer_to_box() {
     let mut boxed = transformer.to_box();
     assert_eq!(boxed.apply(3, 4), 14); // (3 + 4) * 2
     assert_eq!(boxed.apply(5, 2), 21); // (5 + 2) * 3
-    // Original transformer is still usable (was cloned)
+                                       // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 10); // (2 + 3) * 2 (independent state)
 }
@@ -1886,7 +1886,7 @@ fn test_custom_stateful_bi_transformer_to_rc() {
     let mut rc = transformer.to_rc();
     assert_eq!(rc.apply(3, 4), 14); // (3 + 4) * 2
     assert_eq!(rc.apply(5, 2), 21); // (5 + 2) * 3
-    // Original transformer is still usable (was cloned)
+                                    // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 10); // (2 + 3) * 2 (independent state)
 }
@@ -1897,7 +1897,7 @@ fn test_custom_send_stateful_bi_transformer_to_arc() {
     let mut arc = transformer.to_arc();
     assert_eq!(arc.apply(3, 4), 14); // (3 + 4) * 2
     assert_eq!(arc.apply(5, 2), 21); // (5 + 2) * 3
-    // Original transformer is still usable (was cloned)
+                                     // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 10); // (2 + 3) * 2 (independent state)
 }
@@ -1908,7 +1908,7 @@ fn test_custom_stateful_bi_transformer_to_fn() {
     let mut closure = transformer.to_fn();
     assert_eq!(closure(3, 4), 14); // (3 + 4) * 2
     assert_eq!(closure(5, 2), 21); // (5 + 2) * 3
-    // Original transformer is still usable (was cloned)
+                                   // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 10); // (2 + 3) * 2 (independent state)
 }
@@ -1919,7 +1919,7 @@ fn test_cloneable_stateful_bi_transformer_to_box() {
     let mut boxed = transformer.to_box();
     assert_eq!(boxed.apply(3, 4), 8); // (3 + 4) + 1
     assert_eq!(boxed.apply(5, 2), 9); // (5 + 2) + 2
-    // Original transformer is still usable (was cloned)
+                                      // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 6); // (2 + 3) + 1 (independent state)
 }
@@ -1930,7 +1930,7 @@ fn test_cloneable_stateful_bi_transformer_to_rc() {
     let mut rc = transformer.to_rc();
     assert_eq!(rc.apply(3, 4), 8); // (3 + 4) + 1
     assert_eq!(rc.apply(5, 2), 9); // (5 + 2) + 2
-    // Original transformer is still usable (was cloned)
+                                   // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 6); // (2 + 3) + 1 (independent state)
 }
@@ -1941,7 +1941,7 @@ fn test_cloneable_send_stateful_bi_transformer_to_arc() {
     let mut arc = transformer.to_arc();
     assert_eq!(arc.apply(3, 4), 12); // (3 * 4) * 1
     assert_eq!(arc.apply(5, 2), 20); // (5 * 2) * 2
-    // Original transformer is still usable (was cloned)
+                                     // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 6); // (2 * 3) * 1 (independent state)
 }
@@ -1952,7 +1952,7 @@ fn test_cloneable_stateful_bi_transformer_to_fn() {
     let mut closure = transformer.to_fn();
     assert_eq!(closure(3, 4), 8); // (3 + 4) + 1
     assert_eq!(closure(5, 2), 9); // (5 + 2) + 2
-    // Original transformer is still usable (was cloned)
+                                  // Original transformer is still usable (was cloned)
     let mut transformer_clone = transformer.clone();
     assert_eq!(transformer_clone.apply(2, 3), 6); // (2 + 3) + 1 (independent state)
 }

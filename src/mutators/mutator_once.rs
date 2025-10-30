@@ -491,6 +491,7 @@ where
     pub fn and_then<C>(self, next: C) -> Self
     where
         C: MutatorOnce<T> + 'static,
+        T: 'static,
     {
         let first = self.function;
         BoxMutatorOnce::new(move |t| {
@@ -590,6 +591,7 @@ where
     pub fn when<P>(self, predicate: P) -> BoxConditionalMutatorOnce<T>
     where
         P: Predicate<T> + 'static,
+        T: 'static,
     {
         BoxConditionalMutatorOnce {
             mutator: self,
@@ -787,6 +789,7 @@ where
     pub fn and_then<C>(self, next: C) -> BoxMutatorOnce<T>
     where
         C: MutatorOnce<T> + 'static,
+        T: 'static,
     {
         let first = self;
         BoxMutatorOnce::new(move |t| {
