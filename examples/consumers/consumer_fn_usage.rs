@@ -29,22 +29,15 @@ fn main() {
     });
 
     // Convert consumer to closure and pass to for_each
-    [1, 2, 3, 4, 5]
-        .iter()
-        .for_each(move |value| consumer.accept(value));
-    println!(
-        "   Result: {:?}\n",
-        *log.lock().expect("mutex should not be poisoned")
-    );
+    [1, 2, 3, 4, 5].iter().for_each(move |value| consumer.accept(value));
+    println!("   Result: {:?}\n", *log.lock().expect("mutex should not be poisoned"));
 
     // Example 2: A shared ArcConsumer can be reused.
     println!("2. ArcConsumer can be used multiple times");
     let log2 = Arc::new(Mutex::new(Vec::new()));
     let l2 = log2.clone();
     let consumer2 = ArcConsumer::new(move |x: &i32| {
-        l2.lock()
-            .expect("mutex should not be poisoned")
-            .push(*x + 10);
+        l2.lock().expect("mutex should not be poisoned").push(*x + 10);
     });
 
     // Calling through a borrowed ArcConsumer does not consume it.
@@ -68,9 +61,7 @@ fn main() {
         l3.borrow_mut().push(*x * 3);
     });
 
-    [1, 2, 3, 4]
-        .iter()
-        .for_each(|value| consumer3.accept(value));
+    [1, 2, 3, 4].iter().for_each(|value| consumer3.accept(value));
     println!("   Result: {:?}\n", *log3.borrow());
 
     // Example 4: Using in custom functions
@@ -85,17 +76,12 @@ fn main() {
     let log4 = Arc::new(Mutex::new(Vec::new()));
     let l4 = log4.clone();
     let consumer4 = BoxConsumer::new(move |x: &i32| {
-        l4.lock()
-            .expect("mutex should not be poisoned")
-            .push(*x * 5);
+        l4.lock().expect("mutex should not be poisoned").push(*x * 5);
     });
 
     // Adapt the consumer with a forwarding closure.
     process_items(vec![1, 2, 3], move |value| consumer4.accept(value));
-    println!(
-        "   Result: {:?}\n",
-        *log4.lock().expect("mutex should not be poisoned")
-    );
+    println!("   Result: {:?}\n", *log4.lock().expect("mutex should not be poisoned"));
 
     // Example 5: Adapt a composed consumer.
     println!("5. Using a forwarding closure after chained operations");
@@ -115,10 +101,7 @@ fn main() {
     });
 
     [1, 2].iter().for_each(move |value| chained.accept(value));
-    println!(
-        "   Result: {:?}\n",
-        *log5.lock().expect("mutex should not be poisoned")
-    );
+    println!("   Result: {:?}\n", *log5.lock().expect("mutex should not be poisoned"));
 
     println!("=== Demo Complete ===");
 }

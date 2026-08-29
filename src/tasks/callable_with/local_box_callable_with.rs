@@ -58,10 +58,7 @@ impl<T, R, E> LocalBoxCallableWith<T, R, E> {
     {
         let metadata = self.metadata;
         let mut function = self.function;
-        LocalBoxCallableWith::new_with_metadata(
-            move |input: &mut T| function(input).map(&mut mapper),
-            metadata,
-        )
+        LocalBoxCallableWith::new_with_metadata(move |input: &mut T| function(input).map(&mut mapper), metadata)
     }
 
     /// Maps the error value of this callable.
@@ -83,10 +80,7 @@ impl<T, R, E> LocalBoxCallableWith<T, R, E> {
     {
         let metadata = self.metadata;
         let mut function = self.function;
-        LocalBoxCallableWith::new_with_metadata(
-            move |input: &mut T| function(input).map_err(&mut mapper),
-            metadata,
-        )
+        LocalBoxCallableWith::new_with_metadata(move |input: &mut T| function(input).map_err(&mut mapper), metadata)
     }
 
     /// Chains another computation after this callable succeeds.

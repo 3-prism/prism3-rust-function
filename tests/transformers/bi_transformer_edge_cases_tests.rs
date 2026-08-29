@@ -31,24 +31,20 @@ mod edge_cases_tests {
 
     #[test]
     fn test_with_option() {
-        let safe_divide =
-            BoxBiTransformer::new(
-                |x: i32, y: i32| if y == 0 { None } else { Some(x / y) },
-            );
+        let safe_divide = BoxBiTransformer::new(|x: i32, y: i32| if y == 0 { None } else { Some(x / y) });
         assert_eq!(safe_divide.apply(42, 2), Some(21));
         assert_eq!(safe_divide.apply(42, 0), None);
     }
 
     #[test]
     fn test_with_result() {
-        let safe_divide =
-            BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
-                if y == 0 {
-                    Err("Division by zero".to_string())
-                } else {
-                    Ok(x / y)
-                }
-            });
+        let safe_divide = BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
+            if y == 0 {
+                Err("Division by zero".to_string())
+            } else {
+                Ok(x / y)
+            }
+        });
         assert_eq!(safe_divide.apply(42, 2), Ok(21));
         assert!(safe_divide.apply(42, 0).is_err());
     }
@@ -60,17 +56,13 @@ mod edge_cases_tests {
             result.extend(v2);
             result
         });
-        assert_eq!(
-            combine.apply(vec![1, 2, 3], vec![4, 5, 6]),
-            vec![1, 2, 3, 4, 5, 6]
-        );
+        assert_eq!(combine.apply(vec![1, 2, 3], vec![4, 5, 6]), vec![1, 2, 3, 4, 5, 6]);
     }
 
     #[test]
     fn test_arc_with_large_data() {
-        let sum_vecs = ArcBiTransformer::new(|v1: Vec<i32>, v2: Vec<i32>| {
-            v1.iter().sum::<i32>() + v2.iter().sum::<i32>()
-        });
+        let sum_vecs =
+            ArcBiTransformer::new(|v1: Vec<i32>, v2: Vec<i32>| v1.iter().sum::<i32>() + v2.iter().sum::<i32>());
         let data1 = (1..=50).collect::<Vec<_>>();
         let data2 = (51..=100).collect::<Vec<_>>();
         assert_eq!(sum_vecs.apply(data1, data2), 5050);
@@ -84,13 +76,8 @@ mod edge_cases_tests {
 
     #[test]
     fn test_string_operations() {
-        let join = BoxBiTransformer::new(|s1: String, s2: String| {
-            format!("{} {}", s1, s2)
-        });
-        assert_eq!(
-            join.apply("Hello".to_string(), "World".to_string()),
-            "Hello World"
-        );
+        let join = BoxBiTransformer::new(|s1: String, s2: String| format!("{} {}", s1, s2));
+        assert_eq!(join.apply("Hello".to_string(), "World".to_string()), "Hello World");
     }
 }
 

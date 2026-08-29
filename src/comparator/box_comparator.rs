@@ -68,9 +68,7 @@ impl<T> BoxComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Box::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Box::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::unnamed(),
         }
     }
@@ -91,9 +89,7 @@ impl<T> BoxComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Box::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Box::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::named(name),
         }
     }
@@ -114,9 +110,7 @@ impl<T> BoxComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Box::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Box::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::from_optional_name(name),
         }
     }
@@ -132,17 +126,12 @@ impl<T> BoxComparator<T> {
     ///
     /// A `BoxComparator` containing `metadata`.
     #[inline]
-    pub(crate) fn new_with_metadata<F>(
-        source: F,
-        metadata: CallbackMetadata,
-    ) -> Self
+    pub(crate) fn new_with_metadata<F>(source: F, metadata: CallbackMetadata) -> Self
     where
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Box::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Box::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata,
         }
     }
@@ -209,10 +198,7 @@ impl<T> BoxComparator<T> {
     {
         let metadata = self.metadata;
         let function = self.function;
-        BoxComparator::new_with_metadata(
-            move |a: &T, b: &T| function(b, a),
-            metadata,
-        )
+        BoxComparator::new_with_metadata(move |a: &T, b: &T| function(b, a), metadata)
     }
 
     /// Returns a comparator that uses this comparator first, then another

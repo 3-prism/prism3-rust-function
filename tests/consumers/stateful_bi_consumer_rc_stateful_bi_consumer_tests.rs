@@ -38,10 +38,7 @@ impl StatefulBiConsumer<i32, i32> for CustomStatefulBiConsumer {
     fn accept(&mut self, first: &i32, second: &i32) {
         self.multiplier += 1;
         let result = (*first + *second) * self.multiplier;
-        self.log
-            .lock()
-            .expect("mutex should not be poisoned")
-            .push(result);
+        self.log.lock().expect("mutex should not be poisoned").push(result);
     }
 }
 
@@ -57,10 +54,9 @@ mod rc_stateful_bi_consumer_tests {
     fn test_new() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.borrow_mut().push(*x + *y);
-            });
+        let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
         consumer.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
     }
@@ -70,12 +66,9 @@ mod rc_stateful_bi_consumer_tests {
     fn test_new_with_name() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcStatefulBiConsumer::new_with_name(
-            "test_consumer",
-            move |x: &i32, y: &i32| {
-                l.borrow_mut().push(*x + *y);
-            },
-        );
+        let mut consumer = RcStatefulBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
@@ -102,10 +95,9 @@ mod rc_stateful_bi_consumer_tests {
     fn test_accept() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.borrow_mut().push(*x * *y);
-            });
+        let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x * *y);
+        });
         consumer.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![15]);
     }
@@ -155,8 +147,7 @@ mod rc_stateful_bi_consumer_tests {
         let consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
             l.borrow_mut().push(*x + *y);
         });
-        let mut conditional =
-            consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         conditional.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
         conditional.accept(&-5, &3);
@@ -168,10 +159,9 @@ mod rc_stateful_bi_consumer_tests {
     fn test_accept_once() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.borrow_mut().push(*x + *y);
-            });
+        let mut consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.borrow_mut().push(*x + *y);
+        });
         consumer.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8]);
     }

@@ -66,8 +66,7 @@ fn test_box_conditional_stateful_function_debug_display() {
     assert!(display_str.ends_with(")"));
 
     // Test Debug and Display for BoxConditionalStatefulFunction with name
-    let mut named_double =
-        BoxStatefulFunction::new_with_name("stateful_double", |x: &i32| x * 2);
+    let mut named_double = BoxStatefulFunction::new_with_name("stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -109,10 +108,7 @@ fn test_rc_conditional_stateful_function_debug_display() {
     assert!(display_str.ends_with(")"));
 
     // Test Debug and Display for RcConditionalStatefulFunction with name
-    let mut named_double =
-        RcStatefulFunction::new_with_name("rc_stateful_double", |x: &i32| {
-            x * 2
-        });
+    let mut named_double = RcStatefulFunction::new_with_name("rc_stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -126,9 +122,7 @@ fn test_rc_conditional_stateful_function_debug_display() {
 
     let named_display_str = format!("{}", named_conditional);
     assert!(named_display_str.starts_with("RcConditionalStatefulFunction("));
-    assert!(
-        named_display_str.contains("RcStatefulFunction(rc_stateful_double)")
-    );
+    assert!(named_display_str.contains("RcStatefulFunction(rc_stateful_double)"));
     assert!(named_display_str.contains("RcPredicate"));
     assert!(named_display_str.ends_with(")"));
 }
@@ -156,10 +150,7 @@ fn test_arc_conditional_stateful_function_debug_display() {
     assert!(display_str.ends_with(")"));
 
     // Test Debug and Display for ArcConditionalStatefulFunction with name
-    let mut named_double =
-        ArcStatefulFunction::new_with_name("arc_stateful_double", |x: &i32| {
-            x * 2
-        });
+    let mut named_double = ArcStatefulFunction::new_with_name("arc_stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -173,9 +164,7 @@ fn test_arc_conditional_stateful_function_debug_display() {
 
     let named_display_str = format!("{}", named_conditional);
     assert!(named_display_str.starts_with("ArcConditionalStatefulFunction("));
-    assert!(
-        named_display_str.contains("ArcStatefulFunction(arc_stateful_double)")
-    );
+    assert!(named_display_str.contains("ArcStatefulFunction(arc_stateful_double)"));
     assert!(named_display_str.contains("ArcPredicate"));
     assert!(named_display_str.ends_with(")"));
 }

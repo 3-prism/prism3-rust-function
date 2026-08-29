@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalMutatingFunction;
 
 #[test]
 fn test_box_conditional_mutating_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalMutatingFunction<i32, i32>>();
-    assert!(
-        type_name.contains("BoxConditionalMutatingFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalMutatingFunction<i32, i32>>();
+    assert!(type_name.contains("BoxConditionalMutatingFunction"), "{type_name}");
 }

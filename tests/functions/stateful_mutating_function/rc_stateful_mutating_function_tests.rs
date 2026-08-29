@@ -10,10 +10,6 @@ use qubit_function::RcStatefulMutatingFunction;
 
 #[test]
 fn test_rc_stateful_mutating_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<RcStatefulMutatingFunction<i32, i32>>();
-    assert!(
-        type_name.contains("RcStatefulMutatingFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<RcStatefulMutatingFunction<i32, i32>>();
+    assert!(type_name.contains("RcStatefulMutatingFunction"), "{type_name}");
 }

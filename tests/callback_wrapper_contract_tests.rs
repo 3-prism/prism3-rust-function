@@ -72,18 +72,11 @@ fn test_with_name_keeps_shared_clone_metadata_independent() {
 /// Verifies the preserve-or-clear contract for Comparator transformations.
 #[test]
 fn test_comparator_name_propagation_contract() {
-    let reversed =
-        BoxComparator::new_with_name("ascending", |left: &i32, right: &i32| {
-            left.cmp(right)
-        })
-        .reversed();
+    let reversed = BoxComparator::new_with_name("ascending", |left: &i32, right: &i32| left.cmp(right)).reversed();
     assert_eq!(reversed.name(), Some("ascending"));
 
-    let first = ArcComparator::new_with_name("primary", |_: &i32, _: &i32| {
-        std::cmp::Ordering::Equal
-    });
-    let combined =
-        first.then_comparing(|left: &i32, right: &i32| left.cmp(right));
+    let first = ArcComparator::new_with_name("primary", |_: &i32, _: &i32| std::cmp::Ordering::Equal);
+    let combined = first.then_comparing(|left: &i32, right: &i32| left.cmp(right));
     assert_eq!(combined.name(), None);
 }
 
@@ -104,8 +97,7 @@ fn test_tester_name_propagation_contract() {
     let boxed_stateful = !BoxStatefulTester::new_with_name("ready", || true);
     let rc_stateful_source = RcStatefulTester::new_with_name("ready", || true);
     let rc_stateful = !&rc_stateful_source;
-    let arc_stateful_source =
-        ArcStatefulTester::new_with_name("ready", || true);
+    let arc_stateful_source = ArcStatefulTester::new_with_name("ready", || true);
     let arc_stateful = !&arc_stateful_source;
 
     assert_eq!(boxed_stateful.name(), Some("ready"));
@@ -117,10 +109,7 @@ fn test_tester_name_propagation_contract() {
 /// Verifies negation preserves names for every predicate family and owner.
 #[test]
 fn test_predicate_not_preserves_name() {
-    assert_eq!(
-        (!BoxPredicate::new_with_name("p", |_: &i32| true)).name(),
-        Some("p")
-    );
+    assert_eq!((!BoxPredicate::new_with_name("p", |_: &i32| true)).name(), Some("p"));
     let rc = RcPredicate::new_with_name("p", |_: &i32| true);
     let arc = ArcPredicate::new_with_name("p", |_: &i32| true);
     assert_eq!((!&rc).name(), Some("p"));
@@ -145,13 +134,11 @@ fn test_predicate_not_preserves_name() {
     assert_eq!((!&arc).name(), Some("p"));
 
     assert_eq!(
-        (!BoxStatefulBiPredicate::new_with_name("p", |_: &i32, _: &i32| true,))
-            .name(),
+        (!BoxStatefulBiPredicate::new_with_name("p", |_: &i32, _: &i32| true,)).name(),
         Some("p")
     );
     let rc = RcStatefulBiPredicate::new_with_name("p", |_: &i32, _: &i32| true);
-    let arc =
-        ArcStatefulBiPredicate::new_with_name("p", |_: &i32, _: &i32| true);
+    let arc = ArcStatefulBiPredicate::new_with_name("p", |_: &i32, _: &i32| true);
     assert_eq!((!&rc).name(), Some("p"));
     assert_eq!((!&arc).name(), Some("p"));
 }
@@ -171,8 +158,7 @@ fn test_supplier_name_propagation_contract() {
     assert_eq!(arc.map(|value| value + 1).name(), Some("source"));
     assert_eq!(arc.zip(|| 2).name(), None);
 
-    let mut boxed =
-        BoxStatefulSupplier::new_with_name("source", || 1).memoize();
+    let mut boxed = BoxStatefulSupplier::new_with_name("source", || 1).memoize();
     assert_eq!(boxed.name(), Some("source"));
     assert_eq!(boxed.get(), 1);
 
@@ -196,34 +182,25 @@ fn test_task_name_propagation_contract() {
     let boxed = BoxCallable::new_with_name("load", || Err::<i32, ()>(()));
     assert_eq!(boxed.map_err(|error| error).name(), Some("load"));
 
-    let chained = BoxCallable::new_with_name("load", || Ok::<i32, ()>(1))
-        .and_then(|value| Ok(value + 1));
+    let chained = BoxCallable::new_with_name("load", || Ok::<i32, ()>(1)).and_then(|value| Ok(value + 1));
     assert_eq!(chained.name(), None);
 
-    let chained_once =
-        BoxCallableOnce::new_with_name("load", || Ok::<i32, ()>(1))
-            .and_then(|value| Ok(value + 1));
+    let chained_once = BoxCallableOnce::new_with_name("load", || Ok::<i32, ()>(1)).and_then(|value| Ok(value + 1));
     assert_eq!(chained_once.name(), None);
 
-    let runnable = BoxRunnable::new_with_name("first", || Ok::<(), ()>(()))
-        .and_then(|| Ok(()));
+    let runnable = BoxRunnable::new_with_name("first", || Ok::<(), ()>(())).and_then(|| Ok(()));
     assert_eq!(runnable.name(), None);
 
-    let callable = BoxRunnable::new_with_name("first", || Ok::<(), ()>(()))
-        .then_callable(|| Ok::<i32, ()>(1));
+    let callable = BoxRunnable::new_with_name("first", || Ok::<(), ()>(())).then_callable(|| Ok::<i32, ()>(1));
     assert_eq!(callable.name(), None);
 
-    let callable = BoxRunnableOnce::new_with_name("first", || Ok::<(), ()>(()))
-        .then_callable(|| Ok::<i32, ()>(1));
+    let callable = BoxRunnableOnce::new_with_name("first", || Ok::<(), ()>(())).then_callable(|| Ok::<i32, ()>(1));
     assert_eq!(callable.name(), None);
 
-    let callable =
-        LocalBoxRunnableOnce::new_with_name("first", || Ok::<(), ()>(()))
-            .then_callable(|| Ok::<i32, ()>(1));
+    let callable = LocalBoxRunnableOnce::new_with_name("first", || Ok::<(), ()>(())).then_callable(|| Ok::<i32, ()>(1));
     assert_eq!(callable.name(), None);
 
-    let callable =
-        BoxRunnableWith::new_with_name("first", |_: &mut i32| Ok::<(), ()>(()))
-            .then_callable_with(|value: &mut i32| Ok::<i32, ()>(*value));
+    let callable = BoxRunnableWith::new_with_name("first", |_: &mut i32| Ok::<(), ()>(()))
+        .then_callable_with(|value: &mut i32| Ok::<i32, ()>(*value));
     assert_eq!(callable.name(), None);
 }

@@ -275,8 +275,7 @@ where
 // =======================================================================
 
 /// Type alias for Arc-wrapped stateful mutating function
-type ArcStatefulMutatingFunctionFn<T, R> =
-    Arc<Mutex<dyn FnMut(&mut T) -> R + Send + 'static>>;
+type ArcStatefulMutatingFunctionFn<T, R> = Arc<Mutex<dyn FnMut(&mut T) -> R + Send + 'static>>;
 
 /// Type alias for Rc-wrapped stateful mutating function
 /// The erased callback representation used by this implementation.

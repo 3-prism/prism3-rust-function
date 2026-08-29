@@ -73,10 +73,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let function = self.function;
-        RcBiPredicate::new_with_metadata(
-            move |first: &T, second: &U| !function(first, second),
-            metadata,
-        )
+        RcBiPredicate::new_with_metadata(move |first: &T, second: &U| !function(first, second), metadata)
     }
 }
 

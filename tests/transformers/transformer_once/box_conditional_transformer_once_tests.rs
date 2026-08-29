@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalTransformerOnce;
 
 #[test]
 fn test_box_conditional_transformer_once_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalTransformerOnce<i32, i32>>();
-    assert!(
-        type_name.contains("BoxConditionalTransformerOnce"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalTransformerOnce<i32, i32>>();
+    assert!(type_name.contains("BoxConditionalTransformerOnce"), "{type_name}");
 }

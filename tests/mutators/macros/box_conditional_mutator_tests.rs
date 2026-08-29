@@ -11,8 +11,7 @@ use qubit_function::Mutator;
 
 #[test]
 fn test_box_conditional_mutator_macro_behavior() {
-    let mutator = BoxMutator::new(|value: &mut i32| *value += 1)
-        .when(|value: &i32| *value > 0);
+    let mutator = BoxMutator::new(|value: &mut i32| *value += 1).when(|value: &i32| *value > 0);
     let mut positive = 41;
     mutator.apply(&mut positive);
     let mut negative = -1;

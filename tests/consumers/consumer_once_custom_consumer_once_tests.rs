@@ -58,10 +58,7 @@ mod custom_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let consumer = CustomConsumer::new(log.clone(), 3);
         consumer.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![15]);
     }
 
     #[test]
@@ -77,10 +74,7 @@ mod custom_consumer_once_tests {
 
         let consumer = CustomConsumer::new(log.clone(), 5);
         process_with_consumer(consumer, &6);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![30]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![30]);
     }
 
     /// Custom consumer with String type
@@ -90,10 +84,7 @@ mod custom_consumer_once_tests {
     }
 
     impl StringLogger {
-        fn new(
-            log: Arc<Mutex<Vec<String>>>,
-            prefix: impl Into<String>,
-        ) -> Self {
+        fn new(log: Arc<Mutex<Vec<String>>>, prefix: impl Into<String>) -> Self {
             Self {
                 log,
                 prefix: prefix.into(),
@@ -117,10 +108,7 @@ mod custom_consumer_once_tests {
     }
 
     impl CountingConsumer {
-        fn new(
-            counter: Arc<Mutex<usize>>,
-            value_log: Arc<Mutex<Vec<i32>>>,
-        ) -> Self {
+        fn new(counter: Arc<Mutex<usize>>, value_log: Arc<Mutex<Vec<i32>>>) -> Self {
             Self { counter, value_log }
         }
     }

@@ -77,11 +77,7 @@ pub struct BoxConditionalConsumer<T> {
 }
 
 // Use macro to generate conditional consumer implementations
-impl_box_conditional_consumer!(
-    BoxConditionalConsumer<T>,
-    BoxConsumer,
-    Consumer
-);
+impl_box_conditional_consumer!(BoxConditionalConsumer<T>, BoxConsumer, Consumer);
 
 // Consumer trait implementation
 impl<T> Consumer<T> for BoxConditionalConsumer<T> {

@@ -26,8 +26,7 @@ fn test_box_tester_observable_behavior() {
 /// Verifies naming and diagnostic formatting for `BoxTester`.
 #[test]
 fn test_box_tester_name_and_diagnostics() {
-    let mut tester =
-        BoxTester::new_with_optional_name(|| true, Some("ready".to_owned()));
+    let mut tester = BoxTester::new_with_optional_name(|| true, Some("ready".to_owned()));
 
     assert_eq!(tester.name(), Some("ready"));
     assert_eq!(format!("{tester:?}"), "BoxTester { name: Some(\"ready\") }");

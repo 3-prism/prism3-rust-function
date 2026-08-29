@@ -74,10 +74,7 @@ impl<T, E> LocalBoxRunnableWith<T, E> {
     ///
     /// A local callable producing the second computation's result.
     #[inline]
-    pub fn then_callable_with<R, C>(
-        self,
-        mut callable: C,
-    ) -> LocalBoxCallableWith<T, R, E>
+    pub fn then_callable_with<R, C>(self, mut callable: C) -> LocalBoxCallableWith<T, R, E>
     where
         C: CallableWith<T, R, E> + 'static,
         T: 'static,

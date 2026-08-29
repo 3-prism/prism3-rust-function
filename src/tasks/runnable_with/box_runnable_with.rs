@@ -77,10 +77,7 @@ impl<T, E> BoxRunnableWith<T, E> {
     ///
     /// A callable producing the second computation's result.
     #[inline]
-    pub fn then_callable_with<R, C>(
-        self,
-        callable: C,
-    ) -> BoxCallableWith<T, R, E>
+    pub fn then_callable_with<R, C>(self, callable: C) -> BoxCallableWith<T, R, E>
     where
         C: crate::tasks::callable_with::CallableWith<T, R, E> + Send + 'static,
         T: 'static,

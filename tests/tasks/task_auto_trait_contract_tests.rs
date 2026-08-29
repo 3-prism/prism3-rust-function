@@ -48,10 +48,7 @@ fn test_task_box_compositions_remain_send() {
     );
     assert_eq!(callable.call().expect("callable should succeed"), 42);
 
-    let mut runnable = require_send(
-        BoxRunnable::new(|| Ok::<(), io::Error>(()))
-            .and_then(|| Ok::<(), io::Error>(())),
-    );
+    let mut runnable = require_send(BoxRunnable::new(|| Ok::<(), io::Error>(())).and_then(|| Ok::<(), io::Error>(())));
     runnable.run().expect("runnable should succeed");
 }
 
@@ -70,9 +67,7 @@ fn test_task_box_with_compositions_remain_send() {
     );
     let mut input = 20;
     assert_eq!(
-        callable
-            .call_with(&mut input)
-            .expect("callable-with should succeed"),
+        callable.call_with(&mut input).expect("callable-with should succeed"),
         64
     );
 
@@ -87,9 +82,7 @@ fn test_task_box_with_compositions_remain_send() {
         }),
     );
     let mut input = 20;
-    runnable
-        .run_with(&mut input)
-        .expect("runnable-with should succeed");
+    runnable.run_with(&mut input).expect("runnable-with should succeed");
     assert_eq!(input, 42);
 }
 
@@ -101,15 +94,9 @@ fn test_task_box_once_compositions_remain_send() {
             .map(|value| value + 1)
             .and_then(|value| Ok(value * 2)),
     );
-    assert_eq!(
-        callable.call_once().expect("callable-once should succeed"),
-        42,
-    );
+    assert_eq!(callable.call_once().expect("callable-once should succeed"), 42,);
 
-    let runnable = require_send(
-        BoxRunnableOnce::new(|| Ok::<(), io::Error>(()))
-            .and_then(|| Ok::<(), io::Error>(())),
-    );
+    let runnable = require_send(BoxRunnableOnce::new(|| Ok::<(), io::Error>(())).and_then(|| Ok::<(), io::Error>(())));
     runnable.run_once().expect("runnable-once should succeed");
 }
 
@@ -117,10 +104,8 @@ fn test_task_box_once_compositions_remain_send() {
 fn test_local_task_box_compositions_accept_rc_captures() {
     let suffix = Rc::new(String::from("-local"));
     let callable_suffix = Rc::clone(&suffix);
-    let mut callable = LocalBoxCallable::new(|| {
-        Ok::<String, io::Error>(String::from("callable"))
-    })
-    .map(move |value| format!("{value}{callable_suffix}"));
+    let mut callable = LocalBoxCallable::new(|| Ok::<String, io::Error>(String::from("callable")))
+        .map(move |value| format!("{value}{callable_suffix}"));
     assert_eq!(
         callable.call().expect("local callable should succeed"),
         "callable-local"
@@ -173,14 +158,10 @@ fn test_local_task_box_with_compositions_accept_rc_captures() {
 fn test_local_task_box_once_compositions_accept_rc_captures() {
     let suffix = Rc::new(String::from("-local"));
     let callable_suffix = Rc::clone(&suffix);
-    let callable = LocalBoxCallableOnce::new(|| {
-        Ok::<String, io::Error>(String::from("callable"))
-    })
-    .map(move |value| format!("{value}{callable_suffix}"));
+    let callable = LocalBoxCallableOnce::new(|| Ok::<String, io::Error>(String::from("callable")))
+        .map(move |value| format!("{value}{callable_suffix}"));
     assert_eq!(
-        callable
-            .call_once()
-            .expect("local callable-once should succeed"),
+        callable.call_once().expect("local callable-once should succeed"),
         "callable-local"
     );
 
@@ -190,7 +171,5 @@ fn test_local_task_box_once_compositions_accept_rc_captures() {
         Ok::<(), io::Error>(())
     })
     .and_then(|| Ok::<(), io::Error>(()));
-    runnable
-        .run_once()
-        .expect("local runnable-once should succeed");
+    runnable.run_once().expect("local runnable-once should succeed");
 }

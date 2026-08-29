@@ -26,8 +26,7 @@ mod box_conditional_tests {
     #[test]
     fn test_when_or_else() {
         let add = BoxBiTransformer::new(|x: i32, y: i32| x + y);
-        let both_positive =
-            BoxBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let both_positive = BoxBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let multiply = BoxBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 

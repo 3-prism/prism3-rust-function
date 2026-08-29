@@ -76,10 +76,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let function = self.function;
-        ArcPredicate::new_with_metadata(
-            move |value: &T| !function(value),
-            metadata,
-        )
+        ArcPredicate::new_with_metadata(move |value: &T| !function(value), metadata)
     }
 }
 
@@ -91,10 +88,7 @@ where
 
     fn not(self) -> Self::Output {
         let function = self.function.clone();
-        ArcPredicate::new_with_metadata(
-            move |value: &T| !function(value),
-            self.metadata.clone(),
-        )
+        ArcPredicate::new_with_metadata(move |value: &T| !function(value), self.metadata.clone())
     }
 }
 

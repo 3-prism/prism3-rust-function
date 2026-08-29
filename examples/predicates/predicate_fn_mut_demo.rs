@@ -28,11 +28,7 @@ fn demo_with_iterator_filter() {
 
     let pred = BoxPredicate::new(|x: &i32| *x > 0);
     let numbers = vec![-2, -1, 0, 1, 2, 3];
-    let positives: Vec<_> = numbers
-        .iter()
-        .copied()
-        .filter(|value| pred.test(value))
-        .collect();
+    let positives: Vec<_> = numbers.iter().copied().filter(|value| pred.test(value)).collect();
     println!("   Original data: {:?}", numbers);
     println!("   Filtered result: {:?}", positives);
     assert_eq!(positives, vec![1, 2, 3]);

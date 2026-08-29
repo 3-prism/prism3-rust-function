@@ -88,11 +88,7 @@ pub struct BoxConditionalStatefulMutator<T> {
 }
 
 // Generate box conditional mutator methods (and_then, or_else)
-impl_box_conditional_mutator!(
-    BoxConditionalStatefulMutator<T>,
-    BoxStatefulMutator,
-    StatefulMutator
-);
+impl_box_conditional_mutator!(BoxConditionalStatefulMutator<T>, BoxStatefulMutator, StatefulMutator);
 
 impl<T> StatefulMutator<T> for BoxConditionalStatefulMutator<T> {
     fn apply(&mut self, value: &mut T) {

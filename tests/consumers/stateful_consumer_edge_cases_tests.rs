@@ -59,10 +59,7 @@ mod test_edge_cases {
         let mut conditional = consumer.when(|_: &i32| true);
         conditional.accept(&5);
         conditional.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
     }
 
     #[test]
@@ -75,10 +72,7 @@ mod test_edge_cases {
         let mut conditional = consumer.when(|_: &i32| false);
         conditional.accept(&5);
         conditional.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     #[test]
@@ -89,12 +83,9 @@ mod test_edge_cases {
         let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().expect("mutex should not be poisoned").push(*x);
         });
-        let mut conditional =
-            consumer.when(|_: &i32| true).or_else(move |x: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * 100);
-            });
+        let mut conditional = consumer.when(|_: &i32| true).or_else(move |x: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * 100);
+        });
         conditional.accept(&5);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5]);
     }
@@ -107,17 +98,11 @@ mod test_edge_cases {
         let consumer = BoxStatefulConsumer::new(move |x: &i32| {
             l1.lock().expect("mutex should not be poisoned").push(*x);
         });
-        let mut conditional =
-            consumer.when(|_: &i32| false).or_else(move |x: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * 100);
-            });
+        let mut conditional = consumer.when(|_: &i32| false).or_else(move |x: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * 100);
+        });
         conditional.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![500]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![500]);
     }
 
     #[test]
@@ -143,26 +128,17 @@ mod test_edge_cases {
             l1.lock().expect("mutex should not be poisoned").push(*x);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(BoxStatefulConsumer::noop())
         .and_then(move |x: &i32| {
-            l3.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l3.lock().expect("mutex should not be poisoned").push(*x + 10);
         })
         .and_then(move |x: &i32| {
-            l4.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x - 5);
+            l4.lock().expect("mutex should not be poisoned").push(*x - 5);
         });
         consumer.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10, 15, 0]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10, 15, 0]);
     }
 
     #[test]
@@ -175,20 +151,12 @@ mod test_edge_cases {
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
         let mut chained = conditional.and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
         chained.accept(&-5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10, -10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10, -10]);
     }
 
     #[test]
@@ -219,10 +187,7 @@ mod test_edge_cases {
         clone1.accept(&5);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5]);
         clone2.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
     }
 
     #[test]
@@ -235,17 +200,12 @@ mod test_edge_cases {
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
         let mut with_else = conditional.or_else(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
         with_else.accept(&5);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5]);
         with_else.accept(&-5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, -10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, -10]);
     }
 
     #[test]

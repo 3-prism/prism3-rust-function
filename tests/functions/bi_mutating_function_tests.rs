@@ -98,13 +98,10 @@ fn test_box_bi_mutating_function_new() {
 
 #[test]
 fn test_box_bi_mutating_function_new_with_name() {
-    let swap_sum = BoxBiMutatingFunction::new_with_name(
-        "swap_and_sum",
-        |x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        },
-    );
+    let swap_sum = BoxBiMutatingFunction::new_with_name("swap_and_sum", |x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
     assert_eq!(swap_sum.name(), Some("swap_and_sum"));
     let mut a = 10;
     let mut b = 15;
@@ -122,20 +119,16 @@ fn test_box_bi_mutating_function_new_with_optional_name() {
     );
     assert_eq!(swap_sum.name(), Some("test_function"));
 
-    let no_name = BoxBiMutatingFunction::new_with_optional_name(
-        |x: &mut i32, y: &mut i32| *x + *y,
-        None,
-    );
+    let no_name = BoxBiMutatingFunction::new_with_optional_name(|x: &mut i32, y: &mut i32| *x + *y, None);
     assert_eq!(no_name.name(), None);
 }
 
 #[test]
 fn test_box_bi_mutating_function_name_and_set_name() {
-    let mut swap_sum =
-        BoxBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let mut swap_sum = BoxBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     assert_eq!(swap_sum.name(), None);
     swap_sum.set_name("modified_name");
@@ -235,13 +228,10 @@ fn test_rc_bi_mutating_function_clone() {
 
 #[test]
 fn test_rc_bi_mutating_function_name_and_set_name() {
-    let mut swap_sum = RcBiMutatingFunction::new_with_name(
-        "rc_function",
-        |x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        },
-    );
+    let mut swap_sum = RcBiMutatingFunction::new_with_name("rc_function", |x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     assert_eq!(swap_sum.name(), Some("rc_function"));
     swap_sum.set_name("modified_rc");
@@ -348,13 +338,10 @@ fn test_arc_bi_mutating_function_thread_safety() {
 
 #[test]
 fn test_arc_bi_mutating_function_name_and_set_name() {
-    let mut swap_sum = ArcBiMutatingFunction::new_with_name(
-        "arc_function",
-        |x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        },
-    );
+    let mut swap_sum = ArcBiMutatingFunction::new_with_name("arc_function", |x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     assert_eq!(swap_sum.name(), Some("arc_function"));
     swap_sum.set_name("modified_arc");
@@ -398,20 +385,17 @@ fn test_arc_bi_mutating_function_debug_display() {
 
 #[test]
 fn test_box_conditional_bi_mutating_function() {
-    let swap_and_sum =
-        BoxBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_and_sum = BoxBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     let multiply = BoxBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
         *x *= *y;
         *x
     });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
 
     // Test when condition is true
     let mut a = 5;
@@ -436,9 +420,7 @@ fn test_rc_conditional_bi_mutating_function() {
         *x
     });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test when condition is true
@@ -454,20 +436,17 @@ fn test_rc_conditional_bi_mutating_function() {
 
 #[test]
 fn test_arc_conditional_bi_mutating_function() {
-    let swap_and_sum =
-        ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_and_sum = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     let multiply = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
         *x *= *y;
         *x
     });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test when condition is true

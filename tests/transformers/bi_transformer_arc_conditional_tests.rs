@@ -26,8 +26,7 @@ mod arc_conditional_tests {
     #[test]
     fn test_when_or_else() {
         let add = ArcBiTransformer::new(|x: i32, y: i32| x + y);
-        let both_positive =
-            ArcBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let both_positive = ArcBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let multiply = ArcBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 

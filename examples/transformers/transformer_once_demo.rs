@@ -58,8 +58,7 @@ fn main() {
 
     // ArcTransformer TransformerOnce demonstration
     println!("3. ArcTransformer TransformerOnce demonstration:");
-    let parse_and_double =
-        ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+    let parse_and_double = ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
     let result = parse_and_double.apply("21".to_string());
     println!("   parse_and_double.apply(\"21\") = {}", result);
 

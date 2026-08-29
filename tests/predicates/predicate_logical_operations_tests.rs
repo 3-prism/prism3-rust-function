@@ -201,8 +201,7 @@ mod logical_operations_tests {
     #[test]
     fn test_nand_with_strings() {
         let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
-        let has_uppercase =
-            BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
 
         let nand = is_long.nand(has_uppercase);
 
@@ -216,8 +215,7 @@ mod logical_operations_tests {
     #[test]
     fn test_xor_with_strings() {
         let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
-        let has_uppercase =
-            BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
 
         let xor = is_long.xor(has_uppercase);
 
@@ -231,8 +229,7 @@ mod logical_operations_tests {
     #[test]
     fn test_nor_with_strings() {
         let is_long = BoxPredicate::new(|s: &String| s.len() > 5);
-        let has_uppercase =
-            BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
+        let has_uppercase = BoxPredicate::new(|s: &String| s.chars().any(|c| c.is_uppercase()));
 
         let nor = is_long.nor(has_uppercase);
 

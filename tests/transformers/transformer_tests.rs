@@ -75,8 +75,7 @@ mod box_transformer_tests {
 
     #[test]
     fn test_display_with_name() {
-        let transformer =
-            BoxTransformer::new_with_name("double", |x: i32| x * 2);
+        let transformer = BoxTransformer::new_with_name("double", |x: i32| x * 2);
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "BoxTransformer(double)");
     }

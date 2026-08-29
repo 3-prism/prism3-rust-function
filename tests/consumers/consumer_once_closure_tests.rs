@@ -38,10 +38,7 @@ mod closure_tests {
             l.lock().expect("mutex should not be poisoned").push(*x * 2);
         };
         closure.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10]);
     }
 
     #[test]
@@ -50,20 +47,13 @@ mod closure_tests {
         let l1 = log.clone();
         let l2 = log.clone();
         let chained = BoxConsumerOnce::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         });
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]);
     }
 
     #[test]
@@ -73,24 +63,15 @@ mod closure_tests {
         let l2 = log.clone();
         let l3 = log.clone();
         let chained = BoxConsumerOnce::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         })
         .and_then(move |x: &i32| {
-            l3.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x / 2);
+            l3.lock().expect("mutex should not be poisoned").push(*x / 2);
         });
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15, 2]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15, 2]);
     }
 }

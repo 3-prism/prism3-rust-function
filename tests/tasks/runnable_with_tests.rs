@@ -41,8 +41,7 @@ fn test_runnable_with_closure_run_with_returns_success() {
         Ok::<(), io::Error>(())
     };
 
-    RunnableWith::run_with(&mut task, &mut input)
-        .expect("runnable-with closure should succeed");
+    RunnableWith::run_with(&mut task, &mut input).expect("runnable-with closure should succeed");
 
     assert_eq!(input, 15);
 }
@@ -52,8 +51,7 @@ fn test_runnable_with_closure_run_with_returns_error() {
     let mut input = 10;
     let mut task = |_value: &mut i32| Err::<(), _>(io::Error::other("failed"));
 
-    let error = RunnableWith::run_with(&mut task, &mut input)
-        .expect_err("runnable-with closure should fail");
+    let error = RunnableWith::run_with(&mut task, &mut input).expect_err("runnable-with closure should fail");
 
     assert_eq!(error.kind(), io::ErrorKind::Other);
     assert_eq!(error.to_string(), "failed");
@@ -62,13 +60,10 @@ fn test_runnable_with_closure_run_with_returns_error() {
 
 #[test]
 fn test_box_runnable_with_name_management() {
-    let mut task = BoxRunnableWith::<i32, io::Error>::new_with_name(
-        "adjust",
-        |input: &mut i32| {
-            *input += 1;
-            Ok(())
-        },
-    );
+    let mut task = BoxRunnableWith::<i32, io::Error>::new_with_name("adjust", |input: &mut i32| {
+        *input += 1;
+        Ok(())
+    });
 
     assert_eq!(task.name(), Some("adjust"));
     assert_eq!(task.to_string(), "BoxRunnableWith(adjust)");
@@ -115,9 +110,7 @@ fn test_box_runnable_with_then_callable_runs_after_success() {
 
     assert_eq!(callable.name(), None);
     assert_eq!(
-        callable
-            .call_with(&mut input)
-            .expect("callable-with should succeed"),
+        callable.call_with(&mut input).expect("callable-with should succeed"),
         14
     );
     assert_eq!(input, 14);
@@ -165,51 +158,45 @@ fn test_arc_runnable_with_shares_state_between_clones() {
 fn test_box_runnable_with_combinators_cover_error_branches() {
     let next_runs = Arc::new(AtomicUsize::new(0));
     let next_runs_capture = Arc::clone(&next_runs);
-    let mut chained =
-        BoxRunnableWith::<i32, io::Error>::new(|value: &mut i32| {
-            if *value < 0 {
-                Err(io::Error::other("first failed"))
-            } else {
-                *value += 1;
-                Ok(())
-            }
-        })
-        .and_then(move |value: &mut i32| {
-            next_runs_capture.fetch_add(1, Ordering::SeqCst);
-            *value *= 2;
-            Ok::<(), io::Error>(())
-        });
+    let mut chained = BoxRunnableWith::<i32, io::Error>::new(|value: &mut i32| {
+        if *value < 0 {
+            Err(io::Error::other("first failed"))
+        } else {
+            *value += 1;
+            Ok(())
+        }
+    })
+    .and_then(move |value: &mut i32| {
+        next_runs_capture.fetch_add(1, Ordering::SeqCst);
+        *value *= 2;
+        Ok::<(), io::Error>(())
+    });
 
     let mut input = 1;
-    chained
-        .run_with(&mut input)
-        .expect("and_then should run after success");
+    chained.run_with(&mut input).expect("and_then should run after success");
     assert_eq!(input, 4);
     assert_eq!(next_runs.load(Ordering::SeqCst), 1);
 
     let mut input = -1;
-    let error = chained
-        .run_with(&mut input)
-        .expect_err("and_then should short-circuit");
+    let error = chained.run_with(&mut input).expect_err("and_then should short-circuit");
     assert_eq!(error.to_string(), "first failed");
     assert_eq!(input, -1);
     assert_eq!(next_runs.load(Ordering::SeqCst), 1);
 
     let callable_runs = Arc::new(AtomicUsize::new(0));
     let callable_runs_capture = Arc::clone(&callable_runs);
-    let mut callable =
-        BoxRunnableWith::<i32, io::Error>::new(|value: &mut i32| {
-            if *value < 0 {
-                Err(io::Error::other("prepare failed"))
-            } else {
-                *value += 1;
-                Ok(())
-            }
-        })
-        .then_callable_with(move |value: &mut i32| {
-            callable_runs_capture.fetch_add(1, Ordering::SeqCst);
-            Ok::<i32, io::Error>(*value * 2)
-        });
+    let mut callable = BoxRunnableWith::<i32, io::Error>::new(|value: &mut i32| {
+        if *value < 0 {
+            Err(io::Error::other("prepare failed"))
+        } else {
+            *value += 1;
+            Ok(())
+        }
+    })
+    .then_callable_with(move |value: &mut i32| {
+        callable_runs_capture.fetch_add(1, Ordering::SeqCst);
+        Ok::<i32, io::Error>(*value * 2)
+    });
 
     let mut input = 2;
     assert_eq!(

@@ -102,8 +102,7 @@ mod always_predicates_tests {
 
     #[test]
     fn test_new_with_name() {
-        let mut pred =
-            BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        let mut pred = BoxPredicate::new_with_name("positive", |x: &i32| *x > 0);
         assert_eq!(pred.name(), Some("positive"));
         assert!(pred.test(&5));
 
@@ -123,8 +122,7 @@ mod always_predicates_tests {
 
     #[test]
     fn test_arc_new_with_name() {
-        let mut pred =
-            ArcPredicate::new_with_name("positive", |x: &i32| *x > 0);
+        let mut pred = ArcPredicate::new_with_name("positive", |x: &i32| *x > 0);
         assert_eq!(pred.name(), Some("positive"));
         assert!(pred.test(&5));
 

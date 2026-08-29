@@ -68,11 +68,7 @@ fn basic_closure_predicates() {
 
     // Using predicates with iterators
     let numbers = [-2, -1, 0, 1, 2, 3, 4, 5];
-    let positives: Vec<_> = numbers
-        .iter()
-        .filter(|x| is_positive.test(x))
-        .copied()
-        .collect();
+    let positives: Vec<_> = numbers.iter().filter(|x| is_positive.test(x)).copied().collect();
     println!("Positive numbers: {:?}", positives);
 }
 
@@ -85,10 +81,7 @@ fn box_predicate_examples() {
     println!("BoxPredicate test 5: {}", pred.test(&5));
 
     // Named predicate for better debugging
-    let named_pred =
-        BoxPredicate::new_with_name("is_positive_even", |x: &i32| {
-            *x > 0 && x % 2 == 0
-        });
+    let named_pred = BoxPredicate::new_with_name("is_positive_even", |x: &i32| *x > 0 && x % 2 == 0);
     println!("Predicate name: {:?}", named_pred.name());
     println!("Test 4: {}", named_pred.test(&4));
 
@@ -116,14 +109,8 @@ fn rc_predicate_examples() {
     println!("  is_even.test(&4) = {}", is_even.test(&4));
 
     println!("Combined predicates:");
-    println!(
-        "  positive_and_even.test(&4) = {}",
-        positive_and_even.test(&4)
-    );
-    println!(
-        "  positive_or_even.test(&5) = {}",
-        positive_or_even.test(&5)
-    );
+    println!("  positive_and_even.test(&4) = {}", positive_and_even.test(&4));
+    println!("  positive_or_even.test(&5) = {}", positive_or_even.test(&5));
 
     // Cloning
     let cloned = is_positive.clone();
@@ -146,12 +133,7 @@ fn arc_predicate_examples() {
             let pred = combined.clone();
             std::thread::spawn(move || {
                 let value = i * 2;
-                println!(
-                    "  Thread {} testing {}: {}",
-                    i,
-                    value,
-                    pred.test(&value)
-                );
+                println!("  Thread {} testing {}: {}", i, value, pred.test(&value));
             })
         })
         .collect();
@@ -171,8 +153,7 @@ fn logical_composition_examples() {
 
     let positive = RcPredicate::new_with_name("positive", |x: &i32| *x > 0);
     let even = RcPredicate::new_with_name("even", |x: &i32| x % 2 == 0);
-    let less_than_ten =
-        RcPredicate::new_with_name("less_than_ten", |x: &i32| *x < 10);
+    let less_than_ten = RcPredicate::new_with_name("less_than_ten", |x: &i32| *x < 10);
 
     // AND composition
     let positive_and_even = positive.and(even.clone());
@@ -295,20 +276,11 @@ fn practical_use_cases() {
         email: String,
     }
 
-    let name_valid =
-        RcPredicate::new_with_name("name_not_empty", |user: &User| {
-            !user.name.is_empty()
-        });
+    let name_valid = RcPredicate::new_with_name("name_not_empty", |user: &User| !user.name.is_empty());
 
-    let age_valid =
-        RcPredicate::new_with_name("age_between_18_120", |user: &User| {
-            user.age >= 18 && user.age <= 120
-        });
+    let age_valid = RcPredicate::new_with_name("age_between_18_120", |user: &User| user.age >= 18 && user.age <= 120);
 
-    let email_valid =
-        RcPredicate::new_with_name("email_contains_at", |user: &User| {
-            user.email.contains('@')
-        });
+    let email_valid = RcPredicate::new_with_name("email_contains_at", |user: &User| user.email.contains('@'));
 
     let all_valid = name_valid.and(age_valid.clone()).and(email_valid.clone());
 
@@ -354,11 +326,6 @@ fn practical_use_cases() {
 
     let test_value = 4;
     for (name, pred) in strategies.iter() {
-        println!(
-            "  {} strategy test {}: {}",
-            name,
-            test_value,
-            pred.test(&test_value)
-        );
+        println!("  {} strategy test {}: {}", name, test_value, pred.test(&test_value));
     }
 }

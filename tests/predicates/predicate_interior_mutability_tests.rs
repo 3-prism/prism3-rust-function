@@ -54,8 +54,7 @@ mod interior_mutability_tests {
         let count_clone = Arc::clone(&count);
 
         let pred = ArcPredicate::new(move |x: &i32| {
-            let mut c =
-                count_clone.lock().expect("mutex should not be poisoned");
+            let mut c = count_clone.lock().expect("mutex should not be poisoned");
             *c += 1;
             *x > 0
         });
@@ -107,9 +106,6 @@ mod interior_mutability_tests {
         assert!(pred.test(&3));
         handle.join().expect("thread should not panic");
 
-        assert_eq!(
-            *count_clone.lock().expect("mutex should not be poisoned"),
-            3
-        );
+        assert_eq!(*count_clone.lock().expect("mutex should not be poisoned"), 3);
     }
 }

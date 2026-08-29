@@ -101,9 +101,7 @@ mod tests {
         let can_execute_clone = Arc::clone(&can_execute);
 
         let op = Operation {
-            precondition: BoxTester::new(move || {
-                can_execute_clone.load(Ordering::Acquire)
-            }),
+            precondition: BoxTester::new(move || can_execute_clone.load(Ordering::Acquire)),
         };
 
         assert!(op.execute().is_ok());
@@ -122,10 +120,9 @@ mod tests {
         let cache_clone = Arc::clone(&cache_ready);
         let config_clone = Arc::clone(&config_loaded);
 
-        let system_ready =
-            BoxTester::new(move || db_clone.load(Ordering::Acquire))
-                .and(move || cache_clone.load(Ordering::Acquire))
-                .and(move || config_clone.load(Ordering::Acquire));
+        let system_ready = BoxTester::new(move || db_clone.load(Ordering::Acquire))
+            .and(move || cache_clone.load(Ordering::Acquire))
+            .and(move || config_clone.load(Ordering::Acquire));
 
         assert!(!system_ready.test());
 
@@ -141,9 +138,8 @@ mod tests {
         let primary_clone = Arc::clone(&primary_available);
         let fallback_clone = Arc::clone(&fallback_available);
 
-        let availability =
-            BoxTester::new(move || primary_clone.load(Ordering::Acquire))
-                .or(move || fallback_clone.load(Ordering::Acquire));
+        let availability = BoxTester::new(move || primary_clone.load(Ordering::Acquire))
+            .or(move || fallback_clone.load(Ordering::Acquire));
 
         assert!(availability.test());
 

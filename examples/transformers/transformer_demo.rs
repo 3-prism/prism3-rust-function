@@ -46,10 +46,7 @@ fn main() {
     // Multi-threaded usage
     let for_thread = arc_double.clone();
     let handle = thread::spawn(move || for_thread.apply(100));
-    println!(
-        "In main thread: arc_double.apply(50) = {}",
-        arc_double.apply(50)
-    );
+    println!("In main thread: arc_double.apply(50) = {}", arc_double.apply(50));
     println!(
         "In child thread: result = {}",
         handle.join().expect("thread should not panic")
@@ -75,28 +72,18 @@ fn main() {
     // Example 1: String transformation
     println!("--- String Transformation ---");
     let to_upper = BoxTransformer::new(|s: String| s.to_uppercase());
-    println!(
-        "to_upper.apply('hello') = {}",
-        to_upper.apply("hello".to_string())
-    );
-    println!(
-        "to_upper.apply('world') = {}",
-        to_upper.apply("world".to_string())
-    );
+    println!("to_upper.apply('hello') = {}", to_upper.apply("hello".to_string()));
+    println!("to_upper.apply('world') = {}", to_upper.apply("world".to_string()));
     println!();
 
     // Example 2: Type conversion pipeline
     println!("--- Type Conversion Pipeline ---");
-    let parse_int =
-        BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
+    let parse_int = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0));
     let double_int = BoxTransformer::new(|x: i32| x * 2);
     let to_string = BoxTransformer::new(|x: i32| x.to_string());
 
     let pipeline = parse_int.and_then(double_int).and_then(to_string);
-    println!(
-        "pipeline.apply('21') = {}",
-        pipeline.apply("21".to_string())
-    );
+    println!("pipeline.apply('21') = {}", pipeline.apply("21".to_string()));
     println!();
 
     // Example 3: Shared transformation logic
@@ -114,8 +101,7 @@ fn main() {
 
     // Example 4: Transformer registry
     println!("--- Transformer Registry ---");
-    let mut transformers: HashMap<String, RcTransformer<i32, String>> =
-        HashMap::new();
+    let mut transformers: HashMap<String, RcTransformer<i32, String>> = HashMap::new();
 
     transformers.insert(
         "double".to_string(),

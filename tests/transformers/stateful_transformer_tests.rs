@@ -65,9 +65,7 @@ struct StatefulStatefulTransformer {
     history: Vec<i32>,
 }
 
-impl StatefulTransformer<i32, (i32, i32, usize)>
-    for StatefulStatefulTransformer
-{
+impl StatefulTransformer<i32, (i32, i32, usize)> for StatefulStatefulTransformer {
     fn apply(&mut self, input: i32) -> (i32, i32, usize) {
         self.count += 1;
         self.sum += input;
@@ -443,8 +441,7 @@ fn test_box_conditional_mapper_with_predicate() {
 
 #[test]
 fn test_arc_conditional_mapper_clone() {
-    let conditional =
-        ArcStatefulTransformer::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
+    let conditional = ArcStatefulTransformer::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
 
     // Clone the ArcConditionalStatefulTransformer before calling or_else
     let conditional_clone = conditional.clone();

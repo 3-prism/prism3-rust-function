@@ -46,8 +46,7 @@ fn test_box_function_once_new() {
 #[test]
 fn test_box_function_once_new_allows_non_static_t() {
     fn run<'a>(value: &'a str) -> usize {
-        let func: BoxFunctionOnce<&'a str, usize> =
-            BoxFunctionOnce::new(|x: &&'a str| x.len());
+        let func: BoxFunctionOnce<&'a str, usize> = BoxFunctionOnce::new(|x: &&'a str| x.len());
         func.apply(&value)
     }
 
@@ -58,8 +57,7 @@ fn test_box_function_once_new_allows_non_static_t() {
 #[test]
 fn test_box_function_once_new_allows_non_static_r() {
     fn run<'a>(value: &'a str) -> &'a str {
-        let func: BoxFunctionOnce<&'a str, &'a str> =
-            BoxFunctionOnce::new(|x: &&'a str| *x);
+        let func: BoxFunctionOnce<&'a str, &'a str> = BoxFunctionOnce::new(|x: &&'a str| *x);
         func.apply(&value)
     }
 
@@ -256,16 +254,14 @@ fn test_function_once_with_vec() {
 #[test]
 fn test_function_once_with_option() {
     // Test function with Option type
-    let unwrap_or_zero =
-        BoxFunctionOnce::new(|opt: &Option<i32>| opt.unwrap_or(0));
+    let unwrap_or_zero = BoxFunctionOnce::new(|opt: &Option<i32>| opt.unwrap_or(0));
     assert_eq!(unwrap_or_zero.apply(&Some(42)), 42);
 }
 
 #[test]
 fn test_function_once_with_option_none() {
     // Test function with None
-    let unwrap_or_zero =
-        BoxFunctionOnce::new(|opt: &Option<i32>| opt.unwrap_or(0));
+    let unwrap_or_zero = BoxFunctionOnce::new(|opt: &Option<i32>| opt.unwrap_or(0));
     assert_eq!(unwrap_or_zero.apply(&None), 0);
 }
 
@@ -294,8 +290,7 @@ fn test_function_once_with_moved_vec() {
 fn test_function_once_with_moved_string() {
     // Test function that moves a String
     let prefix = String::from("Hello, ");
-    let func =
-        BoxFunctionOnce::new(move |s: &String| format!("{}{}", prefix, s));
+    let func = BoxFunctionOnce::new(move |s: &String| format!("{}{}", prefix, s));
     assert_eq!(func.apply(&String::from("World")), "Hello, World");
 }
 
@@ -304,12 +299,7 @@ fn test_function_once_with_complex_closure() {
     // Test function with complex closure logic
     let threshold = 10;
     let multiplier = 2;
-    let func =
-        BoxFunctionOnce::new(
-            move |x: &i32| {
-                if *x > threshold { x * multiplier } else { *x }
-            },
-        );
+    let func = BoxFunctionOnce::new(move |x: &i32| if *x > threshold { x * multiplier } else { *x });
     assert_eq!(func.apply(&15), 30);
 }
 
@@ -318,12 +308,7 @@ fn test_function_once_with_complex_closure_below_threshold() {
     // Test complex closure with value below threshold
     let threshold = 10;
     let multiplier = 2;
-    let func =
-        BoxFunctionOnce::new(
-            move |x: &i32| {
-                if *x > threshold { x * multiplier } else { *x }
-            },
-        );
+    let func = BoxFunctionOnce::new(move |x: &i32| if *x > threshold { x * multiplier } else { *x });
     assert_eq!(func.apply(&5), 5);
 }
 

@@ -93,10 +93,7 @@ impl<R, E> BoxCallableOnce<R, E> {
     {
         let metadata = self.metadata;
         let function = self.function;
-        BoxCallableOnce::new_with_metadata(
-            move || function().map(mapper),
-            metadata,
-        )
+        BoxCallableOnce::new_with_metadata(move || function().map(mapper), metadata)
     }
 
     /// Maps the error value of this callable.
@@ -117,10 +114,7 @@ impl<R, E> BoxCallableOnce<R, E> {
     {
         let metadata = self.metadata;
         let function = self.function;
-        BoxCallableOnce::new_with_metadata(
-            move || function().map_err(mapper),
-            metadata,
-        )
+        BoxCallableOnce::new_with_metadata(move || function().map_err(mapper), metadata)
     }
 
     /// Chains another fallible computation after this callable succeeds.

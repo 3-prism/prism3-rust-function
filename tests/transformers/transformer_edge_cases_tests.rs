@@ -48,9 +48,7 @@ mod edge_cases_tests {
 
     #[test]
     fn test_with_vec() {
-        let split = BoxTransformer::new(|s: String| {
-            s.split(',').map(|s| s.to_string()).collect::<Vec<_>>()
-        });
+        let split = BoxTransformer::new(|s: String| s.split(',').map(|s| s.to_string()).collect::<Vec<_>>());
         assert_eq!(
             split.apply("a,b,c".to_string()),
             vec!["a".to_string(), "b".to_string(), "c".to_string()]

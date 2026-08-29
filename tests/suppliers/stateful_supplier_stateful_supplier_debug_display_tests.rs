@@ -49,8 +49,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_debug_with_name() {
             // Test Debug formatting for BoxStatefulSupplier with name
-            let supplier =
-                BoxStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = BoxStatefulSupplier::new_with_name("test_supplier", || 42);
             let debug_str = format!("{:?}", supplier);
             assert!(debug_str.contains("BoxStatefulSupplier"));
             assert!(debug_str.contains("name: Some(\"test_supplier\")"));
@@ -68,8 +67,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_display_with_name() {
             // Test Display formatting for BoxStatefulSupplier with name
-            let supplier =
-                BoxStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = BoxStatefulSupplier::new_with_name("test_supplier", || 42);
             let display_str = format!("{}", supplier);
             assert_eq!(display_str, "BoxStatefulSupplier(test_supplier)");
         }
@@ -95,8 +93,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_debug_with_name() {
             // Test Debug formatting for ArcStatefulSupplier with name
-            let supplier =
-                ArcStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = ArcStatefulSupplier::new_with_name("test_supplier", || 42);
             let debug_str = format!("{:?}", supplier);
             assert!(debug_str.contains("ArcStatefulSupplier"));
             assert!(debug_str.contains("name: Some(\"test_supplier\")"));
@@ -114,8 +111,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_display_with_name() {
             // Test Display formatting for ArcStatefulSupplier with name
-            let supplier =
-                ArcStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = ArcStatefulSupplier::new_with_name("test_supplier", || 42);
             let display_str = format!("{}", supplier);
             assert_eq!(display_str, "ArcStatefulSupplier(test_supplier)");
         }
@@ -141,8 +137,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_debug_with_name() {
             // Test Debug formatting for RcStatefulSupplier with name
-            let supplier =
-                RcStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = RcStatefulSupplier::new_with_name("test_supplier", || 42);
             let debug_str = format!("{:?}", supplier);
             assert!(debug_str.contains("RcStatefulSupplier"));
             assert!(debug_str.contains("name: Some(\"test_supplier\")"));
@@ -160,8 +155,7 @@ mod test_stateful_supplier_debug_display {
         #[test]
         fn test_display_with_name() {
             // Test Display formatting for RcStatefulSupplier with name
-            let supplier =
-                RcStatefulSupplier::new_with_name("test_supplier", || 42);
+            let supplier = RcStatefulSupplier::new_with_name("test_supplier", || 42);
             let display_str = format!("{}", supplier);
             assert_eq!(display_str, "RcStatefulSupplier(test_supplier)");
         }

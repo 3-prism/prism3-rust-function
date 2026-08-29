@@ -26,8 +26,7 @@ mod rc_conditional_tests {
     #[test]
     fn test_when_or_else() {
         let add = RcBiTransformer::new(|x: i32, y: i32| x + y);
-        let both_positive =
-            RcBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let both_positive = RcBiPredicate::new(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let multiply = RcBiTransformer::new(|x: i32, y: i32| x * y);
         let result = add.when(both_positive).or_else(multiply);
 

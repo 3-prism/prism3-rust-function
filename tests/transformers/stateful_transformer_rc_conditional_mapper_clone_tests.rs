@@ -65,9 +65,7 @@ struct StatefulStatefulTransformer {
     history: Vec<i32>,
 }
 
-impl StatefulTransformer<i32, (i32, i32, usize)>
-    for StatefulStatefulTransformer
-{
+impl StatefulTransformer<i32, (i32, i32, usize)> for StatefulStatefulTransformer {
     fn apply(&mut self, input: i32) -> (i32, i32, usize) {
         self.count += 1;
         self.sum += input;
@@ -90,8 +88,7 @@ impl StatefulTransformer<i32, (i32, i32, usize)>
 
 #[test]
 fn test_rc_conditional_mapper_clone() {
-    let conditional =
-        RcStatefulTransformer::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
+    let conditional = RcStatefulTransformer::new(|x: i32| x * 2).when(|x: &i32| *x > 0);
 
     // Clone the RcConditionalStatefulTransformer before calling or_else
     let conditional_clone = conditional.clone();

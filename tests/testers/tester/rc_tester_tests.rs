@@ -42,10 +42,7 @@ fn test_rc_tester_name_and_diagnostics() {
 
     assert_eq!(original.name(), Some("ready"));
     assert_eq!(renamed.name(), Some("renamed"));
-    assert_eq!(
-        format!("{original:?}"),
-        "RcTester { name: Some(\"ready\") }"
-    );
+    assert_eq!(format!("{original:?}"), "RcTester { name: Some(\"ready\") }");
     assert_eq!(format!("{original}"), "RcTester(ready)");
 }
 

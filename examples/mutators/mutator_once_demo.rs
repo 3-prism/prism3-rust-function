@@ -142,10 +142,7 @@ fn main() {
     // 6. Resource transfer scenario
     println!("6. Resource transfer scenario");
     let large_data = vec![1; 10];
-    println!(
-        "   Preparing to transfer large data (length: {})",
-        large_data.len()
-    );
+    println!("   Preparing to transfer large data (length: {})", large_data.len());
 
     let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| {
         println!("   Transferring data (moving, not cloning)");
@@ -159,10 +156,7 @@ fn main() {
     // 7. Generic function usage
     println!("7. Generic function usage");
 
-    fn apply_transformation<M: MutatorOnce<Vec<i32>>>(
-        mutator: M,
-        initial: Vec<i32>,
-    ) -> Vec<i32> {
+    fn apply_transformation<M: MutatorOnce<Vec<i32>>>(mutator: M, initial: Vec<i32>) -> Vec<i32> {
         let mut val = initial;
         mutator.apply(&mut val);
         val
@@ -187,9 +181,7 @@ fn main() {
 
     impl Config {
         fn new() -> Self {
-            Self {
-                options: Vec::new(),
-            }
+            Self { options: Vec::new() }
         }
 
         fn with_defaults(mut self) -> Self {

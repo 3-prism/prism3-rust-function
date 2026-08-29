@@ -93,17 +93,14 @@ mod test_closure {
         };
 
         // Test that closure implements StatefulMutatingFunction trait
-        let _trait_check: &mut dyn StatefulMutatingFunction<i32, i32> =
-            &mut closure2;
+        let _trait_check: &mut dyn StatefulMutatingFunction<i32, i32> = &mut closure2;
 
         let mut value2 = 5;
-        let result1 =
-            StatefulMutatingFunction::apply(&mut closure2, &mut value2);
+        let result1 = StatefulMutatingFunction::apply(&mut closure2, &mut value2);
         assert_eq!(result1, 1);
         assert_eq!(value2, 10);
 
-        let result2 =
-            StatefulMutatingFunction::apply(&mut closure2, &mut value2);
+        let result2 = StatefulMutatingFunction::apply(&mut closure2, &mut value2);
         assert_eq!(result2, 2);
         assert_eq!(value2, 20);
     }

@@ -10,10 +10,6 @@ use qubit_function::RcConditionalBiTransformer;
 
 #[test]
 fn test_rc_conditional_bi_transformer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<RcConditionalBiTransformer<i32, i32, i32>>();
-    assert!(
-        type_name.contains("RcConditionalBiTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<RcConditionalBiTransformer<i32, i32, i32>>();
+    assert!(type_name.contains("RcConditionalBiTransformer"), "{type_name}");
 }

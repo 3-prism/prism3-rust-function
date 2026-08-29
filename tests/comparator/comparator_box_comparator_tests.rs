@@ -60,9 +60,7 @@ mod box_comparator_tests {
     fn test_then_comparing_with_non_equal_greater() {
         // Test the case where the first comparator returns Greater
         let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
-            panic!("Second comparator should not be called")
-        });
+        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| panic!("Second comparator should not be called"));
         let chained = cmp1.then_comparing(cmp2);
         // 5 > 3, so first comparator returns Greater, second not called
         assert_eq!(chained.compare(&5, &3), Ordering::Greater);
@@ -72,9 +70,7 @@ mod box_comparator_tests {
     fn test_then_comparing_with_non_equal_less() {
         // Test the case where the first comparator returns Less
         let cmp1 = BoxComparator::new(|a: &i32, b: &i32| a.cmp(b));
-        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| {
-            panic!("Second comparator should not be called")
-        });
+        let cmp2 = BoxComparator::new(|_a: &i32, _b: &i32| panic!("Second comparator should not be called"));
         let chained = cmp1.then_comparing(cmp2);
         // 3 < 5, so first comparator returns Less, second not called
         assert_eq!(chained.compare(&3, &5), Ordering::Less);
@@ -126,9 +122,6 @@ mod box_comparator_tests {
     #[test]
     fn test_with_strings() {
         let cmp = BoxComparator::new(|a: &String, b: &String| a.cmp(b));
-        assert_eq!(
-            cmp.compare(&"hello".to_string(), &"world".to_string()),
-            Ordering::Less
-        );
+        assert_eq!(cmp.compare(&"hello".to_string(), &"world".to_string()), Ordering::Less);
     }
 }

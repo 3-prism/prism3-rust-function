@@ -64,8 +64,7 @@ fn main() {
     println!("Example 3: Explicit Closure Wrapping");
     println!("{}", "-".repeat(50));
 
-    let closure_chain =
-        BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
+    let closure_chain = BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
     let mut value = 5;
     println!("Initial value: {}", value);
@@ -92,21 +91,14 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     // when (conditional execution)
-    let increment_if_positive =
-        BoxMutator::new(|x: &mut i32| *x += 1).when(|x: &i32| *x > 0);
+    let increment_if_positive = BoxMutator::new(|x: &mut i32| *x += 1).when(|x: &i32| *x > 0);
 
     let mut positive = 5;
     let mut negative = -5;
-    println!(
-        "Before when - positive: {}, negative: {}",
-        positive, negative
-    );
+    println!("Before when - positive: {}, negative: {}", positive, negative);
     increment_if_positive.apply(&mut positive);
     increment_if_positive.apply(&mut negative);
-    println!(
-        "After when - positive: {}, negative: {}\n",
-        positive, negative
-    );
+    println!("After when - positive: {}, negative: {}\n", positive, negative);
 
     // when().or_else() (conditional branching)
     let adjust = BoxMutator::new(|x: &mut i32| *x *= 2)
@@ -304,10 +296,9 @@ fn main() {
     println!("Example 12: String Processing");
     println!("{}", "-".repeat(50));
 
-    let string_processor =
-        BoxMutator::new(|s: &mut String| s.retain(|c| !c.is_whitespace()))
-            .and_then(|s: &mut String| *s = s.to_lowercase())
-            .and_then(|s: &mut String| s.push_str("!!!"));
+    let string_processor = BoxMutator::new(|s: &mut String| s.retain(|c| !c.is_whitespace()))
+        .and_then(|s: &mut String| *s = s.to_lowercase())
+        .and_then(|s: &mut String| s.push_str("!!!"));
 
     let mut text = String::from("Hello World");
     println!("Original: {}", text);

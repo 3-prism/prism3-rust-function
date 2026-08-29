@@ -28,10 +28,7 @@ fn main() {
             println!("  BoxConsumerOnce consumed: {}", x);
         });
         consumer.accept(&42);
-        println!(
-            "  Log: {:?}\n",
-            *log.lock().expect("mutex should not be poisoned")
-        );
+        println!("  Log: {:?}\n", *log.lock().expect("mutex should not be poisoned"));
     }
 
     // 2. BoxConsumerOnce - Method chaining
@@ -42,28 +39,19 @@ fn main() {
         let l2 = log.clone();
         let l3 = log.clone();
         let chained = BoxConsumerOnce::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
             println!("  Step 1: {} * 2 = {}", x, x * 2);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
             println!("  Step 2: {} + 10 = {}", x, x + 10);
         })
         .and_then(move |x: &i32| {
-            l3.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x - 1);
+            l3.lock().expect("mutex should not be poisoned").push(*x - 1);
             println!("  Step 3: {} - 1 = {}", x, x - 1);
         });
         chained.accept(&5);
-        println!(
-            "  Log: {:?}\n",
-            *log.lock().expect("mutex should not be poisoned")
-        );
+        println!("  Log: {:?}\n", *log.lock().expect("mutex should not be poisoned"));
     }
 
     // 3. BoxConsumerOnce - Factory methods
@@ -81,8 +69,7 @@ fn main() {
 
         // Print with prefix
         print!("  Print with prefix: ");
-        let print_with =
-            BoxConsumerOnce::new(|x: &i32| println!("Value: {}", x));
+        let print_with = BoxConsumerOnce::new(|x: &i32| println!("Value: {}", x));
         print_with.accept(&42);
 
         // Conditional consumer
@@ -121,10 +108,7 @@ fn main() {
             println!("  Closure consumed: {}", x);
         };
         closure.accept(&42);
-        println!(
-            "  Log: {:?}\n",
-            *log.lock().expect("mutex should not be poisoned")
-        );
+        println!("  Log: {:?}\n", *log.lock().expect("mutex should not be poisoned"));
     }
 
     // 5. Explicitly wrapped closure chaining
@@ -134,22 +118,15 @@ fn main() {
         let l1 = log.clone();
         let l2 = log.clone();
         let chained = BoxConsumerOnce::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
             println!("  Closure 1: {} * 2 = {}", x, x * 2);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
             println!("  Closure 2: {} + 10 = {}", x, x + 10);
         });
         chained.accept(&5);
-        println!(
-            "  Log: {:?}\n",
-            *log.lock().expect("mutex should not be poisoned")
-        );
+        println!("  Log: {:?}\n", *log.lock().expect("mutex should not be poisoned"));
     }
 
     // 6. Type conversions

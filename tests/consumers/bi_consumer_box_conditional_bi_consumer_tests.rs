@@ -33,29 +33,19 @@ mod box_conditional_bi_consumer_tests {
         let l2 = log.clone();
 
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
 
         let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         let chained = conditional.and_then(move |x: &i32, y: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * *y);
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
         });
 
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15]);
 
         chained.accept(&-5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15, -15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15, -15]);
     }
 
     #[test]
@@ -65,27 +55,20 @@ mod box_conditional_bi_consumer_tests {
         let l2 = log.clone();
 
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
 
         let conditional = consumer
             .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
             .or_else(move |x: &i32, y: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
+                l2.lock().expect("mutex should not be poisoned").push(*x * *y);
             });
 
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
 
         conditional.accept(&-5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, -15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, -15]);
     }
 
     #[test]
@@ -94,9 +77,7 @@ mod box_conditional_bi_consumer_tests {
         let l = log.clone();
 
         let consumer = BoxBiConsumer::new(move |x: &i32, y: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
 
         let conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);

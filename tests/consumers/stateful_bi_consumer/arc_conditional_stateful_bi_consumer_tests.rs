@@ -10,10 +10,6 @@ use qubit_function::ArcConditionalStatefulBiConsumer;
 
 #[test]
 fn test_arc_conditional_stateful_bi_consumer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcConditionalStatefulBiConsumer<i32, i32>>();
-    assert!(
-        type_name.contains("ArcConditionalStatefulBiConsumer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcConditionalStatefulBiConsumer<i32, i32>>();
+    assert!(type_name.contains("ArcConditionalStatefulBiConsumer"), "{type_name}");
 }

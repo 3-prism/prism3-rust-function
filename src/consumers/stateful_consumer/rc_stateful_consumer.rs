@@ -101,11 +101,9 @@ pub struct RcStatefulConsumer<T> {
 
 impl<T> RcStatefulConsumer<T> {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        RcStatefulConsumer<T>,
-        (FnMut(&T) + 'static),
-        |f| Rc::new(RefCell::new(f))
-    );
+    impl_consumer_common_methods!(RcStatefulConsumer<T>, (FnMut(&T) + 'static), |f| Rc::new(RefCell::new(
+        f
+    )));
 
     // Generates: when() and and_then() methods that borrow &self (Rc can clone)
     impl_shared_consumer_methods!(

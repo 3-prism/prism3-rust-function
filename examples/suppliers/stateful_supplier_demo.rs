@@ -170,9 +170,7 @@ fn demo_arc_supplier() {
     let call_count = Arc::new(Mutex::new(0));
     let call_count_clone = Arc::clone(&call_count);
     let source = ArcStatefulSupplier::new(move || {
-        let mut c = call_count_clone
-            .lock()
-            .expect("mutex should not be poisoned");
+        let mut c = call_count_clone.lock().expect("mutex should not be poisoned");
         *c += 1;
         println!("  Computation #{}", *c);
         42

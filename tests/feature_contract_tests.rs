@@ -46,8 +46,7 @@ fn compile_consumer(features: &[&str], source: &str) -> Output {
         .expect("temporary consumer directory should be created");
     let project_root = project_dir.path();
     let source_root = project_root.join("src");
-    fs::create_dir_all(&source_root)
-        .expect("temporary consumer source directory should be created");
+    fs::create_dir_all(&source_root).expect("temporary consumer source directory should be created");
 
     let feature_list = features
         .iter()
@@ -71,10 +70,8 @@ fn compile_consumer(features: &[&str], source: &str) -> Output {
         dependency_path.display(),
         feature_clause,
     );
-    fs::write(project_root.join("Cargo.toml"), manifest)
-        .expect("temporary consumer manifest should be written");
-    fs::write(source_root.join("main.rs"), source)
-        .expect("temporary consumer source should be written");
+    fs::write(project_root.join("Cargo.toml"), manifest).expect("temporary consumer manifest should be written");
+    fs::write(source_root.join("main.rs"), source).expect("temporary consumer source should be written");
 
     Command::new("cargo")
         .args(["+1.94.0", "check", "--offline", "--quiet", "--target-dir"])
@@ -244,13 +241,11 @@ fn main() {
     let diagnostics = cargo_diagnostics(&output);
     assert!(!output.status.success(), "{diagnostics}");
     assert!(
-        String::from_utf8_lossy(&output.stderr)
-            .contains("no method named `when`"),
+        String::from_utf8_lossy(&output.stderr).contains("no method named `when`"),
         "{diagnostics}",
     );
     assert!(
-        !String::from_utf8_lossy(&output.stderr)
-            .contains("multiple applicable items"),
+        !String::from_utf8_lossy(&output.stderr).contains("multiple applicable items"),
         "{diagnostics}",
     );
 }

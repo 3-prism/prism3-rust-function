@@ -41,11 +41,9 @@ pub struct RcStatefulPredicate<T> {
 impl<T> RcStatefulPredicate<T> {
     // Generates: new(), new_with_name(), name(), set_name(), always_true(),
     // always_false()
-    impl_predicate_common_methods!(
-        RcStatefulPredicate<T>,
-        (FnMut(&T) -> bool + 'static),
-        |f| { Rc::new(RefCell::new(f)) }
-    );
+    impl_predicate_common_methods!(RcStatefulPredicate<T>, (FnMut(&T) -> bool + 'static), |f| {
+        Rc::new(RefCell::new(f))
+    });
 
     /// Returns a predicate representing logical AND with another predicate.
     ///

@@ -57,10 +57,7 @@ impl<T, R, E> BoxCallableWith<T, R, E> {
     {
         let metadata = self.metadata;
         let mut function = self.function;
-        BoxCallableWith::new_with_metadata(
-            move |input: &mut T| function(input).map(&mut mapper),
-            metadata,
-        )
+        BoxCallableWith::new_with_metadata(move |input: &mut T| function(input).map(&mut mapper), metadata)
     }
 
     /// Maps the error value of this callable.
@@ -82,10 +79,7 @@ impl<T, R, E> BoxCallableWith<T, R, E> {
     {
         let metadata = self.metadata;
         let mut function = self.function;
-        BoxCallableWith::new_with_metadata(
-            move |input: &mut T| function(input).map_err(&mut mapper),
-            metadata,
-        )
+        BoxCallableWith::new_with_metadata(move |input: &mut T| function(input).map_err(&mut mapper), metadata)
     }
 
     /// Chains another fallible computation after this callable succeeds.

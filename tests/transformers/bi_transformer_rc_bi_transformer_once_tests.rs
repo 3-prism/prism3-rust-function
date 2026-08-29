@@ -35,8 +35,7 @@ mod rc_bi_transformer_once_tests {
 
     #[test]
     fn test_string_concatenation_once() {
-        let concat =
-            RcBiTransformer::new(|x: String, y: String| format!("{} {}", x, y));
+        let concat = RcBiTransformer::new(|x: String, y: String| format!("{} {}", x, y));
         let result = concat.apply("Hello".to_string(), "World".to_string());
         assert_eq!(result, "Hello World");
     }

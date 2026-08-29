@@ -44,8 +44,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_rc_conditional_clone() {
-        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut clone1 = conditional.clone();
         let mut clone2 = conditional.clone();
 
@@ -64,8 +63,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_arc_when_with_closure() {
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -79,8 +77,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_arc_when_with_function_pointer() {
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(is_positive as fn(&i32) -> bool);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -95,8 +92,7 @@ mod test_conditional_execution {
     #[test]
     fn test_arc_when_with_arc_predicate() {
         let pred = ArcPredicate::new(|x: &i32| *x > 0);
-        let conditional =
-            ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -167,8 +163,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_arc_conditional_clone() {
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut clone1 = conditional.clone();
         let mut clone2 = conditional.clone();
 
@@ -189,8 +184,7 @@ mod test_conditional_execution {
     fn test_arc_conditional_thread_safety() {
         use std::thread;
 
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let clone = conditional.clone();
 
         let handle = thread::spawn(move || {
@@ -258,10 +252,7 @@ mod test_conditional_execution {
         // When x > 0: multiply by 2, then if result > 10: cap at 10
         let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
             .when(|x: &i32| *x > 0)
-            .and_then(
-                BoxStatefulMutator::new(|x: &mut i32| *x = 10)
-                    .when(|x: &i32| *x > 10),
-            );
+            .and_then(BoxStatefulMutator::new(|x: &mut i32| *x = 10).when(|x: &i32| *x > 10));
 
         let mut small = 3;
         mutator.apply(&mut small);

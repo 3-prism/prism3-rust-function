@@ -51,10 +51,7 @@ mod test_unified_interface {
         });
         let result = apply_consumer(&mut consumer, &5);
         assert_eq!(result, 5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10]);
     }
 
     #[test]
@@ -66,10 +63,7 @@ mod test_unified_interface {
         });
         let result = apply_consumer(&mut consumer, &5);
         assert_eq!(result, 5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10]);
     }
 
     #[test]

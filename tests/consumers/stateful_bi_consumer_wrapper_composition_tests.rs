@@ -38,10 +38,7 @@ impl StatefulBiConsumer<i32, i32> for CustomStatefulBiConsumer {
     fn accept(&mut self, first: &i32, second: &i32) {
         self.multiplier += 1;
         let result = (*first + *second) * self.multiplier;
-        self.log
-            .lock()
-            .expect("mutex should not be poisoned")
-            .push(result);
+        self.log.lock().expect("mutex should not be poisoned").push(result);
     }
 }
 
@@ -62,23 +59,15 @@ mod wrapper_composition_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let mut chained =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l1.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            })
-            .and_then(move |x: &i32, y: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
-            });
+        let mut chained = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
+        })
+        .and_then(move |x: &i32, y: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
+        });
 
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15]);
     }
 
     // Test and_then() with multiple closures
@@ -88,28 +77,18 @@ mod wrapper_composition_tests {
         let l1 = log.clone();
         let l2 = log.clone();
         let l3 = log.clone();
-        let mut chained =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l1.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            })
-            .and_then(move |x: &i32, y: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
-            })
-            .and_then(move |x: &i32, y: &i32| {
-                l3.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x - *y);
-            });
+        let mut chained = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
+        })
+        .and_then(move |x: &i32, y: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
+        })
+        .and_then(move |x: &i32, y: &i32| {
+            l3.lock().expect("mutex should not be poisoned").push(*x - *y);
+        });
 
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15, 2]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15, 2]);
     }
 
     // Test and_then() with BoxStatefulBiConsumer
@@ -118,25 +97,16 @@ mod wrapper_composition_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let box_consumer =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
-            });
-        let mut chained =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l1.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            })
-            .and_then(box_consumer);
+        let box_consumer = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
+        });
+        let mut chained = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
+        })
+        .and_then(box_consumer);
 
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15]);
     }
 
     // Test and_then() with ArcStatefulBiConsumer
@@ -145,25 +115,16 @@ mod wrapper_composition_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l1 = log.clone();
         let l2 = log.clone();
-        let arc_consumer =
-            ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
-            });
-        let mut chained =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l1.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            })
-            .and_then(arc_consumer);
+        let arc_consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
+        });
+        let mut chained = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
+        })
+        .and_then(arc_consumer);
 
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15]);
     }
 
     // Test and_then() with RcStatefulBiConsumer
@@ -175,11 +136,10 @@ mod wrapper_composition_tests {
         let rc_consumer = RcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
             l2.borrow_mut().push(*x * *y);
         });
-        let mut chained =
-            BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l1.borrow_mut().push(*x + *y);
-            })
-            .and_then(rc_consumer);
+        let mut chained = BoxStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l1.borrow_mut().push(*x + *y);
+        })
+        .and_then(rc_consumer);
 
         chained.accept(&5, &3);
         assert_eq!(*log.borrow(), vec![8, 15]);

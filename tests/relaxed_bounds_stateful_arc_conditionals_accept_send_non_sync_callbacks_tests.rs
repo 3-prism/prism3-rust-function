@@ -88,14 +88,8 @@ impl<'a> Transformer<Borrowed<'a>, Borrowed<'a>> for BorrowedUnaryOp {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct BorrowedBinaryOp;
 
-impl<'a> BiTransformer<Borrowed<'a>, Borrowed<'a>, Borrowed<'a>>
-    for BorrowedBinaryOp
-{
-    fn apply(
-        &self,
-        first: Borrowed<'a>,
-        _second: Borrowed<'a>,
-    ) -> Borrowed<'a> {
+impl<'a> BiTransformer<Borrowed<'a>, Borrowed<'a>, Borrowed<'a>> for BorrowedBinaryOp {
+    fn apply(&self, first: Borrowed<'a>, _second: Borrowed<'a>) -> Borrowed<'a> {
         first
     }
 }
@@ -112,9 +106,7 @@ impl<'a> TransformerOnce<Borrowed<'a>, Borrowed<'a>> for BorrowedUnaryOpOnce {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct BorrowedBinaryOpOnce;
 
-impl<'a> BiTransformerOnce<Borrowed<'a>, Borrowed<'a>, Borrowed<'a>>
-    for BorrowedBinaryOpOnce
-{
+impl<'a> BiTransformerOnce<Borrowed<'a>, Borrowed<'a>, Borrowed<'a>> for BorrowedBinaryOpOnce {
     fn apply(self, first: Borrowed<'a>, _second: Borrowed<'a>) -> Borrowed<'a> {
         first
     }
@@ -124,9 +116,7 @@ fn make_box_supplier_with_lifetime(_: &i32) -> BoxSupplier<PhantomData<&i32>> {
     BoxSupplier::new(|| PhantomData)
 }
 
-fn make_box_supplier_once_with_lifetime(
-    _: &i32,
-) -> BoxSupplierOnce<PhantomData<&i32>> {
+fn make_box_supplier_once_with_lifetime(_: &i32) -> BoxSupplierOnce<PhantomData<&i32>> {
     BoxSupplierOnce::new(|| PhantomData)
 }
 
@@ -215,14 +205,13 @@ fn test_stateful_arc_conditionals_accept_send_non_sync_callbacks() {
     assert_eq!(function.apply(&-2), -2);
 
     let state = Cell::new(0);
-    let mut mutating_function =
-        ArcStatefulMutatingFunction::new(|value: &mut i32| *value)
-            .when(|value: &i32| *value > 0)
-            .or_else(move |value: &mut i32| {
-                state.set(*value);
-                *value -= 1;
-                *value
-            });
+    let mut mutating_function = ArcStatefulMutatingFunction::new(|value: &mut i32| *value)
+        .when(|value: &i32| *value > 0)
+        .or_else(move |value: &mut i32| {
+            state.set(*value);
+            *value -= 1;
+            *value
+        });
     let mut input = -2;
     assert_eq!(mutating_function.apply(&mut input), -3);
 
@@ -247,13 +236,12 @@ fn test_stateful_arc_conditionals_accept_send_non_sync_callbacks() {
     assert_eq!(transformer.apply(-2), -3);
 
     let state = Cell::new(0);
-    let mut bi_transformer =
-        ArcStatefulBiTransformer::new(|left: i32, right: i32| left + right)
-            .when(|left: &i32, right: &i32| *left > 0 && *right > 0)
-            .or_else(move |left: i32, right: i32| {
-                state.set(left + right);
-                state.get() - 1
-            });
+    let mut bi_transformer = ArcStatefulBiTransformer::new(|left: i32, right: i32| left + right)
+        .when(|left: &i32, right: &i32| *left > 0 && *right > 0)
+        .or_else(move |left: i32, right: i32| {
+            state.set(left + right);
+            state.get() - 1
+        });
     assert_eq!(bi_transformer.apply(-2, 4), 1);
 }
 
@@ -267,11 +255,10 @@ fn test_arc_stateful_supplier_combinators_accept_send_non_sync_callbacks() {
     assert_eq!(mapped.get(), 4);
 
     let filter_state = Cell::new(0);
-    let mut filtered =
-        ArcStatefulSupplier::new(|| 2).filter(move |value: &i32| {
-            filter_state.set(*value);
-            filter_state.get() % 2 == 0
-        });
+    let mut filtered = ArcStatefulSupplier::new(|| 2).filter(move |value: &i32| {
+        filter_state.set(*value);
+        filter_state.get() % 2 == 0
+    });
     assert_eq!(filtered.get(), Some(2));
 
     let zip_state = Cell::new(0);
@@ -284,8 +271,6 @@ fn test_arc_stateful_supplier_combinators_accept_send_non_sync_callbacks() {
 
 #[test]
 fn test_arc_stateful_function_constant_accepts_send_non_sync_value() {
-    let mut constant = ArcStatefulFunction::<(), SendNonSyncValue>::constant(
-        SendNonSyncValue(Cell::new(7)),
-    );
+    let mut constant = ArcStatefulFunction::<(), SendNonSyncValue>::constant(SendNonSyncValue(Cell::new(7)));
     assert_eq!(constant.apply(&()).0.get(), 7);
 }

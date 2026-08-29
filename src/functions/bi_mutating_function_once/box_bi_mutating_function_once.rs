@@ -18,8 +18,7 @@ use crate::functions::macros::impl_function_debug_display;
 use crate::macros::impl_closure_once_trait;
 
 /// The erased callback representation used by this implementation.
-type BoxBiMutatingFunctionOnceFn<T, U, R> =
-    Box<dyn FnOnce(&mut T, &mut U) -> R>;
+type BoxBiMutatingFunctionOnceFn<T, U, R> = Box<dyn FnOnce(&mut T, &mut U) -> R>;
 
 // ============================================================================
 // BoxBiMutatingFunctionOnce - Box<dyn FnOnce(&mut T, &mut U) -> R>
@@ -64,9 +63,7 @@ impl<T, U, R> BoxBiMutatingFunctionOnce<T, U, R> {
 }
 
 // Implement BiMutatingFunctionOnce trait for BoxBiMutatingFunctionOnce
-impl<T, U, R> BiMutatingFunctionOnce<T, U, R>
-    for BoxBiMutatingFunctionOnce<T, U, R>
-{
+impl<T, U, R> BiMutatingFunctionOnce<T, U, R> for BoxBiMutatingFunctionOnce<T, U, R> {
     #[inline(always)]
     fn apply(self, first: &mut T, second: &mut U) -> R {
         (self.function)(first, second)

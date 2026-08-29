@@ -112,10 +112,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mut mutator = RcStatefulMutator::new_with_name(
-            "rc_stateful_test",
-            |x: &mut i32| *x += 1,
-        );
+        let mut mutator = RcStatefulMutator::new_with_name("rc_stateful_test", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("rc_stateful_test"));
 
         let mut value = 5;
@@ -125,10 +122,8 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_optional_name_some() {
-        let mut mutator = RcStatefulMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("rc_stateful_optional".to_string()),
-        );
+        let mut mutator =
+            RcStatefulMutator::new_with_optional_name(|x: &mut i32| *x += 1, Some("rc_stateful_optional".to_string()));
         assert_eq!(mutator.name(), Some("rc_stateful_optional"));
 
         let mut value = 5;
@@ -138,10 +133,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mut mutator = RcStatefulMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            None,
-        );
+        let mut mutator = RcStatefulMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

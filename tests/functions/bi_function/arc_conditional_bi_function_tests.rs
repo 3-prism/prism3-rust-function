@@ -10,10 +10,6 @@ use qubit_function::ArcConditionalBiFunction;
 
 #[test]
 fn test_arc_conditional_bi_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcConditionalBiFunction<i32, i32, i32>>();
-    assert!(
-        type_name.contains("ArcConditionalBiFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcConditionalBiFunction<i32, i32, i32>>();
+    assert!(type_name.contains("ArcConditionalBiFunction"), "{type_name}");
 }

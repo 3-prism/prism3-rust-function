@@ -21,18 +21,13 @@ mod complex_transformation_tests {
 
     #[test]
     fn test_nested_structure_transformation() {
-        let merge_nested = BoxBiTransformerOnce::new(
-            |x: Vec<Vec<i32>>, y: Vec<Vec<i32>>| -> Vec<Vec<i32>> {
-                let mut result = x;
-                result.extend(y);
-                result
-            },
-        );
+        let merge_nested = BoxBiTransformerOnce::new(|x: Vec<Vec<i32>>, y: Vec<Vec<i32>>| -> Vec<Vec<i32>> {
+            let mut result = x;
+            result.extend(y);
+            result
+        });
         assert_eq!(
-            merge_nested.apply(
-                vec![vec![1, 2], vec![3, 4]],
-                vec![vec![5, 6], vec![7, 8]]
-            ),
+            merge_nested.apply(vec![vec![1, 2], vec![3, 4]], vec![vec![5, 6], vec![7, 8]]),
             vec![vec![1, 2], vec![3, 4], vec![5, 6], vec![7, 8]]
         );
     }
@@ -60,10 +55,8 @@ mod complex_transformation_tests {
 
     #[test]
     fn test_conditional_with_complex_logic() {
-        let complex_add =
-            BoxBiTransformerOnce::new(|x: i32, y: i32| x + y + 10);
-        let complex_multiply =
-            BoxBiTransformerOnce::new(|x: i32, y: i32| x * y - 5);
+        let complex_add = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y + 10);
+        let complex_multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y - 5);
         let conditional = complex_add
             .when(|x: &i32, y: &i32| (*x + *y) % 2 == 0)
             .or_else(complex_multiply);
@@ -73,10 +66,8 @@ mod complex_transformation_tests {
 
     #[test]
     fn test_conditional_with_complex_logic_odd() {
-        let complex_add =
-            BoxBiTransformerOnce::new(|x: i32, y: i32| x + y + 10);
-        let complex_multiply =
-            BoxBiTransformerOnce::new(|x: i32, y: i32| x * y - 5);
+        let complex_add = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y + 10);
+        let complex_multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y - 5);
         let conditional = complex_add
             .when(|x: &i32, y: &i32| (*x + *y) % 2 == 0)
             .or_else(complex_multiply);

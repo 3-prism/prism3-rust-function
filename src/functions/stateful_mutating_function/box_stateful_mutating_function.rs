@@ -105,9 +105,7 @@ impl_function_identity_method!(BoxStatefulMutatingFunction<T, T>, mutating);
 
 // Implement StatefulMutatingFunction trait for BoxStatefulMutatingFunction<T,
 // R>
-impl<T, R> StatefulMutatingFunction<T, R>
-    for BoxStatefulMutatingFunction<T, R>
-{
+impl<T, R> StatefulMutatingFunction<T, R> for BoxStatefulMutatingFunction<T, R> {
     #[inline(always)]
     fn apply(&mut self, t: &mut T) -> R {
         (self.function)(t)

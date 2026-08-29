@@ -70,11 +70,7 @@ pub struct ArcConsumer<T> {
 
 impl<T> ArcConsumer<T> {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(
-        ArcConsumer<T>,
-        (Fn(&T) + Send + Sync + 'static),
-        |f| { Arc::new(f) }
-    );
+    impl_consumer_common_methods!(ArcConsumer<T>, (Fn(&T) + Send + Sync + 'static), |f| { Arc::new(f) });
 
     // Generates: when() and and_then() methods that borrow &self (Arc can
     // clone)

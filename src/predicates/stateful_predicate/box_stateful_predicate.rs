@@ -31,11 +31,7 @@ pub struct BoxStatefulPredicate<T> {
 impl<T> BoxStatefulPredicate<T> {
     // Generates: new(), new_with_name(), name(), set_name(), always_true(),
     // always_false()
-    impl_predicate_common_methods!(
-        BoxStatefulPredicate<T>,
-        (FnMut(&T) -> bool + 'static),
-        |f| Box::new(f)
-    );
+    impl_predicate_common_methods!(BoxStatefulPredicate<T>, (FnMut(&T) -> bool + 'static), |f| Box::new(f));
 
     /// Returns a predicate representing logical AND with another predicate.
     ///
@@ -55,9 +51,7 @@ impl<T> BoxStatefulPredicate<T> {
         P: StatefulPredicate<T> + 'static,
         T: 'static,
     {
-        BoxStatefulPredicate::new(move |value: &T| {
-            self.test(value) && other.test(value)
-        })
+        BoxStatefulPredicate::new(move |value: &T| self.test(value) && other.test(value))
     }
 
     /// Returns a predicate representing logical OR with another predicate.
@@ -78,9 +72,7 @@ impl<T> BoxStatefulPredicate<T> {
         P: StatefulPredicate<T> + 'static,
         T: 'static,
     {
-        BoxStatefulPredicate::new(move |value: &T| {
-            self.test(value) || other.test(value)
-        })
+        BoxStatefulPredicate::new(move |value: &T| self.test(value) || other.test(value))
     }
 
     /// Returns a predicate representing logical NAND with another predicate.
@@ -100,9 +92,7 @@ impl<T> BoxStatefulPredicate<T> {
         P: StatefulPredicate<T> + 'static,
         T: 'static,
     {
-        BoxStatefulPredicate::new(move |value: &T| {
-            !(self.test(value) && other.test(value))
-        })
+        BoxStatefulPredicate::new(move |value: &T| !(self.test(value) && other.test(value)))
     }
 
     /// Returns a predicate representing logical XOR with another predicate.
@@ -123,9 +113,7 @@ impl<T> BoxStatefulPredicate<T> {
         P: StatefulPredicate<T> + 'static,
         T: 'static,
     {
-        BoxStatefulPredicate::new(move |value: &T| {
-            self.test(value) ^ other.test(value)
-        })
+        BoxStatefulPredicate::new(move |value: &T| self.test(value) ^ other.test(value))
     }
 
     /// Returns a predicate representing logical NOR with another predicate.
@@ -145,9 +133,7 @@ impl<T> BoxStatefulPredicate<T> {
         P: StatefulPredicate<T> + 'static,
         T: 'static,
     {
-        BoxStatefulPredicate::new(move |value: &T| {
-            !(self.test(value) || other.test(value))
-        })
+        BoxStatefulPredicate::new(move |value: &T| !(self.test(value) || other.test(value)))
     }
 }
 
@@ -160,10 +146,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let mut function = self.function;
-        BoxStatefulPredicate::new_with_metadata(
-            move |value: &T| !function(value),
-            metadata,
-        )
+        BoxStatefulPredicate::new_with_metadata(move |value: &T| !function(value), metadata)
     }
 }
 

@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalBiFunction;
 
 #[test]
 fn test_box_conditional_bi_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalBiFunction<i32, i32, i32>>();
-    assert!(
-        type_name.contains("BoxConditionalBiFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalBiFunction<i32, i32, i32>>();
+    assert!(type_name.contains("BoxConditionalBiFunction"), "{type_name}");
 }

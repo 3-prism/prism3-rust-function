@@ -34,15 +34,13 @@ mod test_box_mutator {
     #[test]
     fn test_with_different_types() {
         // String
-        let mut string_mutator =
-            BoxStatefulMutator::new(|s: &mut String| s.push('!'));
+        let mut string_mutator = BoxStatefulMutator::new(|s: &mut String| s.push('!'));
         let mut text = String::from("hello");
         string_mutator.apply(&mut text);
         assert_eq!(text, "hello!");
 
         // Vec
-        let mut vec_mutator =
-            BoxStatefulMutator::new(|v: &mut Vec<i32>| v.push(42));
+        let mut vec_mutator = BoxStatefulMutator::new(|v: &mut Vec<i32>| v.push(42));
         let mut numbers = vec![1, 2, 3];
         vec_mutator.apply(&mut numbers);
         assert_eq!(numbers, vec![1, 2, 3, 42]);
@@ -56,8 +54,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_and_then() {
-        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .and_then(|x: &mut i32| *x += 10);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
         let mut value = 5;
         mutator.apply(&mut value);
@@ -122,8 +119,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_true() {
-        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x += 10)
-            .when(|x: &i32| *x > 0);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = 5;
         mutator.apply(&mut value);
@@ -132,8 +128,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_false() {
-        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x += 10)
-            .when(|x: &i32| *x > 0);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = -5;
         mutator.apply(&mut value);
@@ -157,10 +152,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mut mutator = BoxStatefulMutator::new_with_name(
-            "box_stateful_test",
-            |x: &mut i32| *x += 1,
-        );
+        let mut mutator = BoxStatefulMutator::new_with_name("box_stateful_test", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("box_stateful_test"));
 
         let mut value = 5;
@@ -170,10 +162,8 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_optional_name_some() {
-        let mut mutator = BoxStatefulMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("box_optional".to_string()),
-        );
+        let mut mutator =
+            BoxStatefulMutator::new_with_optional_name(|x: &mut i32| *x += 1, Some("box_optional".to_string()));
         assert_eq!(mutator.name(), Some("box_optional"));
 
         let mut value = 5;
@@ -183,10 +173,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mut mutator = BoxStatefulMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            None,
-        );
+        let mut mutator = BoxStatefulMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

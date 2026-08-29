@@ -10,7 +10,6 @@ use qubit_function::ArcCallableWith;
 
 #[test]
 fn test_arc_callable_with_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcCallableWith<i32, i32, std::io::Error>>();
+    let type_name = std::any::type_name::<ArcCallableWith<i32, i32, std::io::Error>>();
     assert!(type_name.contains("ArcCallableWith"), "{type_name}");
 }

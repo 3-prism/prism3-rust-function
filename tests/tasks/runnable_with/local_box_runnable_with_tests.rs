@@ -35,10 +35,7 @@ fn test_local_box_runnable_with_composition_accepts_rc_capture() {
 
 #[test]
 fn test_local_box_runnable_with_constructors_and_name_management() {
-    let mut named =
-        LocalBoxRunnableWith::new_with_name("prepare", |_: &mut i32| {
-            Ok::<(), io::Error>(())
-        });
+    let mut named = LocalBoxRunnableWith::new_with_name("prepare", |_: &mut i32| Ok::<(), io::Error>(()));
     assert_eq!(named.name(), Some("prepare"));
     assert_eq!(named.to_string(), "LocalBoxRunnableWith(prepare)");
     assert!(format!("{named:?}").contains("prepare"));

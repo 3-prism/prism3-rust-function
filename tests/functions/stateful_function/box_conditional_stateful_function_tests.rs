@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalStatefulFunction;
 
 #[test]
 fn test_box_conditional_stateful_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalStatefulFunction<i32, i32>>();
-    assert!(
-        type_name.contains("BoxConditionalStatefulFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalStatefulFunction<i32, i32>>();
+    assert!(type_name.contains("BoxConditionalStatefulFunction"), "{type_name}");
 }

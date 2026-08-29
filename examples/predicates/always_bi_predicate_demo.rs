@@ -32,8 +32,7 @@ fn main() {
     println!("\n=== RcBiPredicate always_true/always_false Demo ===\n");
 
     // RcBiPredicate::always_true
-    let rc_always_true: RcBiPredicate<String, i32> =
-        RcBiPredicate::always_true();
+    let rc_always_true: RcBiPredicate<String, i32> = RcBiPredicate::always_true();
     println!("RcBiPredicate::always_true():");
     println!(
         "  test(&\"hello\", &5): {}",
@@ -46,8 +45,7 @@ fn main() {
     println!("  name: {:?}", rc_always_true.name());
 
     // RcBiPredicate::always_false
-    let rc_always_false: RcBiPredicate<String, i32> =
-        RcBiPredicate::always_false();
+    let rc_always_false: RcBiPredicate<String, i32> = RcBiPredicate::always_false();
     println!("\nRcBiPredicate::always_false():");
     println!(
         "  test(&\"hello\", &5): {}",
@@ -74,16 +72,14 @@ fn main() {
     println!("\n=== ArcBiPredicate always_true/always_false Demo ===\n");
 
     // ArcBiPredicate::always_true
-    let arc_always_true: ArcBiPredicate<i32, i32> =
-        ArcBiPredicate::always_true();
+    let arc_always_true: ArcBiPredicate<i32, i32> = ArcBiPredicate::always_true();
     println!("ArcBiPredicate::always_true():");
     println!("  test(&100, &50): {}", arc_always_true.test(&100, &50));
     println!("  test(&-100, &25): {}", arc_always_true.test(&-100, &25));
     println!("  name: {:?}", arc_always_true.name());
 
     // ArcBiPredicate::always_false
-    let arc_always_false: ArcBiPredicate<i32, i32> =
-        ArcBiPredicate::always_false();
+    let arc_always_false: ArcBiPredicate<i32, i32> = ArcBiPredicate::always_false();
     println!("\nArcBiPredicate::always_false():");
     println!("  test(&100, &50): {}", arc_always_false.test(&100, &50));
     println!("  test(&-100, &25): {}", arc_always_false.test(&-100, &25));
@@ -108,27 +104,15 @@ fn main() {
     let sum_positive = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
     let combined_and_false = sum_positive.and(BoxBiPredicate::always_false());
     println!("\nsum_positive AND always_false:");
-    println!(
-        "  test(&5, &3): {} (always false)",
-        combined_and_false.test(&5, &3)
-    );
-    println!(
-        "  test(&-3, &-5): {} (always false)",
-        combined_and_false.test(&-3, &-5)
-    );
+    println!("  test(&5, &3): {} (always false)", combined_and_false.test(&5, &3));
+    println!("  test(&-3, &-5): {} (always false)", combined_and_false.test(&-3, &-5));
 
     // Combining with always_true (OR)
     let sum_positive = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
     let combined_or_true = sum_positive.or(BoxBiPredicate::always_true());
     println!("\nsum_positive OR always_true:");
-    println!(
-        "  test(&5, &3): {} (always true)",
-        combined_or_true.test(&5, &3)
-    );
-    println!(
-        "  test(&-3, &-5): {} (always true)",
-        combined_or_true.test(&-3, &-5)
-    );
+    println!("  test(&5, &3): {} (always true)", combined_or_true.test(&5, &3));
+    println!("  test(&-3, &-5): {} (always true)", combined_or_true.test(&-3, &-5));
 
     // Combining with always_false (OR)
     let sum_positive = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
@@ -149,17 +133,14 @@ fn main() {
     let pairs = vec![(1, 2), (3, 4), (5, 6)];
     let pass_all = BoxBiPredicate::<i32, i32>::always_true();
     let closure = move |first: &i32, second: &i32| pass_all.test(first, second);
-    let filtered: Vec<_> =
-        pairs.iter().filter(|(x, y)| closure(x, y)).collect();
+    let filtered: Vec<_> = pairs.iter().filter(|(x, y)| closure(x, y)).collect();
     println!("Default pass all elements: {:?} -> {:?}", pairs, filtered);
 
     // Scenario 2: Default reject-all filter
     let pairs = vec![(1, 2), (3, 4), (5, 6)];
     let reject_all = BoxBiPredicate::<i32, i32>::always_false();
-    let closure =
-        move |first: &i32, second: &i32| reject_all.test(first, second);
-    let filtered: Vec<_> =
-        pairs.iter().filter(|(x, y)| closure(x, y)).collect();
+    let closure = move |first: &i32, second: &i32| reject_all.test(first, second);
+    let filtered: Vec<_> = pairs.iter().filter(|(x, y)| closure(x, y)).collect();
     println!("Default reject all elements: {:?} -> {:?}", pairs, filtered);
 
     // Scenario 3: Configurable filter
@@ -174,16 +155,12 @@ fn main() {
     let pairs = vec![(1, 2), (3, 4), (5, 6)];
 
     let filter_enabled = configurable_filter(true);
-    let closure =
-        move |first: &i32, second: &i32| filter_enabled.test(first, second);
-    let filtered: Vec<_> =
-        pairs.iter().filter(|(x, y)| closure(x, y)).collect();
+    let closure = move |first: &i32, second: &i32| filter_enabled.test(first, second);
+    let filtered: Vec<_> = pairs.iter().filter(|(x, y)| closure(x, y)).collect();
     println!("\nFilter enabled: {:?} -> {:?}", pairs, filtered);
 
     let filter_disabled = configurable_filter(false);
-    let closure =
-        move |first: &i32, second: &i32| filter_disabled.test(first, second);
-    let filtered: Vec<_> =
-        pairs.iter().filter(|(x, y)| closure(x, y)).collect();
+    let closure = move |first: &i32, second: &i32| filter_disabled.test(first, second);
+    let filtered: Vec<_> = pairs.iter().filter(|(x, y)| closure(x, y)).collect();
     println!("Filter disabled: {:?} -> {:?}", pairs, filtered);
 }

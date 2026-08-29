@@ -17,13 +17,11 @@ fn test_rc_bi_predicate_observable_behavior() {
 
 #[test]
 fn test_rc_bi_predicate_not_operator_observable_behavior() {
-    let owned_negated =
-        !RcBiPredicate::new(|first: &i32, second: &i32| first + second > 0);
+    let owned_negated = !RcBiPredicate::new(|first: &i32, second: &i32| first + second > 0);
     assert!(!owned_negated.test(&5, &3));
     assert!(owned_negated.test(&-5, &-3));
 
-    let original =
-        RcBiPredicate::new(|first: &i32, second: &i32| first + second > 0);
+    let original = RcBiPredicate::new(|first: &i32, second: &i32| first + second > 0);
     let borrowed_negated = !&original;
     assert!(!borrowed_negated.test(&5, &3));
     assert!(borrowed_negated.test(&-5, &-3));

@@ -135,11 +135,8 @@ fn box_bi_mutating_function_constant_non_static<'a>(input: &'a str) -> i32 {
     constant.apply(&mut left, &mut right)
 }
 
-fn box_bi_mutating_function_once_constant_non_static<'a>(
-    input: &'a str,
-) -> i32 {
-    let constant =
-        BoxBiMutatingFunctionOnce::<&'a str, &'a str, i32>::constant(13);
+fn box_bi_mutating_function_once_constant_non_static<'a>(input: &'a str) -> i32 {
+    let constant = BoxBiMutatingFunctionOnce::<&'a str, &'a str, i32>::constant(13);
     let mut left = input;
     let mut right = input;
     constant.apply(&mut left, &mut right)
@@ -186,13 +183,11 @@ fn arc_stateful_transformer_constant_non_static<'a>(input: &'a str) -> i32 {
 }
 
 fn box_stateful_bi_transformer_constant_non_static<'a>(input: &'a str) -> i32 {
-    let mut constant =
-        BoxStatefulBiTransformer::<&'a str, &'a str, i32>::constant(29);
+    let mut constant = BoxStatefulBiTransformer::<&'a str, &'a str, i32>::constant(29);
     constant.apply(input, input)
 }
 
 fn arc_stateful_bi_transformer_constant_non_static<'a>(input: &'a str) -> i32 {
-    let mut constant =
-        ArcStatefulBiTransformer::<&'a str, &'a str, i32>::constant(30);
+    let mut constant = ArcStatefulBiTransformer::<&'a str, &'a str, i32>::constant(30);
     constant.apply(input, input)
 }

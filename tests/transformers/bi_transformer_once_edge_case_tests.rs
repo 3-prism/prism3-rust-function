@@ -21,9 +21,7 @@ mod edge_case_tests {
 
     #[test]
     fn test_with_empty_strings() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{}{}", x, y)
-        });
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{}{}", x, y));
         assert_eq!(concat.apply(String::new(), String::new()), String::new());
     }
 
@@ -53,13 +51,8 @@ mod edge_case_tests {
 
     #[test]
     fn test_with_unicode_strings() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{}{}", x, y)
-        });
-        assert_eq!(
-            concat.apply("Hello".to_string(), "World".to_string()),
-            "HelloWorld"
-        );
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{}{}", x, y));
+        assert_eq!(concat.apply("Hello".to_string(), "World".to_string()), "HelloWorld");
     }
 }
 

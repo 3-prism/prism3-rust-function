@@ -113,8 +113,7 @@ mod test_box_stateful_mutating_function {
                 count
             })
         };
-        let mut mapped = func
-            .and_then::<String, _>(|count: &i32| format!("Call #{}", *count));
+        let mut mapped = func.and_then::<String, _>(|count: &i32| format!("Call #{}", *count));
 
         let mut value = 5;
         assert_eq!(mapped.apply(&mut value), "Call #1");

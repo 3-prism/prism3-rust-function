@@ -225,27 +225,18 @@ mod tests {
             age: i32,
         }
 
-        let create_person = BoxBiTransformer::new(|name: String, age: i32| {
-            Person { name, age }
-        });
+        let create_person = BoxBiTransformer::new(|name: String, age: i32| Person { name, age });
 
-        let get_description =
-            |p: Person| format!("{} is {} years old", p.name, p.age);
+        let get_description = |p: Person| format!("{} is {} years old", p.name, p.age);
 
         let composed = create_person.and_then(get_description);
 
-        assert_eq!(
-            composed.apply("Alice".to_string(), 30),
-            "Alice is 30 years old"
-        );
+        assert_eq!(composed.apply("Alice".to_string(), 30), "Alice is 30 years old");
     }
 
     #[test]
     fn test_bi_transformer_and_then_with_option() {
-        let divide =
-            BoxBiTransformer::new(
-                |x: i32, y: i32| if y == 0 { None } else { Some(x / y) },
-            );
+        let divide = BoxBiTransformer::new(|x: i32, y: i32| if y == 0 { None } else { Some(x / y) });
 
         let unwrap_or_zero = |opt: Option<i32>| opt.unwrap_or(0);
 
@@ -257,14 +248,13 @@ mod tests {
 
     #[test]
     fn test_bi_transformer_and_then_with_result() {
-        let divide =
-            BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
-                if y == 0 {
-                    Err("Division by zero".to_string())
-                } else {
-                    Ok(x / y)
-                }
-            });
+        let divide = BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
+            if y == 0 {
+                Err("Division by zero".to_string())
+            } else {
+                Ok(x / y)
+            }
+        });
 
         let to_string = |res: Result<i32, String>| match res {
             Ok(v) => format!("Success: {}", v),

@@ -20,8 +20,7 @@ use crate::functions::macros::impl_function_debug_display;
 use crate::functions::macros::impl_shared_function_methods;
 
 /// The erased callback representation used by this implementation.
-type ArcBiMutatingFunctionFn<T, U, R> =
-    Arc<dyn Fn(&mut T, &mut U) -> R + Send + Sync>;
+type ArcBiMutatingFunctionFn<T, U, R> = Arc<dyn Fn(&mut T, &mut U) -> R + Send + Sync>;
 
 // ============================================================================
 // ArcBiMutatingFunction - Arc<dyn Fn(&mut T, &mut U) -> R + Send + Sync>

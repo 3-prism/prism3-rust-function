@@ -31,9 +31,7 @@ fn main() {
 
     // Example 4: Consuming owned values
     println!("\n4. Consuming owned values:");
-    let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-        format!("{} {}", x, y)
-    });
+    let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
     let s1 = String::from("hello");
     let s2 = String::from("world");
     let result = concat.apply(s1, s2);
@@ -43,21 +41,14 @@ fn main() {
     println!("\n5. Conditional transformation (positive numbers):");
     let add = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let multiply = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y);
-    let conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
     println!("   conditional(5, 3) = {} (add)", conditional.apply(5, 3));
 
     println!("\n6. Conditional transformation (negative numbers):");
     let add2 = BoxBiTransformerOnce::new(|x: i32, y: i32| x + y);
     let multiply2 = BoxBiTransformerOnce::new(|x: i32, y: i32| x * y);
-    let conditional2 = add2
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply2);
-    println!(
-        "   conditional(-5, 3) = {} (multiply)",
-        conditional2.apply(-5, 3)
-    );
+    let conditional2 = add2.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply2);
+    println!("   conditional(-5, 3) = {} (multiply)", conditional2.apply(-5, 3));
 
     // Example 7: Conditional with closure in or_else
     println!("\n7. Conditional with closure in or_else:");

@@ -20,10 +20,7 @@ mod generic_tests {
     use super::Comparator;
     use super::RcComparator;
 
-    fn sort_with_comparator<C: Comparator<i32>>(
-        cmp: &C,
-        mut vec: Vec<i32>,
-    ) -> Vec<i32> {
+    fn sort_with_comparator<C: Comparator<i32>>(cmp: &C, mut vec: Vec<i32>) -> Vec<i32> {
         vec.sort_by(|a, b| cmp.compare(a, b));
         vec
     }

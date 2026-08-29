@@ -69,9 +69,7 @@ fn main() {
 
     // 6. Type conversion example
     println!("6. Type conversion example");
-    let concat = BoxBiTransformer::new(|s1: String, s2: String| {
-        format!("{} {}", s1, s2)
-    });
+    let concat = BoxBiTransformer::new(|s1: String, s2: String| format!("{} {}", s1, s2));
     let to_uppercase = |s: String| s.to_uppercase();
     let get_length = |s: String| s.len();
 
@@ -81,9 +79,7 @@ fn main() {
         uppercase_pipeline.apply("hello".to_string(), "world".to_string())
     );
 
-    let concat2 = BoxBiTransformer::new(|s1: String, s2: String| {
-        format!("{} {}", s1, s2)
-    });
+    let concat2 = BoxBiTransformer::new(|s1: String, s2: String| format!("{} {}", s1, s2));
     let length_pipeline = concat2.and_then(get_length);
     println!(
         "   \"hello\" + \"world\" -> length: {}",
@@ -98,22 +94,18 @@ fn main() {
     let to_int = |x: f64| x as i32;
 
     let calculator = calculate.and_then(round).and_then(to_int);
-    println!(
-        "   3.7 + 4.8 -> round -> integer: {}",
-        calculator.apply(3.7, 4.8)
-    );
+    println!("   3.7 + 4.8 -> round -> integer: {}", calculator.apply(3.7, 4.8));
     println!();
 
     // 8. Error handling example
     println!("8. Error handling example");
-    let safe_divide =
-        BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
-            if y == 0 {
-                Err("Division by zero is not allowed".to_string())
-            } else {
-                Ok(x / y)
-            }
-        });
+    let safe_divide = BoxBiTransformer::new(|x: i32, y: i32| -> Result<i32, String> {
+        if y == 0 {
+            Err("Division by zero is not allowed".to_string())
+        } else {
+            Ok(x / y)
+        }
+    });
 
     let format_result = |res: Result<i32, String>| match res {
         Ok(v) => format!("Success: {}", v),
@@ -134,13 +126,10 @@ fn main() {
     }
 
     let create_point = BoxBiTransformer::new(|x: i32, y: i32| Point { x, y });
-    let distance_from_origin =
-        |p: Point| ((p.x * p.x + p.y * p.y) as f64).sqrt();
+    let distance_from_origin = |p: Point| ((p.x * p.x + p.y * p.y) as f64).sqrt();
     let format_distance = |d: f64| format!("{:.2}", d);
 
-    let point_processor = create_point
-        .and_then(distance_from_origin)
-        .and_then(format_distance);
+    let point_processor = create_point.and_then(distance_from_origin).and_then(format_distance);
     println!(
         "   Distance from point(3, 4) to origin: {}",
         point_processor.apply(3, 4)

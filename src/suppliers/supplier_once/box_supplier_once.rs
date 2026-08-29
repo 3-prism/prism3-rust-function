@@ -61,11 +61,7 @@ pub struct BoxSupplierOnce<T> {
 
 impl<T> BoxSupplierOnce<T> {
     // Generates: new(), new_with_name(), name(), set_name(), constant()
-    impl_supplier_common_methods!(
-        BoxSupplierOnce<T>,
-        (FnOnce() -> T + 'static),
-        |f| Box::new(f)
-    );
+    impl_supplier_common_methods!(BoxSupplierOnce<T>, (FnOnce() -> T + 'static), |f| Box::new(f));
 
     // Generates: map(), filter(), zip()
     impl_box_supplier_methods!(BoxSupplierOnce<T>, SupplierOnce);

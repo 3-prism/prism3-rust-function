@@ -20,8 +20,7 @@ use crate::predicates::macros::impl_predicate_common_methods;
 use crate::predicates::macros::impl_predicate_debug_display;
 
 /// The erased callback representation used by this implementation.
-type ArcStatefulPredicateFn<T> =
-    Arc<Mutex<dyn FnMut(&T) -> bool + Send + 'static>>;
+type ArcStatefulPredicateFn<T> = Arc<Mutex<dyn FnMut(&T) -> bool + Send + 'static>>;
 
 /// An Arc-based stateful predicate with thread-safe shared ownership.
 ///
@@ -45,11 +44,9 @@ pub struct ArcStatefulPredicate<T> {
 impl<T> ArcStatefulPredicate<T> {
     // Generates: new(), new_with_name(), name(), set_name(), always_true(),
     // always_false()
-    impl_predicate_common_methods!(
-        ArcStatefulPredicate<T>,
-        (FnMut(&T) -> bool + Send + 'static),
-        |f| Arc::new(Mutex::new(f))
-    );
+    impl_predicate_common_methods!(ArcStatefulPredicate<T>, (FnMut(&T) -> bool + Send + 'static), |f| {
+        Arc::new(Mutex::new(f))
+    });
 
     /// Returns a predicate representing logical AND with another predicate.
     ///

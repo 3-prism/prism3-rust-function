@@ -35,17 +35,11 @@ mod tests {
         use super::RcBiPredicate;
         use super::thread;
 
-        fn filter_pairs<P>(
-            pairs: Vec<(i32, i32)>,
-            predicate: &P,
-        ) -> Vec<(i32, i32)>
+        fn filter_pairs<P>(pairs: Vec<(i32, i32)>, predicate: &P) -> Vec<(i32, i32)>
         where
             P: BiPredicate<i32, i32>,
         {
-            pairs
-                .into_iter()
-                .filter(|(x, y)| predicate.test(x, y))
-                .collect()
+            pairs.into_iter().filter(|(x, y)| predicate.test(x, y)).collect()
         }
 
         #[test]
@@ -124,17 +118,11 @@ mod tests {
 
         #[test]
         fn test_generic_with_string_bi_predicates() {
-            fn filter_string_pairs<P>(
-                pairs: Vec<(String, usize)>,
-                predicate: &P,
-            ) -> Vec<(String, usize)>
+            fn filter_string_pairs<P>(pairs: Vec<(String, usize)>, predicate: &P) -> Vec<(String, usize)>
             where
                 P: BiPredicate<String, usize>,
             {
-                pairs
-                    .into_iter()
-                    .filter(|(s, len)| predicate.test(s, len))
-                    .collect()
+                pairs.into_iter().filter(|(s, len)| predicate.test(s, len)).collect()
             }
 
             let pairs = vec![
@@ -143,8 +131,7 @@ mod tests {
                 (String::from("world"), 4),
             ];
 
-            let pred =
-                BoxBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
+            let pred = BoxBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
             let result = filter_string_pairs(pairs, &pred);
             assert_eq!(result.len(), 2);
         }
@@ -174,9 +161,7 @@ mod tests {
 
         #[test]
         fn test_returning_bi_predicate_from_function() {
-            fn create_sum_checker(
-                threshold: i32,
-            ) -> impl BiPredicate<i32, i32> {
+            fn create_sum_checker(threshold: i32) -> impl BiPredicate<i32, i32> {
                 move |x: &i32, y: &i32| x + y > threshold
             }
 
@@ -206,12 +191,10 @@ mod tests {
 
             // Use different types in sequence
             let box_pred = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
-            let count1 =
-                pairs.iter().filter(|(x, y)| box_pred.test(x, y)).count();
+            let count1 = pairs.iter().filter(|(x, y)| box_pred.test(x, y)).count();
 
             let arc_pred = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
-            let count2 =
-                pairs.iter().filter(|(x, y)| arc_pred.test(x, y)).count();
+            let count2 = pairs.iter().filter(|(x, y)| arc_pred.test(x, y)).count();
 
             assert_eq!(count1, 3);
             assert_eq!(count2, 3);
@@ -225,17 +208,11 @@ mod tests {
                 y: i32,
             }
 
-            fn filter_points<P>(
-                points: Vec<(Point, Point)>,
-                pred: &P,
-            ) -> Vec<(Point, Point)>
+            fn filter_points<P>(points: Vec<(Point, Point)>, pred: &P) -> Vec<(Point, Point)>
             where
                 P: BiPredicate<Point, Point>,
             {
-                points
-                    .into_iter()
-                    .filter(|(p1, p2)| pred.test(p1, p2))
-                    .collect()
+                points.into_iter().filter(|(p1, p2)| pred.test(p1, p2)).collect()
             }
 
             let points = vec![
@@ -243,8 +220,7 @@ mod tests {
                 (Point { x: -1, y: 2 }, Point { x: 1, y: -4 }),
             ];
 
-            let pred =
-                BoxBiPredicate::new(|p1: &Point, p2: &Point| p1.x + p2.x > 0);
+            let pred = BoxBiPredicate::new(|p1: &Point, p2: &Point| p1.x + p2.x > 0);
             let result = filter_points(points, &pred);
             assert_eq!(result.len(), 1);
         }
@@ -330,8 +306,7 @@ mod tests {
 
         #[test]
         fn test_with_zero() {
-            let sum_positive =
-                BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let sum_positive = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
             assert!(!sum_positive.test(&0, &0));
             assert!(sum_positive.test(&1, &0));
             assert!(sum_positive.test(&0, &1));
@@ -355,8 +330,7 @@ mod tests {
 
         #[test]
         fn test_double_negation() {
-            let sum_positive =
-                BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let sum_positive = BoxBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
             let not_not = !(!sum_positive);
             assert!(not_not.test(&5, &3));
             assert!(!not_not.test(&-5, &-3));
@@ -364,18 +338,14 @@ mod tests {
 
         #[test]
         fn test_with_empty_string() {
-            let is_empty = BoxBiPredicate::new(|s1: &String, s2: &String| {
-                s1.is_empty() && s2.is_empty()
-            });
+            let is_empty = BoxBiPredicate::new(|s1: &String, s2: &String| s1.is_empty() && s2.is_empty());
             assert!(is_empty.test(&String::new(), &String::new()));
             assert!(!is_empty.test(&String::from("a"), &String::new()));
         }
 
         #[test]
         fn test_with_large_numbers() {
-            let sum_overflow_safe = BoxBiPredicate::new(|x: &i64, y: &i64| {
-                x.checked_add(*y).is_some()
-            });
+            let sum_overflow_safe = BoxBiPredicate::new(|x: &i64, y: &i64| x.checked_add(*y).is_some());
             let max_minus_one = i64::MAX - 1;
             assert!(sum_overflow_safe.test(&max_minus_one, &1));
             assert!(!sum_overflow_safe.test(&i64::MAX, &1));
@@ -383,8 +353,7 @@ mod tests {
 
         #[test]
         fn test_with_floating_point() {
-            let close_enough =
-                BoxBiPredicate::new(|x: &f64, y: &f64| (*x - *y).abs() < 0.01);
+            let close_enough = BoxBiPredicate::new(|x: &f64, y: &f64| (*x - *y).abs() < 0.01);
             assert!(close_enough.test(&1.0, &1.005));
             assert!(!close_enough.test(&1.0, &1.02));
         }

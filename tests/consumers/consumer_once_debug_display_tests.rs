@@ -70,15 +70,10 @@ mod debug_display_tests {
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
         let chained = conditional.and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
     }
 }
 

@@ -73,9 +73,7 @@ pub struct RcConsumer<T> {
 
 impl<T> RcConsumer<T> {
     // Generates: new(), new_with_name(), name(), set_name(), noop()
-    impl_consumer_common_methods!(RcConsumer<T>, (Fn(&T) + 'static), |f| {
-        Rc::new(f)
-    });
+    impl_consumer_common_methods!(RcConsumer<T>, (Fn(&T) + 'static), |f| { Rc::new(f) });
 
     // Generates: when() and and_then() methods that borrow &self (Rc can clone)
     impl_shared_consumer_methods!(

@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalStatefulConsumer;
 
 #[test]
 fn test_box_conditional_stateful_consumer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalStatefulConsumer<i32>>();
-    assert!(
-        type_name.contains("BoxConditionalStatefulConsumer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalStatefulConsumer<i32>>();
+    assert!(type_name.contains("BoxConditionalStatefulConsumer"), "{type_name}");
 }

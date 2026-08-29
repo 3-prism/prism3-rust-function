@@ -44,8 +44,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_box_when_with_closure() {
-        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
 
         let mut positive = 5;
         mutator.apply(&mut positive);
@@ -58,8 +57,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_box_when_with_function_pointer() {
-        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(is_positive as fn(&i32) -> bool);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
 
         let mut positive = 5;
         mutator.apply(&mut positive);
@@ -73,8 +71,7 @@ mod test_conditional_execution {
     #[test]
     fn test_box_when_with_box_predicate() {
         let pred = BoxPredicate::new(|x: &i32| *x > 0);
-        let mut mutator =
-            BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
 
         let mut positive = 5;
         mutator.apply(&mut positive);
@@ -88,8 +85,7 @@ mod test_conditional_execution {
     #[test]
     fn test_box_when_with_rc_predicate() {
         let pred = RcPredicate::new(|x: &i32| *x > 0);
-        let mut mutator =
-            BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
 
         let mut positive = 5;
         mutator.apply(&mut positive);
@@ -103,8 +99,7 @@ mod test_conditional_execution {
     #[test]
     fn test_box_when_with_arc_predicate() {
         let pred = ArcPredicate::new(|x: &i32| *x > 0);
-        let mut mutator =
-            BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
 
         let mut positive = 5;
         mutator.apply(&mut positive);
@@ -203,8 +198,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_box_conditional_and_then_with_closure() {
-        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut chained = cond1.and_then(|x: &mut i32| *x += 10);
 
         let mut positive = 5;
@@ -218,8 +212,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_box_conditional_and_then_with_box_mutator() {
-        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let next = BoxStatefulMutator::new(|x: &mut i32| *x += 100);
         let mut chained = cond1.and_then(next);
 
@@ -234,10 +227,8 @@ mod test_conditional_execution {
 
     #[test]
     fn test_box_conditional_and_then_conditional() {
-        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
-        let cond2 = BoxStatefulMutator::new(|x: &mut i32| *x = 100)
-            .when(|x: &i32| *x > 100);
+        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond2 = BoxStatefulMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
         let mut chained = cond1.and_then(cond2);
 
         let mut small = 5;
@@ -255,8 +246,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_rc_conditional_and_then_with_closure() {
-        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut chained = conditional.and_then(|x: &mut i32| *x += 10);
 
         let mut positive = 5;
@@ -270,8 +260,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_rc_conditional_and_then_with_rc_mutator() {
-        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let next = RcStatefulMutator::new(|x: &mut i32| *x += 100);
         let mut chained = conditional.and_then(next);
 
@@ -290,8 +279,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_arc_conditional_and_then_with_closure() {
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut chained = conditional.and_then(|x: &mut i32| *x += 10);
 
         let mut positive = 5;
@@ -305,8 +293,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_arc_conditional_and_then_with_arc_mutator() {
-        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = ArcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let next = ArcStatefulMutator::new(|x: &mut i32| *x += 100);
         let mut chained = conditional.and_then(next);
 
@@ -325,8 +312,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_rc_when_with_closure() {
-        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -340,8 +326,7 @@ mod test_conditional_execution {
 
     #[test]
     fn test_rc_when_with_function_pointer() {
-        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(is_positive as fn(&i32) -> bool);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(is_positive as fn(&i32) -> bool);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -356,8 +341,7 @@ mod test_conditional_execution {
     #[test]
     fn test_rc_when_with_rc_predicate() {
         let pred = RcPredicate::new(|x: &i32| *x > 0);
-        let conditional =
-            RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
         let mut m = conditional.clone();
 
         let mut positive = 5;
@@ -372,8 +356,7 @@ mod test_conditional_execution {
     #[test]
     fn test_rc_when_with_box_predicate() {
         let pred = BoxPredicate::new(|x: &i32| *x > 0);
-        let conditional =
-            RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
+        let conditional = RcStatefulMutator::new(|x: &mut i32| *x *= 2).when(pred);
         let mut m = conditional.clone();
 
         let mut positive = 5;

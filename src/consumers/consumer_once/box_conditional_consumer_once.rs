@@ -83,11 +83,7 @@ pub struct BoxConditionalConsumerOnce<T> {
 }
 
 // Generate and_then and or_else methods using macro
-impl_box_conditional_consumer!(
-    BoxConditionalConsumerOnce<T>,
-    BoxConsumerOnce,
-    ConsumerOnce
-);
+impl_box_conditional_consumer!(BoxConditionalConsumerOnce<T>, BoxConsumerOnce, ConsumerOnce);
 
 impl<T> ConsumerOnce<T> for BoxConditionalConsumerOnce<T> {
     fn accept(self, value: &T) {

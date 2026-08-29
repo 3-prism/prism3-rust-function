@@ -15,11 +15,7 @@ fn test_callback_metadata_contract_is_observable_through_box_function() {
     assert_eq!(unnamed.name(), None);
     assert_eq!(unnamed.apply(&7), 7);
 
-    let mut optionally_unnamed =
-        BoxFunction::<i32, i32>::new_with_optional_name(
-            |value: &i32| *value + 1,
-            None,
-        );
+    let mut optionally_unnamed = BoxFunction::<i32, i32>::new_with_optional_name(|value: &i32| *value + 1, None);
     assert_eq!(optionally_unnamed.name(), None);
     assert_eq!(optionally_unnamed.apply(&7), 8);
 

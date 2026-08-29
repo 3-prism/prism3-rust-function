@@ -65,9 +65,7 @@ struct StatefulStatefulTransformer {
     history: Vec<i32>,
 }
 
-impl StatefulTransformer<i32, (i32, i32, usize)>
-    for StatefulStatefulTransformer
-{
+impl StatefulTransformer<i32, (i32, i32, usize)> for StatefulStatefulTransformer {
     fn apply(&mut self, input: i32) -> (i32, i32, usize) {
         self.count += 1;
         self.sum += input;

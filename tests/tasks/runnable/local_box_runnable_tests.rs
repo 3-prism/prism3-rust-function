@@ -36,8 +36,7 @@ fn test_local_box_runnable_composition_accepts_rc_capture() {
 
 #[test]
 fn test_local_box_runnable_constructors_and_name_management() {
-    let mut named =
-        LocalBoxRunnable::new_with_name("cleanup", || Ok::<(), io::Error>(()));
+    let mut named = LocalBoxRunnable::new_with_name("cleanup", || Ok::<(), io::Error>(()));
     assert_eq!(named.name(), Some("cleanup"));
     assert_eq!(named.to_string(), "LocalBoxRunnable(cleanup)");
     assert!(format!("{named:?}").contains("cleanup"));
@@ -48,15 +47,11 @@ fn test_local_box_runnable_constructors_and_name_management() {
     named.clear_name();
     assert_eq!(named.name(), None);
 
-    let mut optional = LocalBoxRunnable::new_with_optional_name(
-        || Ok::<(), io::Error>(()),
-        Some(String::from("optional")),
-    )
-    .with_name("final");
+    let mut optional =
+        LocalBoxRunnable::new_with_optional_name(|| Ok::<(), io::Error>(()), Some(String::from("optional")))
+            .with_name("final");
     assert_eq!(optional.name(), Some("final"));
-    optional
-        .run()
-        .expect("optionally named runnable should execute");
+    optional.run().expect("optionally named runnable should execute");
 }
 
 #[test]
@@ -95,9 +90,7 @@ fn test_local_box_runnable_and_then_covers_both_paths() {
     runnable.run().expect("first chain run should succeed");
     assert_eq!(next_runs.get(), 1);
 
-    let error = runnable
-        .run()
-        .expect_err("source error should be preserved");
+    let error = runnable.run().expect_err("source error should be preserved");
     assert_eq!(error.to_string(), "source failed");
     assert_eq!(next_runs.get(), 1);
 }

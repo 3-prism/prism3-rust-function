@@ -161,8 +161,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_conditional_clone() {
-        let conditional =
-            RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let conditional = RcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let clone = conditional.clone();
 
         let mut positive = 5;
@@ -176,8 +175,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mutator =
-            RcMutator::new_with_name("rc_test_mutator", |x: &mut i32| *x += 1);
+        let mutator = RcMutator::new_with_name("rc_test_mutator", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("rc_test_mutator"));
 
         let mut value = 5;
@@ -187,10 +185,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_optional_name_some() {
-        let mutator = RcMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("rc_optional".to_string()),
-        );
+        let mutator = RcMutator::new_with_optional_name(|x: &mut i32| *x += 1, Some("rc_optional".to_string()));
         assert_eq!(mutator.name(), Some("rc_optional"));
 
         let mut value = 5;
@@ -200,8 +195,7 @@ mod test_rc_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mutator =
-            RcMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
+        let mutator = RcMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

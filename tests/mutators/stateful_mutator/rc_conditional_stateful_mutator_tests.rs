@@ -11,8 +11,5 @@ use qubit_function::RcConditionalStatefulMutator;
 #[test]
 fn test_rc_conditional_stateful_mutator_observable_behavior() {
     let type_name = std::any::type_name::<RcConditionalStatefulMutator<i32>>();
-    assert!(
-        type_name.contains("RcConditionalStatefulMutator"),
-        "{type_name}"
-    );
+    assert!(type_name.contains("RcConditionalStatefulMutator"), "{type_name}");
 }

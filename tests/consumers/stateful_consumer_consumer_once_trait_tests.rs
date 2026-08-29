@@ -46,10 +46,7 @@ mod consumer_once_trait_tests {
         });
 
         consumer.accept(&100);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![100]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![100]);
     }
 
     #[test]
@@ -61,10 +58,7 @@ mod consumer_once_trait_tests {
         });
 
         consumer.accept(&7);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![21]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![21]);
     }
 
     #[test]

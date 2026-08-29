@@ -194,9 +194,7 @@ mod test_box_supplier_once {
 
         #[test]
         fn test_with_result_err() {
-            let once = BoxSupplierOnce::new(|| {
-                Err::<i32, String>(String::from("error"))
-            });
+            let once = BoxSupplierOnce::new(|| Err::<i32, String>(String::from("error")));
             assert_eq!(once.get(), Err(String::from("error")));
         }
     }
@@ -225,9 +223,7 @@ mod test_custom_supplier_once_default_implementation {
 
     impl<T> SupplierOnce<T> for CustomSupplierOnce<T> {
         fn get(mut self) -> T {
-            self.value
-                .take()
-                .expect("CustomSupplierOnce already consumed")
+            self.value.take().expect("CustomSupplierOnce already consumed")
         }
         // Note: into_box() is NOT implemented here, so the
         // default implementation from the trait will be used
@@ -267,8 +263,7 @@ mod test_supplier_once_debug_display {
         #[test]
         fn test_debug_with_name() {
             // Test Debug formatting for BoxSupplierOnce with name
-            let supplier =
-                BoxSupplierOnce::new_with_name("test_supplier", || 42);
+            let supplier = BoxSupplierOnce::new_with_name("test_supplier", || 42);
             let debug_str = format!("{:?}", supplier);
             assert!(debug_str.contains("BoxSupplierOnce"));
             assert!(debug_str.contains("name: Some(\"test_supplier\")"));
@@ -286,8 +281,7 @@ mod test_supplier_once_debug_display {
         #[test]
         fn test_display_with_name() {
             // Test Display formatting for BoxSupplierOnce with name
-            let supplier =
-                BoxSupplierOnce::new_with_name("test_supplier", || 42);
+            let supplier = BoxSupplierOnce::new_with_name("test_supplier", || 42);
             let display_str = format!("{}", supplier);
             assert_eq!(display_str, "BoxSupplierOnce(test_supplier)");
         }

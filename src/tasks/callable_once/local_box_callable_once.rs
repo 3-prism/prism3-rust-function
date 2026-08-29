@@ -84,10 +84,7 @@ impl<R, E> LocalBoxCallableOnce<R, E> {
     {
         let metadata = self.metadata;
         let function = self.function;
-        LocalBoxCallableOnce::new_with_metadata(
-            move || function().map(mapper),
-            metadata,
-        )
+        LocalBoxCallableOnce::new_with_metadata(move || function().map(mapper), metadata)
     }
 
     /// Maps the error value of this callable.
@@ -108,10 +105,7 @@ impl<R, E> LocalBoxCallableOnce<R, E> {
     {
         let metadata = self.metadata;
         let function = self.function;
-        LocalBoxCallableOnce::new_with_metadata(
-            move || function().map_err(mapper),
-            metadata,
-        )
+        LocalBoxCallableOnce::new_with_metadata(move || function().map_err(mapper), metadata)
     }
 
     /// Chains another fallible computation after this callable succeeds.

@@ -296,18 +296,11 @@ fn test_box_function_clear_name() {
 
 #[test]
 fn test_box_function_set_name_same_value_keeps_storage() {
-    let mut function =
-        BoxFunction::new_with_name("stable_name", |x: &i32| x * 2);
-    let ptr_before = function
-        .name()
-        .expect("name should be initialized")
-        .as_ptr();
+    let mut function = BoxFunction::new_with_name("stable_name", |x: &i32| x * 2);
+    let ptr_before = function.name().expect("name should be initialized").as_ptr();
 
     function.set_name("stable_name");
-    let ptr_after = function
-        .name()
-        .expect("name should remain initialized")
-        .as_ptr();
+    let ptr_after = function.name().expect("name should remain initialized").as_ptr();
 
     assert_eq!(function.name(), Some("stable_name"));
     assert_eq!(ptr_before, ptr_after);

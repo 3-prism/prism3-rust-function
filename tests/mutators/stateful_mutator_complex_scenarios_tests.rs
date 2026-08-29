@@ -48,11 +48,9 @@ mod test_complex_scenarios {
 
     #[test]
     fn test_string_processing() {
-        let mut processor = BoxStatefulMutator::new(|s: &mut String| {
-            s.retain(|c| !c.is_whitespace())
-        })
-        .and_then(|s: &mut String| *s = s.to_lowercase())
-        .and_then(|s: &mut String| s.push_str("!!!"));
+        let mut processor = BoxStatefulMutator::new(|s: &mut String| s.retain(|c| !c.is_whitespace()))
+            .and_then(|s: &mut String| *s = s.to_lowercase())
+            .and_then(|s: &mut String| s.push_str("!!!"));
 
         let mut text = String::from("Hello World");
         processor.apply(&mut text);
@@ -61,10 +59,8 @@ mod test_complex_scenarios {
 
     #[test]
     fn test_conditional_processing() {
-        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2)
-            .when(|x: &i32| *x > 0);
-        let cond2 = BoxStatefulMutator::new(|x: &mut i32| *x = 100)
-            .when(|x: &i32| *x > 100);
+        let cond1 = BoxStatefulMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond2 = BoxStatefulMutator::new(|x: &mut i32| *x = 100).when(|x: &i32| *x > 100);
         let mut processor = cond1.and_then(cond2);
 
         let mut small = 5;
@@ -78,8 +74,7 @@ mod test_complex_scenarios {
 
     #[test]
     fn test_mixed_operations() {
-        let cond = BoxStatefulMutator::new(|x: &mut i32| *x -= 20)
-            .when(|x: &i32| *x > 50);
+        let cond = BoxStatefulMutator::new(|x: &mut i32| *x -= 20).when(|x: &i32| *x > 50);
         let mut processor = BoxStatefulMutator::new(|x: &mut i32| *x += 10)
             .and_then(|x: &mut i32| *x *= 2)
             .and_then(cond);

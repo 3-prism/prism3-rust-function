@@ -62,18 +62,14 @@ impl Callable<u32, io::Error> for SharedCallableForArc {
 fn test_callable_closure_call_returns_success_value() {
     let mut task = || Ok::<i32, io::Error>(42);
 
-    assert_eq!(
-        Callable::call(&mut task).expect("callable closure should succeed"),
-        42
-    );
+    assert_eq!(Callable::call(&mut task).expect("callable closure should succeed"), 42);
 }
 
 #[test]
 fn test_callable_closure_call_returns_error() {
     let mut task = || Err::<i32, _>(io::Error::other("failed"));
 
-    let error =
-        Callable::call(&mut task).expect_err("callable closure should fail");
+    let error = Callable::call(&mut task).expect_err("callable closure should fail");
     assert_eq!(error.kind(), io::ErrorKind::Other);
     assert_eq!(error.to_string(), "failed");
 }
@@ -87,8 +83,7 @@ fn test_box_callable_new_and_call() {
 
 #[test]
 fn test_box_callable_name_management() {
-    let mut task =
-        BoxCallable::<i32, io::Error>::new_with_name("compute", || Ok(1));
+    let mut task = BoxCallable::<i32, io::Error>::new_with_name("compute", || Ok(1));
 
     assert_eq!(task.name(), Some("compute"));
     assert_eq!(task.to_string(), "BoxCallable(compute)");
@@ -108,11 +103,7 @@ fn test_box_callable_from_supplier() {
 
     let mut task = BoxCallable::from_supplier(supplier);
 
-    assert_eq!(
-        task.call()
-            .expect("supplier-backed callable should succeed"),
-        34,
-    );
+    assert_eq!(task.call().expect("supplier-backed callable should succeed"), 34,);
 }
 
 #[test]
@@ -126,8 +117,7 @@ fn test_box_callable_implements_supplier_once() {
 
 #[test]
 fn test_box_callable_map_transforms_success_value() {
-    let task =
-        BoxCallable::new_with_name("compute", || Ok::<i32, io::Error>(10));
+    let task = BoxCallable::new_with_name("compute", || Ok::<i32, io::Error>(10));
 
     let mut mapped = task.map(|value| value * 2);
 
@@ -141,10 +131,7 @@ fn test_box_callable_map_err_transforms_error_value() {
 
     let mut mapped = task.map_err(|error| error.to_string());
 
-    assert_eq!(
-        mapped.call().expect_err("mapped callable should fail"),
-        "raw",
-    );
+    assert_eq!(mapped.call().expect_err("mapped callable should fail"), "raw",);
 }
 
 #[test]
@@ -212,20 +199,12 @@ impl Callable<String, &'static str> for TextCallable {
 
 #[test]
 fn test_box_callable_combinators_with_text_error_type() {
-    let mut mapped =
-        BoxCallable::new(|| Ok::<i32, &'static str>(5)).map(|v| v + 7);
+    let mut mapped = BoxCallable::new(|| Ok::<i32, &'static str>(5)).map(|v| v + 7);
     assert_eq!(mapped.call().expect("map should succeed"), 12);
 
-    let mut mapped_err =
-        BoxCallable::new(|| Err::<i32, _>("raw")).map_err(|e| format!("E:{e}"));
-    assert_eq!(
-        mapped_err
-            .call()
-            .expect_err("map_err should transform error"),
-        "E:raw",
-    );
+    let mut mapped_err = BoxCallable::new(|| Err::<i32, _>("raw")).map_err(|e| format!("E:{e}"));
+    assert_eq!(mapped_err.call().expect_err("map_err should transform error"), "E:raw",);
 
-    let mut chained = BoxCallable::new(|| Ok::<i32, &'static str>(3))
-        .and_then(|v| Ok::<i32, &'static str>(v * 4));
+    let mut chained = BoxCallable::new(|| Ok::<i32, &'static str>(3)).and_then(|v| Ok::<i32, &'static str>(v * 4));
     assert_eq!(chained.call().expect("and_then should succeed"), 12);
 }

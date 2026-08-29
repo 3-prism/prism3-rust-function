@@ -83,8 +83,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_and_then() {
-        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2)
-            .and_then(|x: &mut i32| *x += 10);
+        let mutator = BoxMutator::new(|x: &mut i32| *x *= 2).and_then(|x: &mut i32| *x += 10);
 
         let mut value = 5;
         mutator.apply(&mut value);
@@ -149,8 +148,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_true() {
-        let mutator =
-            BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = 5;
         mutator.apply(&mut value);
@@ -159,8 +157,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_if_then_false() {
-        let mutator =
-            BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
+        let mutator = BoxMutator::new(|x: &mut i32| *x += 10).when(|x: &i32| *x > 0);
 
         let mut value = -5;
         mutator.apply(&mut value);
@@ -184,8 +181,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_conditional_and_then() {
-        let cond1 =
-            BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let cond1 = BoxMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let cond2 = BoxMutator::new(|x: &mut i32| *x += 5);
         let chained = cond1.and_then(cond2);
 
@@ -200,8 +196,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mutator =
-            BoxMutator::new_with_name("test_mutator", |x: &mut i32| *x += 1);
+        let mutator = BoxMutator::new_with_name("test_mutator", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("test_mutator"));
 
         let mut value = 5;
@@ -211,10 +206,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_optional_name_some() {
-        let mutator = BoxMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("optional_name".to_string()),
-        );
+        let mutator = BoxMutator::new_with_optional_name(|x: &mut i32| *x += 1, Some("optional_name".to_string()));
         assert_eq!(mutator.name(), Some("optional_name"));
 
         let mut value = 5;
@@ -224,8 +216,7 @@ mod test_box_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mutator =
-            BoxMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
+        let mutator = BoxMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;
@@ -261,8 +252,7 @@ mod test_box_mutator {
         let display_str = format!("{}", mutator);
         assert_eq!(display_str, "BoxMutator");
 
-        let named_mutator =
-            BoxMutator::new_with_name("test_mutator", |x: &mut i32| *x *= 2);
+        let named_mutator = BoxMutator::new_with_name("test_mutator", |x: &mut i32| *x *= 2);
         let named_display_str = format!("{}", named_mutator);
         assert_eq!(named_display_str, "BoxMutator(test_mutator)");
     }

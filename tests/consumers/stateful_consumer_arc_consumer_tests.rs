@@ -63,10 +63,7 @@ mod test_arc_consumer {
 
         consumer.accept(&5);
         clone.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
     }
 
     /// Verifies that callback mutations survive a panic and that the shared
@@ -76,10 +73,7 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let callback_log = log.clone();
         let mut consumer = ArcStatefulConsumer::new(move |value: &i32| {
-            callback_log
-                .lock()
-                .expect("mutex should not be poisoned")
-                .push(*value);
+            callback_log.lock().expect("mutex should not be poisoned").push(*value);
             assert_ne!(*value, 1, "first callback should panic");
         });
 
@@ -105,23 +99,16 @@ mod test_arc_consumer {
         let l1 = log.clone();
         let l2 = log.clone();
         let first = ArcStatefulConsumer::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
         let second = ArcStatefulConsumer::new(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         });
         let mut chained = first.and_then(second);
 
         let value = 5;
         chained.accept(&value);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]);
     }
 
     #[test]
@@ -146,8 +133,7 @@ mod test_arc_consumer {
         h1.join().expect("thread should not panic");
         h2.join().expect("thread should not panic");
 
-        let mut result =
-            log.lock().expect("mutex should not be poisoned").clone();
+        let mut result = log.lock().expect("mutex should not be poisoned").clone();
         result.sort();
         assert_eq!(result, vec![1, 2]);
     }
@@ -163,12 +149,9 @@ mod test_arc_consumer {
     fn test_new_with_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcStatefulConsumer::new_with_name(
-            "test_consumer",
-            move |x: &i32| {
-                l.lock().expect("mutex should not be poisoned").push(*x);
-            },
-        );
+        let mut consumer = ArcStatefulConsumer::new_with_name("test_consumer", move |x: &i32| {
+            l.lock().expect("mutex should not be poisoned").push(*x);
+        });
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&5);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5]);
@@ -233,15 +216,11 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
         let mut consumer = ArcStatefulConsumer::new(move |s: &String| {
-            *l.lock().expect("mutex should not be poisoned") =
-                format!("Got: {}", s);
+            *l.lock().expect("mutex should not be poisoned") = format!("Got: {}", s);
         });
         let text = String::from("hello");
         consumer.accept(&text);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            "Got: hello"
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), "Got: hello");
 
         // Vec
         let log = Arc::new(Mutex::new(0));
@@ -257,8 +236,7 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
         let mut consumer = ArcStatefulConsumer::new(move |b: &bool| {
-            *l.lock().expect("mutex should not be poisoned") =
-                if *b { "true" } else { "false" }.to_string();
+            *l.lock().expect("mutex should not be poisoned") = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
         consumer.accept(&flag);
@@ -272,15 +250,10 @@ mod test_arc_consumer {
         let mut counter = 0;
         let mut consumer = ArcStatefulConsumer::new(move |x: &i32| {
             counter += 1;
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + counter);
+            l.lock().expect("mutex should not be poisoned").push(*x + counter);
         });
         consumer.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![11]
-        ); // 10 + 1
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![11]); // 10 + 1
     }
 
     #[test]
@@ -310,19 +283,15 @@ mod test_arc_consumer {
         let l = log.clone();
 
         // This should compile now with relaxed constraints
-        let consumer =
-            ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
-                let val = *value.borrow();
-                l.lock().expect("mutex should not be poisoned").push(val);
-            });
+        let consumer = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l.lock().expect("mutex should not be poisoned").push(val);
+        });
 
         let value = Rc::new(RefCell::new(42));
         consumer.accept(&value);
 
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![42]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![42]);
     }
 
     /// Test that ArcConsumer with non-Send type can be cloned and used
@@ -333,11 +302,10 @@ mod test_arc_consumer {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
 
-        let consumer =
-            ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
-                let val = value.borrow().clone();
-                l.lock().expect("mutex should not be poisoned").push(val);
-            });
+        let consumer = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = value.borrow().clone();
+            l.lock().expect("mutex should not be poisoned").push(val);
+        });
 
         let consumer2 = consumer.clone();
 
@@ -360,31 +328,22 @@ mod test_arc_consumer {
         let l1 = log.clone();
         let l2 = log.clone();
 
-        let first =
-            ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
-                let val = *value.borrow();
-                l1.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(val * 2);
-            });
+        let first = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l1.lock().expect("mutex should not be poisoned").push(val * 2);
+        });
 
-        let second =
-            ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
-                let val = *value.borrow();
-                l2.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(val + 10);
-            });
+        let second = ArcConsumer::<NonSendType>::new(move |value: &NonSendType| {
+            let val = *value.borrow();
+            l2.lock().expect("mutex should not be poisoned").push(val + 10);
+        });
 
         let chained = first.and_then(second);
 
         let value = Rc::new(RefCell::new(5));
         chained.accept(&value);
 
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        ); // 5*2=10, 5+10=15
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]); // 5*2=10, 5+10=15
     }
 }
 

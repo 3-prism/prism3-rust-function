@@ -42,8 +42,7 @@ mod test_box_stateful_supplier_once {
 
         #[test]
         fn test_with_string() {
-            let mut supplier =
-                BoxStatefulSupplier::new(|| String::from("hello"));
+            let mut supplier = BoxStatefulSupplier::new(|| String::from("hello"));
             let value = supplier.get();
             assert_eq!(value, "hello");
         }

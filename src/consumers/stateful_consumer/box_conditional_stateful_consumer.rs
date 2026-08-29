@@ -89,11 +89,7 @@ pub struct BoxConditionalStatefulConsumer<T> {
 }
 
 // Use macro to generate and_then and or_else methods
-impl_box_conditional_consumer!(
-    BoxConditionalStatefulConsumer<T>,
-    BoxStatefulConsumer,
-    StatefulConsumer
-);
+impl_box_conditional_consumer!(BoxConditionalStatefulConsumer<T>, BoxStatefulConsumer, StatefulConsumer);
 
 impl<T> StatefulConsumer<T> for BoxConditionalStatefulConsumer<T> {
     fn accept(&mut self, value: &T) {

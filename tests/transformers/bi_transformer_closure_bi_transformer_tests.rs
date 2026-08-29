@@ -29,10 +29,7 @@ mod closure_bi_transformer_tests {
     #[test]
     fn test_closure_transform_with_string() {
         let concat = |s1: String, s2: String| format!("{}{}", s1, s2);
-        assert_eq!(
-            concat.apply("Hello".to_string(), "World".to_string()),
-            "HelloWorld"
-        );
+        assert_eq!(concat.apply("Hello".to_string(), "World".to_string()), "HelloWorld");
     }
 
     #[test]

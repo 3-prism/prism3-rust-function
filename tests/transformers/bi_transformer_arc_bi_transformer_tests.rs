@@ -75,16 +75,13 @@ mod arc_bi_transformer_tests {
 
     #[test]
     fn test_with_different_types() {
-        let format = ArcBiTransformer::new(|name: String, age: i32| {
-            format!("{} is {}", name, age)
-        });
+        let format = ArcBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
         assert_eq!(format.apply("Alice".to_string(), 30), "Alice is 30");
     }
 
     #[test]
     fn test_display_with_name() {
-        let transformer =
-            ArcBiTransformer::new_with_name("multiply", |x: i32, y: i32| x * y);
+        let transformer = ArcBiTransformer::new_with_name("multiply", |x: i32, y: i32| x * y);
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "ArcBiTransformer(multiply)");
     }

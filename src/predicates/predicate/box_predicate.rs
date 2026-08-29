@@ -68,10 +68,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let function = self.function;
-        BoxPredicate::new_with_metadata(
-            move |value: &T| !function(value),
-            metadata,
-        )
+        BoxPredicate::new_with_metadata(move |value: &T| !function(value), metadata)
     }
 }
 

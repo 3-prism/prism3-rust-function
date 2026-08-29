@@ -64,9 +64,7 @@ fn test_box_conditional_or_else_basic() {
     let add = BoxStatefulBiTransformer::new(|x: i32, y: i32| x + y);
     let multiply = BoxStatefulBiTransformer::new(|x: i32, y: i32| x * y);
 
-    let mut conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let mut conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
 
     assert_eq!(conditional.apply(5, 3), 8); // both positive, add
     assert_eq!(conditional.apply(-5, 3), -15); // not both positive, multiply
@@ -78,8 +76,7 @@ fn test_box_conditional_or_else_with_closure() {
     // Test or_else with closure
     let add = BoxStatefulBiTransformer::new(|x: i32, y: i32| x + y);
 
-    let mut conditional =
-        add.when(|x: &i32, _y: &i32| *x > 10).or_else(|x, y| x - y);
+    let mut conditional = add.when(|x: &i32, _y: &i32| *x > 10).or_else(|x, y| x - y);
 
     assert_eq!(conditional.apply(15, 5), 20); // x > 10, add
     assert_eq!(conditional.apply(5, 3), 2); // x <= 10, subtract
@@ -101,9 +98,7 @@ fn test_box_conditional_stateful_transformers() {
         format!("Else[{}]: {}", else_count, x * y)
     });
 
-    let mut conditional = then_trans
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(else_trans);
+    let mut conditional = then_trans.when(|x: &i32, _y: &i32| *x > 0).or_else(else_trans);
 
     assert_eq!(conditional.apply(5, 3), "Then[1]: 8");
     assert_eq!(conditional.apply(-5, 3), "Else[1]: -15");
@@ -120,9 +115,7 @@ fn test_arc_conditional_or_else_basic() {
     let add = ArcStatefulBiTransformer::new(|x: i32, y: i32| x + y);
     let multiply = ArcStatefulBiTransformer::new(|x: i32, y: i32| x * y);
 
-    let mut conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let mut conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
 
     assert_eq!(conditional.apply(5, 3), 8);
     assert_eq!(conditional.apply(-5, 3), -15);
@@ -161,9 +154,7 @@ fn test_arc_conditional_stateful_transformers() {
         format!("Else[{}]: {}", else_count, x * y)
     });
 
-    let mut conditional = then_trans
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(else_trans);
+    let mut conditional = then_trans.when(|x: &i32, _y: &i32| *x > 0).or_else(else_trans);
 
     assert_eq!(conditional.apply(5, 3), "Then[1]: 8");
     assert_eq!(conditional.apply(-5, 3), "Else[1]: -15");
@@ -179,9 +170,7 @@ fn test_rc_conditional_or_else_basic() {
     let add = RcStatefulBiTransformer::new(|x: i32, y: i32| x + y);
     let multiply = RcStatefulBiTransformer::new(|x: i32, y: i32| x * y);
 
-    let mut conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let mut conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
 
     assert_eq!(conditional.apply(5, 3), 8);
     assert_eq!(conditional.apply(-5, 3), -15);
@@ -220,9 +209,7 @@ fn test_rc_conditional_stateful_transformers() {
         format!("Else[{}]: {}", else_count, x * y)
     });
 
-    let mut conditional = then_trans
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(else_trans);
+    let mut conditional = then_trans.when(|x: &i32, _y: &i32| *x > 0).or_else(else_trans);
 
     assert_eq!(conditional.apply(5, 3), "Then[1]: 8");
     assert_eq!(conditional.apply(-5, 3), "Else[1]: -15");
@@ -236,11 +223,10 @@ fn test_rc_conditional_stateful_transformers() {
 fn test_box_stateful_bi_transformer_apply() {
     // Test apply consuming the transformer
     let mut counter = 0;
-    let mut transformer =
-        BoxStatefulBiTransformer::new(move |x: i32, y: i32| {
-            counter += 1;
-            x + y + counter
-        });
+    let mut transformer = BoxStatefulBiTransformer::new(move |x: i32, y: i32| {
+        counter += 1;
+        x + y + counter
+    });
 
     assert_eq!(transformer.apply(10, 20), 31);
     // transformer is now consumed
@@ -250,11 +236,10 @@ fn test_box_stateful_bi_transformer_apply() {
 fn test_arc_stateful_bi_transformer_apply() {
     // Test apply for ArcStatefulBiTransformer
     let mut counter = 0;
-    let mut transformer =
-        ArcStatefulBiTransformer::new(move |x: i32, y: i32| {
-            counter += 1;
-            x + y + counter
-        });
+    let mut transformer = ArcStatefulBiTransformer::new(move |x: i32, y: i32| {
+        counter += 1;
+        x + y + counter
+    });
 
     assert_eq!(transformer.apply(10, 20), 31);
 }

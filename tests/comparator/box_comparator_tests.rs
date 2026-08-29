@@ -28,17 +28,12 @@ fn test_box_comparator_observable_behavior() {
 /// Verifies the complete diagnostic metadata contract of `BoxComparator`.
 #[test]
 fn test_box_comparator_name_and_diagnostics() {
-    let mut comparator = BoxComparator::new_with_optional_name(
-        |left: &i32, right: &i32| left.cmp(right),
-        Some("ascending".to_owned()),
-    );
+    let mut comparator =
+        BoxComparator::new_with_optional_name(|left: &i32, right: &i32| left.cmp(right), Some("ascending".to_owned()));
 
     assert_eq!(comparator.name(), Some("ascending"));
     assert_eq!(comparator.compare(&1, &2), Ordering::Less);
-    assert_eq!(
-        format!("{comparator:?}"),
-        "BoxComparator { name: Some(\"ascending\") }"
-    );
+    assert_eq!(format!("{comparator:?}"), "BoxComparator { name: Some(\"ascending\") }");
     assert_eq!(format!("{comparator}"), "BoxComparator(ascending)");
 
     comparator.set_name("natural");
@@ -52,10 +47,7 @@ fn test_box_comparator_name_and_diagnostics() {
 #[test]
 fn test_box_comparator_with_name() {
     let comparator =
-        BoxComparator::new_with_name("original", |left: &i32, right: &i32| {
-            left.cmp(right)
-        })
-        .with_name("ascending");
+        BoxComparator::new_with_name("original", |left: &i32, right: &i32| left.cmp(right)).with_name("ascending");
 
     assert_eq!(comparator.name(), Some("ascending"));
     assert_eq!(comparator.compare(&2, &1), Ordering::Greater);
@@ -64,8 +56,7 @@ fn test_box_comparator_with_name() {
 /// Verifies that Box composition accepts any Comparator implementation.
 #[test]
 fn test_box_comparator_then_comparing_semantic_trait() {
-    let comparator = BoxComparator::new(|_: &i32, _: &i32| Ordering::Equal)
-        .then_comparing(BoxNaturalComparator);
+    let comparator = BoxComparator::new(|_: &i32, _: &i32| Ordering::Equal).then_comparing(BoxNaturalComparator);
 
     assert_eq!(comparator.compare(&1, &2), Ordering::Less);
 }

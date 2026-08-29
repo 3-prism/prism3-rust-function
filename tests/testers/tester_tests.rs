@@ -94,8 +94,7 @@ mod tests {
         let count = Arc::new(AtomicUsize::new(0));
         let count_clone = Arc::clone(&count);
 
-        let tester =
-            BoxTester::new(move || count_clone.load(Ordering::Relaxed) <= 3);
+        let tester = BoxTester::new(move || count_clone.load(Ordering::Relaxed) <= 3);
 
         assert!(tester.test()); // 0
         count.fetch_add(1, Ordering::Relaxed);
@@ -191,9 +190,8 @@ mod tests {
         let count1_clone = Arc::clone(&count1);
         let count2_clone = Arc::clone(&count2);
 
-        let combined =
-            BoxTester::new(move || count1_clone.load(Ordering::Relaxed) <= 2)
-                .and(move || count2_clone.load(Ordering::Relaxed) <= 1);
+        let combined = BoxTester::new(move || count1_clone.load(Ordering::Relaxed) <= 2)
+            .and(move || count2_clone.load(Ordering::Relaxed) <= 1);
 
         assert!(combined.test()); // count1=0, count2=0
         count1.fetch_add(1, Ordering::Relaxed);
@@ -226,8 +224,7 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = Arc::clone(&counter);
 
-        let tester =
-            ArcTester::new(move || counter_clone.load(Ordering::Relaxed) <= 3);
+        let tester = ArcTester::new(move || counter_clone.load(Ordering::Relaxed) <= 3);
 
         let t1 = tester.clone();
         let t2 = tester.clone();
@@ -280,8 +277,7 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = Arc::clone(&counter);
 
-        let tester =
-            ArcTester::new(move || counter_clone.load(Ordering::Relaxed) < 10);
+        let tester = ArcTester::new(move || counter_clone.load(Ordering::Relaxed) < 10);
 
         let clone = tester.clone();
         let handle = std::thread::spawn(move || clone.test());
@@ -427,9 +423,7 @@ mod tests {
         let attempts_clone = Arc::clone(&attempts);
         let max_attempts = 3;
 
-        let rate_limiter = BoxTester::new(move || {
-            attempts_clone.load(Ordering::Relaxed) <= max_attempts
-        });
+        let rate_limiter = BoxTester::new(move || attempts_clone.load(Ordering::Relaxed) <= max_attempts);
 
         assert!(rate_limiter.test());
         attempts.fetch_add(1, Ordering::Relaxed);
@@ -447,8 +441,7 @@ mod tests {
         let ready_count = Arc::new(AtomicUsize::new(0));
         let count_clone = Arc::clone(&ready_count);
 
-        let readiness =
-            BoxTester::new(move || count_clone.load(Ordering::Relaxed) >= 3);
+        let readiness = BoxTester::new(move || count_clone.load(Ordering::Relaxed) >= 3);
 
         // Simulate waiting until condition is met
         assert!(!readiness.test());

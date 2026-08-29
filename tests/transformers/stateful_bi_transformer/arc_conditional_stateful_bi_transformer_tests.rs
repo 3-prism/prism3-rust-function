@@ -10,11 +10,6 @@ use qubit_function::ArcConditionalStatefulBiTransformer;
 
 #[test]
 fn test_arc_conditional_stateful_bi_transformer_observable_behavior() {
-    let type_name = std::any::type_name::<
-        ArcConditionalStatefulBiTransformer<i32, i32, i32>,
-    >();
-    assert!(
-        type_name.contains("ArcConditionalStatefulBiTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcConditionalStatefulBiTransformer<i32, i32, i32>>();
+    assert!(type_name.contains("ArcConditionalStatefulBiTransformer"), "{type_name}");
 }

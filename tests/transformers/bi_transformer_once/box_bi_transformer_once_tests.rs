@@ -10,7 +10,6 @@ use qubit_function::BoxBiTransformerOnce;
 
 #[test]
 fn test_box_bi_transformer_once_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxBiTransformerOnce<i32, i32, i32>>();
+    let type_name = std::any::type_name::<BoxBiTransformerOnce<i32, i32, i32>>();
     assert!(type_name.contains("BoxBiTransformerOnce"), "{type_name}");
 }

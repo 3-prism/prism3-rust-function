@@ -70,8 +70,7 @@ mod test_rc_consumer {
     fn test_accept_reentrant_call_panics_and_recovers() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let callback_log = log.clone();
-        let shared_consumer =
-            Rc::new(RefCell::new(None::<RcStatefulConsumer<i32>>));
+        let shared_consumer = Rc::new(RefCell::new(None::<RcStatefulConsumer<i32>>));
         let callback_consumer = shared_consumer.clone();
         let mut consumer = RcStatefulConsumer::new(move |value: &i32| {
             callback_log.borrow_mut().push(*value);
@@ -136,12 +135,9 @@ mod test_rc_consumer {
     fn test_new_with_name() {
         let log = Rc::new(RefCell::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = RcStatefulConsumer::new_with_name(
-            "test_consumer",
-            move |x: &i32| {
-                l.borrow_mut().push(*x);
-            },
-        );
+        let mut consumer = RcStatefulConsumer::new_with_name("test_consumer", move |x: &i32| {
+            l.borrow_mut().push(*x);
+        });
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);

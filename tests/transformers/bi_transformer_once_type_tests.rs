@@ -33,61 +33,41 @@ mod type_tests {
 
     #[test]
     fn test_with_strings() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{}{}", x, y)
-        });
-        assert_eq!(
-            concat.apply("hello".to_string(), "world".to_string()),
-            "helloworld"
-        );
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{}{}", x, y));
+        assert_eq!(concat.apply("hello".to_string(), "world".to_string()), "helloworld");
     }
 
     #[test]
     fn test_with_mixed_types() {
-        let format_pair = BoxBiTransformerOnce::new(|x: i32, y: String| {
-            format!("number: {}, text: {}", x, y)
-        });
-        assert_eq!(
-            format_pair.apply(42, "hello".to_string()),
-            "number: 42, text: hello"
-        );
+        let format_pair = BoxBiTransformerOnce::new(|x: i32, y: String| format!("number: {}, text: {}", x, y));
+        assert_eq!(format_pair.apply(42, "hello".to_string()), "number: 42, text: hello");
     }
 
     #[test]
     fn test_with_vectors() {
-        let merge =
-            BoxBiTransformerOnce::new(|mut x: Vec<i32>, y: Vec<i32>| {
-                x.extend(y);
-                x
-            });
+        let merge = BoxBiTransformerOnce::new(|mut x: Vec<i32>, y: Vec<i32>| {
+            x.extend(y);
+            x
+        });
         assert_eq!(merge.apply(vec![1, 2], vec![3, 4]), vec![1, 2, 3, 4]);
     }
 
     #[test]
     fn test_with_options() {
-        let combine = BoxBiTransformerOnce::new(
-            |x: Option<i32>, y: Option<i32>| match (x, y) {
-                (Some(a), Some(b)) => Some(a + b),
-                (Some(a), None) => Some(a),
-                (None, Some(b)) => Some(b),
-                (None, None) => None,
-            },
-        );
+        let combine = BoxBiTransformerOnce::new(|x: Option<i32>, y: Option<i32>| match (x, y) {
+            (Some(a), Some(b)) => Some(a + b),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        });
         assert_eq!(combine.apply(Some(5), Some(3)), Some(8));
     }
 
     #[test]
     fn test_with_tuples() {
-        let swap =
-            BoxBiTransformerOnce::new(|x: (i32, String), y: (String, i32)| {
-                ((y.1, x.1), (x.0, y.0))
-            });
-        let result =
-            swap.apply((42, "hello".to_string()), ("world".to_string(), 99));
-        assert_eq!(
-            result,
-            ((99, "hello".to_string()), (42, "world".to_string()))
-        );
+        let swap = BoxBiTransformerOnce::new(|x: (i32, String), y: (String, i32)| ((y.1, x.1), (x.0, y.0)));
+        let result = swap.apply((42, "hello".to_string()), ("world".to_string(), 99));
+        assert_eq!(result, ((99, "hello".to_string()), (42, "world".to_string())));
     }
 }
 

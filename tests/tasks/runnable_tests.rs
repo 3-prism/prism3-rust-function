@@ -124,8 +124,7 @@ fn test_box_runnable_new_and_run() {
 
 #[test]
 fn test_box_runnable_name_management() {
-    let mut task =
-        BoxRunnable::<io::Error>::new_with_name("cleanup", || Ok(()));
+    let mut task = BoxRunnable::<io::Error>::new_with_name("cleanup", || Ok(()));
 
     assert_eq!(task.name(), Some("cleanup"));
     assert_eq!(task.to_string(), "BoxRunnable(cleanup)");
@@ -223,8 +222,7 @@ fn test_box_runnable_and_then_skips_next_on_error() {
 
 #[test]
 fn test_box_runnable_then_callable_runs_callable_on_success() {
-    let task =
-        BoxRunnable::new_with_name("prepare", || Ok::<(), io::Error>(()));
+    let task = BoxRunnable::new_with_name("prepare", || Ok::<(), io::Error>(()));
     let callable = || Ok::<i32, io::Error>(42);
 
     let mut chained = task.then_callable(callable);
@@ -237,9 +235,7 @@ fn test_box_runnable_then_callable_runs_callable_on_success() {
 fn test_box_runnable_then_callable_skips_callable_on_error() {
     let callable_ran = Arc::new(AtomicBool::new(false));
     let callable_ran_capture = Arc::clone(&callable_ran);
-    let task = BoxRunnable::<io::Error>::new(|| {
-        Err(io::Error::other("prepare failed"))
-    });
+    let task = BoxRunnable::<io::Error>::new(|| Err(io::Error::other("prepare failed")));
     let callable = move || {
         callable_ran_capture.store(true, Ordering::SeqCst);
         Ok::<i32, io::Error>(42)
@@ -257,12 +253,9 @@ fn test_box_runnable_then_callable_skips_callable_on_error() {
 #[test]
 fn test_box_runnable_then_callable_covers_both_results_for_one_callable_type() {
     let callable: fn() -> Result<i32, io::Error> = || Ok(42);
-    let mut success =
-        BoxRunnable::new(|| Ok::<(), io::Error>(())).then_callable(callable);
-    let mut failure = BoxRunnable::new(|| {
-        Err::<(), io::Error>(io::Error::other("prepare failed"))
-    })
-    .then_callable(callable);
+    let mut success = BoxRunnable::new(|| Ok::<(), io::Error>(())).then_callable(callable);
+    let mut failure =
+        BoxRunnable::new(|| Err::<(), io::Error>(io::Error::other("prepare failed"))).then_callable(callable);
 
     assert_eq!(success.call().expect("callable should succeed"), 42);
     assert_eq!(

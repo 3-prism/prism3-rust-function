@@ -10,7 +10,6 @@ use qubit_function::RcConditionalBiFunction;
 
 #[test]
 fn test_rc_conditional_bi_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<RcConditionalBiFunction<i32, i32, i32>>();
+    let type_name = std::any::type_name::<RcConditionalBiFunction<i32, i32, i32>>();
     assert!(type_name.contains("RcConditionalBiFunction"), "{type_name}");
 }

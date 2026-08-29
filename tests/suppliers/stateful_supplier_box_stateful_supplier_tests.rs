@@ -46,8 +46,7 @@ mod test_box_stateful_supplier {
 
         #[test]
         fn test_with_string() {
-            let mut supplier =
-                BoxStatefulSupplier::new(|| String::from("hello"));
+            let mut supplier = BoxStatefulSupplier::new(|| String::from("hello"));
             assert_eq!(supplier.get(), "hello");
         }
 
@@ -78,8 +77,7 @@ mod test_box_stateful_supplier {
 
         #[test]
         fn test_with_string() {
-            let mut constant =
-                BoxStatefulSupplier::constant(String::from("hello"));
+            let mut constant = BoxStatefulSupplier::constant(String::from("hello"));
             assert_eq!(constant.get(), "hello");
             assert_eq!(constant.get(), "hello");
         }
@@ -123,15 +121,13 @@ mod test_box_stateful_supplier {
 
         #[test]
         fn test_multiple_chains() {
-            let mut chained =
-                BoxStatefulSupplier::new(|| 5).map(|x| x * 2).map(|x| x + 5);
+            let mut chained = BoxStatefulSupplier::new(|| 5).map(|x| x * 2).map(|x| x + 5);
             assert_eq!(chained.get(), 15);
         }
 
         #[test]
         fn test_type_conversion() {
-            let mut converted =
-                BoxStatefulSupplier::new(|| 42).map(|x: i32| x.to_string());
+            let mut converted = BoxStatefulSupplier::new(|| 42).map(|x: i32| x.to_string());
             assert_eq!(converted.get(), "42");
         }
 
@@ -181,8 +177,7 @@ mod test_box_stateful_supplier {
 
         #[test]
         fn test_with_constant_stateful_supplier() {
-            let mut filtered =
-                BoxStatefulSupplier::constant(5).filter(|x: &i32| x % 2 == 0);
+            let mut filtered = BoxStatefulSupplier::constant(5).filter(|x: &i32| x % 2 == 0);
             assert_eq!(filtered.get(), None); // 5 is odd
             assert_eq!(filtered.get(), None);
         }

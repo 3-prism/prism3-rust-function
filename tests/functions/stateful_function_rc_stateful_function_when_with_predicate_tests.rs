@@ -300,8 +300,7 @@ fn test_box_stateful_function_debug_display() {
     assert_eq!(display_str, "BoxStatefulFunction");
 
     // Test Debug and Display for BoxStatefulFunction with name
-    let mut named_double =
-        BoxStatefulFunction::new_with_name("stateful_double", |x: &i32| x * 2);
+    let mut named_double = BoxStatefulFunction::new_with_name("stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -331,10 +330,7 @@ fn test_rc_stateful_function_debug_display() {
     assert_eq!(display_str, "RcStatefulFunction");
 
     // Test Debug and Display for RcStatefulFunction with name
-    let mut named_double =
-        RcStatefulFunction::new_with_name("rc_stateful_double", |x: &i32| {
-            x * 2
-        });
+    let mut named_double = RcStatefulFunction::new_with_name("rc_stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -364,10 +360,7 @@ fn test_arc_stateful_function_debug_display() {
     assert_eq!(display_str, "ArcStatefulFunction");
 
     // Test Debug and Display for ArcStatefulFunction with name
-    let mut named_double =
-        ArcStatefulFunction::new_with_name("arc_stateful_double", |x: &i32| {
-            x * 2
-        });
+    let mut named_double = ArcStatefulFunction::new_with_name("arc_stateful_double", |x: &i32| x * 2);
     // Call apply to test the function
     assert_eq!(named_double.apply(&3), 6);
 
@@ -377,10 +370,7 @@ fn test_arc_stateful_function_debug_display() {
     assert!(named_debug_str.contains("function"));
 
     let named_display_str = format!("{}", named_double);
-    assert_eq!(
-        named_display_str,
-        "ArcStatefulFunction(arc_stateful_double)"
-    );
+    assert_eq!(named_display_str, "ArcStatefulFunction(arc_stateful_double)");
 }
 
 // ============================================================================
@@ -391,10 +381,7 @@ fn test_arc_stateful_function_debug_display() {
 fn test_box_stateful_function_name_methods() {
     // Test new_with_name, name(), and set_name()
 
-    let mut double = BoxStatefulFunction::new_with_name(
-        "box_stateful_func",
-        move |x: &i32| x * 2,
-    );
+    let mut double = BoxStatefulFunction::new_with_name("box_stateful_func", move |x: &i32| x * 2);
 
     // Test name() returns the initial name
     assert_eq!(double.name(), Some("box_stateful_func"));
@@ -411,10 +398,7 @@ fn test_box_stateful_function_name_methods() {
 fn test_rc_stateful_function_name_methods() {
     // Test new_with_name, name(), and set_name()
 
-    let mut double = RcStatefulFunction::new_with_name(
-        "rc_stateful_func",
-        move |x: &i32| x * 2,
-    );
+    let mut double = RcStatefulFunction::new_with_name("rc_stateful_func", move |x: &i32| x * 2);
 
     // Test name() returns the initial name
     assert_eq!(double.name(), Some("rc_stateful_func"));
@@ -436,10 +420,7 @@ fn test_rc_stateful_function_name_methods() {
 fn test_arc_stateful_function_name_methods() {
     // Test new_with_name, name(), and set_name()
 
-    let mut double = ArcStatefulFunction::new_with_name(
-        "arc_stateful_func",
-        move |x: &i32| x * 2,
-    );
+    let mut double = ArcStatefulFunction::new_with_name("arc_stateful_func", move |x: &i32| x * 2);
 
     // Test name() returns the initial name
     assert_eq!(double.name(), Some("arc_stateful_func"));

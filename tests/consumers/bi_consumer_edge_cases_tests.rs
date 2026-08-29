@@ -74,14 +74,10 @@ mod edge_cases_tests {
         let counter = Arc::new(std::sync::Mutex::new(String::new()));
         let c = counter.clone();
         let consumer = BoxBiConsumer::new(move |s: &String, n: &i32| {
-            *c.lock().expect("mutex should not be poisoned") =
-                format!("{}: {}", s, n);
+            *c.lock().expect("mutex should not be poisoned") = format!("{}: {}", s, n);
         });
         consumer.accept(&"Count".to_string(), &42);
-        assert_eq!(
-            *counter.lock().expect("mutex should not be poisoned"),
-            "Count: 42"
-        );
+        assert_eq!(*counter.lock().expect("mutex should not be poisoned"), "Count: 42");
     }
 
     #[test]

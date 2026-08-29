@@ -53,8 +53,7 @@ fn demo_rc_predicate() {
     println!("2. RcPredicate Naming Functionality");
 
     // Using new_with_name
-    let pred1 =
-        RcPredicate::new_with_name("greater_than_10", |x: &i32| *x > 10);
+    let pred1 = RcPredicate::new_with_name("greater_than_10", |x: &i32| *x > 10);
     println!("   Using new_with_name:");
     println!("     Name: {:?}", pred1.name());
     println!("     Test 15: {}", pred1.test(&15));
@@ -92,10 +91,7 @@ fn demo_arc_predicate() {
     println!("     Initial name: {:?}", pred2.name());
     pred2.set_name("longer_than_5");
     println!("     Name after setting: {:?}", pred2.name());
-    println!(
-        "     Test 'Hello World': {}",
-        pred2.test(&"Hello World".to_string())
-    );
+    println!("     Test 'Hello World': {}", pred2.test(&"Hello World".to_string()));
 
     // Name is preserved when sharing between threads
     let pred3 = pred2.clone();

@@ -80,11 +80,9 @@ pub struct ArcStatefulMutator<T> {
 }
 
 impl<T> ArcStatefulMutator<T> {
-    impl_mutator_common_methods!(
-        ArcStatefulMutator<T>,
-        (FnMut(&mut T) + Send + 'static),
-        |f| Arc::new(Mutex::new(f))
-    );
+    impl_mutator_common_methods!(ArcStatefulMutator<T>, (FnMut(&mut T) + Send + 'static), |f| Arc::new(
+        Mutex::new(f)
+    ));
 
     // Generate shared mutator methods (when, and_then, or_else, conversions)
     impl_shared_mutator_methods!(

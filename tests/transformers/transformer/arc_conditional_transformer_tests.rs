@@ -10,10 +10,6 @@ use qubit_function::ArcConditionalTransformer;
 
 #[test]
 fn test_arc_conditional_transformer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcConditionalTransformer<i32, i32>>();
-    assert!(
-        type_name.contains("ArcConditionalTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcConditionalTransformer<i32, i32>>();
+    assert!(type_name.contains("ArcConditionalTransformer"), "{type_name}");
 }

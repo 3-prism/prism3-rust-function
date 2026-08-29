@@ -16,8 +16,7 @@ use qubit_function::Consumer;
 fn test_box_conditional_consumer_macro_behavior() {
     let observed = Rc::new(Cell::new(0));
     let captured = Rc::clone(&observed);
-    let consumer = BoxConsumer::new(move |value: &i32| captured.set(*value))
-        .when(|value: &i32| *value > 0);
+    let consumer = BoxConsumer::new(move |value: &i32| captured.set(*value)).when(|value: &i32| *value > 0);
     consumer.accept(&42);
     consumer.accept(&-1);
     assert_eq!(observed.get(), 42);

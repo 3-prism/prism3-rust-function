@@ -20,8 +20,7 @@ mod box_transformer_once_tests {
 
     #[test]
     fn test_new_and_transform() {
-        let parse =
-            BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
+        let parse = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
 
         assert_eq!(parse.apply("42".to_string()), 42);
     }
@@ -77,18 +76,14 @@ mod box_transformer_once_tests {
 
     #[test]
     fn test_display_with_name() {
-        let transformer =
-            BoxTransformerOnce::new_with_name("parse", |s: String| {
-                s.parse::<i32>().unwrap_or(0)
-            });
+        let transformer = BoxTransformerOnce::new_with_name("parse", |s: String| s.parse::<i32>().unwrap_or(0));
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "BoxTransformerOnce(parse)");
     }
 
     #[test]
     fn test_display_without_name() {
-        let transformer =
-            BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
+        let transformer = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "BoxTransformerOnce");
     }
@@ -171,8 +166,7 @@ mod complex_composition_tests {
 
     #[test]
     fn test_mixed_composition() {
-        let parse =
-            BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
+        let parse = BoxTransformerOnce::new(|s: String| s.parse::<i32>().unwrap_or(0));
         let double = |x: i32| x * 2;
         let to_string = |x: i32| format!("Result: {}", x);
         let pipeline = parse.and_then(double).and_then(to_string);
@@ -226,9 +220,7 @@ mod edge_cases_tests {
 
     #[test]
     fn test_with_vec() {
-        let split = BoxTransformerOnce::new(|s: String| {
-            s.split(',').map(|s| s.to_string()).collect::<Vec<_>>()
-        });
+        let split = BoxTransformerOnce::new(|s: String| s.split(',').map(|s| s.to_string()).collect::<Vec<_>>());
         assert_eq!(
             split.apply("a,b,c".to_string()),
             vec!["a".to_string(), "b".to_string(), "c".to_string()]
@@ -269,10 +261,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_transformer_once_trait() {
-        fn apply_transformer_once<F: TransformerOnce<i32, i32>>(
-            f: F,
-            x: i32,
-        ) -> i32 {
+        fn apply_transformer_once<F: TransformerOnce<i32, i32>>(f: F, x: i32) -> i32 {
             f.apply(x)
         }
 
@@ -282,10 +271,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_closure_as_transformer_once() {
-        fn apply_transformer_once<F: TransformerOnce<i32, i32>>(
-            f: F,
-            x: i32,
-        ) -> i32 {
+        fn apply_transformer_once<F: TransformerOnce<i32, i32>>(f: F, x: i32) -> i32 {
             f.apply(x)
         }
 
@@ -295,10 +281,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_with_different_types() {
-        fn apply_transformer_once<T, R, F: TransformerOnce<T, R>>(
-            f: F,
-            x: T,
-        ) -> R {
+        fn apply_transformer_once<T, R, F: TransformerOnce<T, R>>(f: F, x: T) -> R {
             f.apply(x)
         }
 
@@ -331,8 +314,7 @@ mod box_transformer_transformer_once_tests {
 
     #[test]
     fn test_box_transformer_complex_transformation() {
-        let parse_and_double =
-            BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+        let parse_and_double = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
         let result = parse_and_double.apply("21".to_string());
         assert_eq!(result, 42);
     }
@@ -363,8 +345,7 @@ mod rc_transformer_transformer_once_tests {
 
     #[test]
     fn test_rc_transformer_complex_transformation() {
-        let parse_and_double =
-            RcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+        let parse_and_double = RcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
         let result = parse_and_double.apply("21".to_string());
         assert_eq!(result, 42);
     }
@@ -408,8 +389,7 @@ mod arc_transformer_transformer_once_tests {
 
     #[test]
     fn test_arc_transformer_complex_transformation() {
-        let parse_and_double =
-            ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
+        let parse_and_double = ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
         let result = parse_and_double.apply("21".to_string());
         assert_eq!(result, 42);
     }

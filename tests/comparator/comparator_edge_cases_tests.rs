@@ -22,10 +22,7 @@ mod edge_cases {
     #[test]
     fn test_with_empty_values() {
         let cmp = BoxComparator::new(|a: &String, b: &String| a.cmp(b));
-        assert_eq!(
-            cmp.compare(&String::new(), &"hello".to_string()),
-            Ordering::Less
-        );
+        assert_eq!(cmp.compare(&String::new(), &"hello".to_string()), Ordering::Less);
     }
 
     #[test]
@@ -46,10 +43,8 @@ mod edge_cases {
 
     #[test]
     fn test_long_chain() {
-        let cmp1 =
-            BoxComparator::new(|a: &i32, b: &i32| (a / 10).cmp(&(b / 10)));
-        let cmp2 =
-            BoxComparator::new(|a: &i32, b: &i32| (a % 10).cmp(&(b % 10)));
+        let cmp1 = BoxComparator::new(|a: &i32, b: &i32| (a / 10).cmp(&(b / 10)));
+        let cmp2 = BoxComparator::new(|a: &i32, b: &i32| (a % 10).cmp(&(b % 10)));
         let chained = cmp1.then_comparing(cmp2);
         assert_eq!(chained.compare(&15, &12), Ordering::Greater);
         assert_eq!(chained.compare(&12, &15), Ordering::Less);

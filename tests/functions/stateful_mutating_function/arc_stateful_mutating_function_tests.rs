@@ -10,10 +10,6 @@ use qubit_function::ArcStatefulMutatingFunction;
 
 #[test]
 fn test_arc_stateful_mutating_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcStatefulMutatingFunction<i32, i32>>();
-    assert!(
-        type_name.contains("ArcStatefulMutatingFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcStatefulMutatingFunction<i32, i32>>();
+    assert!(type_name.contains("ArcStatefulMutatingFunction"), "{type_name}");
 }

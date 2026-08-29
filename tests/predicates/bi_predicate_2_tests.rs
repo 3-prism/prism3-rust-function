@@ -42,10 +42,7 @@ mod tests {
 
         #[test]
         fn test_with_name() {
-            let pred = ArcBiPredicate::new_with_name(
-                "sum_positive",
-                |x: &i32, y: &i32| x + y > 0,
-            );
+            let pred = ArcBiPredicate::new_with_name("sum_positive", |x: &i32, y: &i32| x + y > 0);
 
             assert_eq!(pred.name(), Some("sum_positive"));
             assert!(pred.test(&5, &3));
@@ -73,8 +70,7 @@ mod tests {
 
         #[test]
         fn test_always_true_with_composition() {
-            let always_true: ArcBiPredicate<i32, i32> =
-                ArcBiPredicate::always_true();
+            let always_true: ArcBiPredicate<i32, i32> = ArcBiPredicate::always_true();
             let positive_sum = |x: &i32, y: &i32| x + y > 0;
 
             // always_true AND something = something
@@ -85,8 +81,7 @@ mod tests {
 
         #[test]
         fn test_always_false_with_composition() {
-            let always_false: ArcBiPredicate<i32, i32> =
-                ArcBiPredicate::always_false();
+            let always_false: ArcBiPredicate<i32, i32> = ArcBiPredicate::always_false();
             let positive_sum = |x: &i32, y: &i32| x + y > 0;
 
             // always_false OR something = something
@@ -131,10 +126,7 @@ mod tests {
 
         #[test]
         fn test_clone_preserves_name() {
-            let pred = ArcBiPredicate::new_with_name(
-                "original",
-                |x: &i32, y: &i32| x + y > 0,
-            );
+            let pred = ArcBiPredicate::new_with_name("original", |x: &i32, y: &i32| x + y > 0);
             let cloned = pred.clone();
 
             assert_eq!(pred.name(), Some("original"));
@@ -143,10 +135,8 @@ mod tests {
 
         #[test]
         fn test_and() {
-            let sum_positive =
-                ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
-            let first_positive =
-                ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
+            let sum_positive = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let first_positive = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
 
             let combined = sum_positive.clone().and(first_positive.clone());
             assert!(combined.test(&5, &3));
@@ -159,10 +149,8 @@ mod tests {
 
         #[test]
         fn test_or() {
-            let sum_positive =
-                ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
-            let first_positive =
-                ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
+            let sum_positive = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let first_positive = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
 
             let combined = sum_positive.or(first_positive.clone());
             assert!(combined.test(&5, &3));
@@ -171,8 +159,7 @@ mod tests {
 
         #[test]
         fn test_not() {
-            let sum_positive =
-                ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
+            let sum_positive = ArcBiPredicate::new(|x: &i32, y: &i32| x + y > 0);
             let sum_not_positive = !&sum_positive;
 
             assert!(!sum_not_positive.test(&5, &3));
@@ -184,10 +171,8 @@ mod tests {
 
         #[test]
         fn test_xor() {
-            let first_positive =
-                ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
-            let second_positive =
-                ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
+            let first_positive = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
+            let second_positive = ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
 
             let combined = first_positive.xor(second_positive);
             assert!(combined.test(&5, &-3));
@@ -196,10 +181,8 @@ mod tests {
 
         #[test]
         fn test_nand() {
-            let first_positive =
-                ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
-            let second_positive =
-                ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
+            let first_positive = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
+            let second_positive = ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
 
             let combined = first_positive.nand(second_positive);
             assert!(!combined.test(&5, &3));
@@ -208,10 +191,8 @@ mod tests {
 
         #[test]
         fn test_nor() {
-            let first_positive =
-                ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
-            let second_positive =
-                ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
+            let first_positive = ArcBiPredicate::new(|x: &i32, _y: &i32| *x > 0);
+            let second_positive = ArcBiPredicate::new(|_x: &i32, y: &i32| *y > 0);
 
             let combined = first_positive.nor(second_positive);
             assert!(!combined.test(&5, &3));
@@ -231,27 +212,20 @@ mod tests {
 
         #[test]
         fn test_display() {
-            let pred = ArcBiPredicate::new_with_name(
-                "sum_positive",
-                |x: &i32, y: &i32| x + y > 0,
-            );
+            let pred = ArcBiPredicate::new_with_name("sum_positive", |x: &i32, y: &i32| x + y > 0);
             assert_eq!(format!("{}", pred), "ArcBiPredicate(sum_positive)");
         }
 
         #[test]
         fn test_debug() {
-            let pred = ArcBiPredicate::new_with_name(
-                "test_pred",
-                |x: &i32, y: &i32| x + y > 0,
-            );
+            let pred = ArcBiPredicate::new_with_name("test_pred", |x: &i32, y: &i32| x + y > 0);
             let debug_str = format!("{:?}", pred);
             assert!(debug_str.contains("ArcBiPredicate"));
         }
 
         #[test]
         fn test_with_different_types() {
-            let str_len_greater =
-                ArcBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
+            let str_len_greater = ArcBiPredicate::new(|s: &String, len: &usize| s.len() > *len);
             assert!(str_len_greater.test(&String::from("hello"), &3));
             assert!(!str_len_greater.test(&String::from("hi"), &5));
         }

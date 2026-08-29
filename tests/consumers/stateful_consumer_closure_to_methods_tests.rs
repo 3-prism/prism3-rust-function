@@ -57,15 +57,11 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
         let mut consumer = BoxStatefulConsumer::new(move |s: &String| {
-            *l.lock().expect("mutex should not be poisoned") =
-                format!("Got: {}", s);
+            *l.lock().expect("mutex should not be poisoned") = format!("Got: {}", s);
         });
         let text = String::from("hello");
         consumer.accept(&text);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            "Got: hello"
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), "Got: hello");
 
         // Vec
         let log = Arc::new(Mutex::new(0));
@@ -81,8 +77,7 @@ mod test_closure_to_methods {
         let log = Arc::new(Mutex::new(String::new()));
         let l = log.clone();
         let mut consumer = BoxStatefulConsumer::new(move |b: &bool| {
-            *l.lock().expect("mutex should not be poisoned") =
-                if *b { "true" } else { "false" }.to_string();
+            *l.lock().expect("mutex should not be poisoned") = if *b { "true" } else { "false" }.to_string();
         });
         let flag = true;
         consumer.accept(&flag);
@@ -96,15 +91,10 @@ mod test_closure_to_methods {
         let mut counter = 0;
         let mut consumer = BoxStatefulConsumer::new(move |x: &i32| {
             counter += 1;
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + counter);
+            l.lock().expect("mutex should not be poisoned").push(*x + counter);
         });
         consumer.accept(&10);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![11]
-        ); // 10 + 1
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![11]); // 10 + 1
     }
 
     #[test]

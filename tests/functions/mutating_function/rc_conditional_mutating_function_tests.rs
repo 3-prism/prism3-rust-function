@@ -10,10 +10,6 @@ use qubit_function::RcConditionalMutatingFunction;
 
 #[test]
 fn test_rc_conditional_mutating_function_observable_behavior() {
-    let type_name =
-        std::any::type_name::<RcConditionalMutatingFunction<i32, i32>>();
-    assert!(
-        type_name.contains("RcConditionalMutatingFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<RcConditionalMutatingFunction<i32, i32>>();
+    assert!(type_name.contains("RcConditionalMutatingFunction"), "{type_name}");
 }

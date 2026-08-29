@@ -40,8 +40,7 @@ mod complex_composition_tests {
         let add_one = ArcTransformer::new(|x: i32| x + 1);
         let double = ArcTransformer::new(|x: i32| x * 2);
         let to_string = ArcTransformer::new(|x: i32| x.to_string());
-        let composed =
-            add_one.and_then(double.clone()).and_then(to_string.clone());
+        let composed = add_one.and_then(double.clone()).and_then(to_string.clone());
         assert_eq!(composed.apply(5), "12");
         // Original transformers still usable
         assert_eq!(add_one.apply(5), 6);
@@ -53,8 +52,7 @@ mod complex_composition_tests {
         let add_one = RcTransformer::new(|x: i32| x + 1);
         let double = RcTransformer::new(|x: i32| x * 2);
         let square = RcTransformer::new(|x: i32| x * x);
-        let composed =
-            add_one.and_then(double.clone()).and_then(square.clone());
+        let composed = add_one.and_then(double.clone()).and_then(square.clone());
         assert_eq!(composed.apply(5), 144); // (5 + 1) * 2 = 12, then 12 * 12 = 144
         // Original transformers still usable
         assert_eq!(add_one.apply(5), 6);

@@ -77,9 +77,7 @@ impl_transformer_debug_display!(RcStatefulBiTransformer<T, U, R>);
 impl_transformer_clone!(RcStatefulBiTransformer<T, U, R>);
 
 // Implement StatefulBiTransformer trait for RcStatefulBiTransformer
-impl<T, U, R> StatefulBiTransformer<T, U, R>
-    for RcStatefulBiTransformer<T, U, R>
-{
+impl<T, U, R> StatefulBiTransformer<T, U, R> for RcStatefulBiTransformer<T, U, R> {
     #[inline]
     fn apply(&mut self, first: T, second: U) -> R {
         let mut self_fn = self.function.borrow_mut();

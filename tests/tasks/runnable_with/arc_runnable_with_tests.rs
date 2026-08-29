@@ -10,7 +10,6 @@ use qubit_function::ArcRunnableWith;
 
 #[test]
 fn test_arc_runnable_with_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcRunnableWith<i32, std::io::Error>>();
+    let type_name = std::any::type_name::<ArcRunnableWith<i32, std::io::Error>>();
     assert!(type_name.contains("ArcRunnableWith"), "{type_name}");
 }

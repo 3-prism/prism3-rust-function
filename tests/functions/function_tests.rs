@@ -34,8 +34,7 @@ fn test_function_trait_apply() {
 #[test]
 fn test_box_function_new_allows_non_static_t() {
     fn run<'a>(value: &'a str) -> usize {
-        let func: BoxFunction<&'a str, usize> =
-            BoxFunction::new(|x: &&'a str| x.len());
+        let func: BoxFunction<&'a str, usize> = BoxFunction::new(|x: &&'a str| x.len());
         func.apply(&value)
     }
 
@@ -46,8 +45,7 @@ fn test_box_function_new_allows_non_static_t() {
 #[test]
 fn test_box_function_new_allows_non_static_r() {
     fn run<'a>(value: &'a str) -> &'a str {
-        let func: BoxFunction<&'a str, &'a str> =
-            BoxFunction::new(|x: &&'a str| *x);
+        let func: BoxFunction<&'a str, &'a str> = BoxFunction::new(|x: &&'a str| *x);
         func.apply(&value)
     }
 
@@ -58,8 +56,7 @@ fn test_box_function_new_allows_non_static_r() {
 #[test]
 fn test_rc_function_new_allows_non_static_t() {
     fn run<'a>(value: &'a str) -> usize {
-        let func: RcFunction<&'a str, usize> =
-            RcFunction::new(|x: &&'a str| x.len());
+        let func: RcFunction<&'a str, usize> = RcFunction::new(|x: &&'a str| x.len());
         func.apply(&value)
     }
 
@@ -70,8 +67,7 @@ fn test_rc_function_new_allows_non_static_t() {
 #[test]
 fn test_arc_function_new_allows_non_static_t() {
     fn run<'a>(value: &'a str) -> usize {
-        let func: ArcFunction<&'a str, usize> =
-            ArcFunction::new(|x: &&'a str| x.len() + 1);
+        let func: ArcFunction<&'a str, usize> = ArcFunction::new(|x: &&'a str| x.len() + 1);
         func.apply(&value)
     }
 
@@ -82,8 +78,7 @@ fn test_arc_function_new_allows_non_static_t() {
 #[test]
 fn test_rc_function_new_allows_non_static_r() {
     fn run<'a>(value: &'a str) -> &'a str {
-        let func: RcFunction<&'a str, &'a str> =
-            RcFunction::new(|x: &&'a str| *x);
+        let func: RcFunction<&'a str, &'a str> = RcFunction::new(|x: &&'a str| *x);
         func.apply(&value)
     }
 
@@ -300,9 +295,7 @@ fn test_arc_function_when_with_predicate() {
     // Test when with ArcPredicate
     let double = ArcFunction::new(|x: &i32| x * 2);
     let is_positive = ArcPredicate::new(|x: &i32| *x > 0);
-    let conditional = double
-        .when(is_positive.clone())
-        .or_else(ArcFunction::identity());
+    let conditional = double.when(is_positive.clone()).or_else(ArcFunction::identity());
 
     assert_eq!(conditional.apply(&5), 10);
     assert!(is_positive.test(&3));
@@ -425,10 +418,9 @@ fn test_rc_function_when_with_predicate() {
     // Test when with RcPredicate
     let double = RcFunction::new(|x: &i32| x * 2);
     let is_positive = RcPredicate::new(|x: &i32| *x > 0);
-    let conditional =
-        double
-            .when(is_positive.clone())
-            .or_else(RcFunction::<i32, i32>::identity());
+    let conditional = double
+        .when(is_positive.clone())
+        .or_else(RcFunction::<i32, i32>::identity());
 
     assert_eq!(conditional.apply(&5), 10);
     assert!(is_positive.test(&3));

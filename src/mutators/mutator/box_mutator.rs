@@ -71,9 +71,7 @@ pub struct BoxMutator<T> {
 impl<T> BoxMutator<T> {
     // Generate common mutator methods (new, new_with_name, name, set_name,
     // noop)
-    impl_mutator_common_methods!(BoxMutator<T>, (Fn(&mut T) + 'static), |f| {
-        Box::new(f)
-    });
+    impl_mutator_common_methods!(BoxMutator<T>, (Fn(&mut T) + 'static), |f| { Box::new(f) });
 
     // Generate box mutator methods (when, and_then, or_else, etc.)
     impl_box_mutator_methods!(BoxMutator<T>, BoxConditionalMutator, Mutator);

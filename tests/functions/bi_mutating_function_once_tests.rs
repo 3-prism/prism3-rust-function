@@ -80,11 +80,10 @@ fn test_bi_mutating_function_once_trait_apply_with_complex_types() {
 
 #[test]
 fn test_box_bi_mutating_function_once_new() {
-    let swap_sum =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_sum = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
     let mut a = 10;
     let mut b = 15;
     assert_eq!(swap_sum.apply(&mut a, &mut b), 25);
@@ -96,9 +95,7 @@ fn test_box_bi_mutating_function_once_new() {
 fn test_box_bi_mutating_function_once_new_allows_non_static_t() {
     fn run<'a>(value: &'a str) -> usize {
         let func: BoxBiMutatingFunctionOnce<&'a str, i32, usize> =
-            BoxBiMutatingFunctionOnce::new(|x: &mut &'a str, y: &mut i32| {
-                x.len() + (*y as usize)
-            });
+            BoxBiMutatingFunctionOnce::new(|x: &mut &'a str, y: &mut i32| x.len() + (*y as usize));
         let mut first = value;
         let mut second = 3;
         func.apply(&mut first, &mut second)
@@ -112,9 +109,7 @@ fn test_box_bi_mutating_function_once_new_allows_non_static_t() {
 fn test_box_bi_mutating_function_once_new_allows_non_static_u() {
     fn run<'a>(value: &'a str) -> usize {
         let func: BoxBiMutatingFunctionOnce<i32, &'a str, usize> =
-            BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut &'a str| {
-                (*x as usize) + y.len()
-            });
+            BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut &'a str| (*x as usize) + y.len());
         let mut first = 3;
         let mut second = value;
         func.apply(&mut first, &mut second)
@@ -140,13 +135,10 @@ fn test_box_bi_mutating_function_once_new_allows_non_static_r() {
 
 #[test]
 fn test_box_bi_mutating_function_once_new_with_name() {
-    let swap_sum = BoxBiMutatingFunctionOnce::new_with_name(
-        "swap_and_sum_once",
-        |x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        },
-    );
+    let swap_sum = BoxBiMutatingFunctionOnce::new_with_name("swap_and_sum_once", |x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
     assert_eq!(swap_sum.name(), Some("swap_and_sum_once"));
     let mut a = 10;
     let mut b = 15;
@@ -164,20 +156,16 @@ fn test_box_bi_mutating_function_once_new_with_optional_name() {
     );
     assert_eq!(swap_sum.name(), Some("test_function_once"));
 
-    let no_name = BoxBiMutatingFunctionOnce::new_with_optional_name(
-        |x: &mut i32, y: &mut i32| *x + *y,
-        None,
-    );
+    let no_name = BoxBiMutatingFunctionOnce::new_with_optional_name(|x: &mut i32, y: &mut i32| *x + *y, None);
     assert_eq!(no_name.name(), None);
 }
 
 #[test]
 fn test_box_bi_mutating_function_once_name_and_set_name() {
-    let mut swap_sum =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let mut swap_sum = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     assert_eq!(swap_sum.name(), None);
     swap_sum.set_name("modified_name_once");
@@ -198,11 +186,10 @@ fn test_box_bi_mutating_function_once_constant() {
 
 #[test]
 fn test_box_bi_mutating_function_once_debug_display() {
-    let swap_sum =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_sum = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     let debug_str = format!("{:?}", swap_sum);
     assert!(debug_str.contains("BoxBiMutatingFunctionOnce"));
@@ -241,13 +228,12 @@ fn test_box_bi_mutating_function_once_one_time_use() {
     let counter = std::rc::Rc::new(std::cell::RefCell::new(0));
     let counter_clone = std::rc::Rc::clone(&counter);
 
-    let increment =
-        BoxBiMutatingFunctionOnce::new(move |x: &mut i32, y: &mut i32| {
-            *counter_clone.borrow_mut() += 1;
-            *x += 1;
-            *y += 1;
-            *x + *y
-        });
+    let increment = BoxBiMutatingFunctionOnce::new(move |x: &mut i32, y: &mut i32| {
+        *counter_clone.borrow_mut() += 1;
+        *x += 1;
+        *y += 1;
+        *x + *y
+    });
 
     let mut a = 10;
     let mut b = 20;
@@ -267,21 +253,17 @@ fn test_box_bi_mutating_function_once_one_time_use() {
 
 #[test]
 fn test_box_conditional_bi_mutating_function_once() {
-    let swap_and_sum =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_and_sum = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
-    let multiply =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            *x *= *y;
-            *x
-        });
+    let multiply = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        *x *= *y;
+        *x
+    });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
 
     // Test when condition is true
     let mut a = 5;
@@ -290,18 +272,15 @@ fn test_box_conditional_bi_mutating_function_once() {
 
     // Test when condition is false - create a new conditional since
     // BiMutatingFunctionOnce consumes self
-    let conditional2 =
-        BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        })
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(BoxBiMutatingFunctionOnce::new(
-            |x: &mut i32, y: &mut i32| {
-                *x *= *y;
-                *x
-            },
-        ));
+    let conditional2 = BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    })
+    .when(|x: &i32, _y: &i32| *x > 0)
+    .or_else(BoxBiMutatingFunctionOnce::new(|x: &mut i32, y: &mut i32| {
+        *x *= *y;
+        *x
+    }));
     let mut c = -5;
     let mut d = 3;
     assert_eq!(conditional2.apply(&mut c, &mut d), -15); // multiply executed
@@ -310,9 +289,7 @@ fn test_box_conditional_bi_mutating_function_once() {
 #[test]
 fn test_conditional_bi_mutating_function_once_with_structs() {
     let modify = BoxBiMutatingFunctionOnce::new(modify_structs_once);
-    let no_op = BoxBiMutatingFunctionOnce::new(
-        |_a: &mut TestStruct, _b: &mut TestStruct| 0,
-    );
+    let no_op = BoxBiMutatingFunctionOnce::new(|_a: &mut TestStruct, _b: &mut TestStruct| 0);
 
     let conditional = modify
         .when(|a: &TestStruct, b: &TestStruct| a.value > 0 && b.value > 0)

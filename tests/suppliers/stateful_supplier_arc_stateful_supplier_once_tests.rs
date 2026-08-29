@@ -46,8 +46,7 @@ mod test_arc_stateful_supplier_once {
 
         #[test]
         fn test_with_string() {
-            let mut supplier =
-                ArcStatefulSupplier::new(|| String::from("hello"));
+            let mut supplier = ArcStatefulSupplier::new(|| String::from("hello"));
             let value = supplier.get();
             assert_eq!(value, "hello");
         }
@@ -64,17 +63,13 @@ mod test_arc_stateful_supplier_once {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let mut supplier = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
             let value = supplier.get();
             assert_eq!(value, 1);
-            assert_eq!(
-                *counter.lock().expect("mutex should not be poisoned"),
-                1
-            );
+            assert_eq!(*counter.lock().expect("mutex should not be poisoned"), 1);
         }
 
         #[test]
@@ -83,9 +78,7 @@ mod test_arc_stateful_supplier_once {
             let counter_clone1 = Arc::clone(&counter);
 
             let stateful_supplier1 = ArcStatefulSupplier::new(move || {
-                let mut c = counter_clone1
-                    .lock()
-                    .expect("mutex should not be poisoned");
+                let mut c = counter_clone1.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -99,10 +92,7 @@ mod test_arc_stateful_supplier_once {
 
             // Both should increment the same counter
             assert_eq!(value1 + value2, 3); // 1 + 2
-            assert_eq!(
-                *counter.lock().expect("mutex should not be poisoned"),
-                2
-            );
+            assert_eq!(*counter.lock().expect("mutex should not be poisoned"), 2);
         }
     }
 }

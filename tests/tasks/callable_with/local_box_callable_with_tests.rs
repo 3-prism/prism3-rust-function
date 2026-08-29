@@ -34,10 +34,7 @@ fn test_local_box_callable_with_composition_accepts_rc_capture() {
 
 #[test]
 fn test_local_box_callable_with_constructors_and_name_management() {
-    let mut named =
-        LocalBoxCallableWith::new_with_name("compute", |input: &mut i32| {
-            Ok::<i32, io::Error>(*input)
-        });
+    let mut named = LocalBoxCallableWith::new_with_name("compute", |input: &mut i32| Ok::<i32, io::Error>(*input));
     assert_eq!(named.name(), Some("compute"));
     assert_eq!(named.to_string(), "LocalBoxCallableWith(compute)");
     assert!(format!("{named:?}").contains("compute"));
@@ -66,8 +63,7 @@ fn test_local_box_callable_with_combinators_cover_all_result_paths() {
     assert_eq!(mapped.call_with(&mut input).expect("map should succeed"), 6);
 
     let mut mapped_failure =
-        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("map failed"))
-            .map(|value| value * 2);
+        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("map failed")).map(|value| value * 2);
     assert_eq!(
         mapped_failure
             .call_with(&mut input)
@@ -76,8 +72,7 @@ fn test_local_box_callable_with_combinators_cover_all_result_paths() {
     );
 
     let mut mapped_error =
-        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("raw"))
-            .map_err(|error| format!("mapped: {error}"));
+        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("raw")).map_err(|error| format!("mapped: {error}"));
     assert_eq!(
         mapped_error
             .call_with(&mut input)
@@ -85,10 +80,8 @@ fn test_local_box_callable_with_combinators_cover_all_result_paths() {
         "mapped: raw"
     );
 
-    let mut map_err_success = LocalBoxCallableWith::new(|value: &mut i32| {
-        Ok::<i32, &'static str>(*value)
-    })
-    .map_err(|error| format!("mapped: {error}"));
+    let mut map_err_success = LocalBoxCallableWith::new(|value: &mut i32| Ok::<i32, &'static str>(*value))
+        .map_err(|error| format!("mapped: {error}"));
     assert_eq!(
         map_err_success
             .call_with(&mut input)
@@ -98,30 +91,22 @@ fn test_local_box_callable_with_combinators_cover_all_result_paths() {
 
     let next_runs = Rc::new(Cell::new(0));
     let captured = Rc::clone(&next_runs);
-    let mut chained = LocalBoxCallableWith::new(|value: &mut i32| {
-        Ok::<i32, &'static str>(*value)
-    })
-    .and_then(move |value, input| {
-        captured.set(captured.get() + 1);
-        *input += value;
-        Ok(*input)
-    });
-    assert_eq!(
-        chained
-            .call_with(&mut input)
-            .expect("and_then should succeed"),
-        6
-    );
+    let mut chained =
+        LocalBoxCallableWith::new(|value: &mut i32| Ok::<i32, &'static str>(*value)).and_then(move |value, input| {
+            captured.set(captured.get() + 1);
+            *input += value;
+            Ok(*input)
+        });
+    assert_eq!(chained.call_with(&mut input).expect("and_then should succeed"), 6);
     assert_eq!(next_runs.get(), 1);
 
     let captured = Rc::clone(&next_runs);
     let mut short_circuited =
-        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("source failed"))
-            .and_then(move |value, input| {
-                captured.set(captured.get() + 1);
-                *input += value;
-                Ok(*input)
-            });
+        LocalBoxCallableWith::new(|_: &mut i32| Err::<i32, _>("source failed")).and_then(move |value, input| {
+            captured.set(captured.get() + 1);
+            *input += value;
+            Ok(*input)
+        });
     assert_eq!(
         short_circuited
             .call_with(&mut input)

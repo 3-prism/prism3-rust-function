@@ -10,10 +10,6 @@ use qubit_function::BoxConditionalBiConsumerOnce;
 
 #[test]
 fn test_box_conditional_bi_consumer_once_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxConditionalBiConsumerOnce<i32, i32>>();
-    assert!(
-        type_name.contains("BoxConditionalBiConsumerOnce"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalBiConsumerOnce<i32, i32>>();
+    assert!(type_name.contains("BoxConditionalBiConsumerOnce"), "{type_name}");
 }

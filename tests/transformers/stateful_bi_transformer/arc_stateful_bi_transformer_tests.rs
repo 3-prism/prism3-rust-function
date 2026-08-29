@@ -10,10 +10,6 @@ use qubit_function::ArcStatefulBiTransformer;
 
 #[test]
 fn test_arc_stateful_bi_transformer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcStatefulBiTransformer<i32, i32, i32>>();
-    assert!(
-        type_name.contains("ArcStatefulBiTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcStatefulBiTransformer<i32, i32, i32>>();
+    assert!(type_name.contains("ArcStatefulBiTransformer"), "{type_name}");
 }

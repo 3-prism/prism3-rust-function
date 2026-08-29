@@ -68,8 +68,7 @@ fn test_runnable_once_closure_run_returns_success() {
         Ok::<(), io::Error>(())
     };
 
-    task.run_once()
-        .expect("runnable-once closure should succeed");
+    task.run_once().expect("runnable-once closure should succeed");
     assert!(flag.get());
 }
 
@@ -77,9 +76,7 @@ fn test_runnable_once_closure_run_returns_success() {
 fn test_runnable_once_closure_run_returns_error() {
     let task = || Err::<(), _>(io::Error::other("failed"));
 
-    let error = task
-        .run_once()
-        .expect_err("runnable-once closure should fail");
+    let error = task.run_once().expect_err("runnable-once closure should fail");
     assert_eq!(error.kind(), io::ErrorKind::Other);
     assert_eq!(error.to_string(), "failed");
 }
@@ -111,15 +108,13 @@ fn test_local_box_runnable_once_allows_non_send_capture() {
         Ok::<(), io::Error>(())
     });
 
-    task.run_once()
-        .expect("local runnable-once should allow local capture");
+    task.run_once().expect("local runnable-once should allow local capture");
     assert!(flag.get());
 }
 
 #[test]
 fn test_box_runnable_once_name_management() {
-    let mut task =
-        BoxRunnableOnce::<io::Error>::new_with_name("cleanup", || Ok(()));
+    let mut task = BoxRunnableOnce::<io::Error>::new_with_name("cleanup", || Ok(()));
     assert_eq!(task.name(), Some("cleanup"));
     assert_eq!(task.to_string(), "BoxRunnableOnce(cleanup)");
     assert!(format!("{task:?}").contains("cleanup"));
@@ -157,9 +152,7 @@ fn test_box_runnable_once_and_then_runs_next_on_success() {
     };
 
     let chained = first.and_then(second);
-    chained
-        .run_once()
-        .expect("chained runnable-once should succeed");
+    chained.run_once().expect("chained runnable-once should succeed");
     assert_eq!(events.load(Ordering::SeqCst), 2);
 }
 
@@ -219,8 +212,7 @@ fn test_box_runnable_once_combinators_cover_branches_with_same_next_types() {
     assert!(success_flag.get());
 
     let error_flag = Rc::new(Cell::new(false));
-    let first =
-        LocalBoxRunnableOnce::new(|| Err::<(), _>(io::Error::other("stop")));
+    let first = LocalBoxRunnableOnce::new(|| Err::<(), _>(io::Error::other("stop")));
     let chained = first.and_then(ClonedRunnableOnce {
         flag: Rc::clone(&error_flag),
     });
@@ -247,9 +239,7 @@ fn test_box_runnable_once_combinators_cover_branches_with_same_next_types() {
     assert!(success_flag.get());
 
     let error_flag = Rc::new(Cell::new(false));
-    let first = LocalBoxRunnableOnce::new(|| {
-        Err::<(), _>(io::Error::other("prepare failed"))
-    });
+    let first = LocalBoxRunnableOnce::new(|| Err::<(), _>(io::Error::other("prepare failed")));
     let callable = first.then_callable(FlagCallableOnce {
         flag: Rc::clone(&error_flag),
     });
@@ -265,8 +255,7 @@ fn test_box_runnable_once_combinators_cover_branches_with_same_next_types() {
 
 #[test]
 fn test_box_runnable_once_then_callable_runs_callable_on_success() {
-    let task =
-        BoxRunnableOnce::new_with_name("prepare", || Ok::<(), io::Error>(()));
+    let task = BoxRunnableOnce::new_with_name("prepare", || Ok::<(), io::Error>(()));
     let callable = || Ok::<i32, io::Error>(42);
 
     let chained = task.then_callable(callable);
@@ -278,9 +267,7 @@ fn test_box_runnable_once_then_callable_runs_callable_on_success() {
 fn test_box_runnable_once_then_callable_skips_callable_on_error() {
     let callable_ran = Arc::new(AtomicBool::new(false));
     let callable_ran_capture = Arc::clone(&callable_ran);
-    let task = BoxRunnableOnce::<io::Error>::new(|| {
-        Err(io::Error::other("prepare failed"))
-    });
+    let task = BoxRunnableOnce::<io::Error>::new(|| Err(io::Error::other("prepare failed")));
     let callable = move || {
         callable_ran_capture.store(true, Ordering::SeqCst);
         Ok::<i32, io::Error>(42)
@@ -333,10 +320,7 @@ fn test_box_runnable_once_combinators_with_text_error_type() {
 
     let runnable = BoxRunnableOnce::new(|| Ok::<(), &'static str>(()));
     let callable = runnable.then_callable(|| Ok::<i32, &'static str>(9));
-    assert_eq!(
-        callable.call_once().expect("then_callable should succeed"),
-        9
-    );
+    assert_eq!(callable.call_once().expect("then_callable should succeed"), 9);
 
     let skipped = Rc::new(Cell::new(false));
     let skipped_capture = Rc::clone(&skipped);
@@ -346,16 +330,12 @@ fn test_box_runnable_once_combinators_with_text_error_type() {
         Ok::<(), &'static str>(())
     };
     let chained = first.and_then(second);
-    assert_eq!(
-        chained.run_once().expect_err("and_then should fail"),
-        "stop"
-    );
+    assert_eq!(chained.run_once().expect_err("and_then should fail"), "stop");
     assert!(!skipped.get());
 
     let callable_ran = Rc::new(Cell::new(false));
     let callable_ran_capture = Rc::clone(&callable_ran);
-    let runnable =
-        LocalBoxRunnableOnce::new(|| Err::<(), &'static str>("prepare"));
+    let runnable = LocalBoxRunnableOnce::new(|| Err::<(), &'static str>("prepare"));
     let callable = runnable.then_callable(move || {
         callable_ran_capture.set(true);
         Ok::<i32, &'static str>(9)

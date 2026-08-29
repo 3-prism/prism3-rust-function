@@ -25,9 +25,7 @@ fn test_rc_conditional_bi_function_clone() {
     let add = RcBiFunction::new(|x: &i32, y: &i32| *x + *y);
     let multiply = RcBiFunction::new(|x: &i32, y: &i32| *x * *y);
 
-    let conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test original
@@ -44,9 +42,7 @@ fn test_arc_conditional_bi_function_clone() {
     let add = ArcBiFunction::new(|x: &i32, y: &i32| *x + *y);
     let multiply = ArcBiFunction::new(|x: &i32, y: &i32| *x * *y);
 
-    let conditional = add
-        .when(|x: &i32, y: &i32| *x > 0 && *y > 0)
-        .or_else(multiply);
+    let conditional = add.when(|x: &i32, y: &i32| *x > 0 && *y > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test original

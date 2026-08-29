@@ -11,8 +11,7 @@ use qubit_function::Function;
 
 #[test]
 fn test_closure_trait_observable_behavior() {
-    let mut function =
-        BoxFunction::new_with_name("smoke", |value: &i32| value + 1);
+    let mut function = BoxFunction::new_with_name("smoke", |value: &i32| value + 1);
     assert_eq!(function.name(), Some("smoke"));
     function.set_name("renamed");
     assert_eq!(function.apply(&41), 42);

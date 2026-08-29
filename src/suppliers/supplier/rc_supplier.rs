@@ -83,9 +83,7 @@ pub struct RcSupplier<T> {
 
 impl<T> RcSupplier<T> {
     // Generates: new(), new_with_name(), name(), set_name(), constant()
-    impl_supplier_common_methods!(RcSupplier<T>, (Fn() -> T + 'static), |f| {
-        Rc::new(f)
-    });
+    impl_supplier_common_methods!(RcSupplier<T>, (Fn() -> T + 'static), |f| { Rc::new(f) });
 
     // Generates: map(), filter(), zip()
     impl_shared_supplier_methods!(

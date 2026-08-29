@@ -41,8 +41,7 @@ mod test_edge_cases {
 
     #[test]
     fn test_with_max_value() {
-        let mut mutator =
-            BoxStatefulMutator::new(|x: &mut i32| *x = x.saturating_add(1));
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x = x.saturating_add(1));
         let mut value = i32::MAX;
         mutator.apply(&mut value);
         assert_eq!(value, i32::MAX);
@@ -50,8 +49,7 @@ mod test_edge_cases {
 
     #[test]
     fn test_with_min_value() {
-        let mut mutator =
-            BoxStatefulMutator::new(|x: &mut i32| *x = x.saturating_sub(1));
+        let mut mutator = BoxStatefulMutator::new(|x: &mut i32| *x = x.saturating_sub(1));
         let mut value = i32::MIN;
         mutator.apply(&mut value);
         assert_eq!(value, i32::MIN);
@@ -59,8 +57,7 @@ mod test_edge_cases {
 
     #[test]
     fn test_with_empty_string() {
-        let mut mutator =
-            BoxStatefulMutator::new(|s: &mut String| s.push_str("added"));
+        let mut mutator = BoxStatefulMutator::new(|s: &mut String| s.push_str("added"));
         let mut text = String::new();
         mutator.apply(&mut text);
         assert_eq!(text, "added");
@@ -76,8 +73,7 @@ mod test_edge_cases {
 
     #[test]
     fn test_unicode() {
-        let mut mutator =
-            BoxStatefulMutator::new(|s: &mut String| *s = s.to_uppercase());
+        let mut mutator = BoxStatefulMutator::new(|s: &mut String| *s = s.to_uppercase());
         let mut text = String::from("héllo world");
         mutator.apply(&mut text);
         assert_eq!(text, "HÉLLO WORLD");

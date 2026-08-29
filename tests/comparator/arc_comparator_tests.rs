@@ -28,25 +28,16 @@ fn test_arc_comparator_observable_behavior() {
 /// Verifies naming, diagnostics, and clone-independent metadata updates.
 #[test]
 fn test_arc_comparator_name_and_diagnostics() {
-    let original =
-        ArcComparator::new_with_name("ascending", |left: &i32, right: &i32| {
-            left.cmp(right)
-        });
+    let original = ArcComparator::new_with_name("ascending", |left: &i32, right: &i32| left.cmp(right));
     let renamed = original.clone().with_name("renamed");
 
     assert_eq!(original.name(), Some("ascending"));
     assert_eq!(original.compare(&1, &2), Ordering::Less);
     assert_eq!(renamed.name(), Some("renamed"));
-    assert_eq!(
-        format!("{original:?}"),
-        "ArcComparator { name: Some(\"ascending\") }"
-    );
+    assert_eq!(format!("{original:?}"), "ArcComparator { name: Some(\"ascending\") }");
     assert_eq!(format!("{original}"), "ArcComparator(ascending)");
 
-    let unnamed = ArcComparator::new_with_optional_name(
-        |left: &i32, right: &i32| left.cmp(right),
-        None,
-    );
+    let unnamed = ArcComparator::new_with_optional_name(|left: &i32, right: &i32| left.cmp(right), None);
     assert_eq!(unnamed.compare(&2, &1), Ordering::Greater);
     assert_eq!(format!("{unnamed}"), "ArcComparator");
 }

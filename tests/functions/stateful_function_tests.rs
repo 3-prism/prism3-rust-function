@@ -191,8 +191,7 @@ fn test_arc_stateful_function_new() {
     let counter = Arc::new(Mutex::new(0));
     let counter_clone = Arc::clone(&counter);
     let mut func = ArcStatefulFunction::new(move |x: &i32| {
-        let mut current =
-            counter_clone.lock().expect("mutex should not be poisoned");
+        let mut current = counter_clone.lock().expect("mutex should not be poisoned");
         let result = x + *current;
         *current += 1;
         result
@@ -226,8 +225,7 @@ fn test_arc_stateful_function_apply() {
     let counter = Arc::new(Mutex::new(0));
     let counter_clone = Arc::clone(&counter);
     let mut func = ArcStatefulFunction::new(move |x: &i32| {
-        let mut current =
-            counter_clone.lock().expect("mutex should not be poisoned");
+        let mut current = counter_clone.lock().expect("mutex should not be poisoned");
         let result = x * *current;
         *current += 1;
         result
@@ -243,8 +241,7 @@ fn test_arc_stateful_function_clone() {
     let counter = Arc::new(Mutex::new(0));
     let counter_clone = Arc::clone(&counter);
     let func = ArcStatefulFunction::new(move |x: &i32| {
-        let mut current =
-            counter_clone.lock().expect("mutex should not be poisoned");
+        let mut current = counter_clone.lock().expect("mutex should not be poisoned");
         let result = x + *current;
         *current += 1;
         result
@@ -306,8 +303,7 @@ fn test_arc_stateful_function_when_with_predicate() {
     let counter = Arc::new(Mutex::new(0));
     let counter_clone = Arc::clone(&counter);
     let mut func = ArcStatefulFunction::new(move |x: &i32| {
-        let mut current =
-            counter_clone.lock().expect("mutex should not be poisoned");
+        let mut current = counter_clone.lock().expect("mutex should not be poisoned");
         let result = x * *current;
         *current += 1;
         result
@@ -334,8 +330,7 @@ fn test_arc_stateful_function_thread_safety() {
     let counter = Arc::new(Mutex::new(0));
     let counter_clone = Arc::clone(&counter);
     let func = ArcStatefulFunction::new(move |x: &i32| {
-        let mut current =
-            counter_clone.lock().expect("mutex should not be poisoned");
+        let mut current = counter_clone.lock().expect("mutex should not be poisoned");
         let result = x + *current;
         *current += 1;
         result

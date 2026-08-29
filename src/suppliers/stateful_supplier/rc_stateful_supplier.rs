@@ -101,11 +101,9 @@ pub struct RcStatefulSupplier<T> {
 
 impl<T> RcStatefulSupplier<T> {
     // Generates: new(), new_with_name(), name(), set_name(), constant()
-    impl_supplier_common_methods!(
-        RcStatefulSupplier<T>,
-        (FnMut() -> T + 'static),
-        |f| Rc::new(RefCell::new(f))
-    );
+    impl_supplier_common_methods!(RcStatefulSupplier<T>, (FnMut() -> T + 'static), |f| Rc::new(
+        RefCell::new(f)
+    ));
 
     // Generates: map(), filter(), zip()
     impl_shared_supplier_methods!(

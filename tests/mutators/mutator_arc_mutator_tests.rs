@@ -178,8 +178,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_conditional_clone() {
-        let conditional =
-            ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
+        let conditional = ArcMutator::new(|x: &mut i32| *x *= 2).when(|x: &i32| *x > 0);
         let clone = conditional.clone();
 
         let mut positive = 5;
@@ -193,10 +192,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mutator =
-            ArcMutator::new_with_name("arc_test_mutator", |x: &mut i32| {
-                *x += 1
-            });
+        let mutator = ArcMutator::new_with_name("arc_test_mutator", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("arc_test_mutator"));
 
         let mut value = 5;
@@ -206,10 +202,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_new_with_optional_name_some() {
-        let mutator = ArcMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("arc_optional".to_string()),
-        );
+        let mutator = ArcMutator::new_with_optional_name(|x: &mut i32| *x += 1, Some("arc_optional".to_string()));
         assert_eq!(mutator.name(), Some("arc_optional"));
 
         let mut value = 5;
@@ -219,8 +212,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mutator =
-            ArcMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
+        let mutator = ArcMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

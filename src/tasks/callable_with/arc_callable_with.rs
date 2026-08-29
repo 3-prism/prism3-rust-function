@@ -17,8 +17,7 @@ use crate::macros::impl_common_new_methods;
 use crate::tasks::callable_with::CallableWith;
 
 /// The erased callback representation used by this implementation.
-type ArcCallableWithFn<T, R, E> =
-    Arc<Mutex<dyn FnMut(&mut T) -> Result<R, E> + Send>>;
+type ArcCallableWithFn<T, R, E> = Arc<Mutex<dyn FnMut(&mut T) -> Result<R, E> + Send>>;
 
 /// Thread-safe shared callable with mutable input.
 ///

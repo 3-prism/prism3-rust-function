@@ -27,13 +27,8 @@ mod box_bi_transformer_once_tests {
 
     #[test]
     fn test_new_with_string() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{} {}", x, y)
-        });
-        assert_eq!(
-            concat.apply("hello".to_string(), "world".to_string()),
-            "hello world"
-        );
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
+        assert_eq!(concat.apply("hello".to_string(), "world".to_string()), "hello world");
     }
 
     #[test]
@@ -50,9 +45,7 @@ mod box_bi_transformer_once_tests {
 
     #[test]
     fn test_transform_consumes_inputs() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{}-{}", x, y)
-        });
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{}-{}", x, y));
         let s1 = String::from("hello");
         let s2 = String::from("world");
         let result = concat.apply(s1, s2);
@@ -87,15 +80,10 @@ mod box_bi_transformer_once_tests {
 
     #[test]
     fn test_and_then_with_string_transformation() {
-        let concat = BoxBiTransformerOnce::new(|x: String, y: String| {
-            format!("{} {}", x, y)
-        });
+        let concat = BoxBiTransformerOnce::new(|x: String, y: String| format!("{} {}", x, y));
         let uppercase = |s: String| s.to_uppercase();
         let composed = concat.and_then(uppercase);
-        assert_eq!(
-            composed.apply("hello".to_string(), "world".to_string()),
-            "HELLO WORLD"
-        );
+        assert_eq!(composed.apply("hello".to_string(), "world".to_string()), "HELLO WORLD");
     }
 
     #[test]
@@ -108,10 +96,7 @@ mod box_bi_transformer_once_tests {
 
     #[test]
     fn test_display_with_name() {
-        let transformer = BoxBiTransformerOnce::new_with_name(
-            "multiply",
-            |x: i32, y: i32| x * y,
-        );
+        let transformer = BoxBiTransformerOnce::new_with_name("multiply", |x: i32, y: i32| x * y);
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "BoxBiTransformerOnce(multiply)");
     }

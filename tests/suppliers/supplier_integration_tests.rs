@@ -82,10 +82,7 @@ mod test_integration {
             .collect();
 
         for h in handles {
-            assert_eq!(
-                h.join().expect("thread should not panic"),
-                vec![1, 2, 3, 4, 5]
-            );
+            assert_eq!(h.join().expect("thread should not panic"), vec![1, 2, 3, 4, 5]);
         }
     }
 

@@ -10,10 +10,6 @@ use qubit_function::RcConditionalStatefulTransformer;
 
 #[test]
 fn test_rc_conditional_stateful_transformer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<RcConditionalStatefulTransformer<i32, i32>>();
-    assert!(
-        type_name.contains("RcConditionalStatefulTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<RcConditionalStatefulTransformer<i32, i32>>();
+    assert!(type_name.contains("RcConditionalStatefulTransformer"), "{type_name}");
 }

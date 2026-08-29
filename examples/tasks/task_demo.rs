@@ -71,8 +71,7 @@ fn demo_mutable_input_tasks() {
 fn demo_once_tasks() {
     println!("--- One-time tasks ---");
 
-    let callable_once =
-        BoxCallableOnce::new(|| Ok::<String, String>(String::from("ready")));
+    let callable_once = BoxCallableOnce::new(|| Ok::<String, String>(String::from("ready")));
     println!("CallableOnce result: {:?}", callable_once.call_once());
 
     let runnable_once = BoxRunnableOnce::new(|| {

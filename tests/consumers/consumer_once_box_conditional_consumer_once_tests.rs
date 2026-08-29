@@ -41,10 +41,7 @@ mod box_conditional_consumer_once_tests {
         });
         let conditional = consumer.when(|x: &i32| *x > 0);
         conditional.accept(&-5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     #[test]
@@ -69,10 +66,7 @@ mod box_conditional_consumer_once_tests {
         let conditional = consumer.when(|x: &i32| *x > 0);
         // Test boundary case - predicate checks > 0, so 0 should be false
         conditional.accept(&0);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     // Tests for into_box() method
@@ -92,10 +86,7 @@ mod box_conditional_consumer_once_tests {
         });
         let conditional = consumer.when(|_: &i32| true);
         conditional.accept(&42);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![42]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![42]);
     }
 
     #[test]
@@ -107,10 +98,7 @@ mod box_conditional_consumer_once_tests {
         });
         let conditional = consumer.when(|_: &i32| false);
         conditional.accept(&42);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     #[test]
@@ -118,17 +106,12 @@ mod box_conditional_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 10);
+            l.lock().expect("mutex should not be poisoned").push(*x * 10);
         });
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
         conditional.accept(&4);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![40]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![40]);
     }
 
     #[test]
@@ -136,18 +119,13 @@ mod box_conditional_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 10);
+            l.lock().expect("mutex should not be poisoned").push(*x * 10);
         });
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
         // Test with odd number - fails the even check
         conditional.accept(&3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     #[test]
@@ -155,18 +133,13 @@ mod box_conditional_consumer_once_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = BoxConsumerOnce::new(move |x: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 10);
+            l.lock().expect("mutex should not be poisoned").push(*x * 10);
         });
         // Complex predicate: value is positive and even
         let conditional = consumer.when(|x: &i32| *x > 0 && *x % 2 == 0);
         // Test with negative even number - fails the positive check
         conditional.accept(&-4);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            Vec::<i32>::new()
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), Vec::<i32>::new());
     }
 
     // Tests for and_then() method with conditional consumer
@@ -182,17 +155,12 @@ mod box_conditional_consumer_once_tests {
         .when(|x: &i32| *x > 0);
 
         let chained = conditional.and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
 
         chained.accept(&5);
         // First consumer executes (5), second consumer executes (10)
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10]);
     }
 
     #[test]
@@ -206,18 +174,13 @@ mod box_conditional_consumer_once_tests {
         .when(|x: &i32| *x > 0);
 
         let chained = conditional.and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         });
 
         chained.accept(&-5);
         // First consumer doesn't execute (predicate false), second consumer
         // still executes (-10)
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![-10]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![-10]);
     }
 
     #[test]
@@ -233,28 +196,18 @@ mod box_conditional_consumer_once_tests {
         .when(|x: &i32| *x > 0);
 
         let conditional2 = BoxConsumerOnce::new(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .when(|x: &i32| *x % 2 == 0);
 
-        let chained =
-            conditional1
-                .and_then(conditional2)
-                .and_then(move |x: &i32| {
-                    l3.lock()
-                        .expect("mutex should not be poisoned")
-                        .push(*x + 100);
-                });
+        let chained = conditional1.and_then(conditional2).and_then(move |x: &i32| {
+            l3.lock().expect("mutex should not be poisoned").push(*x + 100);
+        });
 
         // Test with 6: positive (first passes), even (second passes), third
         // always executes
         chained.accept(&6);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![6, 12, 106]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![6, 12, 106]);
     }
 }
 // ============================================================================

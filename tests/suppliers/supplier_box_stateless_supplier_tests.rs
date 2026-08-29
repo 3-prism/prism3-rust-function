@@ -100,8 +100,7 @@ mod test_box_stateless_supplier {
         #[test]
         fn test_map_chain() {
             // Test chained map operations
-            let pipeline =
-                BoxSupplier::new(|| 10).map(|x| x * 2).map(|x| x + 5);
+            let pipeline = BoxSupplier::new(|| 10).map(|x| x * 2).map(|x| x + 5);
             assert_eq!(pipeline.get(), 25);
         }
 
@@ -134,9 +133,7 @@ mod test_box_stateless_supplier {
         #[test]
         fn test_filter_with_map() {
             // Test combining filter and map
-            let pipeline = BoxSupplier::new(|| 10)
-                .map(|x| x * 2)
-                .filter(|x: &i32| *x > 15);
+            let pipeline = BoxSupplier::new(|| 10).map(|x| x * 2).filter(|x: &i32| *x > 15);
             assert_eq!(pipeline.get(), Some(20));
         }
     }

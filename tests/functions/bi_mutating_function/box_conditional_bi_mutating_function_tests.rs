@@ -10,11 +10,6 @@ use qubit_function::BoxConditionalBiMutatingFunction;
 
 #[test]
 fn test_box_conditional_bi_mutating_function_observable_behavior() {
-    let type_name = std::any::type_name::<
-        BoxConditionalBiMutatingFunction<i32, i32, i32>,
-    >();
-    assert!(
-        type_name.contains("BoxConditionalBiMutatingFunction"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxConditionalBiMutatingFunction<i32, i32, i32>>();
+    assert!(type_name.contains("BoxConditionalBiMutatingFunction"), "{type_name}");
 }

@@ -17,8 +17,7 @@ use crate::macros::impl_common_new_methods;
 use crate::tasks::runnable_with::RunnableWith;
 
 /// The erased callback representation used by this implementation.
-type ArcRunnableWithFn<T, E> =
-    Arc<Mutex<dyn FnMut(&mut T) -> Result<(), E> + Send>>;
+type ArcRunnableWithFn<T, E> = Arc<Mutex<dyn FnMut(&mut T) -> Result<(), E> + Send>>;
 
 /// Thread-safe shared runnable with mutable input.
 ///

@@ -78,11 +78,9 @@ pub struct RcStatefulMutator<T> {
 }
 
 impl<T> RcStatefulMutator<T> {
-    impl_mutator_common_methods!(
-        RcStatefulMutator<T>,
-        (FnMut(&mut T) + 'static),
-        |f| Rc::new(RefCell::new(f))
-    );
+    impl_mutator_common_methods!(RcStatefulMutator<T>, (FnMut(&mut T) + 'static), |f| Rc::new(
+        RefCell::new(f)
+    ));
 
     // Generate shared mutator methods (when, and_then, or_else, conversions)
     impl_shared_mutator_methods!(

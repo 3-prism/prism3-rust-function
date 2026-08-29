@@ -114,9 +114,7 @@ impl_function_identity_method!(ArcStatefulMutatingFunction<T, T>, mutating);
 
 // Implement StatefulMutatingFunction trait for ArcStatefulMutatingFunction<T,
 // R>
-impl<T, R> StatefulMutatingFunction<T, R>
-    for ArcStatefulMutatingFunction<T, R>
-{
+impl<T, R> StatefulMutatingFunction<T, R> for ArcStatefulMutatingFunction<T, R> {
     #[inline]
     fn apply(&mut self, t: &mut T) -> R {
         let mut function = self.function.lock();

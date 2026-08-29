@@ -72,9 +72,7 @@ impl<T> RcComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Rc::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Rc::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::unnamed(),
         }
     }
@@ -95,9 +93,7 @@ impl<T> RcComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Rc::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Rc::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::named(name),
         }
     }
@@ -118,9 +114,7 @@ impl<T> RcComparator<T> {
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Rc::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Rc::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata: CallbackMetadata::from_optional_name(name),
         }
     }
@@ -136,17 +130,12 @@ impl<T> RcComparator<T> {
     ///
     /// An `RcComparator` containing `metadata`.
     #[inline]
-    pub(crate) fn new_with_metadata<F>(
-        source: F,
-        metadata: CallbackMetadata,
-    ) -> Self
+    pub(crate) fn new_with_metadata<F>(source: F, metadata: CallbackMetadata) -> Self
     where
         F: Comparator<T> + 'static,
     {
         Self {
-            function: Rc::new(move |left: &T, right: &T| {
-                source.compare(left, right)
-            }),
+            function: Rc::new(move |left: &T, right: &T| source.compare(left, right)),
             metadata,
         }
     }
@@ -213,10 +202,7 @@ impl<T> RcComparator<T> {
         T: 'static,
     {
         let self_fn = self.function.clone();
-        RcComparator::new_with_metadata(
-            move |a: &T, b: &T| self_fn(b, a),
-            self.metadata.clone(),
-        )
+        RcComparator::new_with_metadata(move |a: &T, b: &T| self_fn(b, a), self.metadata.clone())
     }
 
     /// Returns a comparator that uses this comparator first, then another

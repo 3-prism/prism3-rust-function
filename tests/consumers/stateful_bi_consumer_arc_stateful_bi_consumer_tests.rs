@@ -38,10 +38,7 @@ impl StatefulBiConsumer<i32, i32> for CustomStatefulBiConsumer {
     fn accept(&mut self, first: &i32, second: &i32) {
         self.multiplier += 1;
         let result = (*first + *second) * self.multiplier;
-        self.log
-            .lock()
-            .expect("mutex should not be poisoned")
-            .push(result);
+        self.log.lock().expect("mutex should not be poisoned").push(result);
     }
 }
 
@@ -57,12 +54,9 @@ mod arc_stateful_bi_consumer_tests {
     fn test_new() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            });
+        let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
+        });
         consumer.accept(&5, &3);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
     }
@@ -72,14 +66,9 @@ mod arc_stateful_bi_consumer_tests {
     fn test_new_with_name() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer = ArcStatefulBiConsumer::new_with_name(
-            "test_consumer",
-            move |x: &i32, y: &i32| {
-                l.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            },
-        );
+        let mut consumer = ArcStatefulBiConsumer::new_with_name("test_consumer", move |x: &i32, y: &i32| {
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
+        });
         assert_eq!(consumer.name(), Some("test_consumer"));
         consumer.accept(&5, &3);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
@@ -106,17 +95,11 @@ mod arc_stateful_bi_consumer_tests {
     fn test_accept() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x * *y);
-            });
+        let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().expect("mutex should not be poisoned").push(*x * *y);
+        });
         consumer.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![15]);
     }
 
     // Test clone() method
@@ -125,9 +108,7 @@ mod arc_stateful_bi_consumer_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
 
         let mut clone1 = consumer.clone();
@@ -137,10 +118,7 @@ mod arc_stateful_bi_consumer_tests {
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
 
         clone2.accept(&10, &2);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 12]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 12]);
     }
 
     // Test and_then() method
@@ -150,22 +128,15 @@ mod arc_stateful_bi_consumer_tests {
         let l1 = log.clone();
         let l2 = log.clone();
         let first = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l1.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
         let second = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * *y);
+            l2.lock().expect("mutex should not be poisoned").push(*x * *y);
         });
 
         let mut chained = first.and_then(second);
         chained.accept(&5, &3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![8, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8, 15]);
     }
 
     // Test when() method
@@ -174,12 +145,9 @@ mod arc_stateful_bi_consumer_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
-        let mut conditional =
-            consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
+        let mut conditional = consumer.when(|x: &i32, y: &i32| *x > 0 && *y > 0);
         conditional.accept(&5, &3);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
         conditional.accept(&-5, &3);
@@ -191,12 +159,9 @@ mod arc_stateful_bi_consumer_tests {
     fn test_accept_once() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
-        let mut consumer =
-            ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-                l.lock()
-                    .expect("mutex should not be poisoned")
-                    .push(*x + *y);
-            });
+        let mut consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
+        });
         consumer.accept(&5, &3);
         assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![8]);
     }
@@ -207,9 +172,7 @@ mod arc_stateful_bi_consumer_tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let l = log.clone();
         let consumer = ArcStatefulBiConsumer::new(move |x: &i32, y: &i32| {
-            l.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + *y);
+            l.lock().expect("mutex should not be poisoned").push(*x + *y);
         });
 
         let handles: Vec<_> = (0..10)
@@ -225,8 +188,7 @@ mod arc_stateful_bi_consumer_tests {
             handle.join().expect("thread should not panic");
         }
 
-        let mut result =
-            log.lock().expect("mutex should not be poisoned").clone();
+        let mut result = log.lock().expect("mutex should not be poisoned").clone();
         result.sort();
         assert_eq!(result, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     }

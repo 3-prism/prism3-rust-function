@@ -11,8 +11,5 @@ use qubit_function::RcConditionalStatefulConsumer;
 #[test]
 fn test_rc_conditional_stateful_consumer_observable_behavior() {
     let type_name = std::any::type_name::<RcConditionalStatefulConsumer<i32>>();
-    assert!(
-        type_name.contains("RcConditionalStatefulConsumer"),
-        "{type_name}"
-    );
+    assert!(type_name.contains("RcConditionalStatefulConsumer"), "{type_name}");
 }

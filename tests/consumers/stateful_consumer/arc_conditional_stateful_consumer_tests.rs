@@ -10,10 +10,6 @@ use qubit_function::ArcConditionalStatefulConsumer;
 
 #[test]
 fn test_arc_conditional_stateful_consumer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<ArcConditionalStatefulConsumer<i32>>();
-    assert!(
-        type_name.contains("ArcConditionalStatefulConsumer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<ArcConditionalStatefulConsumer<i32>>();
+    assert!(type_name.contains("ArcConditionalStatefulConsumer"), "{type_name}");
 }

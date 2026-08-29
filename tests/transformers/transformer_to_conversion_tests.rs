@@ -34,8 +34,7 @@ mod to_conversion_tests {
 
     #[test]
     fn test_display_with_name() {
-        let transformer =
-            ArcTransformer::new_with_name("double", |x: i32| x * 2);
+        let transformer = ArcTransformer::new_with_name("double", |x: i32| x * 2);
         let display_str = format!("{}", transformer);
         assert_eq!(display_str, "ArcTransformer(double)");
     }

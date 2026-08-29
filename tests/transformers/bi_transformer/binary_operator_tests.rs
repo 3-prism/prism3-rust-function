@@ -22,9 +22,7 @@ where
     O: BinaryOperator<T>,
     T: Clone,
 {
-    values
-        .into_iter()
-        .fold(initial, |acc, val| op.apply(acc, val))
+    values.into_iter().fold(initial, |acc, val| op.apply(acc, val))
 }
 
 #[test]
@@ -61,18 +59,13 @@ fn test_rc_binary_operator_clone() {
 
 #[test]
 fn test_box_binary_operator_once() {
-    let add: BoxBinaryOperatorOnce<i32> =
-        BoxBinaryOperatorOnce::new(|a, b| a + b);
+    let add: BoxBinaryOperatorOnce<i32> = BoxBinaryOperatorOnce::new(|a, b| a + b);
     assert_eq!(add.apply(20, 22), 42);
 }
 
 #[test]
 fn test_binary_operator_implements_bi_transformer() {
-    fn use_bi_transformer<T: BiTransformer<i32, i32, i32>>(
-        t: T,
-        a: i32,
-        b: i32,
-    ) -> i32 {
+    fn use_bi_transformer<T: BiTransformer<i32, i32, i32>>(t: T, a: i32, b: i32) -> i32 {
         t.apply(a, b)
     }
 

@@ -41,21 +41,14 @@ mod test_box_stateful_consumer_chaining {
         let l2 = log.clone();
 
         let mut chained = BoxStatefulConsumer::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         });
 
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]);
     }
 
     #[test]
@@ -65,23 +58,16 @@ mod test_box_stateful_consumer_chaining {
         let l2 = log.clone();
 
         let second = BoxStatefulConsumer::new(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         });
 
         let mut chained = BoxStatefulConsumer::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(second);
 
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]);
     }
 
     #[test]
@@ -95,24 +81,17 @@ mod test_box_stateful_consumer_chaining {
             l1.lock().expect("mutex should not be poisoned").push(*x);
         };
         let second = move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 2);
         };
         let third = BoxStatefulConsumer::new(move |x: &i32| {
-            l3.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 100);
+            l3.lock().expect("mutex should not be poisoned").push(*x + 100);
         });
 
         let chained = BoxStatefulConsumer::new(first).and_then(second);
         let mut chained = chained.and_then(third);
 
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![5, 10, 105]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![5, 10, 105]);
     }
 
     #[test]
@@ -122,23 +101,16 @@ mod test_box_stateful_consumer_chaining {
         let l2 = log.clone();
 
         let second = ArcStatefulConsumer::new(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 3);
+            l2.lock().expect("mutex should not be poisoned").push(*x * 3);
         });
 
         let mut chained = BoxStatefulConsumer::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 1);
+            l1.lock().expect("mutex should not be poisoned").push(*x + 1);
         })
         .and_then(second);
 
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![6, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![6, 15]);
     }
 
     #[test]
@@ -148,31 +120,21 @@ mod test_box_stateful_consumer_chaining {
         let l2 = log.clone();
 
         let second = ArcStatefulConsumer::new(move |x: &i32| {
-            l2.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x + 10);
+            l2.lock().expect("mutex should not be poisoned").push(*x + 10);
         });
 
         // Clone second to preserve it
         let mut chained = BoxStatefulConsumer::new(move |x: &i32| {
-            l1.lock()
-                .expect("mutex should not be poisoned")
-                .push(*x * 2);
+            l1.lock().expect("mutex should not be poisoned").push(*x * 2);
         })
         .and_then(second.clone());
 
         chained.accept(&5);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15]);
 
         // Original second still usable
         let mut second_copy = second;
         second_copy.accept(&3);
-        assert_eq!(
-            *log.lock().expect("mutex should not be poisoned"),
-            vec![10, 15, 13]
-        );
+        assert_eq!(*log.lock().expect("mutex should not be poisoned"), vec![10, 15, 13]);
     }
 }

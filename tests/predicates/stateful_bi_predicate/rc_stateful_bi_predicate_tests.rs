@@ -11,8 +11,7 @@ use qubit_function::StatefulBiPredicate;
 
 #[test]
 fn test_rc_stateful_bi_predicate_observable_behavior() {
-    let mut predicate =
-        RcStatefulBiPredicate::new(|left: &i32, right: &i32| left < right);
+    let mut predicate = RcStatefulBiPredicate::new(|left: &i32, right: &i32| left < right);
     assert!(predicate.test(&1, &2));
     assert!(!predicate.test(&2, &1));
 }

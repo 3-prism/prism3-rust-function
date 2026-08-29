@@ -82,10 +82,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let function = self.function;
-        ArcBiPredicate::new_with_metadata(
-            move |first: &T, second: &U| !function(first, second),
-            metadata,
-        )
+        ArcBiPredicate::new_with_metadata(move |first: &T, second: &U| !function(first, second), metadata)
     }
 }
 

@@ -244,12 +244,8 @@ fn main() {
         }
 
         fn process(mut self, data: &mut Vec<String>) {
-            let is_valid =
-                !data.is_empty() && data.iter().all(|s| !s.is_empty());
-            println!(
-                "   Data validation: {}",
-                if is_valid { "VALID" } else { "INVALID" }
-            );
+            let is_valid = !data.is_empty() && data.iter().all(|s| !s.is_empty());
+            println!("   Data validation: {}", if is_valid { "VALID" } else { "INVALID" });
 
             if is_valid {
                 if let Some(callback) = self.on_valid.take() {

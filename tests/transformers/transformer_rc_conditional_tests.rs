@@ -19,9 +19,7 @@ mod rc_conditional_tests {
     fn test_when_or_else() {
         let double_fn = |x: i32| x * 2;
         let negate_fn = |x: i32| -x;
-        let result = RcTransformer::new(double_fn)
-            .when(|x: &i32| *x > 0)
-            .or_else(negate_fn);
+        let result = RcTransformer::new(double_fn).when(|x: &i32| *x > 0).or_else(negate_fn);
 
         assert_eq!(result.apply(5), 10);
         assert_eq!(result.apply(-5), 5);

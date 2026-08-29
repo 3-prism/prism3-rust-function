@@ -205,10 +205,7 @@ mod test_arc_stateless_supplier {
                 .collect();
 
             for h in handles {
-                assert_eq!(
-                    h.join().expect("thread should not panic"),
-                    "Hello, World!"
-                );
+                assert_eq!(h.join().expect("thread should not panic"), "Hello, World!");
             }
         }
 

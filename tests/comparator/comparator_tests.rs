@@ -24,11 +24,7 @@ fn test_comparator_default_conversions_allow_relaxed_generic_types() {
     struct BorrowedRcComparator;
 
     impl<'a> Comparator<BorrowedRc<'a>> for BorrowedRcComparator {
-        fn compare(
-            &self,
-            first: &BorrowedRc<'a>,
-            second: &BorrowedRc<'a>,
-        ) -> Ordering {
+        fn compare(&self, first: &BorrowedRc<'a>, second: &BorrowedRc<'a>) -> Ordering {
             first.value.cmp(second.value)
         }
     }
@@ -51,8 +47,5 @@ fn test_comparator_default_conversions_allow_relaxed_generic_types() {
         RcComparator::new(comparator.clone()).compare(&left, &right),
         Ordering::Less
     );
-    assert_eq!(
-        ArcComparator::new(comparator).compare(&left, &right),
-        Ordering::Less
-    );
+    assert_eq!(ArcComparator::new(comparator).compare(&left, &right), Ordering::Less);
 }

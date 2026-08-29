@@ -42,8 +42,7 @@ fn test_local_box_runnable_once_from_supplier() {
 
     let task = LocalBoxRunnableOnce::from_supplier(supplier);
 
-    SupplierOnce::get(task)
-        .expect("supplier-backed local runnable should succeed");
+    SupplierOnce::get(task).expect("supplier-backed local runnable should succeed");
     assert!(flag.get());
 }
 
@@ -63,9 +62,7 @@ fn test_local_box_runnable_once_and_then_supports_local_next_task() {
 
     let chained = first.and_then(second);
 
-    chained
-        .run_once()
-        .expect("chained local runnable should run");
+    chained.run_once().expect("chained local runnable should run");
     assert_eq!(events.get(), 2);
 }
 
@@ -79,18 +76,14 @@ fn test_local_box_runnable_once_then_callable_supports_local_callable() {
     let chained = task.then_callable(callable);
 
     assert_eq!(
-        chained
-            .call_once()
-            .expect("local callable should run after runnable"),
+        chained.call_once().expect("local callable should run after runnable"),
         "value"
     );
 }
 
 #[test]
 fn test_local_box_runnable_once_then_callable_clears_name() {
-    let task = LocalBoxRunnableOnce::new_with_name("prepare", || {
-        Ok::<(), io::Error>(())
-    });
+    let task = LocalBoxRunnableOnce::new_with_name("prepare", || Ok::<(), io::Error>(()));
     let chained = task.then_callable(|| Ok::<i32, io::Error>(42));
 
     assert_eq!(chained.name(), None);

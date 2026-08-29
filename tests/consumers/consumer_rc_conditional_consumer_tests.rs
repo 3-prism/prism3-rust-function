@@ -56,10 +56,9 @@ mod rc_conditional_consumer_tests {
             l1.borrow_mut().push(*x);
         });
 
-        let conditional =
-            consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
-                l2.borrow_mut().push(*x * 10);
-            });
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |x: &i32| {
+            l2.borrow_mut().push(*x * 10);
+        });
 
         conditional.accept(&5);
         assert_eq!(*log.borrow(), vec![5]);

@@ -115,9 +115,7 @@ impl<E> Runnable<E> for LocalBoxRunnable<E> {
 }
 
 #[cfg(feature = "once")]
-impl<E> crate::suppliers::supplier_once::SupplierOnce<Result<(), E>>
-    for LocalBoxRunnable<E>
-{
+impl<E> crate::suppliers::supplier_once::SupplierOnce<Result<(), E>> for LocalBoxRunnable<E> {
     /// Executes the local boxed runnable as a one-time supplier.
     #[inline(always)]
     fn get(mut self) -> Result<(), E> {

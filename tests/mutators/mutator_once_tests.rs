@@ -76,8 +76,7 @@ fn test_box_mutator_once_when() {
 
 #[test]
 fn test_box_mutator_once_and_then() {
-    let chained = BoxMutatorOnce::new(|value: &mut i32| *value *= 2)
-        .and_then(|value: &mut i32| *value += 3);
+    let chained = BoxMutatorOnce::new(|value: &mut i32| *value *= 2).and_then(|value: &mut i32| *value += 3);
 
     let mut value = 4;
     chained.apply(&mut value);
@@ -203,8 +202,7 @@ mod test_box_conditional_mutator_once_debug_display {
     #[test]
     fn test_box_conditional_mutator_once_debug() {
         let data = vec![1, 2];
-        let mutator =
-            BoxMutatorOnce::new(move |x: &mut Vec<i32>| x.extend(data));
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| x.extend(data));
         let conditional = mutator.when(|x: &Vec<i32>| x.len() < 5);
 
         let debug_str = format!("{:?}", conditional);
@@ -216,8 +214,7 @@ mod test_box_conditional_mutator_once_debug_display {
     #[test]
     fn test_box_conditional_mutator_once_display() {
         let data = vec![3, 4];
-        let mutator =
-            BoxMutatorOnce::new(move |x: &mut Vec<i32>| x.extend(data));
+        let mutator = BoxMutatorOnce::new(move |x: &mut Vec<i32>| x.extend(data));
         let conditional = mutator.when(|x: &Vec<i32>| !x.is_empty());
 
         let display_str = format!("{}", conditional);
@@ -226,10 +223,7 @@ mod test_box_conditional_mutator_once_debug_display {
 
     #[test]
     fn test_box_mutator_once_new_with_name() {
-        let mutator = BoxMutatorOnce::new_with_name(
-            "test_mutator_once",
-            |x: &mut i32| *x += 1,
-        );
+        let mutator = BoxMutatorOnce::new_with_name("test_mutator_once", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("test_mutator_once"));
 
         let mut value = 5;
@@ -239,10 +233,7 @@ mod test_box_conditional_mutator_once_debug_display {
 
     #[test]
     fn test_box_mutator_once_new_with_optional_name_some() {
-        let mutator = BoxMutatorOnce::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            Some("optional_once".to_string()),
-        );
+        let mutator = BoxMutatorOnce::new_with_optional_name(|x: &mut i32| *x += 1, Some("optional_once".to_string()));
         assert_eq!(mutator.name(), Some("optional_once"));
 
         let mut value = 5;
@@ -252,8 +243,7 @@ mod test_box_conditional_mutator_once_debug_display {
 
     #[test]
     fn test_box_mutator_once_new_with_optional_name_none() {
-        let mutator =
-            BoxMutatorOnce::new_with_optional_name(|x: &mut i32| *x += 1, None);
+        let mutator = BoxMutatorOnce::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

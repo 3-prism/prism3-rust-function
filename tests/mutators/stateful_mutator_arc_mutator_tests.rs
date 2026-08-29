@@ -131,10 +131,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_new_with_name() {
-        let mut mutator = ArcStatefulMutator::new_with_name(
-            "arc_stateful_test",
-            |x: &mut i32| *x += 1,
-        );
+        let mut mutator = ArcStatefulMutator::new_with_name("arc_stateful_test", |x: &mut i32| *x += 1);
         assert_eq!(mutator.name(), Some("arc_stateful_test"));
 
         let mut value = 5;
@@ -157,10 +154,7 @@ mod test_arc_mutator {
 
     #[test]
     fn test_new_with_optional_name_none() {
-        let mut mutator = ArcStatefulMutator::new_with_optional_name(
-            |x: &mut i32| *x += 1,
-            None,
-        );
+        let mut mutator = ArcStatefulMutator::new_with_optional_name(|x: &mut i32| *x += 1, None);
         assert_eq!(mutator.name(), None);
 
         let mut value = 5;

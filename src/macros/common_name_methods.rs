@@ -60,7 +60,6 @@ macro_rules! impl_common_name_methods {
         #[doc = concat!("* `name` - The name to set for this ", $type_desc)]
         ///
         /// # Returns
-        ///
         #[doc = concat!("This ", $type_desc, " with the supplied name.")]
         #[inline(always)]
         pub fn with_name(mut self, name: &str) -> Self {

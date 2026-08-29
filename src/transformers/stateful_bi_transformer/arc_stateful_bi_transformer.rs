@@ -81,9 +81,7 @@ impl_transformer_debug_display!(ArcStatefulBiTransformer<T, U, R>);
 impl_transformer_clone!(ArcStatefulBiTransformer<T, U, R>);
 
 // Implement StatefulBiTransformer trait for ArcStatefulBiTransformer
-impl<T, U, R> StatefulBiTransformer<T, U, R>
-    for ArcStatefulBiTransformer<T, U, R>
-{
+impl<T, U, R> StatefulBiTransformer<T, U, R> for ArcStatefulBiTransformer<T, U, R> {
     #[inline]
     fn apply(&mut self, first: T, second: U) -> R {
         let mut func = self.function.lock();

@@ -46,18 +46,9 @@ fn test_stateful_tester_closure_mutates_state() {
 /// Verifies that all stateful wrapper owners accept semantic tester objects.
 #[test]
 fn test_stateful_tester_combinators_accept_semantic_trait() {
-    let mut boxed = BoxStatefulTester::new(|| true).and(ThresholdTester {
-        count: 0,
-        threshold: 1,
-    });
-    let mut rc = RcStatefulTester::new(|| true).and(ThresholdTester {
-        count: 0,
-        threshold: 1,
-    });
-    let mut arc = ArcStatefulTester::new(|| true).and(ThresholdTester {
-        count: 0,
-        threshold: 1,
-    });
+    let mut boxed = BoxStatefulTester::new(|| true).and(ThresholdTester { count: 0, threshold: 1 });
+    let mut rc = RcStatefulTester::new(|| true).and(ThresholdTester { count: 0, threshold: 1 });
+    let mut arc = ArcStatefulTester::new(|| true).and(ThresholdTester { count: 0, threshold: 1 });
 
     assert!(boxed.test());
     assert!(rc.test());
@@ -68,55 +59,44 @@ fn test_stateful_tester_combinators_accept_semantic_trait() {
 fn test_box_stateful_tester_logical_operations_cover_branches() {
     let skipped = Rc::new(RefCell::new(false));
     let skipped_clone = Rc::clone(&skipped);
-    let mut and_short = BoxStatefulTester::new(|| false).and(
-        BoxStatefulTester::new(move || {
-            *skipped_clone.borrow_mut() = true;
-            true
-        }),
-    );
+    let mut and_short = BoxStatefulTester::new(|| false).and(BoxStatefulTester::new(move || {
+        *skipped_clone.borrow_mut() = true;
+        true
+    }));
     assert!(!and_short.test());
     assert!(!*skipped.borrow());
 
-    let mut and_true =
-        BoxStatefulTester::new(|| true).and(BoxStatefulTester::new(|| true));
+    let mut and_true = BoxStatefulTester::new(|| true).and(BoxStatefulTester::new(|| true));
     assert!(and_true.test());
 
     let skipped = Rc::new(RefCell::new(false));
     let skipped_clone = Rc::clone(&skipped);
-    let mut or_short =
-        BoxStatefulTester::new(|| true).or(BoxStatefulTester::new(move || {
-            *skipped_clone.borrow_mut() = true;
-            false
-        }));
+    let mut or_short = BoxStatefulTester::new(|| true).or(BoxStatefulTester::new(move || {
+        *skipped_clone.borrow_mut() = true;
+        false
+    }));
     assert!(or_short.test());
     assert!(!*skipped.borrow());
 
-    let mut or_false =
-        BoxStatefulTester::new(|| false).or(BoxStatefulTester::new(|| false));
+    let mut or_false = BoxStatefulTester::new(|| false).or(BoxStatefulTester::new(|| false));
     assert!(!or_false.test());
 
-    let mut nand_false =
-        BoxStatefulTester::new(|| true).nand(BoxStatefulTester::new(|| true));
+    let mut nand_false = BoxStatefulTester::new(|| true).nand(BoxStatefulTester::new(|| true));
     assert!(!nand_false.test());
 
-    let mut nand_true =
-        BoxStatefulTester::new(|| false).nand(BoxStatefulTester::new(|| true));
+    let mut nand_true = BoxStatefulTester::new(|| false).nand(BoxStatefulTester::new(|| true));
     assert!(nand_true.test());
 
-    let mut xor_true =
-        BoxStatefulTester::new(|| true).xor(BoxStatefulTester::new(|| false));
+    let mut xor_true = BoxStatefulTester::new(|| true).xor(BoxStatefulTester::new(|| false));
     assert!(xor_true.test());
 
-    let mut xor_false =
-        BoxStatefulTester::new(|| true).xor(BoxStatefulTester::new(|| true));
+    let mut xor_false = BoxStatefulTester::new(|| true).xor(BoxStatefulTester::new(|| true));
     assert!(!xor_false.test());
 
-    let mut nor_true =
-        BoxStatefulTester::new(|| false).nor(BoxStatefulTester::new(|| false));
+    let mut nor_true = BoxStatefulTester::new(|| false).nor(BoxStatefulTester::new(|| false));
     assert!(nor_true.test());
 
-    let mut nor_false =
-        BoxStatefulTester::new(|| true).nor(BoxStatefulTester::new(|| false));
+    let mut nor_false = BoxStatefulTester::new(|| true).nor(BoxStatefulTester::new(|| false));
     assert!(!nor_false.test());
 }
 
@@ -283,10 +263,7 @@ fn test_box_stateful_tester_name_and_diagnostics() {
     let mut tester = BoxStatefulTester::new_with_name("threshold", || true);
 
     assert_eq!(tester.name(), Some("threshold"));
-    assert_eq!(
-        format!("{tester:?}"),
-        "BoxStatefulTester { name: Some(\"threshold\") }"
-    );
+    assert_eq!(format!("{tester:?}"), "BoxStatefulTester { name: Some(\"threshold\") }");
     assert_eq!(format!("{tester}"), "BoxStatefulTester(threshold)");
     tester.clear_name();
     assert_eq!(tester.name(), None);
@@ -312,10 +289,7 @@ fn test_rc_stateful_tester_name_and_diagnostics() {
 /// Verifies clone-independent metadata for a shared Arc stateful tester.
 #[test]
 fn test_arc_stateful_tester_name_and_diagnostics() {
-    let original = ArcStatefulTester::new_with_optional_name(
-        || true,
-        Some("threshold".to_owned()),
-    );
+    let original = ArcStatefulTester::new_with_optional_name(|| true, Some("threshold".to_owned()));
     let renamed = original.clone().with_name("renamed");
 
     assert_eq!(original.name(), Some("threshold"));

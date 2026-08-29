@@ -57,10 +57,9 @@ mod arc_conditional_consumer_tests {
             c1.fetch_add(1, Ordering::SeqCst);
         });
 
-        let conditional =
-            consumer.when(|x: &i32| *x > 0).or_else(move |_x: &i32| {
-                c2.fetch_add(100, Ordering::SeqCst);
-            });
+        let conditional = consumer.when(|x: &i32| *x > 0).or_else(move |_x: &i32| {
+            c2.fetch_add(100, Ordering::SeqCst);
+        });
 
         conditional.accept(&5);
         assert_eq!(counter.load(Ordering::SeqCst), 1);

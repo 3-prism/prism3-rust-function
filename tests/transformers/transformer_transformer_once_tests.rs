@@ -42,9 +42,7 @@ mod transformer_once_tests {
 
         #[test]
         fn test_box_transformer_complex_transformation() {
-            let parse_and_double = BoxTransformer::new(|s: String| {
-                s.parse::<i32>().unwrap_or(0) * 2
-            });
+            let parse_and_double = BoxTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
             let result = parse_and_double.apply("21".to_string());
             assert_eq!(result, 42);
         }
@@ -86,9 +84,7 @@ mod transformer_once_tests {
 
         #[test]
         fn test_rc_transformer_complex_transformation() {
-            let parse_and_double = RcTransformer::new(|s: String| {
-                s.parse::<i32>().unwrap_or(0) * 2
-            });
+            let parse_and_double = RcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
             let result = parse_and_double.apply("21".to_string());
             assert_eq!(result, 42);
         }
@@ -145,9 +141,7 @@ mod transformer_once_tests {
 
         #[test]
         fn test_arc_transformer_complex_transformation() {
-            let parse_and_double = ArcTransformer::new(|s: String| {
-                s.parse::<i32>().unwrap_or(0) * 2
-            });
+            let parse_and_double = ArcTransformer::new(|s: String| s.parse::<i32>().unwrap_or(0) * 2);
             let result = parse_and_double.apply("21".to_string());
             assert_eq!(result, 42);
         }

@@ -89,8 +89,7 @@ mod test_arc_stateful_supplier {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let supplier = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -125,8 +124,7 @@ mod test_arc_stateful_supplier {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let supplier = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -193,8 +191,7 @@ mod test_arc_stateful_supplier {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let source = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -227,8 +224,7 @@ mod test_arc_stateful_supplier {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let source = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -279,9 +275,7 @@ mod test_arc_stateful_supplier {
             let call_count = Arc::new(Mutex::new(0));
             let call_count_clone = Arc::clone(&call_count);
             let source = ArcStatefulSupplier::new(move || {
-                let mut c = call_count_clone
-                    .lock()
-                    .expect("mutex should not be poisoned");
+                let mut c = call_count_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 42
             });
@@ -290,16 +284,10 @@ mod test_arc_stateful_supplier {
             let mut s = memoized;
             assert_eq!(s.get(), 42);
             assert_eq!(s.get(), 42);
-            assert_eq!(
-                *call_count.lock().expect("mutex should not be poisoned"),
-                1
-            );
+            assert_eq!(*call_count.lock().expect("mutex should not be poisoned"), 1);
             let mut source = source;
             assert_eq!(source.get(), 42);
-            assert_eq!(
-                *call_count.lock().expect("mutex should not be poisoned"),
-                2
-            );
+            assert_eq!(*call_count.lock().expect("mutex should not be poisoned"), 2);
         }
     }
 
@@ -315,8 +303,7 @@ mod test_arc_stateful_supplier {
             let counter = Arc::new(Mutex::new(0));
             let counter_clone = Arc::clone(&counter);
             let supplier = ArcStatefulSupplier::new(move || {
-                let mut c =
-                    counter_clone.lock().expect("mutex should not be poisoned");
+                let mut c = counter_clone.lock().expect("mutex should not be poisoned");
                 *c += 1;
                 *c
             });
@@ -331,10 +318,7 @@ mod test_arc_stateful_supplier {
             let v2 = h2.join().expect("thread should not panic");
 
             assert!(v1 != v2);
-            assert_eq!(
-                *counter.lock().expect("mutex should not be poisoned"),
-                2
-            );
+            assert_eq!(*counter.lock().expect("mutex should not be poisoned"), 2);
         }
     }
 }

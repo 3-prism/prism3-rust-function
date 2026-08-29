@@ -20,8 +20,7 @@ use crate::predicates::macros::impl_predicate_common_methods;
 use crate::predicates::macros::impl_predicate_debug_display;
 
 /// The erased callback representation used by this implementation.
-type ArcStatefulBiPredicateFn<T, U> =
-    Arc<Mutex<dyn FnMut(&T, &U) -> bool + Send + 'static>>;
+type ArcStatefulBiPredicateFn<T, U> = Arc<Mutex<dyn FnMut(&T, &U) -> bool + Send + 'static>>;
 
 /// An Arc-based stateful bi-predicate with thread-safe shared ownership.
 ///

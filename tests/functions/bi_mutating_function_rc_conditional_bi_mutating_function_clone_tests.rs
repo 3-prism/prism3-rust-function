@@ -63,9 +63,7 @@ fn test_rc_conditional_bi_mutating_function_clone() {
         *x
     });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test original
@@ -81,20 +79,17 @@ fn test_rc_conditional_bi_mutating_function_clone() {
 
 #[test]
 fn test_arc_conditional_bi_mutating_function_clone() {
-    let swap_and_sum =
-        ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-            std::mem::swap(&mut *x, &mut *y);
-            *x + *y
-        });
+    let swap_and_sum = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+        std::mem::swap(&mut *x, &mut *y);
+        *x + *y
+    });
 
     let multiply = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
         *x *= *y;
         *x
     });
 
-    let conditional = swap_and_sum
-        .when(|x: &i32, _y: &i32| *x > 0)
-        .or_else(multiply);
+    let conditional = swap_and_sum.when(|x: &i32, _y: &i32| *x > 0).or_else(multiply);
     let cloned = conditional.clone();
 
     // Test original
@@ -109,8 +104,7 @@ fn test_arc_conditional_bi_mutating_function_clone() {
 }
 
 #[test]
-fn test_impl_conditional_function_clone_three_params_bi_mutating_macro_coverage()
- {
+fn test_impl_conditional_function_clone_three_params_bi_mutating_macro_coverage() {
     // Test to ensure the three-parameter version of
     // impl_conditional_function_clone macro is covered for bi-mutating
     // functions. This test verifies that the macro generates Clone
@@ -148,11 +142,10 @@ fn test_impl_conditional_function_clone_three_params_bi_mutating_macro_coverage(
 
     // Test ArcConditionalBiMutatingFunction (three parameters: T, U, R)
     {
-        let increment =
-            ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-                *x += *y;
-                *x
-            });
+        let increment = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+            *x += *y;
+            *x
+        });
         let pred = ArcBiPredicate::new(|x: &i32, _y: &i32| *x >= 0);
 
         let conditional_arc = increment.when(pred);
@@ -160,11 +153,10 @@ fn test_impl_conditional_function_clone_three_params_bi_mutating_macro_coverage(
         let cloned_arc = conditional_arc.clone();
 
         // Create or_else to test functionality
-        let decrement =
-            ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
-                *x -= *y;
-                *x
-            });
+        let decrement = ArcBiMutatingFunction::new(|x: &mut i32, y: &mut i32| {
+            *x -= *y;
+            *x
+        });
         let func = cloned_arc.or_else(decrement);
 
         // Verify functionality
@@ -181,9 +173,7 @@ fn test_impl_conditional_function_clone_three_params_bi_mutating_macro_coverage(
 #[test]
 fn test_conditional_bi_mutating_function_with_structs() {
     let modify = BoxBiMutatingFunction::new(modify_structs);
-    let no_op = BoxBiMutatingFunction::new(
-        |_a: &mut TestStruct, _b: &mut TestStruct| 0,
-    );
+    let no_op = BoxBiMutatingFunction::new(|_a: &mut TestStruct, _b: &mut TestStruct| 0);
 
     let conditional = modify
         .when(|a: &TestStruct, b: &TestStruct| a.value > 0 && b.value > 0)

@@ -23,11 +23,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_bi_transformer_trait() {
-        fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(
-            f: &F,
-            x: i32,
-            y: i32,
-        ) -> i32 {
+        fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(f: &F, x: i32, y: i32) -> i32 {
             f.apply(x, y)
         }
 
@@ -37,11 +33,7 @@ mod trait_usage_tests {
 
     #[test]
     fn test_closure_as_bi_transformer() {
-        fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(
-            f: &F,
-            x: i32,
-            y: i32,
-        ) -> i32 {
+        fn apply_bi_transformer<F: BiTransformer<i32, i32, i32>>(f: &F, x: i32, y: i32) -> i32 {
             f.apply(x, y)
         }
 
@@ -51,21 +43,12 @@ mod trait_usage_tests {
 
     #[test]
     fn test_with_different_types() {
-        fn apply_bi_transformer<T, U, R, F: BiTransformer<T, U, R>>(
-            f: &F,
-            x: T,
-            y: U,
-        ) -> R {
+        fn apply_bi_transformer<T, U, R, F: BiTransformer<T, U, R>>(f: &F, x: T, y: U) -> R {
             f.apply(x, y)
         }
 
-        let format = BoxBiTransformer::new(|name: String, age: i32| {
-            format!("{} is {}", name, age)
-        });
-        assert_eq!(
-            apply_bi_transformer(&format, "Alice".to_string(), 30),
-            "Alice is 30"
-        );
+        let format = BoxBiTransformer::new(|name: String, age: i32| format!("{} is {}", name, age));
+        assert_eq!(apply_bi_transformer(&format, "Alice".to_string(), 30), "Alice is 30");
     }
 }
 

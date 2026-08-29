@@ -59,9 +59,7 @@ impl<T, U> BoxStatefulBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxStatefulBiPredicate::new(move |first: &T, second: &U| {
-            self.test(first, second) && other.test(first, second)
-        })
+        BoxStatefulBiPredicate::new(move |first: &T, second: &U| self.test(first, second) && other.test(first, second))
     }
 
     /// Returns a bi-predicate representing logical OR with another predicate.
@@ -83,9 +81,7 @@ impl<T, U> BoxStatefulBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxStatefulBiPredicate::new(move |first: &T, second: &U| {
-            self.test(first, second) || other.test(first, second)
-        })
+        BoxStatefulBiPredicate::new(move |first: &T, second: &U| self.test(first, second) || other.test(first, second))
     }
 
     /// Returns a bi-predicate representing logical NAND with another predicate.
@@ -130,9 +126,7 @@ impl<T, U> BoxStatefulBiPredicate<T, U> {
         T: 'static,
         U: 'static,
     {
-        BoxStatefulBiPredicate::new(move |first: &T, second: &U| {
-            self.test(first, second) ^ other.test(first, second)
-        })
+        BoxStatefulBiPredicate::new(move |first: &T, second: &U| self.test(first, second) ^ other.test(first, second))
     }
 
     /// Returns a bi-predicate representing logical NOR with another predicate.
@@ -169,10 +163,7 @@ where
     fn not(self) -> Self::Output {
         let metadata = self.metadata;
         let mut function = self.function;
-        BoxStatefulBiPredicate::new_with_metadata(
-            move |first: &T, second: &U| !function(first, second),
-            metadata,
-        )
+        BoxStatefulBiPredicate::new_with_metadata(move |first: &T, second: &U| !function(first, second), metadata)
     }
 }
 

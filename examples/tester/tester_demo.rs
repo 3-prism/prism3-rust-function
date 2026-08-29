@@ -35,10 +35,8 @@ fn demo_box_tester() {
 
     let healthy_for_check = Arc::clone(&healthy);
     let requests_for_check = Arc::clone(&requests);
-    let can_accept =
-        BoxTester::new(move || healthy_for_check.load(Ordering::Relaxed)).and(
-            move || requests_for_check.load(Ordering::Relaxed) < max_requests,
-        );
+    let can_accept = BoxTester::new(move || healthy_for_check.load(Ordering::Relaxed))
+        .and(move || requests_for_check.load(Ordering::Relaxed) < max_requests);
 
     println!("Can accept initially: {}", can_accept.test());
     requests.store(150, Ordering::Relaxed);
@@ -51,8 +49,7 @@ fn demo_arc_tester() {
 
     let enabled = Arc::new(AtomicBool::new(true));
     let enabled_for_check = Arc::clone(&enabled);
-    let enabled_tester =
-        ArcTester::new(move || enabled_for_check.load(Ordering::Relaxed));
+    let enabled_tester = ArcTester::new(move || enabled_for_check.load(Ordering::Relaxed));
     let disabled_tester = !&enabled_tester;
 
     println!("Enabled: {}", enabled_tester.test());

@@ -27,9 +27,7 @@ use qubit_function::StatefulConsumer;
 
 fn main() {
     println!("=== Consumer Examples ===\n");
-    println!(
-        "Note: Consumer only reads values, does not modify the original value"
-    );
+    println!("Note: Consumer only reads values, does not modify the original value");
     println!("If you need to modify values, please refer to mutator_demo.rs\n");
 
     // ========================================================================
@@ -58,14 +56,10 @@ fn main() {
     let r3 = results.clone();
 
     let chained = BoxConsumer::new(move |x: &i32| {
-        r1.lock()
-            .expect("mutex should not be poisoned")
-            .push(*x * 2);
+        r1.lock().expect("mutex should not be poisoned").push(*x * 2);
     })
     .and_then(move |x: &i32| {
-        r2.lock()
-            .expect("mutex should not be poisoned")
-            .push(*x + 10);
+        r2.lock().expect("mutex should not be poisoned").push(*x + 10);
     })
     .and_then(move |x: &i32| {
         r3.lock().expect("mutex should not be poisoned").push(*x);
@@ -140,9 +134,7 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     // when
-    let mut check_positive =
-        BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x))
-            .when(|x: &i32| *x > 0);
+    let mut check_positive = BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x)).when(|x: &i32| *x > 0);
 
     let positive = 5;
     let negative = -5;
@@ -153,10 +145,9 @@ fn main() {
     println!("(negative numbers not printed)\n");
 
     // when().or_else()
-    let mut categorize =
-        BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x))
-            .when(|x: &i32| *x > 0)
-            .or_else(|x: &i32| println!("Non-positive: {}", x));
+    let mut categorize = BoxStatefulConsumer::new(|x: &i32| println!("Positive: {}", x))
+        .when(|x: &i32| *x > 0)
+        .or_else(|x: &i32| println!("Non-positive: {}", x));
 
     let positive = 10;
     let negative = -10;
@@ -170,8 +161,7 @@ fn main() {
     println!("Example 6: ArcConsumer - multi-threaded sharing");
     println!("{}", "-".repeat(50));
 
-    let shared =
-        ArcConsumer::new(|x: &i32| println!("Processing value: {}", x * 2));
+    let shared = ArcConsumer::new(|x: &i32| println!("Processing value: {}", x * 2));
 
     // Clone for another thread
     let shared_clone = shared.clone();
@@ -226,8 +216,7 @@ fn main() {
     println!("Example 8: RcConsumer - single-threaded sharing");
     println!("{}", "-".repeat(50));
 
-    let rc_consumer =
-        RcConsumer::new(|x: &i32| println!("Processing: {}", x * 2));
+    let rc_consumer = RcConsumer::new(|x: &i32| println!("Processing: {}", x * 2));
 
     // Clone multiple copies
     let clone1 = rc_consumer.clone();
@@ -313,11 +302,7 @@ fn main() {
     println!("{}", "-".repeat(50));
 
     let validator = BoxConsumer::new(|x: &i32| {
-        let status = if *x >= 0 && *x <= 100 {
-            "valid"
-        } else {
-            "out of range"
-        };
+        let status = if *x >= 0 && *x <= 100 { "valid" } else { "out of range" };
         println!("Validate {}: {}", x, status);
     });
 
@@ -467,7 +452,5 @@ fn main() {
     println!("Average: {:.2}\n", total as f64 / cnt as f64);
 
     println!("=== All examples completed ===");
-    println!(
-        "\nTip: For value modification functionality, please refer to mutator_demo.rs"
-    );
+    println!("\nTip: For value modification functionality, please refer to mutator_demo.rs");
 }

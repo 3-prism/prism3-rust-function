@@ -10,10 +10,6 @@ use qubit_function::BoxStatefulBiTransformer;
 
 #[test]
 fn test_box_stateful_bi_transformer_observable_behavior() {
-    let type_name =
-        std::any::type_name::<BoxStatefulBiTransformer<i32, i32, i32>>();
-    assert!(
-        type_name.contains("BoxStatefulBiTransformer"),
-        "{type_name}"
-    );
+    let type_name = std::any::type_name::<BoxStatefulBiTransformer<i32, i32, i32>>();
+    assert!(type_name.contains("BoxStatefulBiTransformer"), "{type_name}");
 }

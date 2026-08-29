@@ -65,9 +65,7 @@ struct StatefulStatefulTransformer {
     history: Vec<i32>,
 }
 
-impl StatefulTransformer<i32, (i32, i32, usize)>
-    for StatefulStatefulTransformer
-{
+impl StatefulTransformer<i32, (i32, i32, usize)> for StatefulStatefulTransformer {
     fn apply(&mut self, input: i32) -> (i32, i32, usize) {
         self.count += 1;
         self.sum += input;
@@ -91,11 +89,10 @@ impl StatefulTransformer<i32, (i32, i32, usize)>
 #[test]
 fn test_box_stateful_transformer_display_with_name() {
     let mut counter = 0;
-    let transformer =
-        BoxStatefulTransformer::new_with_name("counter", move |x: i32| {
-            counter += 1;
-            x + counter
-        });
+    let transformer = BoxStatefulTransformer::new_with_name("counter", move |x: i32| {
+        counter += 1;
+        x + counter
+    });
     let display_str = format!("{}", transformer);
     assert_eq!(display_str, "BoxStatefulTransformer(counter)");
 }
@@ -114,11 +111,10 @@ fn test_box_stateful_transformer_display_without_name() {
 #[test]
 fn test_rc_stateful_transformer_display_with_name() {
     let mut counter = 0;
-    let transformer =
-        RcStatefulTransformer::new_with_name("counter", move |x: i32| {
-            counter += 1;
-            x + counter
-        });
+    let transformer = RcStatefulTransformer::new_with_name("counter", move |x: i32| {
+        counter += 1;
+        x + counter
+    });
     let display_str = format!("{}", transformer);
     assert_eq!(display_str, "RcStatefulTransformer(counter)");
 }
@@ -137,11 +133,10 @@ fn test_rc_stateful_transformer_display_without_name() {
 #[test]
 fn test_arc_stateful_transformer_display_with_name() {
     let mut counter = 0;
-    let transformer =
-        ArcStatefulTransformer::new_with_name("counter", move |x: i32| {
-            counter += 1;
-            x + counter
-        });
+    let transformer = ArcStatefulTransformer::new_with_name("counter", move |x: i32| {
+        counter += 1;
+        x + counter
+    });
     let display_str = format!("{}", transformer);
     assert_eq!(display_str, "ArcStatefulTransformer(counter)");
 }

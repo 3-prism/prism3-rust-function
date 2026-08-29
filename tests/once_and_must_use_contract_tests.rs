@@ -20,8 +20,7 @@ fn compile_consumer(features: &[&str], source: &str) -> Output {
         .expect("temporary consumer directory should be created");
     let project_root = project_dir.path();
     let source_root = project_root.join("src");
-    fs::create_dir_all(&source_root)
-        .expect("temporary consumer source directory should be created");
+    fs::create_dir_all(&source_root).expect("temporary consumer source directory should be created");
     let feature_list = features
         .iter()
         .map(|feature| format!("\"{feature}\""))
@@ -32,10 +31,8 @@ fn compile_consumer(features: &[&str], source: &str) -> Output {
         "[package]\nname = \"once-contract-consumer\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[dependencies]\nqubit-function = {{ path = \"{}\", default-features = false, features = [{feature_list}] }}\n\n[workspace]\n",
         dependency_path.display(),
     );
-    fs::write(project_root.join("Cargo.toml"), manifest)
-        .expect("temporary consumer manifest should be written");
-    fs::write(source_root.join("main.rs"), source)
-        .expect("temporary consumer source should be written");
+    fs::write(project_root.join("Cargo.toml"), manifest).expect("temporary consumer manifest should be written");
+    fs::write(source_root.join("main.rs"), source).expect("temporary consumer source should be written");
     Command::new("cargo")
         .args(["+1.94.0", "check", "--offline", "--quiet", "--target-dir"])
         .arg(project_root.join("target"))

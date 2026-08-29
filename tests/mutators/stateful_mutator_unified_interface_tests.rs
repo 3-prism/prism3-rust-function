@@ -25,10 +25,7 @@ mod test_unified_interface {
     use super::RcStatefulMutator;
     use super::StatefulMutator;
 
-    fn apply_mutator<C: StatefulMutator<i32>>(
-        mutator: &mut C,
-        value: i32,
-    ) -> i32 {
+    fn apply_mutator<C: StatefulMutator<i32>>(mutator: &mut C, value: i32) -> i32 {
         let mut val = value;
         mutator.apply(&mut val);
         val
